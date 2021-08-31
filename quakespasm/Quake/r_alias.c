@@ -1036,7 +1036,7 @@ void R_DrawAliasModel (entity_t *e)
 {
 	aliasglsl_t *glsl;
 	aliashdr_t	*paliashdr;
-	int			i, anim;
+	int			i, anim, skinnum;
 	gltexture_t	*tx, *fb;
 	lerpdata_t	lerpdata;
 	qboolean	alphatest = !!(e->model->flags & MF_HOLEY);
@@ -1120,16 +1120,22 @@ void R_DrawAliasModel (entity_t *e)
 		//
 		GL_DisableMultitexture();
 		anim = (int)(cl.time*10) & 3;
-		if ((e->skinnum >= paliashdr->numskins) || (e->skinnum < 0))
+		skinnum = e->skinnum;
+		if ((skinnum >= paliashdr->numskins) || (skinnum < 0))
 		{
-			Con_DPrintf ("R_DrawAliasModel: no such skin # %d for '%s'\n", e->skinnum, e->model->name);
+			Con_DPrintf ("R_DrawAliasModel: no such skin # %d for '%s'\n", skinnum, e->model->name);
+			// ericw -- display skin 0 for winquake compatibility
+			skinnum = 0;
+		}
+		if (paliashdr->numskins <= 0)
+		{
 			tx = NULL; // NULL will give the checkerboard texture
 			fb = NULL;
 		}
 		else
 		{
-			tx = paliashdr->gltextures[e->skinnum][anim];
-			fb = paliashdr->fbtextures[e->skinnum][anim];
+			tx = paliashdr->gltextures[skinnum][anim];
+			fb = paliashdr->fbtextures[skinnum][anim];
 		} 
 		if (e->netstate.colormap && !gl_nocolors.value)
 		{

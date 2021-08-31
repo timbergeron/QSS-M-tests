@@ -136,10 +136,10 @@ sys_socket_t UDP4_Listen (qboolean state)
 	{
 		// enable listening
 		if (net_acceptsocket4 == INVALID_SOCKET)
-{
+		{
 			if ((net_acceptsocket4 = UDP4_OpenSocket (net_hostport)) == INVALID_SOCKET)
 				Sys_Error ("UDP4_Listen: Unable to open accept socket");
-}
+		}
 	}
 	else
 	{

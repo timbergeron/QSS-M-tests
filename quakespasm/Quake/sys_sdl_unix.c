@@ -392,8 +392,6 @@ void Sys_Error (const char *error, ...)
 	va_list		argptr;
 	char		text[1024];
 
-	Con_Redirect(NULL);
-	PR_SwitchQCVM(NULL);
 	host_parms->errstate++;
 
 	va_start (argptr, error);
@@ -401,6 +399,8 @@ void Sys_Error (const char *error, ...)
 	va_end (argptr);
 
 	fputs (errortxt1, stderr);
+	Con_Redirect(NULL);
+	PR_SwitchQCVM(NULL);
 	Host_Shutdown ();
 	fputs (errortxt2, stderr);
 	fputs (text, stderr);
