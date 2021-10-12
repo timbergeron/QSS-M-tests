@@ -994,6 +994,20 @@ void R_SetupAliasLighting (entity_t	*e)
 		}
 	}
 
+	// begin woods for orange hue damage taken #damage
+
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value)
+		if (e == &cl.viewent)
+		{
+			{
+				lightcolor[0] = 169;
+				lightcolor[1] = 114;
+				lightcolor[2] = 64;
+			}
+		}
+
+	// end woods for red damage taken
+
 	// clamp lighting so it doesn't overbright as much (96)
 	if (overbright)
 	{

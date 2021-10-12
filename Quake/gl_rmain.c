@@ -60,6 +60,7 @@ mleaf_t		*r_viewleaf, *r_oldviewleaf;
 
 int		d_lightstylevalue[MAX_LIGHTSTYLES];	// 8.8 fraction of base light value
 
+cvar_t	cl_damagehue = {"cl_damagehue", "1",CVAR_NONE};  // woods #damage
 
 cvar_t	r_norefresh = {"r_norefresh","0",CVAR_NONE};
 cvar_t	r_drawentities = {"r_drawentities","1",CVAR_NONE};
