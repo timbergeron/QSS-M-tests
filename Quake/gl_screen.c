@@ -252,7 +252,7 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		x, y;
 	int		remaining;
 
-	GL_SetCanvas (CANVAS_MENU); //johnfitz
+	GL_SetCanvas (CANVAS_MOD); //johnfitz // woods #modprint messages scale with console font size instead
 
 // the finale prints the characters one at a time
 	if (cl.intermission)
