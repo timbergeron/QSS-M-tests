@@ -1019,6 +1019,42 @@ void R_SetupAliasLighting (entity_t	*e)
 
 	// end woods for red damage taken
 
+	// begin woods add hue to gun model with powerups
+
+	if (cl.gametype == GAME_DEATHMATCH)
+	{
+		if (cl.items & IT_QUAD)
+			if (e == &cl.viewent)
+			{
+				{
+					lightcolor[0] = 50;
+					lightcolor[1] = 50;
+					lightcolor[2] = 121;
+				}
+			}
+
+		if (cl.items & IT_INVULNERABILITY)
+			if (e == &cl.viewent)
+			{
+				{
+					lightcolor[0] = 131;
+					lightcolor[1] = 73;
+					lightcolor[2] = 73;
+				}
+			}
+
+		if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
+			if (e == &cl.viewent)
+			{
+				{
+					lightcolor[0] = 211;
+					lightcolor[1] = 113;
+					lightcolor[2] = 194;
+				}
+			}
+	}
+	// end woods add hue to gun model with powerups
+
 	// clamp lighting so it doesn't overbright as much (96)
 	if (overbright)
 	{
