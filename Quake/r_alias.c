@@ -1045,7 +1045,7 @@ void R_DrawAliasModel (entity_t *e)
 	qboolean	alphatest = !!(e->model->flags & MF_HOLEY);
 	int surf;
 	float		fovscale = 1.0f;
-	qmodel_t* clmodel = currententity->model;   // woods lightning alpha #lightalpha
+	qmodel_t* clmodel = currententity->model;   // woods lightning alpha #lightalpha & doubleeyes 
 
 	//
 	// setup pose/lerp data -- do it first so we don't miss updates due to culling
@@ -1085,8 +1085,34 @@ void R_DrawAliasModel (entity_t *e)
 		fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
 
 	R_RotateForEntity (lerpdata.origin, lerpdata.angles, e->netstate.scale);
-	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
-	glScalef (paliashdr->scale[0], paliashdr->scale[1] * fovscale, paliashdr->scale[2] * fovscale);
+
+	// woods added doubleeyes (MH)
+
+	if (!strcmp(clmodel->name, "progs/eyes.mdl") /*&& gl_doubleeyes.value*/)
+	{	// gl_doubleeyes fix by mh Tue Sep 25, 2012 5:00 pm 
+	// scaling factor - gl_doubleeyes 0 = unscaled, gl_doubleeyes 1 = 2x
+		float sc = 1 + 1.0f;
+
+		// offsets for eyes.mdl derived by taking the scaled midpoint of all verts in the mdl
+		// you may wish to calculate these at load time rather than hard-code them in the engine
+		float ofs[3] = { -0.13172054 * 1, -0.078105450 * 1, 25.347622 * 1 };
+
+		// matrix for scaling and positioning the eyes
+		float eyematrix[16] = { sc, 0, 0, 0, 0, sc, 0, 0, 0, 0, sc, 0, -ofs[0], -ofs[1], -ofs[2], 1 };
+
+		// and fix things up
+		glMultMatrixf(eyematrix);
+
+		glTranslatef(paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
+		glScalef(paliashdr->scale[0], paliashdr->scale[1] * fovscale, paliashdr->scale[2] * fovscale);
+	}
+	else
+	{
+		glTranslatef(paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
+		glScalef(paliashdr->scale[0], paliashdr->scale[1] * fovscale, paliashdr->scale[2] * fovscale);
+	}
+
+	// end double eyes / woods
 
 	if (!strcmp(clmodel->name, "progs/bolt2.mdl"))   // woods for lighting alpha #lightalpha
 		currententity->alpha = ENTALPHA_ENCODE(gl_lightning_alpha.value); 
