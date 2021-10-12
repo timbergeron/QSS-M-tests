@@ -556,9 +556,9 @@ void SCR_DrawFPS (void)
 		char	st[16];
 		int	x, y;
 		sprintf (st, "%4.0f fps", lastfps);
-		x = 320 - (strlen(st)<<3);
-		y = 200 - 8;
-		if (scr_clock.value) y -= 8; //make room for clock
+		x = 312 - (strlen(st)<<3); // woods added padding
+		y = 200 - 14; // woods added padding
+		if (scr_clock.value) y -= 12; //make room for clock // woods added padding
 		GL_SetCanvas (CANVAS_BOTTOMRIGHT);
 		Draw_String (x, y, st);
 		scr_tileclear_updates = 0;
@@ -583,12 +583,46 @@ void SCR_DrawClock (void)
 
 		sprintf (str,"%i:%i%i", minutes, seconds/10, seconds%10);
 	}
+
+	else if (scr_clock.value == 2)
+	{
+		int hours, minutes, seconds;
+		SYSTEMTIME systime;
+		char m[3] = "am";   // took out am
+
+		GetLocalTime(&systime);
+		hours = systime.wHour;
+		minutes = systime.wMinute;
+		seconds = systime.wSecond;
+
+		if (hours >= 12)
+			strcpy(m, "pm"); // took out pm
+		hours = hours % 12;
+		if (hours == 0)
+			hours = 12;
+
+		sprintf(str, "%i:%i%i %s", hours, minutes / 10, minutes % 10, m);  // removed seconds, not needed | woods 9/1/2021
+	}
+
+	else if (scr_clock.value == 3)
+	{
+		int hours, minutes, seconds;
+		SYSTEMTIME systime;
+
+		GetLocalTime(&systime);
+		hours = systime.wHour;
+		minutes = systime.wMinute;
+		seconds = systime.wSecond;
+
+		sprintf(str, "%i:%i%i:%i%i", hours % 12, minutes / 10, minutes % 10, seconds / 10, seconds % 10);
+	}
+
 	else
 		return;
 
 	//draw it
 	GL_SetCanvas (CANVAS_BOTTOMRIGHT);
-	Draw_String (320 - (strlen(str)<<3), 200 - 8, str);
+	Draw_String(312 - (strlen(str) << 3), 200 - 14, str); // woods added padding
 
 	scr_tileclear_updates = 0;
 }
