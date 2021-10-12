@@ -968,7 +968,7 @@ void R_SetupAliasLighting (entity_t	*e)
 					VectorMA (lightcolor, add, cl_dlights[i].color, lightcolor);
 			}
 		}
-
+		/* woods disable below, add min light to all
 		// minimum light value on gun (24)
 		if (e == &cl.viewent)
 		{
@@ -991,9 +991,20 @@ void R_SetupAliasLighting (entity_t	*e)
 				lightcolor[1] += add / 3.0f;
 				lightcolor[2] += add / 3.0f;
 			}
+		}*/
+		// woods added minlight for all models to avoid colored lighting blinding
+		if (e->model)
+		{
+			add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+			if (add > 0.0f)
+			{
+				lightcolor[0] += add / 3.0f;
+				lightcolor[1] += add / 3.0f;
+				lightcolor[2] += add / 3.0f;
+			}
 		}
 	}
-
+	
 	// begin woods for orange hue damage taken #damage
 
 	if (cl.time <= cl.faceanimtime && cl_damagehue.value)
