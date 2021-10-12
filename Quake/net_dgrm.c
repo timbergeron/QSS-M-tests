@@ -755,6 +755,62 @@ static void NET_Stats_f (void)
 	}
 }
 
+static void PL_f(void)  // woods for pl display #scrpl
+{
+	qsocket_t	*s;
+	int	x, y, z;
+	char a[12];
+	char b[12];
+
+	z = 0;
+
+	if (Cmd_Argc() == 1)
+	{
+		if (cl.packetloss != NULL)
+			z = atoi(cl.packetloss);
+
+		y = droppedDatagrams;
+		x = y - z;
+
+		//	Con_Printf("%i\n", x);
+
+		sprintf (a, "%d ", x);
+		memcpy (cl.scrpacketloss, a, sizeof(cl.scrpacketloss));
+
+		sprintf (b, "%d ", y);
+		memcpy (cl.packetloss, b, sizeof(cl.packetloss));
+
+	}
+	else if (Q_strcmp(Cmd_Argv(1), "*") == 0)
+	{
+		for (s = net_activeSockets; s; s = s->next)
+			PrintStats(s);
+		for (s = net_freeSockets; s; s = s->next)
+			PrintStats(s);
+	}
+	else
+	{
+		for (s = net_activeSockets; s; s = s->next)
+		{
+			if (q_strcasecmp(Cmd_Argv(1), s->trueaddress) == 0 || q_strcasecmp(Cmd_Argv(1), s->maskedaddress) == 0)
+				break;
+		}
+
+		if (s == NULL)
+		{
+			for (s = net_freeSockets; s; s = s->next)
+			{
+				if (q_strcasecmp(Cmd_Argv(1), s->trueaddress) == 0 || q_strcasecmp(Cmd_Argv(1), s->maskedaddress) == 0)
+					break;
+			}
+		}
+
+		if (s == NULL)
+			return;
+
+		PrintStats(s);
+	}
+}
 
 // recognize ip:port (based on ProQuake)
 static const char *Strip_Port (const char *host)
@@ -1076,6 +1132,7 @@ int Datagram_Init (void)
 	myDriverLevel = net_driverlevel;
 
 	Cmd_AddCommand ("net_stats", NET_Stats_f);
+	Cmd_AddCommand ("pl", PL_f);  // woods for pl display #scrpl
 
 	if (safemode || COM_CheckParm("-nolan"))
 		return -1;

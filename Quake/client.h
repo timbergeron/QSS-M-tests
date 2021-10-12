@@ -288,6 +288,7 @@ typedef struct
 	} printtype;
 	int printplayer;
 	float expectingpingtimes;
+	float expectingpltimes;  // woods #scrpl
 	float printversionresponse;
 
 	//spike -- moved this stuff here to deal with downloading content named by the server
@@ -311,6 +312,10 @@ typedef struct
 	vec3_t		listener_axis[3];
 
 	char serverinfo[8192];	// \key\value infostring data.
+
+	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
+	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
+
 } client_state_t;
 
 

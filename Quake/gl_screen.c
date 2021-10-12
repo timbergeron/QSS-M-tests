@@ -687,6 +687,55 @@ void SCR_ShowPing(void)
 }
 
 /*
+==================
+SCR_ShowPL -- added by woods #scrpl
+==================
+*/
+void SCR_ShowPL(void)
+{
+	int pl;
+	char			num[12];
+
+	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
+
+		pl = atoi(cl.scrpacketloss); // convert string to integer
+
+		GL_SetCanvas(CANVAS_BOTTOMLEFT2);
+
+		int	y;
+		if (scr_ping.value)
+			y = 8; //make room for ping if enabled
+		else
+			y = 20;
+
+		if (!scr_con_current) // dont update when console down
+		{
+			if (pl > 0) // color red
+			{
+				sprintf(num, "%-4i", pl);
+				M_Print(6, y, num);
+			}
+			/*
+
+			else  // color white (better UI not showing 0?)
+			{
+			sprintf(num, "%-4i", pl);
+			M_PrintWhite(6, y, num);
+			}
+
+			*/
+		}
+
+		if (cl.expectingpltimes < realtime)
+		{
+			cl.expectingpltimes = realtime + 5;   // update frequency
+			Cmd_ExecuteString("pl\n", src_command);
+
+		}
+	}
+}
+
+/*
 ==============
 SCR_DrawDevStats
 ==============
@@ -1347,6 +1396,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz
 		SCR_ShowPing (); // woods #scrping
+		SCR_ShowPL (); // woods #scrpl
 		SCR_DrawConsole ();
 		M_Draw ();
 	}
