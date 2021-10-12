@@ -722,7 +722,7 @@ void CL_RelinkEntities (void)
 			AngleVectors (ent->angles, fv, rv, uv);
 
 			VectorMA (dl->origin, 18, fv, dl->origin);
-			dl->radius = 200 + (rand()&31);
+			dl->radius = 0; // woods get rid of flash on shooting
 			dl->minlight = 32;
 			dl->die = cl.time + 0.1;
 
