@@ -58,6 +58,8 @@ cvar_t	cl_minpitch = {"cl_minpitch", "-90", CVAR_ARCHIVE}; //johnfitz -- variabl
 cvar_t cl_recordingdemo = {"cl_recordingdemo", "", CVAR_ROM};	//the name of the currently-recording demo.
 cvar_t	cl_demoreel = {"cl_demoreel", "0", CVAR_ARCHIVE};
 
+cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
+
 client_static_t	cls;
 client_state_t	cl;
 // FIXME: put these on hunk?
@@ -1635,6 +1637,9 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_minpitch); //johnfitz -- variable pitch clamping
 	Cvar_RegisterVariable (&cl_recordingdemo); //spike -- for mod hacks. combine with cvar_string or something
 	Cvar_RegisterVariable (&cl_demoreel);
+
+	Cvar_RegisterVariable (&cl_truelightning); // woods for #truelight
+
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
