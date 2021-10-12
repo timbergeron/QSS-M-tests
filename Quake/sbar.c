@@ -1036,8 +1036,8 @@ void Sbar_Draw (void)
 	{
 		if (scr_sbaralpha.value < 1)
 			Draw_TileClear (0, glheight - sb_lines, glwidth, sb_lines);
-		if (cl.gametype == GAME_DEATHMATCH)
-			Draw_TileClear (w, glheight - sb_lines, glwidth - w, sb_lines);
+	//	if (cl.gametype == GAME_DEATHMATCH)	// woods #sbarmiddle
+	//		Draw_TileClear (w, glheight - sb_lines, glwidth - w, sb_lines); // woods #sbarmiddle
 		else
 		{
 			Draw_TileClear (0, glheight - sb_lines, (glwidth - w) / 2.0f, sb_lines);
