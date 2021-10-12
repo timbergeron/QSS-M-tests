@@ -261,7 +261,7 @@ void CL_ParseTEnt (void)
 			R_ParticleExplosion (pos);
 		dl = CL_AllocDlight (0);
 		VectorCopy (pos, dl->origin);
-		dl->radius = 350;
+		dl->radius = 0; // woods no explosion light
 		dl->die = cl.time + 0.5;
 		dl->decay = 300;
 		if (type == TENEH_EXPLOSION3)
