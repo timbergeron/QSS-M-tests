@@ -42,6 +42,8 @@ quakeparms_t *host_parms;
 qboolean	host_initialized;		// true if into command execution
 
 double		host_frametime;
+double		host_time;              // woods #smoothcam
+double		last_angle_time;		// JPG - for smooth chasecam (from Proquake)   // woods #smoothcam
 double		realtime;				// without any filtering or bounding
 double		oldrealtime;			// last frame run
 
@@ -327,6 +329,9 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&temp1);
 
 	Host_FindMaxClients ();
+
+	host_time = 1.0;		// so a think at time 0 won't get called // woods #smoothcam
+	last_angle_time = 0.0;  // JPG - smooth chasecam  // woods #smoothcam
 }
 
 
@@ -930,6 +935,8 @@ void _Host_Frame (double time)
 		host_frametime = realframetime;
 		Cbuf_Waited();
 	}
+
+	host_time += host_frametime; // woods smoothcam  #smoothcam
 
 	if (cl.qcvm.progs)
 	{

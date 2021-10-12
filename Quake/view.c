@@ -795,8 +795,8 @@ void V_CalcRefdef (void)
 
 // transform the view offset by the model's matrix to get the offset from
 // model origin for the view
-	ent->angles[YAW] = cl.viewangles[YAW];	// the model should face the view dir
-	ent->angles[PITCH] = -cl.viewangles[PITCH];	// the model should face the view dir
+	ent->angles[YAW] = cl.lerpangles[YAW];	// the model should face the view dir // woods to lerp #smoothcam
+	ent->angles[PITCH] = -cl.lerpangles[PITCH];	// the model should face the view dir // woods to lerp #smoothcam
 
 	bob = V_CalcBob ();
 
@@ -811,7 +811,7 @@ void V_CalcRefdef (void)
 	r_refdef.vieworg[1] += 1.0/32;
 	r_refdef.vieworg[2] += 1.0/32;
 
-	VectorCopy (cl.viewangles, r_refdef.viewangles);
+	VectorCopy (cl.lerpangles, r_refdef.viewangles); // woods to lerp #smoothcam
 	V_CalcViewRoll ();
 	V_AddIdle ();
 
@@ -829,7 +829,7 @@ void V_CalcRefdef (void)
 	V_BoundOffsets ();
 
 // set up gun position
-	VectorCopy (cl.viewangles, view->angles);
+	VectorCopy (cl.lerpangles, view->angles); // woods to lerp #smoothcam
 
 	CalcGunAngle ();
 

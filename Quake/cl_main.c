@@ -651,7 +651,7 @@ void CL_RelinkEntities (void)
 		cl.velocity[i] = cl.mvelocity[1][i] +
 			frac * (cl.mvelocity[0][i] - cl.mvelocity[1][i]);
 
-	if (cls.demoplayback)
+	if ((cls.demoplayback || (last_angle_time > host_time && !(in_attack.state & 3)))) // woods JPG - check for last_angle_time for smooth chasecam!  #smoothcam
 	{
 	// interpolate the angles
 		for (j=0 ; j<3 ; j++)
@@ -661,9 +661,13 @@ void CL_RelinkEntities (void)
 				d -= 360;
 			else if (d < -180)
 				d += 360;
-			cl.viewangles[j] = cl.mviewangles[1][j] + frac*d;
+			// JPG - I can't set cl.viewangles anymore since that messes up the demorecording.  So instead, #smoothcam
+			// I'll set lerpangles (new variable), and view.c will use that instead.
+			cl.lerpangles[j] = cl.mviewangles[1][j] + frac*d; // #smoothcam
 		}
 	}
+	else
+		VectorCopy(cl.viewangles, cl.lerpangles);
 
 	bobjrotate = anglemod(100*cl.time);
 

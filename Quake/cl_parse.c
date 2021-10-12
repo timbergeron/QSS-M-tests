@@ -2550,6 +2550,23 @@ void CL_ParseServerMessage (void)
 		case svc_setangle:
 			for (i=0 ; i<3 ; i++)
 				cl.viewangles[i] = MSG_ReadAngle (cl.protocolflags);
+
+			if (!cls.demoplayback) // woods #smoothcam
+			{
+				VectorCopy (cl.mviewangles[0], cl.mviewangles[1]);
+
+				// JPG - hack with last_angle_time to autodetect continuous svc_setangles   // woods #smoothcam
+				if (last_angle_time > host_time - 0.3)
+					last_angle_time = host_time + 0.3;
+				else if (last_angle_time > host_time - 0.6)
+					last_angle_time = host_time;
+				else
+					last_angle_time = host_time - 0.3;
+
+				for (i = 0; i < 3; i++)
+					cl.mviewangles[0][i] = cl.viewangles[i];
+			}
+
 			break;
 		case svcfte_setangledelta:
 			for (i=0 ; i<3 ; i++)

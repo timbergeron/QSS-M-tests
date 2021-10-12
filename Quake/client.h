@@ -315,6 +315,7 @@ typedef struct
 
 	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
 	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
+	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;
 
@@ -408,6 +409,7 @@ typedef struct
 extern	kbutton_t	in_mlook, in_klook;
 extern 	kbutton_t 	in_strafe;
 extern 	kbutton_t 	in_speed;
+extern	kbutton_t	in_attack; // JPG - added this for completeness from PROQUAKE  // woods #smoothcam
 
 void CL_InitInput (void);
 void CL_AccumulateCmd (void);
