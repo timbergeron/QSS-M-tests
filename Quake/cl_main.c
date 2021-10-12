@@ -752,15 +752,15 @@ void CL_RelinkEntities (void)
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin,  dl->origin);
 			dl->origin[2] += 16;
-			dl->radius = 400 + (rand()&31);
-			dl->die = cl.time + 0.001;
+			dl->radius = 416;// +(rand() & 31); // woods no light flicker
+			dl->die = cl.time + 0.1; //R00k was .001
 		}
 		if (ent->effects & (EF_DIMLIGHT|EF_RED|EF_BLUE|EF_GREEN))
 		{
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin,  dl->origin);
-			dl->radius = 200 + (rand()&31);
-			dl->die = cl.time + 0.001;
+			dl->radius = 216;// +(rand() & 31); // woods no light flicker
+			dl->die = cl.time + 0.1; //R00k was .001
 
 			if (ent->effects & (EF_RED|EF_BLUE|EF_GREEN))
 			{
