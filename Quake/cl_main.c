@@ -734,6 +734,13 @@ void CL_RelinkEntities (void)
 			}
 			//johnfitz
 		}
+
+		// woods deadbodyfilter default
+
+		if ((ent->model->type == mod_alias))
+			if (ent->frame == 49 || ent->frame == 60 || ent->frame == 69 || ent->frame == 84 || ent->frame == 93 || ent->frame == 102)
+				continue;
+
 		if (ent->effects & EF_BRIGHTLIGHT)
 		{
 			dl = CL_AllocDlight (i);
