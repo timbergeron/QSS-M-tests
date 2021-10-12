@@ -27,6 +27,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
 extern cvar_t scr_fov, cl_gun_fovscale;
 
+cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
+
 //up to 16 color translated skins
 gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz -- changed to an array of pointers
 
@@ -1043,6 +1045,7 @@ void R_DrawAliasModel (entity_t *e)
 	qboolean	alphatest = !!(e->model->flags & MF_HOLEY);
 	int surf;
 	float		fovscale = 1.0f;
+	qmodel_t* clmodel = currententity->model;   // woods lightning alpha #lightalpha
 
 	//
 	// setup pose/lerp data -- do it first so we don't miss updates due to culling
@@ -1085,6 +1088,9 @@ void R_DrawAliasModel (entity_t *e)
 	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
 	glScalef (paliashdr->scale[0], paliashdr->scale[1] * fovscale, paliashdr->scale[2] * fovscale);
 
+	if (!strcmp(clmodel->name, "progs/bolt2.mdl"))   // woods for lighting alpha #lightalpha
+		currententity->alpha = ENTALPHA_ENCODE(gl_lightning_alpha.value); 
+	
 	//
 	// random stuff
 	//

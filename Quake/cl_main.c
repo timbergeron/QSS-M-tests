@@ -1639,7 +1639,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_demoreel);
 
 	Cvar_RegisterVariable (&cl_truelightning); // woods for #truelight
-
+	Cvar_RegisterVariable (&gl_lightning_alpha); // woods for lighting alpha #lightalpha
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
