@@ -1012,6 +1012,9 @@ void SCR_ScreenShot_f (void)
 	int	i, quality;
 	qboolean	ok;
 
+	q_snprintf(checkname, sizeof(checkname), "%s/screenshots", com_gamedir); // woods #screenshots
+	Sys_mkdir(checkname); //  woods create screenshots if not there #screenshots
+	
 	Q_strncpy (ext, "png", sizeof(ext));
 
 	if (Cmd_Argc () >= 2)
@@ -1042,8 +1045,8 @@ void SCR_ScreenShot_f (void)
 // find a file name to save it to
 	for (i=0; i<10000; i++)
 	{
-		q_snprintf (imagename, sizeof(imagename), "spasm%04i.%s", i, ext);	// "fitz%04i.tga"
-		q_snprintf (checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
+		q_snprintf (imagename, sizeof(imagename), "qssm%04i.%s", i, ext);	// "fitz%04i.tga" // woods #screenshots
+		q_snprintf (checkname, sizeof(checkname), "%s/screenshots/%s", com_gamedir, imagename); // woods #screenshots
 		if (Sys_FileTime(checkname) == -1)
 			break;	// file doesn't exist
 	}
