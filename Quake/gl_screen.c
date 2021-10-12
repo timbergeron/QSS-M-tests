@@ -86,6 +86,7 @@ cvar_t		scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
+cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -494,6 +495,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_crosshairscale);
 	Cvar_RegisterVariable (&scr_showfps);
 	Cvar_RegisterVariable (&scr_clock);
+	Cvar_RegisterVariable (&scr_ping); // woods #scrping
 	//johnfitz
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
@@ -625,6 +627,63 @@ void SCR_DrawClock (void)
 	Draw_String(312 - (strlen(str) << 3), 200 - 14, str); // woods added padding
 
 	scr_tileclear_updates = 0;
+}
+
+int		scoreboardlines; // woods #scrping
+int		fragsort[MAX_SCOREBOARD]; // woods #scrping
+
+/*
+==================
+SCR_Show_Ping -- added by woods #scrping
+==================
+*/
+void SCR_ShowPing(void)
+{
+	int	i, k, l;
+	int	x, y, f;
+	char	num[12];
+	scoreboard_t* s;
+
+	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
+
+		if (scr_ping.value) {
+
+			GL_SetCanvas (CANVAS_BOTTOMLEFT2); //johnfitz woods 9/2/2021
+
+			Sbar_SortFrags ();
+
+			// draw the text
+			l = scoreboardlines;
+
+			x = 46; //johnfitz -- simplified becuase some positioning is handled elsewhere
+			y = 20;
+			for (i = 0; i < l; i++)
+			{
+				k = fragsort[i];
+				s = &cl.scores[k];
+				if (!s->name[0])
+					continue;
+
+				if (fragsort[i] == cl.viewentity - 1) {
+
+					sprintf (num, "%-4i", s->ping);
+
+					if ((s->ping != 0) && (!scr_con_current)) // dont update when console down or ping 0
+						M_PrintWhite (x - 8 * 5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays 
+				}
+			}
+
+			if (!scr_con_current) // dont update when console down
+
+				if (!cls.message.cursize && cl.expectingpingtimes < realtime)
+				{
+					cl.expectingpingtimes = realtime + 5;   // update frequency
+					MSG_WriteByte(&cls.message, clc_stringcmd);
+					MSG_WriteString(&cls.message, "ping");
+				}
+		}
+	}
+
 }
 
 /*
@@ -1287,6 +1346,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz
+		SCR_ShowPing (); // woods #scrping
 		SCR_DrawConsole ();
 		M_Draw ();
 	}

@@ -957,6 +957,11 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, 320, 200, 0, -99999, 99999);
 		glViewport (glx, gly, 320*s, 200*s);
 		break;
+	case CANVAS_BOTTOMLEFT2: //used by devstats    // woods #scrping
+		s = (float)glwidth/vid.conwidth; //use console scale
+		glOrtho (0, 320, 200, 0, -99999, 99999);
+		glViewport (glx, gly - 167*s, 320*s, 200*s);
+		break;
 	case CANVAS_BOTTOMRIGHT: //used by fps/clock
 		s = (float)glwidth/vid.conwidth; //use console scale
 		glOrtho (0, 320, 200, 0, -99999, 99999);
