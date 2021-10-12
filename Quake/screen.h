@@ -60,6 +60,7 @@ void SCR_UpdateWholeScreen (void);
 typedef enum {
 	CANVAS_NONE,
 	CANVAS_DEFAULT,
+	CANVAS_SCOREBOARD, // woods #scoreboard
 	CANVAS_CONSOLE,
 	CANVAS_MENU,
 	CANVAS_SBAR,
