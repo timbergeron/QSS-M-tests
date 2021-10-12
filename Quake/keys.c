@@ -1434,13 +1434,13 @@ void Key_Event (int key, qboolean down)
 		}
 		return;
 	}
-
+/* woods disabled this so I can see scores in demos
 // during demo playback, most keys bring up the main menu
 	if (cls.demoplayback && down && consolekeys[key] && key_dest == key_game && key != K_TAB)
 	{
 		M_ToggleMenu (1);
 		return;
-	}
+	}*/
 
 // if not a consolekey, send to the interpreter no matter what mode is
 	if ((key_dest == key_menu && menubound[key]) ||
