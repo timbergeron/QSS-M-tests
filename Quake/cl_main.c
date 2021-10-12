@@ -297,6 +297,10 @@ void CL_SignonReply (void)
 
 	case 4:
 		SCR_EndLoadingPlaque ();		// allow normal screen updates
+
+		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) // woods for no background sounds
+			Cmd_ExecuteString("stopsound\n", src_command);
+
 		break;
 	}
 }
