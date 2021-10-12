@@ -807,7 +807,7 @@ void CL_RelinkEntities (void)
 				R_RocketTrail (oldorg, ent->origin, 0);
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin, dl->origin);
-			dl->radius = 200;
+			dl->radius = 0;		// woods eliminate rocket light
 			dl->die = cl.time + 0.01;
 		}
 		else if (modelflags & EF_GRENADE)
