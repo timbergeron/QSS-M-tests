@@ -2139,7 +2139,7 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 		{	/*Spike -- proquake compat. if both engines claim to be using mod==1 then 16bit client->server angles can be used. server->client angles remain 16bit*/
 			Con_DWarning("Attempting to use ProQuake angle hack\n");
 			MSG_WriteByte(&net_message, 1); /*'mod', 1=proquake*/
-			MSG_WriteByte(&net_message, 34); /*'mod' version*/
+			MSG_WriteByte(&net_message, 35); /*'mod' version*/  // woods for proquake version number on login, changed to 5 from 4
 			MSG_WriteByte(&net_message, 0); /*flags*/
 			MSG_WriteLong(&net_message, 0);//strtoul(password.string, NULL, 0)); /*password*/
 		}
