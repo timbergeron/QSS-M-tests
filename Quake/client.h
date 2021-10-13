@@ -332,6 +332,7 @@ typedef struct
 	double			match_pause_time;	// JPG - time that match was paused (or 0) // woods #pqteam
 	vec3_t			death_location;		// JPG 3.20 - used for %d formatting #loc // woods #pqteam
 
+	int			conflag;			// woods for keeping track of what's coming in string for parsing #confilter
 	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
 	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam

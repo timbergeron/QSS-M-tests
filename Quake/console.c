@@ -386,8 +386,87 @@ static void Con_Print (const char *txt)
 	static int	cr;
 	int		mask;
 	qboolean	boundary;
+	static int fixline = 0; // woods #confilter
 
 	//con_backscroll = 0; //johnfitz -- better console scrolling
+
+	// begin woods for pq_confilter+
+
+	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
+	{
+		if (!strcmp(txt, "You receive ") ||
+			!strcmp(txt, "You got the ") ||
+			!strcmp(txt, "You get the") ||
+			!strcmp(txt, "You get the\n") ||
+			!strcmp(txt, "You get the \n"))
+			cl.conflag = 2;  // flag beginnings
+
+	// need to terminate the conflag with end of prints to prase out numbers
+		if ((!strcmp(txt, "\n") ||	// line end
+			!strcmp(txt, " health\n") || // line end included
+			!strcmp(txt, "health\n")) && cl.conflag == 2)  // line end included
+		{
+			cl.conflag = 0; // flag end of string
+			fixline = 1; // voodoo
+			return;
+		}
+
+		if (cl.conflag == 2)  // delete when flag set
+		{
+			fixline = 1; // voodoo
+			return;
+		}
+
+		if     // other messages, exact cases
+			(
+				!strcmp(txt, "Quad Damage is wearing off\n") ||
+				!strcmp(txt, "Protection is almost burned out\n") ||
+				!strcmp(txt, "no weapon.\n") ||
+				!strcmp(txt, "not enough ammo.\n") ||
+				!strcmp(txt, "You got armor\n") ||
+				!strcmp(txt, "Ring of Shadows magic is fading\n") ||
+				!strcmp(txt, "Match ends in 19 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"19\"\n") ||
+				!strcmp(txt, "Match ends in 18 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"18\"\n") ||
+				!strcmp(txt, "Match ends in 17 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"17\"\n") ||
+				!strcmp(txt, "Match ends in 16 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"16\"\n") ||
+				!strcmp(txt, "Match ends in 15 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"15\"\n") ||
+				!strcmp(txt, "Match ends in 14 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"14\"\n") ||
+				!strcmp(txt, "Match ends in 13 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"13\"\n") ||
+				!strcmp(txt, "Match ends in 12 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"12\"\n") ||
+				!strcmp(txt, "Match ends in 11 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"11\"\n") ||
+				!strcmp(txt, "Match ends in 10 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"10\"\n") ||
+				!strcmp(txt, "Match ends in 9 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"9\"\n") ||
+				!strcmp(txt, "Match ends in 8 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"8\"\n") ||
+				!strcmp(txt, "Match ends in 7 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"7\"\n") ||
+				!strcmp(txt, "Match ends in 6 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"6\"\n") ||
+				!strcmp(txt, "Match ends in 5 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"5\"\n") ||
+				!strcmp(txt, "Match ends in 4 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"4\"\n") ||
+				!strcmp(txt, "Match ends in 3 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"3\"\n") ||
+				!strcmp(txt, "Match ends in 2 minutes\n") ||
+				!strcmp(txt, "\"timelimit\" changed to \"2\"\n"))
+		{
+			fixline = 1;
+			return;
+		}
+	}
+	// end woods for eliminating messages confilter+
 
 	if (txt[0] == 1)
 	{
@@ -533,6 +612,11 @@ static void Con_Print (const char *txt)
 		switch (c)
 		{
 		case '\n':
+			if (fixline) /// woods JPG 1.05 - make the "you got" messages temporary #confilter
+			{        
+				cr = 1;
+				fixline = 0;
+			}
 			con_x = 0;
 			break;
 
