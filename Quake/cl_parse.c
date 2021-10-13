@@ -2321,6 +2321,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	static int checkip = -1;	// player whose IP address we're expecting
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
+	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg
 
 	// check for match time
 	if (!strncmp(string, "Match ends in ", 14))
@@ -2358,6 +2359,23 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
 						Cmd_ExecuteString("record\n", src_command);
+
+				if (!strcmp(string, "Sending ClanRing CRCTF v3.5 bindings\n"))  // woods differemt cfgs per mod #modcfg
+				{
+					q_snprintf(checkname, sizeof(checkname), "%s/ctf.cfg", com_gamedir); // woods for cfg particles per mod
+					if (Sys_FileTime(checkname) == -1)
+						return;	// file doesn't exist
+					else
+						Cbuf_AddText("exec ctf.cfg\n");
+				}
+				if ((strpbrk(string, "Ã")) && (strpbrk(string, "Ò")) && (strpbrk(string, "ä"))) // crmod wierd chars // woods differemt cfgs per mod #modcfg
+				{
+					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
+					if (Sys_FileTime(checkname) == -1)
+						return;	// file doesn't exist
+					else
+						Cbuf_AddText("exec dm.cfg\n");
+				}
 				else
 				{
 					{
