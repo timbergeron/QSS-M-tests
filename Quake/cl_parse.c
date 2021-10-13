@@ -2382,7 +2382,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					else
 						Cbuf_AddText("exec dm.cfg\n");
 				}
-				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // set for map change & join
+				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods #matchhud
 					strncpy(cl.ffa, "y", sizeof(cl.ffa));
 				else
 				{
