@@ -71,6 +71,8 @@ typedef enum {
 	CANVAS_MOD, // woods #modprint
 	CANVAS_BOTTOMRIGHT,
 	CANVAS_TOPRIGHT,
+	CANVAS_TOPRIGHT2, // woods #matchhud
+	CANVAS_TOPRIGHT3, // woods #matchhud
 	CANVAS_CSQC,
 	CANVAS_MENUQC,
 	CANVAS_INVALID = -1

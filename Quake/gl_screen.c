@@ -87,6 +87,7 @@ cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
+cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_NONE };  // woods #matchhud
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -496,6 +497,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_showfps);
 	Cvar_RegisterVariable (&scr_clock);
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
+	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
 	//johnfitz
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
@@ -733,6 +735,198 @@ void SCR_ShowPL(void)
 
 		}
 	}
+}
+
+/*====================
+SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match clock upper right corner #matchhud
+====================
+*/
+void SCR_DrawMatchClock(void)
+
+{
+	int				i, k, l;
+	int				top, bottom;
+	int				x, y, f;
+	int				xofs;
+	char			num[12];
+	scoreboard_t* s;
+	int				teamscores, colors, ent, minutes, seconds, mask; // JPG - added these
+	int				match_time; // JPG - added this
+
+	// JPG - check to see if we should sort teamscores instead
+	teamscores = /*pq_teamscores.value && */cl.teamgame;
+
+	l = scoreboardlines <= 4 ? scoreboardlines : 4;
+
+	x = 23;
+
+	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM
+	{
+		GL_SetCanvas(CANVAS_TOPRIGHT2);
+		sprintf(num, "%3d:%02d", 0, 0);
+		Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
+	}
+
+	// JPG - check to see if we need to draw the timer
+	if (/*pq_timer.value && */(cl.minutes != 255))
+	{
+		if (l > 2)
+			l = 2;
+		mask = 0;
+		if (cl.minutes == 254)
+		{
+			strcpy(num, "    SD");
+			mask = 128;
+		}
+		else if (cl.minutes || cl.seconds)
+		{
+			if (cl.seconds >= 128)
+				sprintf(num, " -0:%02d", cl.seconds - 128);
+			else
+			{
+				if (cl.match_pause_time)
+					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
+				else
+					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+				minutes = match_time / 60;
+				seconds = match_time - 60 * minutes;
+				sprintf(num, "%3d:%02d", minutes, seconds);
+				if (!minutes)
+					mask = 128;
+			}
+		}
+		else
+			// draw level time if in FFA mode
+
+			if (!strcmp(cl.ffa, "y"))
+			{
+
+				minutes = cl.time / 60;
+				seconds = cl.time - 60 * minutes;
+				minutes = minutes & 511;
+				sprintf(num, "%3d:%02d", minutes, seconds);
+
+			}
+			else
+				if (teamscores) // display 0.00 for pre match mode in CTF
+				{
+					GL_SetCanvas(CANVAS_TOPRIGHT2);
+					sprintf(num, "%3d:%02d", 0, 0);
+					Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
+				}
+				else
+					return;
+
+		// DRAW the clock woods
+
+		if (scr_match_hud.value)
+		{
+			GL_SetCanvas(CANVAS_TOPRIGHT2);
+			match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+			minutes = match_time / 60;
+			seconds = match_time - 60 * minutes;
+			if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+				M_Print(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // M_Print is colored text
+			else
+				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
+		}
+		//	scr_tileclear_updates = 0;
+	}
+}
+
+/*====================
+SCR_DrawMatchScores   -- woods  (Adapted from Sbar_DrawFrags from r00k) -- draw match scores upper right corner #matchhud
+====================++
+*/
+void SCR_DrawMatchScores(void)
+{
+	int				i, k, l;
+	int				top, bottom;
+	int				x, y, f;
+	int				xofs;
+	char			num[12];
+	scoreboard_t* s;
+	int				teamscores, colors, ent, minutes, seconds, mask; // JPG - added these
+	int				match_time; // JPG - added this
+
+	// JPG - check to see if we should sort teamscores instead
+	teamscores = /*pq_teamscores.value && */cl.teamgame;
+
+	if (teamscores)    // display frags if it's a teamgame match
+		Sbar_SortTeamFrags();
+	else
+		return;
+
+	// woods to do for FFA teamscores
+	//	if ((!teamscores) && (!strcmp(cl.ffa, "y"))) // if ctf ffa, it will
+	//		Sbar_SortFrags_CTF(); // only show 2 scores for blue and red without 'match' teams
+
+
+	// draw the text
+	l = scoreboardlines <= 4 ? scoreboardlines : 4;
+
+	x = 0;
+	y = 0; // woods to position vertical
+
+	if (cl.gametype == GAME_DEATHMATCH)
+	{
+
+		GL_SetCanvas(CANVAS_TOPRIGHT3);
+
+		if (scr_match_hud.value)   // woods for console var off and on
+		{
+			if (cl.minutes != 255)
+				Draw_Fill(11, 1, 32, 18, 0, 0.3);  // rectangle for missing team
+
+			for (i = 0; i < l; i++)
+			{
+				k = fragsort[i];
+
+				// JPG - check for teamscores
+				if (teamscores)
+				{
+					colors = cl.teamscores[k].colors;
+					f = cl.teamscores[k].frags;
+				}
+				else
+					return;
+
+				// draw background
+				if (teamscores)
+				{
+					top = (colors & 15) << 4;
+					bottom = (colors & 15) << 4;
+				}
+				else
+				{
+					top = colors & 0xf0;
+					bottom = (colors & 15) << 4;
+				}
+				top = Sbar_ColorForMap(top);
+				bottom = Sbar_ColorForMap(bottom);
+
+				Draw_Fill((((x + 1) * 8) + 3), y + 1, 32, 6, top, .6);
+				Draw_Fill((((x + 1) * 8) + 3), y + 7, 32, 3.5, bottom, .6);
+
+				// draw number
+				sprintf(num, "%3i", f);
+
+				Sbar_DrawCharacter(((x + 1) * 8) + 4, y - 23, num[0]);
+				Sbar_DrawCharacter(((x + 2) * 8) + 4, y - 23, num[1]);
+				Sbar_DrawCharacter(((x + 3) * 8) + 4, y - 23, num[2]);
+
+				// JPG - check for self's team
+				ent = cl.viewentity - 1;
+
+
+				x += 0;
+				y += 9;  // woods to position vertical
+			}
+
+		}
+	}
+	else
+		return;
 }
 
 /*
@@ -1400,6 +1594,8 @@ void SCR_UpdateScreen (void)
 		SCR_DrawClock (); //johnfitz
 		SCR_ShowPing (); // woods #scrping
 		SCR_ShowPL (); // woods #scrpl
+		SCR_DrawMatchClock(); // woods #matchhud
+		SCR_DrawMatchScores(); // woods #matchhud
 		SCR_DrawConsole ();
 		M_Draw ();
 	}
