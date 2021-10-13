@@ -417,6 +417,8 @@ void R_NewMap (void)
 	Fog_NewMap (); //johnfitz -- global fog in worldspawn
 	R_ParseWorldspawn (); //ericw -- wateralpha, lavaalpha, telealpha, slimealpha in worldspawn
 
+	LOC_LoadLocations ();//ProQuake   rook / woods #pqteam
+
 	load_subdivide_size = gl_subdivide_size.value; //johnfitz -- is this the right place to set this?
 }
 

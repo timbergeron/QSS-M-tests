@@ -45,6 +45,13 @@ typedef struct
 	char	userinfo[8192];
 } scoreboard_t;
 
+// JPG - added this for teamscore status bar and proquake messages // rook / woods 8/31/2021 #pqteam
+typedef struct
+{
+	int colors;
+	int frags;
+} teamscore_t;
+
 typedef struct
 {
 	int		destcolor[3];
@@ -312,6 +319,18 @@ typedef struct
 	vec3_t		listener_axis[3];
 
 	char serverinfo[8192];	// \key\value infostring data.
+
+	teamscore_t*	teamscores;			// [13] - JPG for teamscores in status bar // woods #pqteam                  
+	qboolean		teamgame;			// JPG = true for match, false for individual // woods #pqteam
+	int				minutes;			// JPG - for match time in status bar // woods #pqteam
+	int				seconds;			// JPG - for match time in status bar // woods #pqteam
+	double			last_match_time;	// JPG - last time match time was obtained // woods #pqteam
+	double			last_ping_time;		// JPG - last time pings were obtained // woods #pqteam
+	qboolean		console_ping;		// JPG 1.05 - true if the ping came from the console // woods #pqteam
+	double			last_status_time;	// JPG 1.05 - last time status was obtained // woods #pqteam
+	qboolean		console_status;		// JPG 1.05 - true if the status came from the console // woods #pqteam
+	double			match_pause_time;	// JPG - time that match was paused (or 0) // woods #pqteam
+	vec3_t			death_location;		// JPG 3.20 - used for %d formatting #loc // woods #pqteam
 
 	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
 	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl

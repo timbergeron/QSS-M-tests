@@ -1410,6 +1410,8 @@ static void CL_ParseServerInfo (void)
 	}
 	cl.scores = (scoreboard_t *) Hunk_AllocName (cl.maxclients*sizeof(*cl.scores), "scores");
 
+	cl.teamscores = Hunk_AllocName (14 * sizeof(*cl.teamscores), "teamscores"); // JPG - for teamscore status bar  rook / woods #pqteam
+
 // parse gametype
 	cl.gametype = MSG_ReadByte ();
 
@@ -1956,6 +1958,10 @@ static void CL_ParseClientdata (void)
 		CL_SetHudStat(STAT_NAILS, ammovals[1]);
 		CL_SetHudStat(STAT_ROCKETS, ammovals[2]);
 		CL_SetHudStat(STAT_CELLS, ammovals[3]);
+
+		// woods for death location for LOCs #pqteam
+		if (health <= 0)
+			memcpy (cl.death_location, cl.viewent.origin, sizeof(vec3_t));
 	}
 
 	//johnfitz -- lerping
@@ -2201,6 +2207,171 @@ static void CL_ParseParticles(int type)
 }
 #endif
 
+/* 
+=======================
+CL_ParseProQuakeMessage -- // begin rook / woods #pqteam JPG - added this function for ProQuake messages
+=======================
+*/
+// JPG - added this
+int MSG_ReadBytePQ(void)
+{
+	return MSG_ReadByte() * 16 + MSG_ReadByte() - 272;
+}
+
+// JPG - added this
+int MSG_ReadShortPQ(void)
+{
+	return (MSG_ReadBytePQ() * 256 + MSG_ReadBytePQ());
+}
+
+int MSG_PeekByte(void)// JPG - need this to check for ProQuake messages
+{
+	if (msg_readcount + 1 > net_message.cursize)
+	{
+		msg_badread = true;
+		return -1;
+	}
+
+	return (unsigned char)net_message.data[msg_readcount];
+}
+
+void CL_ParseProQuakeMessage(void)
+{
+	int cmd, i;
+	int team, shirt, frags;// , ping;
+
+	MSG_ReadByte();//advance after the 'peek' MOD_PROQUAKE(0x01) byte
+
+	cmd = MSG_ReadByte();
+
+	switch (cmd)
+	{
+	case pqc_new_team:
+		Sbar_Changed();
+		team = MSG_ReadByte() - 16;
+		if (team < 0 || team > 15)
+			Host_Error("CL_ParseProQuakeMessage: pqc_new_team invalid team");
+		shirt = MSG_ReadByte() - 16;
+		cl.teamgame = true;
+		cl.teamscores[team].colors = 16 * shirt + team;
+		cl.teamscores[team].frags = 0;
+		//Con_Printf("pqc_new_team %d %d\n", team, shirt);
+		break;
+
+	case pqc_erase_team:
+		Sbar_Changed();
+		team = MSG_ReadByte() - 16;
+		if (team < 0 || team > 15)
+			Host_Error("CL_ParseProQuakeMessage: pqc_erase_team invalid team");
+		cl.teamscores[team].colors = 0;
+		cl.teamscores[team].frags = 0;		// JPG 3.20 - added this
+		//Con_Printf("pqc_erase_team %d\n", team);
+		break;
+
+	case pqc_team_frags:
+		Sbar_Changed();
+		cl.teamgame = true;
+		team = MSG_ReadByte() - 16;
+		if (team < 0 || team > 15)
+			Host_Error("CL_ParseProQuakeMessage: pqc_team_frags invalid team");
+		frags = MSG_ReadShortPQ();
+		if (frags & 32768)
+			frags = (frags - 65536);
+		cl.teamscores[team].frags = frags;
+		//Con_DPrintf (1,"pqc_team_frags %d %d\n", team, frags);
+		break;
+
+	case pqc_match_time:
+		Sbar_Changed();
+		cl.teamgame = true;
+		cl.minutes = MSG_ReadBytePQ();
+		cl.seconds = MSG_ReadBytePQ();
+		cl.last_match_time = cl.time;//todo: fix for demo-rewind
+		//Con_Printf("pqc_match_time %d %d\n", cl.minutes, cl.seconds);
+		break;
+
+	case pqc_match_reset:
+		Sbar_Changed();
+		cl.teamgame = true;
+		for (i = 0; i < 14; i++)
+		{
+			cl.teamscores[i].colors = 0;
+			cl.teamscores[i].frags = 0;		// JPG 3.20 - added this
+		}
+		//Con_Printf("pqc_match_reset\n");
+		break;
+	}
+}
+
+/* 
+=======================
+CL_ParseProQuakeString -- // begin rook / woods #pqteam
+=======================
+*/
+void CL_ParseProQuakeString(char* string) // #pqteam
+{
+	static int checkping = -1;
+	int i;
+	const char* s;//R00k
+
+	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
+	s = string;
+
+	// check for match time
+	if (!strncmp(string, "Match ends in ", 14))
+	{
+		s = string + 14;
+
+		if ((*s != 'T') && strchr(s, 'm'))
+		{
+			sscanf(s, "%d", &cl.minutes);
+			cl.seconds = 0;
+			cl.last_match_time = cl.time;
+		}
+	}
+	else
+	{	
+		if (!strcmp(string, "Match paused\n"))
+			//TODO:R00k add a pause for demo if recording...
+			cl.match_pause_time = cl.time;
+		else
+		{
+			if (!strcmp(string, "Match unpaused\n"))
+			{
+				cl.last_match_time += (cl.time - cl.match_pause_time);
+				cl.match_pause_time = 0;
+			}
+			else
+			{
+				if (!strcmp(string, "The match is over\n"))
+				{
+					cl.minutes = 255;					
+				}
+				else
+				{
+					{
+						
+						{
+							if (checkping < 0)
+							{
+								s = string;
+								i = 0;
+								while (*s >= '0' && *s <= '9')
+									i = 10 * i + *s++ - '0';
+								if (!strcmp(s, " minutes remaining\n"))
+								{
+									cl.minutes = i;
+									cl.seconds = 0;
+									cl.last_match_time = cl.time;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 #define SHOWNET(x) if(cl_shownet.value==2)Con_Printf ("%3i:%s\n", msg_readcount-1, x);
 
@@ -2249,13 +2420,13 @@ static void CL_ParseStuffText(const char *msg)
 	for (; (str = strchr(cl.stuffcmdbuf, '\n')); memmove(cl.stuffcmdbuf, str, Q_strlen(str)+1))
 	{
 		qboolean handled = false;
-
+		/* woods comment this out #pqteam 
 		if (*cl.stuffcmdbuf == 0x01 && cl.protocol == PROTOCOL_NETQUAKE) //proquake message, just strip this and try again (doesn't necessarily have a trailing \n straight away)
 		{
 			for (str = cl.stuffcmdbuf+1; *str >= 0x01 && *str <= 0x1f; str++)
 				;//FIXME: parse properly
 			continue;
-		}
+		}*/
 
 		*str++ = 0;//skip past the \n
 
@@ -2437,7 +2608,7 @@ void CL_ParseServerMessage (void)
 	int			i;
 	const char		*str; //johnfitz
 	int			lastcmd; //johnfitz
-
+	char*		s;	// woods #pqteam
 //
 // if recording demos, copy the message out
 //
@@ -2525,7 +2696,9 @@ void CL_ParseServerMessage (void)
 			Host_EndGame ("Server disconnected\n");
 
 		case svc_print:
-			CL_ParsePrint(MSG_ReadString());
+			s = MSG_ReadString();           //   woods pq string #pqteam
+			CL_ParseProQuakeString(s);      //   woods pq string #pqteam
+			CL_ParsePrint(s);				//   woods pq string #pqteam
 			break;
 
 		case svc_centerprint:
@@ -2535,6 +2708,11 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_stufftext:
+			// JPG - check for ProQuake message // woods #pqteam
+			if (MSG_PeekByte() == 0x01)
+				CL_ParseProQuakeMessage();
+			// Still want to add text, even on ProQuake messages.  This guarantees compatibility;
+			// unrecognized messages will essentially be ignored but there will be no parse errors
 			CL_ParseStuffText(MSG_ReadString());
 			break;
 

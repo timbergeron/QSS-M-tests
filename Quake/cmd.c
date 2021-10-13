@@ -935,6 +935,9 @@ Sends the entire command line over to the server
 */
 void Cmd_ForwardToServer (void)
 {
+	char* src, * dst, buff[128];		// JPG - used for say/say_team formatting // woods #pqteam
+	int minutes, seconds, match_time;	// JPG - used for %t // woods #pqteam
+	
 	if (cls.state != ca_connected)
 	{
 		Con_Printf ("Can't \"%s\", not connected\n", Cmd_Argv(0));
@@ -945,6 +948,388 @@ void Cmd_ForwardToServer (void)
 		return;		// not really connected
 
 	MSG_WriteByte (&cls.message, clc_stringcmd);
+
+	//----------------------------------------------------------------------
+// JPG - handle say separately for formatting--start // woods #pqteam
+	if ((!q_strcasecmp(Cmd_Argv(0), "say") || !q_strcasecmp(Cmd_Argv(0), "say_team")) && Cmd_Argc() > 1)
+	{
+		SZ_Print(&cls.message, Cmd_Argv(0));
+		SZ_Print(&cls.message, " ");
+
+		src = Cmd_Args();
+		dst = buff;
+		while (*src && dst - buff < 100)
+		{
+			if (*src == '%')
+			{
+				switch (*++src)
+				{
+				case 'h':
+					dst += sprintf(dst, "%d", cl.stats[STAT_HEALTH]);
+					break;
+
+				case 'a':
+				{
+					char* ch = "[G]:[Y]:[R]";
+					int first = 1;
+					int item;
+
+					dst += sprintf(dst, "%d", cl.stats[STAT_ARMOR]);
+					//R00k: added to show armor type					
+					if (cl.stats[STAT_ARMOR] > 0)
+					{
+						for (item = IT_ARMOR1; item <= IT_ARMOR3; item *= 2)
+						{
+							if (*ch != ':' && (cl.items & item))
+							{
+								if (!first)
+									*dst++ = ',';
+								first = 0;
+								while (*ch && *ch != ':')
+									*dst++ = *ch++;
+							}
+							while (*ch && *ch != ':')
+								*ch++;
+							if (*ch)
+								*ch++;
+							if (!*ch)
+								break;
+						}
+					}
+				}
+				break;
+
+				case 'A':
+					if (cl.stats[STAT_HEALTH] > 0)
+					{
+						switch (cl.stats[STAT_ACTIVEWEAPON])
+						{
+						case IT_SHOTGUN:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "shells");
+							}
+							else
+							{
+								if (cl.stats[STAT_SHELLS] < 5)
+									dst += sprintf(dst, "I need shells ");
+								else
+									dst += sprintf(dst, "%d shells", cl.stats[STAT_SHELLS]);
+							}
+							break;
+
+						case IT_SUPER_SHOTGUN:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "shells");
+							}
+							else
+							{
+								if (cl.stats[STAT_SHELLS] < 5)
+									dst += sprintf(dst, "I need shells ");
+								else
+									dst += sprintf(dst, "%d shells", cl.stats[STAT_SHELLS]);
+							}
+							break;
+
+						case IT_NAILGUN:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "nails");
+							}
+							else
+							{
+								if (cl.stats[STAT_NAILS] < 5)
+									dst += sprintf(dst, "I need nails ");
+								else
+									dst += sprintf(dst, "%d nails", cl.stats[STAT_NAILS]);
+							}
+							break;
+
+						case IT_SUPER_NAILGUN:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "nails");
+							}
+							else
+							{
+								if (cl.stats[STAT_NAILS] < 5)
+									dst += sprintf(dst, "I need nails ");
+								else
+									dst += sprintf(dst, "%d nails", cl.stats[STAT_NAILS]);
+							}
+							break;
+
+						case IT_GRENADE_LAUNCHER:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "rockets");
+							}
+							else
+							{
+								if (cl.stats[STAT_NAILS] < 5)
+									dst += sprintf(dst, "%s", "I need rockets");
+								else
+									dst += sprintf(dst, "%d rockets", cl.stats[STAT_ROCKETS]);
+							}
+							break;
+
+						case IT_ROCKET_LAUNCHER:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "rockets");
+							}
+							else
+							{
+								if (cl.stats[STAT_NAILS] < 5)
+									dst += sprintf(dst, "%s", "I need rockets");
+								else
+									dst += sprintf(dst, "%d rockets", cl.stats[STAT_ROCKETS]);
+							}
+							break;
+
+						case IT_LIGHTNING:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "cells");
+							}
+							else
+							{
+								if (cl.stats[STAT_CELLS] < 5)
+									dst += sprintf(dst, "I need cells");
+								else
+									dst += sprintf(dst, "%d cells", cl.stats[STAT_CELLS]);
+							}
+							break;
+
+						default:
+							if (*++src == 't')
+							{
+								dst += sprintf(dst, "nothing ");
+							}
+							break;
+						}
+					}
+					else
+						dst += sprintf(dst, "%s", "I need RL");
+					break;
+
+				case 'r':
+					if (cl.stats[STAT_HEALTH] > 0 && (cl.items & IT_ROCKET_LAUNCHER))
+					{
+						if (cl.stats[STAT_ROCKETS] < 5)
+							dst += sprintf(dst, "%s", "I need rockets");
+						else
+							dst += sprintf(dst, "%s", "I have RL");
+					}
+					else
+						dst += sprintf(dst, "%s", "I need RL");
+					break;
+
+				case 'l':
+					dst += sprintf(dst, "%s", LOC_GetLocation(cl.viewent.origin));
+					break;
+
+					// death location not currently enabled
+				case 'd':
+					dst += sprintf(dst, "%s", LOC_GetLocation(cl.death_location));
+					break;
+
+				case 'c':
+					dst += sprintf(dst, "%d", cl.stats[STAT_CELLS]);
+					break;
+
+				case 'x':
+					dst += sprintf(dst, "%d", cl.stats[STAT_ROCKETS]);
+					break;
+
+				case 'R':
+					if (cl.items & IT_SIGIL1)
+					{
+						dst += sprintf(dst, "Resistance");
+						break;
+					}
+					if (cl.items & IT_SIGIL2)
+					{
+						dst += sprintf(dst, "Strength");
+						break;
+					}
+					if (cl.items & IT_SIGIL3)
+					{
+						dst += sprintf(dst, "Haste");
+						break;
+					}
+					if (cl.items & IT_SIGIL4)
+					{
+						dst += sprintf(dst, "Regen");
+						break;
+					}
+					break;
+
+				case 'F':
+					if (cl.items & IT_KEY1)
+					{
+						dst += sprintf(dst, "Blue Flag");
+						break;
+					}
+					if (cl.items & IT_KEY2)
+					{
+						dst += sprintf(dst, "Red Flag");
+						break;
+					}
+					break;
+
+				case 'p':
+					if (cl.stats[STAT_HEALTH] > 0)
+					{
+						if (cl.items & IT_QUAD)
+						{
+							dst += sprintf(dst, "%s", "our quad");  // woods added our
+							if (cl.items & (IT_INVULNERABILITY | IT_INVISIBILITY))
+								*dst++ = '+';
+						}
+						if (cl.items & IT_INVULNERABILITY)
+						{
+							dst += sprintf(dst, "%s", "our pent"); // woods added our
+							if (cl.items & IT_INVISIBILITY)
+								*dst++ = '+';
+						}
+						if (cl.items & IT_INVISIBILITY)
+							dst += sprintf(dst, "%s", "our ring"); // woods added our
+
+						//						if (cl.items & IT_SUIT)
+							//						dst += sprintf(dst, "%s", "biosuit");//R00k lol "team Biosuit"
+					}
+					break;
+
+				case 'w':	// JPG 3.00
+				{
+					int first = 1;
+					int item;
+					char* ch = "SSG:NG:SNG:GL:RL:LG";
+					if (cl.stats[STAT_HEALTH] > 0)
+					{
+						for (item = IT_SUPER_SHOTGUN; item <= IT_LIGHTNING; item *= 2)
+						{
+							if (*ch != ':' && (cl.items & item))
+							{
+								if (!first)
+									*dst++ = ',';
+								first = 0;
+								while (*ch && *ch != ':')
+									*dst++ = *ch++;
+							}
+							while (*ch && *ch != ':')
+								*ch++;
+							if (*ch)
+								*ch++;
+							if (!*ch)
+								break;
+						}
+					}
+					if (first)
+						dst += sprintf(dst, "%s", "no weapons");
+				}
+				break;
+
+				case 'z':	// woods added for only reporting rl and lg
+				{
+					int first = 1;
+					int item;
+					char* ch = "with RL:LG";  // woods only care about lg and rl
+					if (cl.stats[STAT_HEALTH] > 0)
+					{
+						for (item = IT_ROCKET_LAUNCHER; item <= IT_LIGHTNING; item *= 2) // woods only care about lg and rl
+						{
+							if (*ch != ':' && (cl.items & item))
+							{
+								if (!first)
+									*dst++ = ' ';  // woods changed divider
+								first = 0;
+								while (*ch && *ch != ':')
+									*dst++ = *ch++;
+							}
+							while (*ch && *ch != ':')
+								*ch++;
+							if (*ch)
+								*ch++;
+							if (!*ch)
+								break;
+						}
+					}
+					//	if (first)
+						//	dst += sprintf(dst, "%s", "nothing");  // woods changed to one word, easier to read
+				}
+				break;
+				//R00k added W for weapon in hand based on pq_weapons.string
+				case 'W':
+					if (cl.stats[STAT_HEALTH] > 0)
+					{
+						int		item;
+						char* ch = "SSG:NG:SNG:GL:RL:LG";
+
+						for (item = IT_SUPER_SHOTGUN; item <= IT_LIGHTNING; item *= 2)
+						{
+							if (*ch != ':' && (item == cl.stats[STAT_ACTIVEWEAPON]))
+							{
+								while (*ch && *ch != ':')
+									*dst++ = *ch++;
+								break;
+							}
+							while (*ch && *ch != ':')
+								*ch++;
+							if (*ch)
+								*ch++;
+							if (!*ch)
+								break;
+						}
+					}
+					else
+						dst += sprintf(dst, "%s", "no weapons");
+					break;
+
+				case '%':
+					*dst++ = '%';
+					break;
+
+				case 't':
+					if ((cl.minutes || cl.seconds) && cl.seconds < 128)
+					{
+						if (cl.match_pause_time)
+							match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
+						else
+							match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+						minutes = match_time / 60;
+						seconds = match_time - 60 * minutes;
+					}
+					else
+					{
+						minutes = cl.time / 60;
+						seconds = cl.time - 60 * minutes;
+						minutes &= 511;
+					}
+					dst += sprintf(dst, "%d:%02d", minutes, seconds);
+					break;
+
+				default:
+					*dst++ = '%';
+					*dst++ = *src;
+					break;
+				}
+				if (*src)
+					src++;
+			}
+			else
+				*dst++ = *src++;
+		}
+		*dst = 0;
+
+		SZ_Print(&cls.message, buff);
+		return;
+	}
+	// JPG - handle say separately for formatting--end
+	//----------------------------------------------------------------------
+
 	if (q_strcasecmp(Cmd_Argv(0), "cmd") != 0)
 	{
 		SZ_Print (&cls.message, Cmd_Argv(0));

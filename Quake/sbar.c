@@ -500,6 +500,36 @@ void Sbar_SortFrags (void)
 	}
 }
 
+/* JPG - added this for teamscores in default status bar // woods #pqteam
+==================
+Sbar_SortTeamFrags
+==================
+*/
+void Sbar_SortTeamFrags(void)
+{
+	int		i, j, k;
+
+	// sort by frags
+	scoreboardlines = 0;
+	for (i = 0; i < 14; i++)
+	{
+		if (cl.teamscores[i].colors)
+		{
+			fragsort[scoreboardlines] = i;
+			scoreboardlines++;
+		}
+	}
+
+	for (i = 0; i < scoreboardlines; i++)
+		for (j = 0; j < scoreboardlines - 1 - i; j++)
+			if (cl.teamscores[fragsort[j]].frags < cl.teamscores[fragsort[j + 1]].frags)
+			{
+				k = fragsort[j];
+				fragsort[j] = fragsort[j + 1];
+				fragsort[j + 1] = k;
+			}
+}
+
 int	Sbar_ColorForMap (int m)
 {
 	return m < 128 ? m + 8 : m + 8;
@@ -788,51 +818,135 @@ void Sbar_DrawInventory (void)
 
 //=============================================================================
 
-/*
-===============
-Sbar_DrawFrags -- johnfitz -- heavy revision
-===============
-*/
-void Sbar_DrawFrags (void)
+/*===============
+Sbar_DrawFrags -- for proquake, HEAVILY modified (draws match time, and teamscores) replace this entire function // woods #pqteam
+============== */
+void Sbar_DrawFrags(void)
 {
-	int	numscores, i, x;
-	char	num[12];
-	scoreboard_t	*s;
+	int				i, k, l;
+	int				top, bottom;
+	int				numscores;
+	int				x, y, f;
+	char			num[12];
+	scoreboard_t* s;
+	int				teamscores, colors, ent, minutes, seconds, mask; // JPG - added these
+	int				match_time; // JPG - added this
 
-	Sbar_SortFrags ();
+	// JPG - check to see if we should sort teamscores instead
+	teamscores = cl.teamgame;
 
-// draw the text
-	numscores = q_min(scoreboardlines, 4);
+	if (teamscores)
+		Sbar_SortTeamFrags();
+	else
+		Sbar_SortFrags();
 
-	for (i = 0, x = 184; i<numscores; i++, x += 32)
+	// draw the text
+	l = scoreboardlines <= 4 ? scoreboardlines : 4;
+
+	x = 23;
+	y = vid.height - 1;
+
+	// display match clock
+	// 
+	// JPG - check to see if we need to draw the timer
+	if (cl.minutes != 255)
 	{
-		s = &cl.scores[fragsort[i]];
-		if (!s->name[0])
-			continue;
-
-	// top color
-		Draw_FillPlayer (x + 10, 1, 28, 4, s->shirt, 1);
-
-	// bottom color
-		Draw_FillPlayer (x + 10, 5, 28, 3, s->pants, 1);
-
-	// number
-		sprintf (num, "%3i", s->frags);
-		Sbar_DrawCharacter (x + 12, -24, num[0]);
-		Sbar_DrawCharacter (x + 20, -24, num[1]);
-		Sbar_DrawCharacter (x + 28, -24, num[2]);
-
-	// brackets
-		if (fragsort[i] == cl.viewentity - 1)
+		if (l > 2)
+			l = 2;
+		mask = 0;
+		if (cl.minutes == 254)
 		{
-			Sbar_DrawCharacter (x + 6, -24, 16);
-			Sbar_DrawCharacter (x + 32, -24, 17);
+			strcpy(num, "    SD");
+			mask = 128;
+		}
+		else if (cl.minutes || cl.seconds)
+		{
+			if (cl.seconds >= 128)
+				sprintf(num, " -0:%02d", cl.seconds - 128);
+			else
+			{
+				if (cl.match_pause_time)
+					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
+				else
+					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+				minutes = match_time / 60;
+				seconds = match_time - 60 * minutes;
+				sprintf(num, "%3d:%02d", minutes, seconds);
+				if (!minutes)
+					mask = 128;
+			}
+		}
+		else
+		{
+			minutes = cl.time / 60;
+			seconds = cl.time - 60 * minutes;
+			minutes = minutes & 511;
+			sprintf (num, "%3d:%02d", minutes, seconds);
+		}
+
+		for (i = 0; i < 6; i++)
+			Sbar_DrawCharacter ((x + 9 + i) * 8, -24, num[i] + mask);
+	}
+
+	// display frag/team colors
+
+	if (teamscores)
+	{
+		for (i = 0; i < l; i++)
+		{
+			k = fragsort[i];
+			colors = cl.teamscores[k].colors;
+
+			top = (colors & 15) << 4;
+			bottom = (colors & 15) << 4;
+
+			Draw_Fill((((x + 1) * 8) + 2), 1, 28, 4, top + 8, 1);
+			Draw_Fill((((x + 1) * 8) + 2), 5, 28, 3, bottom + 8, 1);
+
+			f = cl.teamscores[k].frags;
+
+			// draw number
+			sprintf (num, "%3i", f);
+			Sbar_DrawCharacter ((x + 1) * 8, -24, num[0]);
+			Sbar_DrawCharacter ((x + 2) * 8, -24, num[1]);
+			Sbar_DrawCharacter ((x + 3) * 8, -24, num[2]);
+
+			x += 4;
 		}
 	}
+	else
+	{ 
+		// draw the text
+		numscores = q_min(scoreboardlines, 4);
+
+		for (i = 0, x = 184; i < numscores; i++, x += 32)
+		{
+			s = &cl.scores[fragsort[i]];
+			if (!s->name[0])
+				continue;
+
+			// top color
+			Draw_FillPlayer (x + 10, 1, 28, 4, s->shirt, 1);
+
+			// bottom color
+			Draw_FillPlayer (x + 10, 5, 28, 3, s->pants, 1);
+
+			// number
+			sprintf(num, "%3i", s->frags);
+			Sbar_DrawCharacter (x + 12, -24, num[0]);
+			Sbar_DrawCharacter (x + 20, -24, num[1]);
+			Sbar_DrawCharacter (x + 28, -24, num[2]);
+
+			// brackets
+			if (fragsort[i] == cl.viewentity - 1)
+			{
+				Sbar_DrawCharacter (x + 6, -24, 16);
+				Sbar_DrawCharacter (x + 32, -24, 17);
+			}
+		}
+
+	}
 }
-
-//=============================================================================
-
 
 /*
 ===============

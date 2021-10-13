@@ -1033,6 +1033,8 @@ Host_Init
 */
 void Host_Init (void)
 {
+	extern void LOC_PQ_Init (void);    // rook / woods #pqteam (added PQ to name)
+
 	if (standard_quake)
 		minimum_memory = MINIMUM_MEMORY;
 	else	minimum_memory = MINIMUM_MEMORY_LEVELPAK;
@@ -1064,6 +1066,8 @@ void Host_Init (void)
 	Mod_Init ();
 	NET_Init ();
 	SV_Init ();
+
+	LOC_PQ_Init (); // rook / woods #pqteam (added PQ to name)
 
 #ifdef QSS_DATE	//avoid non-determinism.
 	Con_Printf ("Exe: " ENGINE_NAME_AND_VER "\n");
