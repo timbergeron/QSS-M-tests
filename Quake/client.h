@@ -336,7 +336,8 @@ typedef struct
 	int			conflag;			// woods for keeping track of what's coming in string for parsing #confilter
 	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
 	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
-	char		ffa[2];				// woods for #matchhud
+	char		ffa[2];				// woods for #matchhud #flagstatus
+	char		flagstatus[2];		// woods for #flagstatus
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;

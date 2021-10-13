@@ -989,7 +989,7 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho(0, 320, 200, 0, -99999, 99999);
 		glViewport(glx + glwidth - 320 * s, gly + glheight - 16 * s, 320 * s, 200 * s);
 		break;
-	case CANVAS_TOPRIGHT3: // woods for upper right match scores and colors placement #matchhud
+	case CANVAS_TOPRIGHT3: // woods for upper right match scores and colors placement #matchhud #flagstatus
 		s = ((float)glwidth / vid.conwidth) * 2; //use console scale
 		glOrtho(0, 320, 200, 0, -99999, 99999);
 		glViewport(glx + glwidth - 48 * s, (gly + glheight - 212 * s), 320 * s, 200 * s);
