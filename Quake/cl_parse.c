@@ -2321,7 +2321,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	static int checkip = -1;	// player whose IP address we're expecting
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
-	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg
+	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
 
 	// check for match time
 	if (!strncmp(string, "Match ends in ", 14))
@@ -2354,6 +2354,12 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					cl.minutes = 255;					
 					if ((cl_autodemo.value == 2) && (cls.demorecording)) // woods #autodemo
 						Cmd_ExecuteString("stop\n", src_command);
+					
+					q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_gamedir); // woods for end config (say gg, change color, etc)
+					if (Sys_FileTime(checkname) == -1)
+						return;	// file doesn't exist
+					else
+						Cbuf_AddText("exec end.cfg\n");
 				}
 
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
