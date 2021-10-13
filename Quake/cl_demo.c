@@ -430,7 +430,7 @@ void CL_Record_Spawn(void)
 
 /*
 ====================
-CL_Record_f
+CL_Record_f -- -- woods changed alot: removed cd track, and map selections (just use autodemo) | sourced from Qrack #autodemo
 
 record <demoname> <map> [cd track]
 ====================
@@ -450,71 +450,115 @@ void CL_Record_f (void)
 		return;
 	}
 
+	c = Cmd_Argc();
+	if (c > 3)
+	{
+		Con_Printf("record or record <demoname> [<map>]\n");
+		return;
+	}
+
+	if (c == 1 || c == 2)
+	{
+		if (c == 1)
+		{
+			// woods added time for demo output
+			char	str[24];
+			int hours, minutes, seconds, day, month, year, mapid;
+			SYSTEMTIME systime;
+			char m[3] = "am";   // took out am
+
+			GetLocalTime(&systime);
+			hours = systime.wHour;
+			minutes = systime.wMinute;
+			seconds = systime.wSecond;
+			day = systime.wDay;
+			month = systime.wMonth;
+			year = systime.wYear;
+
+			if (hours > 12)
+				strcpy(m, "pm"); // took out pm
+			hours = hours % 12;
+			if (hours == 0)
+				hours = 12;
+
+			q_snprintf(name, sizeof(name), "%s/demos", com_gamedir); //  create demos folder if not there
+			Sys_mkdir(name); 
+
+			sprintf(str, "%i-%i-%i-%i%i%i%s", month, day, year, hours, minutes / 10, minutes % 10, m);
+			q_snprintf(name, sizeof(name), "%s/demos/%s-%s", com_gamedir, cl.mapname, str, Cmd_Argv(1));  // woods added demos folder, added args for demo output info
+		}
+		else if (c == 2)
+		{
+			if (strstr(Cmd_Argv(1), ".."))
+			{
+				Con_Printf("Relative pathnames are not allowed.\n");
+				return;
+			}
+
+			if (c == 2 && cls.state == ca_connected)
+			{
+#if 0
+				Con_Printf("Can not record - already connected to server\nClient demo recording must be started before connecting\n");
+				return;
+#endif
+				if (cls.signon < 2)
+				{
+					Con_Printf("Can't record - try again when connected\n");
+					return;
+				}
+				switch (cl.protocol)
+				{
+				case PROTOCOL_NETQUAKE:
+				case PROTOCOL_FITZQUAKE:
+				case PROTOCOL_RMQ:
+				case PROTOCOL_VERSION_BJP3:
+					break;
+					//case PROTOCOL_VERSION_NEHD:
+					//case PROTOCOL_VERSION_DP5:
+					//case PROTOCOL_VERSION_DP6:
+				case PROTOCOL_VERSION_DP7:
+					//case PROTOCOL_VERSION_BJP1:
+					//case PROTOCOL_VERSION_BJP2:
+				default:
+					Con_Printf("Can not record - protocol not supported for recording mid-map\nClient demo recording must be started before connecting\n");
+					return;
+				}
+			}
+
+		}
+	}
+
 	if (cls.demorecording)
 		CL_Stop_f();
 
-	c = Cmd_Argc();
-	if (c != 2 && c != 3 && c != 4)
-	{
-		Con_Printf ("record <demoname> [<map> [cd track]]\n");
-		return;
-	}
-
-	if (strstr(Cmd_Argv(1), ".."))
-	{
-		Con_Printf ("Relative pathnames are not allowed.\n");
-		return;
-	}
-
-	if (c == 2 && cls.state == ca_connected)
-	{
-#if 0
-		Con_Printf("Can not record - already connected to server\nClient demo recording must be started before connecting\n");
-		return;
-#endif
-		if (cls.signon < 2)
-		{
-			Con_Printf("Can't record - try again when connected\n");
-			return;
-		}
-		switch(cl.protocol)
-		{
-		case PROTOCOL_NETQUAKE:
-		case PROTOCOL_FITZQUAKE:
-		case PROTOCOL_RMQ:
-		case PROTOCOL_VERSION_BJP3:
-			break;
-		//case PROTOCOL_VERSION_NEHD:
-		//case PROTOCOL_VERSION_DP5:
-		//case PROTOCOL_VERSION_DP6:
-		case PROTOCOL_VERSION_DP7:
-		//case PROTOCOL_VERSION_BJP1:
-		//case PROTOCOL_VERSION_BJP2:
-		default:
-			Con_Printf("Can not record - protocol not supported for recording mid-map\nClient demo recording must be started before connecting\n");
-			return;
-		}
-	}
-
-// write the forced cd track number, or -1
+	// write the forced cd track number, or -1
 	if (c == 4)
 	{
 		track = atoi(Cmd_Argv(3));
-		Con_Printf ("Forcing CD track to %i\n", cls.forcetrack);
+		Con_Printf("Forcing CD track to %i\n", cls.forcetrack);
 	}
 	else
 	{
 		track = -1;
 	}
 
-	q_snprintf (name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+	if (c == 2)
+	{
+		Sys_mkdir("id1/demos");  //  create demos if not there
+		q_snprintf(name, sizeof(name), "%s/demos/%s", com_gamedir, Cmd_Argv(1));  // added demos
 
-// start the map up
+	}
+
+	// start the map up
 	if (c > 2)
 	{
-		Cmd_ExecuteString ( va("map %s", Cmd_Argv(2)), src_command);
-		if (cls.state != ca_connected)
-			return;
+		//Cmd_ExecuteString(va("map %s", Cmd_Argv(2)), src_command);
+		//if (cls.state != ca_connected)
+			//return;
+
+		Con_Printf("enable autodemo to record at map start\n");
+		return;
+
 	}
 
 // open the demo file
@@ -537,7 +581,7 @@ void CL_Record_f (void)
 	cls.demorecording = true;
 
 	// from ProQuake: initialize the demo file if we're already connected
-	if (c == 2 && cls.state == ca_connected)
+	if (c < 3 && cls.state == ca_connected)
 	{
 		byte *data = net_message.data;
 		int cursize = net_message.cursize;

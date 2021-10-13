@@ -302,7 +302,8 @@ void CL_SignonReply (void)
 
 		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) // woods for no background sounds
 			Cmd_ExecuteString("stopsound\n", src_command);
-
+		if ((cl_autodemo.value == 1) && (!cls.demoplayback) && (!cls.demorecording))   // woods for #autodemo
+			Cmd_ExecuteString("record\n", src_command);
 		break;
 	}
 }
