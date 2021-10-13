@@ -291,6 +291,7 @@ typedef struct
 #include "cdaudio.h"
 #include "glquake.h"
 #include "location.h"      // rook / woods #pqteam
+#include "iplog.h"		// JPG 1.05 - ip address logging // woods #iplog
 
 //=============================================================================
 
@@ -360,6 +361,7 @@ void DemoList_Rebuild (void);
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage
 extern	vec3_t	NULLVEC; // woods truelighting #truelight
+extern char dequake[256];	// JPG 1.05 - dedicated console translation // woods for #iplog
 
 extern int		current_skill;	// skill level for currently loaded level (in case
 					//  the user changes the cvar while the level is

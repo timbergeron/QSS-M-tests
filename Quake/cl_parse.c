@@ -2312,8 +2312,13 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 {
 	static int checkping = -1;
 	int i;
+	int a, b, c; // woods #iplog
 	const char* s;//R00k
-
+	// JPG 1.05 - for ip logging woods #iplog
+	static int remove_status = 0;
+	static int begin_status = 0;
+	static int playercount = 0;
+	static int checkip = -1;	// player whose IP address we're expecting
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
 
@@ -2369,6 +2374,58 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					}
 				}
 			}
+		}
+	}
+
+	// JPG 1.05 check for IP information  // woods for #iplog
+	if (iplog_size)
+	{
+		if (!strncmp(string, "host:    ", 9))
+		{
+			begin_status = 1;
+			if (!cl.console_status)
+				remove_status = 1;
+		}
+		if (begin_status && !strncmp(string, "players: ", 9))
+		{
+			begin_status = 0;
+			remove_status = 0;
+			if (sscanf(string + 9, "%d", &playercount))
+			{
+				if (!cl.console_status)
+					*string = 0;
+			}
+			else
+				playercount = 0;
+		}
+		else if (playercount && string[0] == '#')
+		{
+			if (!sscanf(string, "#%d", &checkip) || --checkip < 0 || checkip >= cl.maxclients)
+				checkip = -1;
+			if (!cl.console_status)
+				*string = 0;
+			remove_status = 0;
+		}
+		else if (checkip != -1)
+		{
+			if (sscanf(string, "   %d.%d.%d", &a, &b, &c) == 3)
+			{
+				cl.scores[checkip].addr = (a << 16) | (b << 8) | c;
+				IPLog_Add(cl.scores[checkip].addr, cl.scores[checkip].name);
+			}
+			checkip = -1;
+			if (!cl.console_status)
+				*string = 0;
+			remove_status = 0;
+
+			if (!--playercount)
+				cl.console_status = 0;
+		}
+		else
+		{
+			playercount = 0;
+			if (remove_status)
+				*string = 0;
 		}
 	}
 }

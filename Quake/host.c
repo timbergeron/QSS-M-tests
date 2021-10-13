@@ -281,6 +281,42 @@ void Host_Callback_Notify (cvar_t *var)
 		SV_BroadcastPrintf ("\"%s\" changed to \"%s\"\n", var->name, var->string);
 }
 
+char dequake[256];	// JPG 1.05 // woods for #iplog to work
+
+/*
+=======================
+Host_InitDeQuake // woods for #iplog to work
+======================
+*/
+void Host_InitDeQuake (void)
+{
+	int i;
+
+	for (i = 1; i < 12; i++)
+		dequake[i] = '#';
+	dequake[9] = 9;
+	dequake[10] = 10;
+	dequake[13] = 13;
+	dequake[12] = ' ';
+	dequake[1] = dequake[5] = dequake[14] = dequake[15] = dequake[28] = '.';
+	dequake[16] = '[';
+	dequake[17] = ']';
+	for (i = 0; i < 10; i++)
+		dequake[18 + i] = '0' + i;
+	dequake[29] = '<';
+	dequake[30] = '-';
+	dequake[31] = '>';
+	for (i = 32; i < 128; i++)
+		dequake[i] = i;
+	for (i = 0; i < 128; i++)
+		dequake[i + 128] = dequake[i];
+	dequake[128] = '(';
+	dequake[129] = '=';
+	dequake[130] = ')';
+	dequake[131] = '*';
+	dequake[141] = '>';
+}
+
 /*
 =======================
 Host_InitLocal
@@ -332,6 +368,7 @@ void Host_InitLocal (void)
 
 	host_time = 1.0;		// so a think at time 0 won't get called // woods #smoothcam
 	last_angle_time = 0.0;  // JPG - smooth chasecam  // woods #smoothcam
+	Host_InitDeQuake ();	// JPG 1.05 - initialize dequake array // for #iplog woods
 }
 
 
@@ -1068,6 +1105,7 @@ void Host_Init (void)
 	SV_Init ();
 
 	LOC_PQ_Init (); // rook / woods #pqteam (added PQ to name)
+	IPLog_Init ();		// JPG 1.05 - ip address logging // woods #iplog
 
 #ifdef QSS_DATE	//avoid non-determinism.
 	Con_Printf ("Exe: " ENGINE_NAME_AND_VER "\n");
@@ -1169,6 +1207,8 @@ void Host_Shutdown(void)
 	scr_disabled_for_loading = true;
 
 	Host_WriteConfiguration ();
+
+	IPLog_WriteLog ();	// JPG 1.05 - ip loggging  // woods #iplog
 
 	NET_Shutdown ();
 

@@ -1315,6 +1315,14 @@ void Sbar_DeathmatchOverlay (void)
 	char	num[12];
 	scoreboard_t	*s;
 
+	// JPG 1.05 - check to see if we should update IP status  // woods for #iplog
+	if (iplog_size && (cl.time - cl.last_status_time > 5))
+	{
+		MSG_WriteByte(&cls.message, clc_stringcmd);
+		SZ_Print(&cls.message, "status\n");
+		cl.last_status_time = cl.time;
+	}
+
 	GL_SetCanvas (CANVAS_SCOREBOARD); //johnfitz  // woods #scoreboard
 
 	xofs = (vid.conwidth - 320) >> 1; // woods #scoreboard

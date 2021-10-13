@@ -41,6 +41,7 @@ typedef struct
 	plcolour_t shirt;
 	plcolour_t pants;
 	int		ping;
+	int		addr;			// JPG - added this // woods for #iplog
 
 	char	userinfo[8192];
 } scoreboard_t;
