@@ -197,6 +197,10 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 
 	// end woods for flagstatus parsing
 
+	if (!strcmp(str, "Your team captured the flag!\n") || // woods remove these
+		!strcmp(str, "You found a secret area!"))
+		return;
+
 	if (*str != '/' && cl.intermission)
 		flags |= CPRINT_TYPEWRITER | CPRINT_PERSIST | CPRINT_TALIGN;
 
