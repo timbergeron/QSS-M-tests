@@ -417,6 +417,15 @@ static void Con_Print (const char *txt)
 			return;
 		}
 
+		if (!strcmp(txt, "is ")) // the string directly before ghost code #ghostcode
+			cl.conflag = 3; // set flag for ghostcode
+
+		if ((cl.conflag == 3) && (strcmp(txt, "is ")))  // string before ghost number #ghostcode
+		{
+			strncpy(cl.ghostcode, txt, sizeof(cl.ghostcode)); // copy ghostcode to memory
+			cl.conflag = 0; // reset flag	
+		}
+
 		if     // other messages, exact cases
 			(
 				!strcmp(txt, "Quad Damage is wearing off\n") ||

@@ -488,6 +488,19 @@ cmd_function_t	*cmd_functions;		// possible commands to execute
 
 /*
 ============
+Ghost_List_f -- woods for ghost code disconnect memory #ghostcode
+============
+*/
+void Ghost_List_f(void)
+{
+	if (strlen(cl.ghostcode) > 1)
+		Con_Printf("your last ghostcode was %s\n", cl.ghostcode);
+	else
+		Con_Printf("no memory of ghost code\n");
+}
+
+/*
+============
 Cmd_List_f -- johnfitz
 ============
 */
@@ -591,6 +604,7 @@ Cmd_Init
 void Cmd_Init (void)
 {
 	Cmd_AddCommand ("cmdlist", Cmd_List_f); //johnfitz
+	Cmd_AddCommand ("lastid", Ghost_List_f); // woods for ghostcode memory #ghostcode
 	Cmd_AddCommand ("unalias", Cmd_Unalias_f); //johnfitz
 	Cmd_AddCommand ("unaliasall", Cmd_Unaliasall_f); //johnfitz
 
