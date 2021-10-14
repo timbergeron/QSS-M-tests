@@ -503,6 +503,18 @@ int Key_QCToNative(int code)
 ==============================================================================
 */
 
+qboolean CheckForCommand(void)  // woods added for don't have to type "say " every time you wanna say something #ezsay (joequake)
+{
+	char* s, command[256];
+
+	Q_strncpy(command, key_lines[edit_line] + 1, sizeof(command));
+	for (s = command; *s > ' '; s++)
+		;
+	*s = 0;
+
+	return (Cvar_FindVar(command) || Cmd_Exists2(command) || Cmd_AliasExists(command));
+}
+
 static void PasteToConsole (void)
 {
 	char *cbd, *p, *workline;
@@ -569,6 +581,8 @@ void Key_Console (int key)
 	switch (key)
 	{
 	case K_ENTER:
+		if (cls.state == ca_connected && !CheckForCommand()) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
+			Cbuf_AddText("say ");
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
 		Cbuf_AddText (workline + 1);	// skip the prompt

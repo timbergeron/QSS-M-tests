@@ -815,7 +815,27 @@ qboolean	Cmd_Exists (const char *cmd_name)
 	return false;
 }
 
+/*
+============
+Cmd_Exists2 -- woods #ezsay
+============
+*/
+qboolean	Cmd_Exists2(const char* cmd_name)
+{
+	cmd_function_t* cmd;
 
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+	{
+		if (!Q_strcmp(cmd_name, cmd->name))
+		{
+			//if (cmd->srctype != src_command)	//these commands only exist in certain situations... so pretend they don't exist here.
+			//	continue;
+			return true;
+		}
+	}
+
+	return false;
+}
 
 /*
 ============
