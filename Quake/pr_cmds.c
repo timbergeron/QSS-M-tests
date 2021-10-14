@@ -42,20 +42,10 @@ char *PR_GetTempString (void)
 ===============================================================================
 */
 
-static const char* PF_GetStringArg(int idx, void* userdata)
-{
-	if (userdata)
-		idx += *(int*)userdata;
-	if (idx < 0 || idx >= qcvm->argc)
-		return "";
-	return LOC_GetString(G_STRING(OFS_PARM0 + idx * 3));
-}
-
 char *PF_VarString (int	first)
 {
 	int		i;
 	static char out[1024];
-	const char *format;
 	size_t s;
 
 	out[0] = 0;
@@ -64,22 +54,13 @@ char *PF_VarString (int	first)
 	if (first >= qcvm->argc)
 		return out;
 
-	format = LOC_GetString(G_STRING((OFS_PARM0 + first * 3)));
-	if (LOC_HasPlaceholders(format))
+	for (i = first; i < qcvm->argc; i++)
 	{
-		int offset = first + 1;
-		s = LOC_Format(format, PF_GetStringArg, &offset, out, sizeof(out));
-	}
-	else
-	{
-		for (i = first; i < qcvm->argc; i++)
+		s = q_strlcat(out, G_STRING(OFS_PARM0+i*3), sizeof(out));
+		if (s >= sizeof(out))
 		{
-			s = q_strlcat(out, LOC_GetString(G_STRING(OFS_PARM0+i*3)), sizeof(out));
-			if (s >= sizeof(out))
-			{
-				Con_Warning("PF_VarString: overflow (string truncated)\n");
-				return out;
-			}
+			Con_Warning("PF_VarString: overflow (string truncated)\n");
+			return out;
 		}
 	}
 	if (s > 255)
@@ -378,9 +359,10 @@ bprint(value)
 */
 static void PF_bprint (void)
 {
-	char		*s;
+	const char		*s;
 
 	s = PF_VarString(0);
+	s = LOC_GetString(s);
 	SV_BroadcastPrintf ("%s", s);
 }
 
@@ -395,12 +377,13 @@ sprint(clientent, value)
 */
 static void PF_sprint (void)
 {
-	char		*s;
+	const char		*s;
 	client_t	*client;
 	int	entnum;
 
 	entnum = G_EDICTNUM(OFS_PARM0);
 	s = PF_VarString(1);
+	s = LOC_GetString(s);
 
 	if (entnum < 1 || entnum > svs.maxclients)
 	{
@@ -426,12 +409,13 @@ centerprint(clientent, value)
 */
 static void PF_centerprint (void)
 {
-	char		*s;
+	const char		*s;
 	client_t	*client;
 	int	entnum;
 
 	entnum = G_EDICTNUM(OFS_PARM0);
 	s = PF_VarString(1);
+	s = LOC_GetString(s);
 
 	if (entnum < 1 || entnum > svs.maxclients)
 	{
@@ -1781,15 +1765,6 @@ void PF_Fixme (void);
 //	PR_RunError ("unimplemented builtin");
 //}
 
-/*
-==============
-PF_finalefinished -- used by 2021 release.
-==============
-*/
-static void PF_finalefinished (void)
-{
-}
-
 void PR_spawnfunc_misc_model(edict_t *self)
 {
 	eval_t *val;
@@ -1899,9 +1874,6 @@ builtin_t pr_ssqcbuiltins[] =
 	PF_precache_file,
 
 	PF_sv_setspawnparms,
-
-	// 2021 release
-	PF_finalefinished,	// void() finaleFinished = #79
 };
 int pr_ssqcnumbuiltins = sizeof(pr_ssqcbuiltins)/sizeof(pr_ssqcbuiltins[0]);
 
