@@ -426,6 +426,13 @@ static void Con_Print (const char *txt)
 			cl.conflag = 0; // reset flag	
 		}
 
+		if (!strcmp(txt, "chase mode - help-chase for help\n") || // woods #observer
+			!strcmp(txt, "eyecam mode - help-chase for help\n"))
+			strncpy(cl.observer, "y", sizeof(cl.observer));
+
+		if ((!strcmp(txt, "Smoothing ")) || (!strcmp(txt, "OFF "))) // "smoothing OFF" woods #observer
+			strncpy(cl.observer, "n", sizeof(cl.observer));
+
 		if     // other messages, exact cases
 			(
 				!strcmp(txt, "Quad Damage is wearing off\n") ||

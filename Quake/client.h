@@ -339,6 +339,7 @@ typedef struct
 	char		ffa[2];				// woods for #matchhud #flagstatus
 	char		flagstatus[2];		// woods for #flagstatus
 	char		ghostcode[2];		// woods for ghost code to memory #ghostcode
+	char		observer[2];		// woods for ghost code to memory #observer
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;

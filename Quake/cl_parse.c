@@ -2373,6 +2373,8 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 						return;	// file doesn't exist
 					else
 						Cbuf_AddText("exec ctf.cfg\n");
+
+					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
 				if ((strpbrk(string, "Ã")) && (strpbrk(string, "Ò")) && (strpbrk(string, "ä"))) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
@@ -2381,6 +2383,8 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 						return;	// file doesn't exist
 					else
 						Cbuf_AddText("exec dm.cfg\n");
+
+					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
 				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods #matchhud
 					strncpy(cl.ffa, "y", sizeof(cl.ffa));

@@ -942,6 +942,13 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, 640, 400, 0, -99999, 99999);
 		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 525*s) / 1.25, 640*s, 400*s);
 		break;
+	case CANVAS_OBSERVER:    //  woods for #observer mode
+		s = (float)glwidth / vid.conwidth; //use console scale
+		s = CLAMP(1, scr_conscale.value, s);
+		// ericw -- doubled width to 640 to accommodate long keybindings
+		glOrtho (0, 640, 400, 0, -99999, 99999);
+		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 750*s) / 1.25, 640*s, 400*s);
+		break;
 	case CANVAS_SBAR:
 		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		/*if (cl.gametype == GAME_DEATHMATCH) // woods #sbarmiddle

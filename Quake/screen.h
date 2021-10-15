@@ -69,6 +69,7 @@ typedef enum {
 	CANVAS_BOTTOMLEFT,
 	CANVAS_BOTTOMLEFT2, // woods #scrping
 	CANVAS_MOD, // woods #modprint
+	CANVAS_OBSERVER, // woods #observer
 	CANVAS_BOTTOMRIGHT,
 	CANVAS_TOPRIGHT,
 	CANVAS_TOPRIGHT2, // woods #matchhud
