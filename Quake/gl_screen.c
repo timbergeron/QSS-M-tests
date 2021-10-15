@@ -988,10 +988,11 @@ void SCR_ShowFlagStatus(void)
 {
 	float z;
 	int x, y, xx, yy;
+	int teamscores;
 	GL_SetCanvas(CANVAS_TOPRIGHT3);
 
 	z = 0.20; // abandoned not at base flag (alpha)
-
+	teamscores = cl.teamgame;
 	x = 0; xx = 0; 	y = 0; 	yy = 0; // initiate
 
 	if (!strcmp(cl.ffa, "y")) // change position in ffa mode below the clock
@@ -1011,7 +1012,7 @@ void SCR_ShowFlagStatus(void)
 		yy = -5;
 	}
 
-	if (scr_match_hud.value == 1) // draw when enabled
+	if ((scr_match_hud.value == 1) && (teamscores))  // draw when enabled
 
 		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
 		{
