@@ -885,7 +885,7 @@ void Sbar_DrawFrags(void)
 		}
 
 		for (i = 0; i < 6; i++)
-			Sbar_DrawCharacter ((x + 9 + i) * 8, -24, num[i] + mask);
+			Sbar_DrawCharacter (((x + 9 + i) * 8)+3, -24, num[i] + mask);
 	}
 
 	// display frag/team colors
@@ -917,7 +917,7 @@ void Sbar_DrawFrags(void)
 	else
 	{ 
 		// draw the text
-		numscores = q_min(scoreboardlines, 4);
+		numscores = q_min(scoreboardlines, 2); // woods only show 2 scores to make room for clock
 
 		for (i = 0, x = 184; i < numscores; i++, x += 32)
 		{

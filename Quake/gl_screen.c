@@ -165,35 +165,38 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 
 	strncpy(cl.flagstatus, "no", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
-	// RED
+	if (!strpbrk(str, "ÄÅÅÅ")) // cdmod MOD print
+	{
+		// RED
 
-	if (strpbrk(str, "û") && strpbrk(str, "r") && !strpbrk(str, "b") && !strpbrk(str, "‚")) // red taken
-		strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
+		if (strpbrk(str, "û") && strpbrk(str, "r") && !strpbrk(str, "b") && !strpbrk(str, "‚")) // red taken
+			strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
 
-	if (strpbrk(str, "û") && strpbrk(str, "Ú") && !strpbrk(str, "b") && !strpbrk(str, "‚")) // red abandoned
-		strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
+		if (strpbrk(str, "û") && strpbrk(str, "Ú") && !strpbrk(str, "b") && !strpbrk(str, "‚")) // red abandoned
+			strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
 
 	// BLUE
 
-	if (strpbrk(str, "û") && strpbrk(str, "b") && !strpbrk(str, "r") && !strpbrk(str, "Ú")) // blue taken
-		strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
+		if (strpbrk(str, "û") && strpbrk(str, "b") && !strpbrk(str, "r") && !strpbrk(str, "Ú")) // blue taken
+			strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
 
-	if (strpbrk(str, "û") && strpbrk(str, "‚") && !strpbrk(str, "r") && !strpbrk(str, "Ú")) // blue abandoned
-		strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
+		if (strpbrk(str, "û") && strpbrk(str, "‚") && !strpbrk(str, "r") && !strpbrk(str, "Ú")) // blue abandoned
+			strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
 
 	// RED & BLUE
 
-	if ((strpbrk(str, "û")) && (strpbrk(str, "b")) && (strpbrk(str, "r"))) //  blue & red taken
-		strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
+		if ((strpbrk(str, "û")) && (strpbrk(str, "b")) && (strpbrk(str, "r"))) //  blue & red taken
+			strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
 
-	if ((strpbrk(str, "û")) && (strpbrk(str, "‚")) && (strpbrk(str, "Ú"))) // blue & red abandoned
-		strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
+		if ((strpbrk(str, "û")) && (strpbrk(str, "‚")) && (strpbrk(str, "Ú"))) // blue & red abandoned
+			strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
 
-	if ((strpbrk(str, "û")) && (strpbrk(str, "‚")) && (strpbrk(str, "r"))) // blue abandoned, red taken
-		strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
+		if ((strpbrk(str, "û")) && (strpbrk(str, "‚")) && (strpbrk(str, "r"))) // blue abandoned, red taken
+			strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
 
-	if ((strpbrk(str, "û")) && (strpbrk(str, "b")) && (strpbrk(str, "Ú"))) // red abandoned, blue taken
-		strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
+		if ((strpbrk(str, "û")) && (strpbrk(str, "b")) && (strpbrk(str, "Ú"))) // red abandoned, blue taken
+			strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
+	}
 
 	// end woods for flagstatus parsing
 
@@ -1012,7 +1015,7 @@ void SCR_ShowFlagStatus(void)
 		yy = -5;
 	}
 
-	if ((scr_match_hud.value == 1) && (teamscores))  // draw when enabled
+	if (scr_match_hud.value == 1 && (cl.minutes != 255))
 
 		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
 		{
