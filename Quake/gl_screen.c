@@ -88,6 +88,7 @@ cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_NONE };  // woods #matchhud
+cvar_t		scr_showspeed = {"scr_showspeed", "1",CVAR_NONE}; // woods #speed
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -550,6 +551,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_clock);
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
 	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
+	Cvar_RegisterVariable (&scr_showspeed); // woods #speed
 	//johnfitz
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
@@ -1076,6 +1078,48 @@ void SCR_ShowFlagStatus(void)
 				Draw_Pic(x, y, Draw_PicFromWad("sb_key1")); // blue
 			}
 		}
+}
+
+/*
+==============
+SCR_DrawSpeed -- woods #speed
+==============
+*/
+void SCR_DrawSpeed(void)
+{
+	char			st[64];
+	int				x, y;
+
+	GL_SetCanvas (CANVAS_SBAR2);
+	x = 0;
+	y = 18;
+
+	if (scr_showspeed.value && !cl.intermission) {
+		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
+		float	speed = VectorLength(vel);
+		float	vspeed = cl.velocity[2];
+
+		sprintf (st, "%-4.0f", speed);
+
+		if (scr_viewsize.value <= 100) 
+			if (speed > 400 && !(speed > 600)) // red
+				M_Print (x, y, st);
+			else
+				if (speed > 600)
+					M_Print2 (x, y, st); // yellow/gold
+			else
+				M_PrintWhite (x, y, st);  // white
+		
+		if (scr_viewsize.value == 110) 
+			if (speed > 400 && !(speed >600)) // red
+				M_Print (x, y, st);
+			else	
+				if (speed > 600) // // yellow/gold
+					M_Print2 (x, y, st);
+			else
+				M_PrintWhite (x, y, st); // white
+		
+	}
 }
 
 /*
@@ -1746,6 +1790,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawMatchClock(); // woods #matchhud
 		SCR_DrawMatchScores(); // woods #matchhud
 		SCR_ShowFlagStatus(); // woods #matchhud #flagstatus
+		SCR_DrawSpeed (); // woods #speed
 		SCR_DrawConsole ();
 		M_Draw ();
 	}

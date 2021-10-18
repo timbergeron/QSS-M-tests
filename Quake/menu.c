@@ -118,6 +118,16 @@ void M_Print (int cx, int cy, const char *str)
 	}
 }
 
+void M_Print2 (int cx, int cy, const char* str) // woods #speed yellow/gold numbers
+{
+	while (*str)
+	{
+		M_DrawCharacter(cx, cy, (*str) -30);
+		str++;
+		cx += 8;
+	}
+}
+
 void M_PrintWhite (int cx, int cy, const char *str)
 {
 	while (*str)
