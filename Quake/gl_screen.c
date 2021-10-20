@@ -88,7 +88,7 @@ cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_NONE };  // woods #matchhud
-cvar_t		scr_showspeed = {"scr_showspeed", "1",CVAR_NONE}; // woods #speed
+cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_NONE}; // woods #speed
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -1017,65 +1017,65 @@ void SCR_ShowFlagStatus(void)
 		yy = -5;
 	}
 
-	if (scr_match_hud.value == 1 && (cl.minutes != 255))
+	if (scr_match_hud.value == 1)
 
 		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
 		{
 			if (!strcmp(cl.flagstatus, "r")) // red taken
-				Draw_Pic(x, y, Draw_PicFromWad("sb_key2"));
+				Draw_Pic (x, y, Draw_PicFromWad ("sb_key2"));
 
 			if (!strcmp(cl.flagstatus, "x")) // red abandoned
 			{
-				glDisable(GL_ALPHA_TEST);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glDisable (GL_ALPHA_TEST);
+				glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-				Sbar_DrawPicAlpha(x, yy, Draw_PicFromWad2("sb_key2", TEXPREF_PAD | TEXPREF_NOPICMIP), z); // doesnt work
+				Sbar_DrawPicAlpha (x, yy, Draw_PicFromWad2 ("sb_key2", TEXPREF_PAD | TEXPREF_NOPICMIP), z); // doesnt work
 			}
 
 			if (!strcmp(cl.flagstatus, "b")) // blue taken
-				Draw_Pic(x, y, Draw_PicFromWad("sb_key1"));
+				Draw_Pic (x, y, Draw_PicFromWad ("sb_key1"));
 
 			if (!strcmp(cl.flagstatus, "y")) // blue abandoned
 			{
-				glDisable(GL_ALPHA_TEST);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glDisable (GL_ALPHA_TEST);
+				glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-				Sbar_DrawPicAlpha(x, yy, Draw_PicFromWad2("sb_key1", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
+				Sbar_DrawPicAlpha (x, yy, Draw_PicFromWad2 ("sb_key1", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
 			}
 
 			if (!strcmp(cl.flagstatus, "p")) //  blue & red taken
 			{
-				Draw_Pic(x, y, Draw_PicFromWad("sb_key1")); // blue
-				Draw_Pic(xx, y, Draw_PicFromWad("sb_key2")); // red
+				Draw_Pic (x, y, Draw_PicFromWad ("sb_key1")); // blue
+				Draw_Pic (xx, y, Draw_PicFromWad ("sb_key2")); // red
 			}
 
 			if (!strcmp(cl.flagstatus, "z")) // blue & red abandoned
 			{
-				glDisable(GL_ALPHA_TEST);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glDisable (GL_ALPHA_TEST);
+				glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-				Sbar_DrawPicAlpha(xx, yy, Draw_PicFromWad2("sb_key2", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
-				Sbar_DrawPicAlpha(x, yy, Draw_PicFromWad2("sb_key1", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
+				Sbar_DrawPicAlpha (xx, yy, Draw_PicFromWad2 ("sb_key2", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
+				Sbar_DrawPicAlpha (x, yy, Draw_PicFromWad2 ("sb_key1", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
 			}
 
-			if (!strcmp(cl.flagstatus, "j"))  // blue abandoned, red taken
+			if (!strcmp (cl.flagstatus, "j"))  // blue abandoned, red taken
 			{
-				Draw_Pic(xx, y, Draw_PicFromWad("sb_key2")); // red
+				Draw_Pic (xx, y, Draw_PicFromWad ("sb_key2")); // red
 
-				glDisable(GL_ALPHA_TEST);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glDisable (GL_ALPHA_TEST);
+				glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-				Sbar_DrawPicAlpha(x, yy, Draw_PicFromWad2("sb_key1", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
+				Sbar_DrawPicAlpha (x, yy, Draw_PicFromWad2 ("sb_key1", TEXPREF_PAD | TEXPREF_NOPICMIP), z);
 			}
 
 			if (!strcmp(cl.flagstatus, "k")) // red abandoned, blue taken
 			{
-				glDisable(GL_ALPHA_TEST);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glDisable (GL_ALPHA_TEST);
+				glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-				Sbar_DrawPicAlpha(xx, yy, Draw_PicFromWad2("sb_key2", TEXPREF_PAD | TEXPREF_NOPICMIP), z); // red
+				Sbar_DrawPicAlpha (xx, yy, Draw_PicFromWad2("sb_key2", TEXPREF_PAD | TEXPREF_NOPICMIP), z); // red
 
-				Draw_Pic(x, y, Draw_PicFromWad("sb_key1")); // blue
+				Draw_Pic (x, y, Draw_PicFromWad ("sb_key1")); // blue
 			}
 		}
 }
@@ -1085,7 +1085,7 @@ void SCR_ShowFlagStatus(void)
 SCR_DrawSpeed -- woods #speed
 ==============
 */
-void SCR_DrawSpeed(void)
+void SCR_DrawSpeed (void)
 {
 	char			st[64];
 	int				x, y;
@@ -1787,9 +1787,9 @@ void SCR_UpdateScreen (void)
 		SCR_DrawClock (); //johnfitz
 		SCR_ShowPing (); // woods #scrping
 		SCR_ShowPL (); // woods #scrpl
-		SCR_DrawMatchClock(); // woods #matchhud
-		SCR_DrawMatchScores(); // woods #matchhud
-		SCR_ShowFlagStatus(); // woods #matchhud #flagstatus
+		SCR_DrawMatchClock (); // woods #matchhud
+		SCR_DrawMatchScores (); // woods #matchhud
+		SCR_ShowFlagStatus (); // woods #matchhud #flagstatus
 		SCR_DrawSpeed (); // woods #speed
 		SCR_DrawConsole ();
 		M_Draw ();

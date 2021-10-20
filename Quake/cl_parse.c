@@ -2376,7 +2376,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
-				if ((strpbrk(string, "Γ")) && (strpbrk(string, "Ò")) && (strpbrk(string, "δ"))) // crmod wierd chars // woods differemt cfgs per mod #modcfg
+				if (!strncmp(string, "ΓμαξÒιξη", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
 					if (Sys_FileTime(checkname) == -1)

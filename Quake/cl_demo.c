@@ -544,7 +544,8 @@ void CL_Record_f (void)
 
 	if (c == 2)
 	{
-		Sys_mkdir("id1/demos");  //  create demos if not there
+		q_snprintf(name, sizeof(name), "%s/demos", com_gamedir); //  create demos folder if not there
+		Sys_mkdir(name);
 		q_snprintf(name, sizeof(name), "%s/demos/%s", com_gamedir, Cmd_Argv(1));  // added demos
 
 	}
