@@ -1394,7 +1394,7 @@ void SCR_ScreenShot_f (void)
 {
 	byte	*buffer;
 	char	ext[4];
-	char	imagename[16];  //johnfitz -- was [80]
+	char	imagename[28];  //johnfitz -- was [80] // woods #screenshots was 16
 	char	checkname[MAX_OSPATH];
 	int	i, quality;
 	qboolean	ok;
@@ -1432,8 +1432,8 @@ void SCR_ScreenShot_f (void)
 // find a file name to save it to
 	for (i=0; i<10000; i++)
 	{
-		q_snprintf (imagename, sizeof(imagename), "qssm%04i.%s", i, ext);	// "fitz%04i.tga" // woods #screenshots
-		q_snprintf (checkname, sizeof(checkname), "%s/screenshots/%s", com_gamedir, imagename); // woods #screenshots
+		q_snprintf (imagename, sizeof(imagename), "screenshots/qssm%04i.%s", i, ext);	// "fitz%04i.tga" // woods #screenshots
+		q_snprintf (checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
 		if (Sys_FileTime(checkname) == -1)
 			break;	// file doesn't exist
 	}
