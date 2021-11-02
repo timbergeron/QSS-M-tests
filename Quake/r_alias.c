@@ -1475,6 +1475,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	float		lheight;
 	aliashdr_t	*paliashdr;
 	lerpdata_t	lerpdata;
+	float shade; // woods (R00k) : fade light based on ambientlight
 
 	if (R_CullModelForEntity(e))
 		return;
@@ -1489,6 +1490,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	R_SetupAliasFrame (paliashdr, e, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 	R_LightPoint (e->origin);
+	shade = (((lightcolor[1] + lightcolor[2] + lightcolor[3]) / 3) / 128); // woods (R00k) : fade light based on ambientlight
 	lheight = currententity->origin[2] - lightspot[2];
 
 // set up matrix
@@ -1509,7 +1511,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	GL_DisableMultitexture ();
 	glDisable (GL_TEXTURE_2D);
 	shading = false;
-	glColor4f(0,0,0,entalpha * 0.2); // woods reduce shadow opacity
+	glColor4f(0,0,0,entalpha * shade * 0.3); // woods (R00k) : fade light based on ambientlight
 	GL_DrawAliasFrame (paliashdr, lerpdata);
 	glEnable (GL_TEXTURE_2D);
 	glDisable (GL_BLEND);
