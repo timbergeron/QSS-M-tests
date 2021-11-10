@@ -493,8 +493,12 @@ Ghost_List_f -- woods for ghost code disconnect memory #ghostcode
 */
 void Ghost_List_f(void)
 {
+	char	ghost[3];
+
+	sprintf(ghost, "%.2s", cl.ghostcode);
+
 	if (strlen(cl.ghostcode) > 1)
-		Con_Printf("your last ghostcode was %s\n", cl.ghostcode);
+		Con_Printf("your last ghostcode was %s\n", ghost);
 	else
 		Con_Printf("no memory of ghost code\n");
 }
