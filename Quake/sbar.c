@@ -1311,8 +1311,10 @@ void Sbar_DeathmatchOverlay (void)
 	qpic_t	*pic;
 	int	i, k, l;
 	int	x, y, f;
+	int w, w2; // woods for dynamic scoreboard
 	int	xofs, yofs; // woods #scoreboard
 	char	num[12];
+	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	scoreboard_t	*s;
 
 	// JPG 1.05 - check to see if we should update IP status  // woods for #iplog
@@ -1325,10 +1327,19 @@ void Sbar_DeathmatchOverlay (void)
 
 	GL_SetCanvas (CANVAS_SCOREBOARD); //johnfitz  // woods #scoreboard
 
+	if ((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
+		w = -64;
+	else
+		w = 0;
+	if ((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
+		w2 = 32;
+	else
+		w2 = 0;
+
 	xofs = (vid.conwidth - 320) >> 1; // woods #scoreboard
 	yofs = (vid.conheight - 200) >> 1; // woods #scoreboard
 
-	x = xofs + 64; // woods #scoreboard
+	x = xofs + 64 + w2; // woods #scoreboard
 	y = yofs - 20; // woods #scoreboard
 
 	//pic = Draw_CachePic ("gfx/ranking.lmp"); woods #scoreboard (remove rankings logo)
@@ -1345,14 +1356,17 @@ void Sbar_DeathmatchOverlay (void)
 
 	// woods for qrack +scoresbg #scoreboard
 
-	Draw_Fill (x - 64, y - 11, 328, 10, 16, 1);		//inside
-	Draw_Fill (x - 64, y - 12, 329, 1, 0, 1);		//Border - Top
-	Draw_Fill (x - 64, y - 12, 1, 11, 0, 1);		//Border - Left
-	Draw_Fill (x + 264, y - 12, 1, 11, 0, 1);		//Border - Right
-	Draw_Fill (x - 64, y - 1, 329, 1, 0, 1);		//Border - Bottom
-	Draw_Fill (x - 64, y - 1, 329, 1, 0, 1);		//Border - Top
+	Draw_Fill (x - 64, y - 11, 328 + w, 10, 16, 1);		//inside
+	Draw_Fill (x - 64, y - 12, 329 + w, 1, 0, 1);		//Border - Top
+	Draw_Fill (x - 64, y - 12, 1, 11, 0, 1);			//Border - Left
+	Draw_Fill (x + 264 + w, y - 12, 1, 11, 0, 1);		//Border - Right
+	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Bottom
+	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Top
 
-	Draw_String (x - 64, y - 10, "  ping  frags   name            status", 1); // woods
+	if ((cl.seconds > 0 && cl.seconds !=255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
+		Draw_String(x - 64, y - 10, "  ping  frags   name", 1); // woods
+	else
+		Draw_String (x - 64, y - 10, "  ping  frags   name            status", 1); // woods
 
 	for (i = 0; i < l; i++)
 	{
@@ -1363,15 +1377,15 @@ void Sbar_DeathmatchOverlay (void)
 
 		if (k == cl.viewentity - 1) // #scoreboard
 		{
-			Draw_Fill(x - 63, y, 328, 10, 20, .8);  // woods
+			Draw_Fill(x - 63, y, 328 + w, 10, 20, .8);  // woods
 		}
 		else
 		{
-			Draw_Fill(x - 63, y, 328, 10, 18, .8);  // woods
+			Draw_Fill(x - 63, y, 328 + w, 10, 18, .8);  // woods
 		}
 
 		Draw_Fill(x - 64, y, 1, 10, 0, 1);	//Border - Left // woods #scoreboard
-		Draw_Fill(x + 264, y, 1, 10, 0, 1);	//Border - Right // woods #scoreboard
+		Draw_Fill(x + 264 + w, y, 1, 10, 0, 1);	//Border - Right // woods #scoreboard
 
 	// draw background
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
@@ -1413,12 +1427,18 @@ void Sbar_DeathmatchOverlay (void)
 		M_PrintWhite ((x-8*4)-22, y, num); //johnfitz -- was Draw_String, changed for stretched overlays // woods centered ping #scoreboard
 
 	// draw name
-		M_PrintWhite (x+64, y, s->name); //johnfitz -- was Draw_String, changed for stretched overlays // woods changed to white #scoreboard
-
+		if ((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) // match running 0 for CRCTF, 255 for CDMOD
+		{
+			sprintf (shortname, "%.15s", s->name); // woods only show name, not 'ready' or 'afk' -- 15 characters
+			M_PrintWhite (x + 64, y, shortname); //johnfitz -- was Draw_String, changed for stretched overlays // woods changed to white #scoreboard
+		}
+		else
+		M_PrintWhite (x + 64, y, s->name); //johnfitz -- was Draw_String, changed for stretched overlays // woods changed to white #scoreboard
+		
 		y += 10;
 	}
 
-	Draw_Fill(x - 64, y, 329, 1, 0, 1);	//Border - Bottom // woods #scoreboard
+	Draw_Fill(x - 64, y, 329 + w, 1, 0, 1);	//Border - Bottom // woods #scoreboard
 
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
 
