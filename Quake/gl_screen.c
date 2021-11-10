@@ -965,9 +965,9 @@ void SCR_DrawMatchScores(void)
 				// draw number
 				sprintf(num, "%3i", f);
 
-				Sbar_DrawCharacter(((x + 1) * 8) + 4, y - 23, num[0]);
-				Sbar_DrawCharacter(((x + 2) * 8) + 4, y - 23, num[1]);
-				Sbar_DrawCharacter(((x + 3) * 8) + 4, y - 23, num[2]);
+				Sbar_DrawCharacter(((x + 1) * 8) + 7, y - 23, num[0]);
+				Sbar_DrawCharacter(((x + 2) * 8) + 7, y - 23, num[1]);
+				Sbar_DrawCharacter(((x + 3) * 8) + 7, y - 23, num[2]);
 
 				// JPG - check for self's team
 				ent = cl.viewentity - 1;

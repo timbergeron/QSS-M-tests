@@ -907,9 +907,9 @@ void Sbar_DrawFrags(void)
 
 			// draw number
 			sprintf (num, "%3i", f);
-			Sbar_DrawCharacter ((x + 1) * 8, -24, num[0]);
-			Sbar_DrawCharacter ((x + 2) * 8, -24, num[1]);
-			Sbar_DrawCharacter ((x + 3) * 8, -24, num[2]);
+			Sbar_DrawCharacter (((x + 1) * 8) + 4, -24, num[0]);
+			Sbar_DrawCharacter (((x + 2) * 8) + 4, -24, num[1]);
+			Sbar_DrawCharacter (((x + 3) * 8) + 4, -24, num[2]);
 
 			x += 4;
 		}
