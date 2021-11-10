@@ -442,6 +442,8 @@ static void Con_Print (const char *txt)
 				!strcmp(txt, "You got armor\n") ||
 				!strcmp(txt, "Ring of Shadows magic is fading\n") ||
 				!strcmp(txt, "Air supply in Biosuit expiring\n") ||
+				!strncmp(txt, "The Blue team has", 17) ||
+				!strncmp(txt, "The Red team has", 16) ||
 				!strncmp(txt, "Match ends", 10) ||
 				!strncmp(txt, "\"timelimit\" changed",19))
 		{
