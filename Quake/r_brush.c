@@ -790,6 +790,12 @@ void GL_CreateSurfaceLightmap (qmodel_t *model, msurface_t *surf)
 	int		smax, tmax;
 	byte	*base;
 
+	if (surf->flags & SURF_DRAWTILED)
+	{
+		surf->lightmaptexturenum = -1;
+		return;
+	}
+
 	smax = (surf->extents[0]>>surf->lmshift)+1;
 	tmax = (surf->extents[1]>>surf->lmshift)+1;
 
@@ -878,6 +884,10 @@ void BuildSurfaceDisplayList (msurface_t *fa)
 	//johnfitz -- removed gl_keeptjunctions code
 
 	poly->numverts = lnumverts;
+
+	//oldwater is lame. subdivide it now.
+	if ((fa->flags & SURF_DRAWTURB) && !gl_glsl_water_able)
+		GL_SubdivideSurface (fa);
 }
 
 /*
@@ -893,8 +903,6 @@ void GL_BuildModel (qmodel_t *m)
 	for (i=0 ; i<m->numsurfaces ; i++)
 	{
 		//johnfitz -- rewritten to use SURF_DRAWTILED instead of the sky/water flags
-		if (m->surfaces[i].flags & SURF_DRAWTILED)
-			continue;
 		GL_CreateSurfaceLightmap (m, m->surfaces + i);
 		BuildSurfaceDisplayList (m->surfaces + i);
 		//johnfitz
@@ -976,7 +984,7 @@ void GL_BuildLightmaps (void)
 		//johnfitz -- use texture manager
 		sprintf(name, "lightmap%07i",i);
 		lm->texture = TexMgr_LoadImage (NULL, name, LMBLOCK_WIDTH, LMBLOCK_HEIGHT,
-						SRC_LIGHTMAP, lm->data, "", (src_offset_t)lm->data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
+						SRC_LIGHTMAP, lm->data, "", (src_offset_t)lm->data, TEXPREF_LINEAR | TEXPREF_NOPICMIP | TEXPREF_PERSIST);
 		//johnfitz
 	}
 
@@ -1356,7 +1364,7 @@ void R_UploadLightmaps (void)
 			char	name[24];
 			sprintf(name, "lightmap%07i",lmap);
 			lightmaps[lmap].texture = TexMgr_LoadImage (NULL, name, LMBLOCK_WIDTH, LMBLOCK_HEIGHT,
-							SRC_LIGHTMAP, lightmaps[lmap].data, "", (src_offset_t)lightmaps[lmap].data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
+							SRC_LIGHTMAP, lightmaps[lmap].data, "", (src_offset_t)lightmaps[lmap].data, TEXPREF_LINEAR | TEXPREF_NOPICMIP | TEXPREF_PERSIST);
 
 			lightmaps[lmap].modified = false;
 			lightmaps[lmap].rectchange.l = LMBLOCK_WIDTH;
@@ -1411,7 +1419,7 @@ void R_RebuildAllLightmaps (void)
 			char	name[24];
 			sprintf(name, "lightmap%07i",i);
 			lightmaps[i].texture = TexMgr_LoadImage (NULL, name, LMBLOCK_WIDTH, LMBLOCK_HEIGHT,
-							SRC_LIGHTMAP, lightmaps[i].data, "", (src_offset_t)lightmaps[i].data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
+							SRC_LIGHTMAP, lightmaps[i].data, "", (src_offset_t)lightmaps[i].data, TEXPREF_LINEAR | TEXPREF_NOPICMIP | TEXPREF_PERSIST);
 		}
 		else
 		{
