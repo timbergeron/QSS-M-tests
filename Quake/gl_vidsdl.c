@@ -110,6 +110,7 @@ qboolean gl_glsl_able = false; //ericw
 GLint gl_max_texture_units = 0; //ericw
 qboolean gl_glsl_gamma_able = false; //ericw
 qboolean gl_glsl_alias_able = false; //ericw
+qboolean gl_glsl_water_able = false; //Spoike
 int gl_stencilbits;
 
 PFNGLMULTITEXCOORD2FARBPROC GL_MTexCoord2fFunc = NULL; //johnfitz
@@ -829,9 +830,6 @@ static void VID_Restart (void)
 	GL_SetupState ();
 	Fog_SetupState ();
 
-	//warpimages needs to be recalculated
-	TexMgr_RecalcWarpImageSize ();
-
 	//conwidth and conheight need to be recalculated
 	vid.conwidth = (scr_conwidth.value > 0) ? (int)scr_conwidth.value : (scr_conscale.value > 0) ? (int)(vid.width/scr_conscale.value) : vid.width;
 	vid.conwidth = CLAMP (320, vid.conwidth, vid.width);
@@ -1161,12 +1159,12 @@ static void GL_CheckExtensions (void)
 		Con_Warning ("texture_non_power_of_two not supported\n");
 	}
 
-	GL_CompressedTexImage2D = (gl_version_major>=2||(gl_version_major==1&&gl_version_major>=3))?(QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC) SDL_GL_GetProcAddress("glCompressedTexImage2D"):NULL;
-	gl_texture_s3tc = GL_CompressedTexImage2D && (																			   GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_compression_s3tc"));
-	gl_texture_rgtc = GL_CompressedTexImage2D && (gl_version_major >= 3													|| GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_rgtc"));
+	GL_CompressedTexImage2D = (gl_version_major>=2||(gl_version_major==1&&gl_version_minor>=3))?(QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC) SDL_GL_GetProcAddress("glCompressedTexImage2D"):NULL;
+	gl_texture_s3tc = GL_CompressedTexImage2D && (																			  GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_compression_s3tc"));
+	gl_texture_rgtc = GL_CompressedTexImage2D && (gl_version_major >= 3													   || GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_rgtc"));
 	gl_texture_bptc = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 2) || GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_bptc"));
 	gl_texture_etc2 = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_compatibility"));
-	gl_texture_astc = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
+	gl_texture_astc = GL_CompressedTexImage2D && (																			  GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
 	
 	// GLSL
 	//
