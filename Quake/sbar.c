@@ -998,7 +998,7 @@ void Sbar_DrawFace (void)
 
 		return;
 	}
-// PGM 01/19/97 - team color drawing	
+// PGM 01/19/97 - team color drawing
 
 	if ((cl.items & (IT_INVISIBILITY | IT_INVULNERABILITY))
 			== (IT_INVISIBILITY | IT_INVULNERABILITY))
