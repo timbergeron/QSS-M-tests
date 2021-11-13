@@ -998,7 +998,7 @@ void Sbar_DrawFace (void)
 
 		return;
 	}
-// PGM 01/19/97 - team color drawing
+// PGM 01/19/97 - team color drawing	
 
 	if ((cl.items & (IT_INVISIBILITY | IT_INVULNERABILITY))
 			== (IT_INVISIBILITY | IT_INVULNERABILITY))
@@ -1037,6 +1037,9 @@ void Sbar_DrawFace (void)
 	else
 		anim = 0;
 	Sbar_DrawPic (112, 0, sb_faces[f][anim]);
+
+	if (cl.time <= cl.faceanimtime) // woods for damagehue on sbar face
+	Draw_Fill(112, 24, 24, 25, 25, .2);
 }
 
 static void Sbar_Voice(int y)
