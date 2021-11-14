@@ -693,7 +693,7 @@ void SVFTE_Ack(client_t *client, int sequence)
 	client->lastacksequence = sequence;
 
 	frame = &client->frames[sequence&(client->numframes-1)];
-	if (frame->sequence >= 0)
+	if (frame->sequence == sequence)
 	{
 		frame->sequence = -1;
 		host_client->ping_times[host_client->num_pings%NUM_PING_TIMES] = qcvm->time - frame->timestamp;
@@ -1740,7 +1740,7 @@ void SV_StartSound2 (edict_t *entity, float *origin, int channel, const char *sa
 }
 void SV_StartSound (edict_t *entity, float *origin, int channel, const char *sample, int volume, float attenuation)
 {
-	SV_StartSound2 (entity, origin, channel, sample, volume, attenuation, 100, 0, 0);
+	SV_StartSound2 (entity, origin, channel, sample, volume, attenuation, 1, 0, 0);
 }
 
 /*
