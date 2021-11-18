@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // normal keys should be passed as lowercased ascii
 
 #define	K_BACKSPACE		127
+#define	K_CAPSLOCK		171 // woods #capslock
 #define	K_UPARROW		128
 #define	K_DOWNARROW		129
 #define	K_LEFTARROW		130

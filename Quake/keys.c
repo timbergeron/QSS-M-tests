@@ -62,6 +62,7 @@ keyname_t keynames[] =
 	{"DOWNARROW", K_DOWNARROW},
 	{"LEFTARROW", K_LEFTARROW},
 	{"RIGHTARROW", K_RIGHTARROW},
+	{"CAPSLOCK", K_CAPSLOCK}, // woods #capslock
 
 	{"ALT", K_ALT},
 	{"CTRL", K_CTRL},
@@ -214,7 +215,7 @@ int Key_NativeToQC(int code)
 	case K_END:				return 152;
 	case K_PAUSE:			return 153;
 	case K_KP_NUMLOCK:		return 154;
-//	case K_CAPSLOCK:		return 155;
+	case K_CAPSLOCK:		return 155; // woods enable #capslock
 //	case K_SCRLCK:			return 156;
 	case K_KP_INS:			return 157;
 	case K_KP_END:			return 158;
@@ -365,7 +366,7 @@ int Key_QCToNative(int code)
 	case 152:		return K_END;
 	case 153:		return K_PAUSE;
 	case 154:		return K_KP_NUMLOCK;
-//	case 155:		return K_CAPSLOCK;
+	case 155:		return K_CAPSLOCK; // woods #capslock
 //	case 156:		return K_SCRLCK;
 	case 157:		return K_KP_INS;
 	case 158:		return K_KP_END;
@@ -1226,6 +1227,7 @@ void Key_Init (void)
 #endif
 	consolekeys[K_MWHEELUP] = true;
 	consolekeys[K_MWHEELDOWN] = true;
+	consolekeys[K_CAPSLOCK] = true; // woods #capslock
 
 //
 // initialize menubound[]
