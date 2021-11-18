@@ -581,7 +581,7 @@ void Key_Console (int key)
 	switch (key)
 	{
 	case K_ENTER:
-		if (cls.state == ca_connected && !CheckForCommand()) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
+		if (cls.state == ca_connected && !CheckForCommand() && cl_say.value) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
 			Cbuf_AddText("say ");
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
