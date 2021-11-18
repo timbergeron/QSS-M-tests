@@ -452,12 +452,9 @@ static void Con_Print (const char *txt)
 
 	// need to terminate the conflag with end of prints to prase out numbers
 		if ((!strcmp(txt, "\n") ||	// line end
-			!strcmp(txt, " health\n") || // line end included
-			!strcmp(txt, "health\n")) && cl.conflag == 2)  // line end included
+			!strcmp(txt, " health\n")))  // line end included
 		{
 			cl.conflag = 0; // flag end of string
-			fixline = 1; // voodoo
-			return;
 		}
 
 		if (cl.conflag == 2)  // delete when flag set
@@ -494,9 +491,16 @@ static void Con_Print (const char *txt)
 				!strncmp(txt, "The Blue team has", 17) ||
 				!strncmp(txt, "The Red team has", 16) ||
 				!strncmp(txt, "Match ends", 10) ||
+			//	!strcmp(txt, " health\n") ||
 				!strncmp(txt, "\"timelimit\" changed",19))
 		{
 			fixline = 1;
+			return;
+		}
+
+		if (!strcmp(txt, " health\n"))
+		{
+			Con_Printf("\n");
 			return;
 		}
 	}

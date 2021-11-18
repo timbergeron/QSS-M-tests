@@ -897,11 +897,11 @@ void M_Net_Draw (void)
 
 	f = 32;
 
-	if (ipxAvailable)
+	/*if (ipxAvailable)   // woods this is not needed
 		p = Draw_CachePic ("gfx/netmen3.lmp");
 	else
 		p = Draw_CachePic ("gfx/dim_ipx.lmp");
-	M_DrawTransPic (72, f, p);
+	M_DrawTransPic (72, f, p);*/
 
 	f += 19;
 	if (ipv4Available || ipv6Available)
