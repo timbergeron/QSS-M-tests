@@ -84,6 +84,7 @@ cvar_t		scr_sbaralpha = {"scr_sbaralpha", "0.75", CVAR_ARCHIVE};
 cvar_t		scr_conwidth = {"scr_conwidth", "0", CVAR_ARCHIVE};
 cvar_t		scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
+cvar_t		scr_crosshaircolor = {"scr_crosshaircolor", "0", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
@@ -547,6 +548,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_conwidth);
 	Cvar_RegisterVariable (&scr_conscale);
 	Cvar_RegisterVariable (&scr_crosshairscale);
+	Cvar_RegisterVariable (&scr_crosshaircolor); // woods #crosshair
 	Cvar_RegisterVariable (&scr_showfps);
 	Cvar_RegisterVariable (&scr_clock);
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
@@ -1275,22 +1277,61 @@ void SCR_DrawLoading (void)
 
 /*
 ==============
-SCR_DrawCrosshair -- johnfitz
+SCR_DrawCrosshair -- johnfitz -- woods major change #crosshair
 ==============
 */
 void SCR_DrawCrosshair (void)
 {
+	int x;
+
 	if (!crosshair.value)
 		return;
 
 	GL_SetCanvas (CANVAS_CROSSHAIR);
+
+	x = 0;
+
+	if (scr_crosshaircolor.value == 0)
+		x = 254;
+	if (scr_crosshaircolor.value == 1)
+		x = 192;
+	if (scr_crosshaircolor.value == 2)
+		x = 251;
+	if (scr_crosshaircolor.value == 3)
+		x = 208;
+
+	if (crosshair.value == 1)
+		Draw_Fill(-1, 1, 2, 2, x, 1); // simple dot
 	if (crosshair.value == 2)
-		Draw_Character (-4, -4, 'Ž'); //0,0 is center of viewport     // woods for color, replace +
-	else
-		Draw_Character (-4, -4, '.'); //0,0 is center of viewport	  // woods replace +
+	{ 
+		Draw_Fill(-1, 7, 1, 8, x, 1);//  SOUTH
+		Draw_Fill(4, 2, 8, 1, x, 1); //  WEST
+		Draw_Fill(-5, 2, -8, 1, x, 1); // EAST
+		Draw_Fill(-1, -2, 1, -8, x, 1); // NORTH
+	}
+	if (crosshair.value == 3)
+	{
+		Draw_Fill(0, -6, 1, 17, x, 1); // vertical
+		Draw_Fill(-8, 2, 17, 1, x, 1); //  horizontal
+	}
+	if (crosshair.value == 4)
+	{
+		Draw_Fill(-1, -6, 3, 17, x, 1); // vertical (thicker)
+		Draw_Fill(-8, 1, 17, 3, x, 1); //  horizontal (thicker)
+	}
+	if (crosshair.value == 5)
+	{
+		Draw_Fill(-2, 0, 4, 4, 0, 1); // simple dot (black bg)
+		Draw_Fill(-1, 1, 2, 2, x, 1); // simple dot
+	}
+	if (crosshair.value == 6)
+	{
+		Draw_Fill(-2, -7, 5, 19, 0, 1); // vertical (black bg)
+		Draw_Fill(-9, 0, 19, 5, 0, 1); //  horizontal (black bg)
+		Draw_Fill(-1, -6, 3, 17, x, 1); // vertical (thicker)
+		Draw_Fill(-8, 1, 17, 3, x, 1); //  horizontal (thicker)
+	}
 }
-
-
 
 //=============================================================================
 
