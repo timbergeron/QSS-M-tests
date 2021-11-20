@@ -1301,7 +1301,7 @@ void SCR_DrawCrosshair (void)
 		x = 208;
 
 	if (crosshair.value == 1)
-		Draw_Fill(-2, 1, 3, 3, x, 1); // simple dot
+		Draw_Fill(-1, 1, 2, 2, x, 1); // simple dot
 	if (crosshair.value == 2)
 	{ 
 		Draw_Fill(-1, 7, 1, 8, x, 1);//  SOUTH
@@ -1311,25 +1311,25 @@ void SCR_DrawCrosshair (void)
 	}
 	if (crosshair.value == 3)
 	{
-		Draw_Fill(-1, -6, 1, 17, x, 1); // vertical
-		Draw_Fill(-9, 2, 17, 1, x, 1); //  horizontal
+		Draw_Fill(0, -6, 1, 17, x, 1); // vertical
+		Draw_Fill(-8, 2, 17, 1, x, 1); //  horizontal
 	}
 	if (crosshair.value == 4)
 	{
-		Draw_Fill(-2, -6, 3, 17, x, 1); // vertical (thicker)
-		Draw_Fill(-9, 1, 17, 3, x, 1); //  horizontal (thicker)
+		Draw_Fill(-1, -6, 3, 17, x, 1); // vertical (thicker)
+		Draw_Fill(-8, 1, 17, 3, x, 1); //  horizontal (thicker)
 	}
 	if (crosshair.value == 5)
 	{
-		Draw_Fill(-3, 0, 5, 5, 0, 1); // simple dot (black bg)
-		Draw_Fill(-2, 1, 3, 3, x, 1); // simple dot
+		Draw_Fill(-2, 0, 4, 4, 0, 1); // simple dot (black bg)
+		Draw_Fill(-1, 1, 2, 2, x, 1); // simple dot
 	}
 	if (crosshair.value == 6)
 	{
-		Draw_Fill(-3, -7, 5, 19, 0, 1); // vertical (black bg)
-		Draw_Fill(-10, 0, 19, 5, 0, 1); //  horizontal (black bg)
-		Draw_Fill(-2, -6, 3, 17, x, 1); // vertical (thicker)
-		Draw_Fill(-9, 1, 17, 3, x, 1); //  horizontal (thicker)
+		Draw_Fill(-2, -7, 5, 19, 0, 1); // vertical (black bg)
+		Draw_Fill(-9, 0, 19, 5, 0, 1); //  horizontal (black bg)
+		Draw_Fill(-1, -6, 3, 17, x, 1); // vertical (thicker)
+		Draw_Fill(-8, 1, 17, 3, x, 1); //  horizontal (thicker)
 	}
 }
 
