@@ -1638,9 +1638,9 @@ invalid:	Con_Printf ("TexMgr_ReloadImage: invalid source for %s\n", glt->name);
 		{
 			glt->shirt = shirt;
 			glt->pants = pants;
-		}
+		}/*
 		else
-			Con_Printf ("TexMgr_ReloadImage: can't colormap a non SRC_INDEXED texture: %s\n", glt->name);
+			Con_Printf ("TexMgr_ReloadImage: can't colormap a non SRC_INDEXED texture: %s\n", glt->name);*/
 	}
 
 //
