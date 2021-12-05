@@ -2373,8 +2373,10 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 						return;	// file doesn't exist
 					else
 						Cbuf_AddText("exec ctf.cfg\n");
-
-					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
+				}
+				if (!strcmp(string, "ClanRing CRCTF v3.5\n"))  // woods #observerhud
+				{
+					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
 				}
 				if (!strncmp(string, "ΓμαξÒιξη", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{

@@ -500,6 +500,40 @@ void Sbar_SortFrags (void)
 	}
 }
 
+/*
+===============
+Sbar_SortFrags_Obs -- woods for vertical upwards sorting #observerhud
+===============
+*/
+void Sbar_SortFrags_Obs(void)
+{
+	int		i, j, k;
+
+// sort by frags
+	scoreboardlines = 0;
+	for (i = 0; i < cl.maxclients; i++)
+	{
+		if (cl.scores[i].name[0])
+		{
+			fragsort[scoreboardlines] = i;
+			scoreboardlines++;
+		}
+	}
+
+	for (i = 0; i < scoreboardlines; i++)
+	{
+		for (j = 0; j < scoreboardlines - 1 - i; j++)
+		{
+			if (cl.scores[fragsort[j]].frags > cl.scores[fragsort[j+1]].frags) // woods '>'
+			{
+				k = fragsort[j];
+				fragsort[j] = fragsort[j+1];
+				fragsort[j+1] = k;
+			}
+		}
+	}
+}
+
 /* JPG - added this for teamscores in default status bar // woods #pqteam
 ==================
 Sbar_SortTeamFrags

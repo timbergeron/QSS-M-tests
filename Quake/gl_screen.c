@@ -913,11 +913,6 @@ void SCR_DrawMatchScores(void)
 	else
 		return;
 
-	// woods to do for FFA teamscores
-	//	if ((!teamscores) && (!strcmp(cl.ffa, "y"))) // if ctf ffa, it will
-	//		Sbar_SortFrags_CTF(); // only show 2 scores for blue and red without 'match' teams
-
-
 	// draw the text
 	l = scoreboardlines <= 4 ? scoreboardlines : 4;
 
@@ -983,6 +978,62 @@ void SCR_DrawMatchScores(void)
 	}
 	else
 		return;
+}
+
+/*
+=======================
+SCR_ShowObsFrags -- added by woods #observerhud
+=======================
+*/
+
+void SCR_ShowObsFrags(void)
+{
+
+	int	i, k, x, y, f, numlines;
+	char	num[12];
+	float	scale; //johnfitz
+	scoreboard_t* s;
+	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
+
+
+	if (!strcmp(cl.observer, "y"))
+	{ 
+		GL_SetCanvas(CANVAS_BOTTOMLEFT);
+
+		scale = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0); //johnfitz
+
+		//MAX_SCOREBOARDNAME = 32, so total width for this overlay plus sbar is 632, but we can cut off some i guess
+		if (glwidth / scale < 512 || scr_viewsize.value >= 120) //johnfitz -- test should consider scr_sbarscale
+			return;
+
+		// scores
+		Sbar_SortFrags_Obs ();
+
+		x = 7;
+		y = 150; //johnfitz -- start at the right place
+		for (; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
+		{
+			k = fragsort[i];
+			s = &cl.scores[k];
+			if (!s->name[0])
+				continue;
+
+			// colors
+			Draw_FillPlayer(x, y + 1, 40, 4, s->shirt, 1);
+			Draw_FillPlayer(x, y + 5, 40, 3, s->pants, 1);
+
+			// number
+			f = s->frags;
+			sprintf(num, "%3i", f);
+			Draw_Character(x + 8, y, num[0]);
+			Draw_Character(x + 16, y, num[1]);
+			Draw_Character(x + 24, y, num[2]);
+
+			// name
+			sprintf(shortname, "%.15s", s->name); // woods only show name, not 'ready' or 'afk' -- 15 characters
+			M_PrintWhite(x + 50, y, shortname);
+		}
+	}
 }
 
 /*
@@ -1284,7 +1335,7 @@ void SCR_DrawCrosshair (void)
 {
 	int x;
 
-	if (!crosshair.value)
+	if (!crosshair.value || (!strcmp(cl.observer, "y")))
 		return;
 
 	GL_SetCanvas (CANVAS_CROSSHAIR);
@@ -1831,6 +1882,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawMatchClock (); // woods #matchhud
 		SCR_DrawMatchScores (); // woods #matchhud
 		SCR_ShowFlagStatus (); // woods #matchhud #flagstatus
+		SCR_ShowObsFrags (); // woods #observerhud
 		SCR_DrawSpeed (); // woods #speed
 		SCR_DrawConsole ();
 		M_Draw ();

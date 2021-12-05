@@ -591,8 +591,8 @@ Draw_Character -- johnfitz -- modified to call Draw_CharacterQuad
 */
 void Draw_Character (int x, int y, int num)
 {
-	if (y <= -8)
-		return;			// totally off screen
+	/*if (y <= -8)
+		return;			// totally off screen*/ // woods alllow for negative drawing for #observerhud
 
 	num &= 255;
 
