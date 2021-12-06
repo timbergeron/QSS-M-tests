@@ -694,6 +694,10 @@ qboolean Host_FilterTime (float time)
 	//johnfitz
 
 	host_frametime = realtime - oldrealtime;
+
+	if (cls.demoplayback) // woods #demotools
+		host_frametime *= CLAMP(0, cl_demospeed.value, 20);
+
 	oldrealtime = realtime;
 
 	//johnfitz -- host_timescale is more intuitive than host_framerate
