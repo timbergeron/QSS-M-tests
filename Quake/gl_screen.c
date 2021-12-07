@@ -202,12 +202,9 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 
 	// end woods for flagstatus parsing
 
-	if (!strcmp(str, "You found a secret area!") || // woods remove these
-		!strcmp(str, "Your team captured the flag!\n") ||
-		!strcmp(str, "Your flag was captured!\n") ||
-		!strcmp(str, "Enemy æìáç has been returned to base!") ||
+	if (!strcmp(str, "Your team captured the flag!\n") || // woods remove these
+		!strcmp(str, "You found a secret area!") ||
 		!strcmp(str, "Your ÆÌÁÇ has been taken!") ||
-		!strcmp(str, "Your team has the enemy ÆÌÁÇ!") ||
 		!strcmp(str, "Your æìáç has been returned to base!"))
 		return;
 
