@@ -1016,7 +1016,7 @@ void SCR_ShowObsFrags(void)
 
 		x = 7;
 		y = 150; //johnfitz -- start at the right place
-		for (; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
+		for (i = 0; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
 		{
 			k = fragsort[i];
 			s = &cl.scores[k];
