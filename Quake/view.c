@@ -390,7 +390,7 @@ void V_BonusFlash_f (void)
 
 /*
 =============
-CShift_ParseWorldspawn
+CShift_ParseWorldspawn //infin -- woods tag
 
 called at map load
 =============
