@@ -415,6 +415,7 @@ void R_NewMap (void)
 	Sky_NewMap (); //johnfitz -- skybox in worldspawn
 	Fog_NewMap (); //johnfitz -- global fog in worldspawn
 	R_ParseWorldspawn (); //ericw -- wateralpha, lavaalpha, telealpha, slimealpha in worldspawn
+	CShift_ParseWorldspawn(); //infin -- cshiftwater, cshiftslime, cshiftlava in worldspawn
 
 	LOC_LoadLocations ();//ProQuake   rook / woods #pqteam
 
