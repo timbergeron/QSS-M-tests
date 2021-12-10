@@ -1561,7 +1561,10 @@ void SCR_ScreenShot_f (void)
 		ok = false;
 
 	if (ok)
+	{ 
 		Con_Printf ("Wrote %s\n", imagename);
+		S_LocalSound("player/tornoff2.wav"); // woods add sound to screenshot
+	}
 	else
 		Con_Printf ("SCR_ScreenShot_f: Couldn't create %s\n", imagename);
 
