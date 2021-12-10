@@ -390,6 +390,67 @@ void V_BonusFlash_f (void)
 
 /*
 =============
+CShift_ParseWorldspawn
+
+called at map load
+=============
+*/
+
+void CShift_ParseWorldspawn(void)
+{
+	char key[128], value[4096];
+	const char* data;
+
+	// reset default cshift values
+	cshift_water = (cshift_t){ {130,80,50}, 128 };
+	cshift_slime = (cshift_t){ {0,25,5}, 150 };
+	cshift_lava = (cshift_t){ {255,80,0}, 150 };
+
+	data = COM_Parse(cl.worldmodel->entities);
+	if (!data)
+		return; // error
+	if (com_token[0] != '{')
+		return; // error
+	while (1)
+	{
+		data = COM_Parse(data);
+		if (!data)
+			return; // error
+		if (com_token[0] == '}')
+			break; // end of worldspawn
+		if (com_token[0] == '_')
+			q_strlcpy(key, com_token + 1, sizeof(key));
+		else
+			q_strlcpy(key, com_token, sizeof(key));
+		while (key[0] && key[strlen(key) - 1] == ' ') // remove trailing spaces
+			key[strlen(key) - 1] = 0;
+		data = COM_Parse(data);
+		if (!data)
+			return; // error
+		q_strlcpy(value, com_token, sizeof(value));
+
+		if (!strcmp("cshiftwater", key))
+		{
+			sscanf(value, "%d %d %d", &cshift_water.destcolor[0], &cshift_water.destcolor[1], &cshift_water.destcolor[2]);
+			cshift_water.percent = 128;
+		}
+
+		if (!strcmp("cshiftslime", key))
+		{
+			sscanf(value, "%d %d %d", &cshift_slime.destcolor[0], &cshift_slime.destcolor[1], &cshift_slime.destcolor[2]);
+			cshift_slime.percent = 150;
+		}
+
+		if (!strcmp("cshiftlava", key))
+		{
+			sscanf(value, "%d %d %d", &cshift_lava.destcolor[0], &cshift_lava.destcolor[1], &cshift_lava.destcolor[2]);
+			cshift_lava.percent = 150;
+		}
+	}
+}
+
+/*
+=============
 V_SetContentsColor
 
 Underwater, lava, etc each has a color shift
