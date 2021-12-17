@@ -746,7 +746,7 @@ void CL_RelinkEntities (void)
 
 		// woods deadbodyfilter default
 
-		if ((ent->model->type == mod_alias))
+		if ((ent->model->type == mod_alias) && cl.gametype == GAME_DEATHMATCH)
 			if (ent->frame == 49 || ent->frame == 60 || ent->frame == 69 || ent->frame == 84 || ent->frame == 93 || ent->frame == 102)
 				continue;
 
