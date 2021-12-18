@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "quakedef.h"
+#include "client.h" // woods #smartafk
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
 #if defined(USE_SDL2)
 #include <SDL2/SDL.h>
@@ -31,6 +32,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #else
 #include "SDL.h"
 #endif
+
+static char	afk_name[16]; // woods #smartafk
+static char	normalname[16]; // woods #smartafk
 
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through
@@ -1170,9 +1174,23 @@ void IN_SendKeyEvents (void)
 #if defined(USE_SDL2)
 		case SDL_WINDOWEVENT:
 			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
+			{
 				S_UnblockSound();
+				if (cl.teamgame && !strcmp(cl.observer, "n")) // woods #smartafk
+				Cmd_ExecuteString("say_team back", src_command);
+				Cvar_Set("name", afk_name);
+			}
+
 			else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+			{
 				S_BlockSound();
+				if (cl.teamgame && !strcmp(cl.observer, "n")) // woods #smartafk
+				Cmd_ExecuteString("say_team alt-tabbed", src_command);
+				Q_strcpy(afk_name, cl_name.string);
+				sprintf(normalname, "%.11s", cl_name.string);
+				strcat(normalname, " AFK");
+				Cvar_Set("name", normalname);
+			}
 			else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 			{
 				vid.width = event.window.data1;
