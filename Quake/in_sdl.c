@@ -1176,9 +1176,10 @@ void IN_SendKeyEvents (void)
 			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 			{
 				S_UnblockSound();
+				if (cl.gametype == GAME_DEATHMATCH)
+					Cvar_Set("name", afk_name);
 				if (cl.teamgame && !strcmp(cl.observer, "n")) // woods #smartafk
-				Cmd_ExecuteString("say_team back", src_command);
-				Cvar_Set("name", afk_name);
+					Cmd_ExecuteString("say_team back", src_command);
 			}
 
 			else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
@@ -1186,10 +1187,13 @@ void IN_SendKeyEvents (void)
 				S_BlockSound();
 				if (cl.teamgame && !strcmp(cl.observer, "n")) // woods #smartafk
 				Cmd_ExecuteString("say_team alt-tabbed", src_command);
-				Q_strcpy(afk_name, cl_name.string);
-				sprintf(normalname, "%.11s", cl_name.string);
-				strcat(normalname, " AFK");
-				Cvar_Set("name", normalname);
+				if (cl.gametype == GAME_DEATHMATCH)
+				{
+					Q_strcpy(afk_name, cl_name.string);
+					sprintf(normalname, "%.11s", cl_name.string);
+					strcat(normalname, " AFK");
+					Cvar_Set("name", normalname);
+				}
 			}
 			else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 			{
