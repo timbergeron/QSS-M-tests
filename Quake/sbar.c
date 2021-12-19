@@ -1379,7 +1379,7 @@ void Sbar_DeathmatchOverlay (void)
 	x = xofs + 64 + w2; // woods #scoreboard
 	y = yofs - 20; // woods #scoreboard
 
-	//pic = Draw_CachePic ("gfx/ranking.lmp"); woods #scoreboard (remove rankings logo)
+	pic = Draw_CachePic ("gfx/ranking.lmp"); //woods #scoreboard (remove rankings logo)
 	//M_DrawPic ((320-pic->width)/2, 8, pic); woods #scoreboard
 
 // scores
