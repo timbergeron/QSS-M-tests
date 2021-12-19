@@ -1401,9 +1401,9 @@ void Sbar_DeathmatchOverlay (void)
 	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Top
 
 	if ((cl.seconds > 0 && cl.seconds !=255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
-		Draw_String(x - 64, y - 10, "  ping  frags   name", 1); // woods
+		Draw_String(x - 64, y - 10, "  ping  frags   name"); // woods
 	else
-		Draw_String (x - 64, y - 10, "  ping  frags   name            status", 1); // woods
+		Draw_String (x - 64, y - 10, "  ping  frags   name            status"); // woods
 
 	for (i = 0; i < l; i++)
 	{
