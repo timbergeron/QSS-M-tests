@@ -21,7 +21,7 @@ make -f Makefile.w64 clean
 export QSS_CFLAGS="-DQSS_VERSION=`QSS-M v13` -DQSS_REVISION=`git rev-parse HEAD` -DQSS_DATE=`git log -1 --date=short --format=%cd`"
 export QSS_LDFLAGS=""
 make clean
-make $MAKEARGS
+make USE_SDL2=1 $MAKEARGS
 mv quakespasm QSS-M-l64
 zip -9j QSS-M-l64.zip ../LICENSE.txt ../Quakespasm.html quakespasm.pak ../Quakespasm.txt ../Quakespasm-Spiked.txt ../Quakespasm-Music.txt ../QSS-M-Revision.txt QSS-M-l64
 make clean
