@@ -68,6 +68,9 @@ qboolean	con_debuglog = false;
 
 qboolean	con_initialized;
 
+static char	typingname[16]; // woods #typing
+static char basicname[16]; // woods #typing
+
 
 /*
 ================
@@ -102,6 +105,40 @@ const char *Con_Quakebar (int len)
 
 /*
 ================
+Con_Typing_Status -- woods #typing (shows ... when a player is tpying by changing their name during event)
+================
+*/
+void Con_Typing_Status(void)
+{
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected) && (!strcmp(cl.omi, "y") != true))
+	{
+		if (!strcmp(cl.typing, "a"))
+			return;
+
+		Q_strcpy(basicname, cl_name.string);
+		sprintf(typingname, "%.11s", cl_name.string);
+		strcat(typingname, " ...");
+		Cvar_Set("name", typingname);
+		strncpy(cl.typing, "a", sizeof(cl.typing)); // set flag for already yes [a]ctive
+	}
+}
+
+/*
+================
+Con_Typing_Status_Off -- woods #typing
+================
+*/
+void Con_Typing_Status_Off(void)
+{
+		if (!strcmp(cl.typing, "a"))
+		{
+			Cvar_Set("name", basicname);
+			strncpy(cl.typing, "n", sizeof(cl.typing)); // set flag [n]ot active
+		}
+}
+
+/*
+================
 Con_ToggleConsole_f
 ================
 */
@@ -109,6 +146,8 @@ extern int history_line; //johnfitz
 
 void Con_ToggleConsole_f (void)
 {
+	Con_Typing_Status_Off (); // woods #typing
+
 	if (key_dest == key_console/* || (key_dest == key_game && con_forcedup)*/)
 	{
 		key_lines[edit_line][1] = 0;	// clear any typing
@@ -214,7 +253,6 @@ void Con_ClearNotify (void)
 		con_times[i] = 0;
 }
 
-
 /*
 ================
 Con_MessageMode_f
@@ -226,6 +264,7 @@ static void Con_MessageMode_f (void)
 		return;
 	chat_team = false;
 	key_dest = key_message;
+	Con_Typing_Status(); // woods #typing
 }
 
 /*
@@ -239,8 +278,8 @@ static void Con_MessageMode2_f (void)
 		return;
 	chat_team = true;
 	key_dest = key_message;
+	Con_Typing_Status (); // woods #typing
 }
-
 
 /*
 ================
