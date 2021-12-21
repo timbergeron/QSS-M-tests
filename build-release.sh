@@ -8,6 +8,15 @@ export SOURCE_DATE_EPOCH=$(git log -1 --date=short --format=%ct)
 
 cd Quake/
 
+# Make win32
+export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
+export QSS_LDFLAGS=""
+make -f Makefile.w32 clean
+./build_cross_win32-sdl2.sh $MAKEARGS
+mv quakespasm.exe QSS-M-w32.exe
+zip -9j QSS-M-w32.zip ../Windows/codecs/x86/*.dll ../LICENSE.txt ../Quakespasm.html quakespasm.pak ../Quakespasm.txt ../Quakespasm-Spiked.txt ../Quakespasm-Music.txt ../Windows/SDL2/lib/SDL2.dll ../QSS-M-Revision.txt QSS-M-w32.exe
+make -f Makefile.w32 clean
+
 # Make win64
 export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
 export QSS_LDFLAGS=""
