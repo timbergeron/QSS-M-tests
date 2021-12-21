@@ -9,7 +9,7 @@ export SOURCE_DATE_EPOCH=$(git log -1 --date=short --format=%ct)
 cd Quake/
 
 # Make win64
-export QSS_CFLAGS="-DQSS_VERSION=`QSS-M v13` -DQSS_REVISION=`git rev-parse HEAD` -DQSS_DATE=`git log -1 --date=short --format=%cd`"
+export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
 export QSS_LDFLAGS=""
 make -f Makefile.w64 clean
 ./build_cross_win64-sdl2.sh $MAKEARGS
@@ -18,7 +18,7 @@ zip -9j QSS-M-w64.zip ../Windows/codecs/x64/*.dll ../LICENSE.txt ../Quakespasm.h
 make -f Makefile.w64 clean
 
 # Make Linux64
-export QSS_CFLAGS="-DQSS_VERSION=`QSS-M v13` -DQSS_REVISION=`git rev-parse HEAD` -DQSS_DATE=`git log -1 --date=short --format=%cd`"
+export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
 export QSS_LDFLAGS=""
 make clean
 make USE_SDL2=1 $MAKEARGS
