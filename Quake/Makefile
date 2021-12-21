@@ -270,7 +270,9 @@ OBJS := strlcat.o \
 	cl_parse.o \
 	cl_tent.o \
 	console.o \
+	iplog.o \
 	keys.o \
+	location.o \
 	menu.o \
 	sbar.o \
 	view.o \
