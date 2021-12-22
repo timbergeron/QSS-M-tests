@@ -1,8 +1,12 @@
 Mission: 
-Qrack is the defaco engine for compeittive DM & CTF Net Quake. This project aims to add features from Qrack and more modern engines to the Quakespawm Spiked Code Base
+Qracks is the defaco engine for compeittive DM & CTF Net Quake. This project aims to add features from Qrack and more modern engines to the Quakespawm Spiked Code Base
 
 Credits:
-JPG, r00k, Spike for QSS, QS Authors, Fitz, MH, Joe, and many more
+JPG, r00k, Spike for QSS, Ozkan Sezer & Eric Wasylishen (Quakespasm), John Fitzgibbons (FitzQuake), Baker (MarkV), MH, Joe, & many more
+
+
+[ALL QSS-M Commands & Variables (Google Sheets)](https://docs.google.com/spreadsheets/d/1ubOuromaXpZonfL-eJ-KA7q-xSRiBBuSvxahzF-uFOY/edit?usp=sharing)
+
 
 ## new cvars
 
@@ -19,6 +23,20 @@ Shifts viewmodel orange tint on damage taken to let the player know they have re
 
 Values: 0 - no shift, 1 - shift on. 
 (Default: 1)
+
+### `cl_demospeed`
+
+Increase the playback speed of a playing demo.  
+
+Values: 1 - normal speed, 20 - max speed. 
+(Default: 1)
+
+### `cl_say`
+
+All non-commands typed into console translate to talk (say)
+
+Values: 0 - normal, 1 - toggle on. 
+(Default: 0)
 
 ### `cl_truelightning`
 
@@ -49,7 +67,7 @@ Values: 1 - show, 0 - no show.
 
 ### `scr_showspeed`
 
-Displays drawing of your current speed near sbar. 
+Displays drawing of your current speed near sbar (MarkV)
 
 Values: 1 - show, 0 - no show. 
 (Default: 0)
@@ -58,9 +76,9 @@ Values: 1 - show, 0 - no show.
 
 ### `crosshair`
 
-Sets types of crosshairs. Changed the deault '+' to a '•'. It uses the default character from conchars and can be adjusted with scr_crosshairscale. 
+Sets types of crosshairs. 
 
-Values: 0 - no crosshair, 1 - white, 2 - colored
+Values: 0 - no crosshair, 1 - sqr, 2 - open +, 3 - basic +, 4 - bold +, 5 - outline sqr, 6 - outline bold +
 (Default: 1)
 
 ### `scr_clock`
@@ -68,6 +86,13 @@ Values: 0 - no crosshair, 1 - white, 2 - colored
 Displays realtime clock in lower right corner.
 
 Values: 1 - leveltime, 2 - for 12 hr realtime clock, 3 - for 24 hr realtime clock.
+(Default: 0)
+
+### `scr_crosshaircolor`
+
+Allows you to change the crosshair color from white to yellow, red, black, or blue. 
+
+Values: 0 - white, 1 - yellow, 2 - red, 3 - blue, 4 - black
 (Default: 0)
 
 ## new commands
@@ -94,10 +119,13 @@ Typing record with no arguments will record a demo to id1/demos with the map nam
 * pq confilter+ (no pickup messages printed at all like ezquake)
 * pq iplog
 * pq doubleeyes default (mh version)
-* type into console to talk (say)
+* name appended with AFK when application loses focus and team notify during match via message
+* name appended with ... when typing in console with ezsay or in messagemode
 * ctf/dm auto config loading -- searches for ctf.cfg or dm.cfg and will load either if connected to server type
 * end of match auto config loading -- searches for end.cfg and will load at match end (say gg, stats, color, ready status, etc)
 * deadbodyfilter default
+* automaticaly report to team next quad time when expire sound begins, auto report powerup grabs in CRMOD
+* show all connected clients sorted by score in lower left in observer/eyecam mode
 * [custom particle set](https://github.com/timbergeron/qss-particles)
 
 ## other changes features/behaviors
@@ -105,7 +133,7 @@ Typing record with no arguments will record a demo to id1/demos with the map nam
 * lightflicker from flags and quad glows OFF
 * padding around scr_fps and scr_clock
 * removed muzzleflash, rocketlight, rocket explosion light
-* scoreboard pings show white text as normal; adjust font scale to console font size; qrack +showscores frame
+* scoreboard pings white text; font scale to console font; qrack +showscores frame. Remove Ready during match
 * default sbar in the middle
 * center print messages adjust to size of console scale
 * eliminated colored lit lighting on weapon/player models that obscured view
@@ -118,7 +146,15 @@ Typing record with no arguments will record a demo to id1/demos with the map nam
 * removed all background ambient sounds for multiplayer
 * +showscores enabled in demo playback
 * moved observer center print to sbar area so as to not block view
-* r_shadows opacity reduced
+* r_shadows based on ambient light (r00k)
+* fixed external vis files loading when connected to servers
+* read RGB values from worldspawn to customize the colour of cshift contents water, slime, lava (infiniti)
+* removed useless CTF centerprint flag messages
+* make CAPSLOCK bindable and disable capslock in messagemode
+* sound back to DOSquake levels (seadondo) from proquake
+* remove IPX from menu
+* sbar face damagehue
+* screenshots play a sound
 
 ## TODO / MAYBE
 
@@ -129,8 +165,8 @@ Typing record with no arguments will record a demo to id1/demos with the map nam
 * per map models (different flags for different maps)
 * web download
 * disable windows key
-* non-focus notify
-
+* notready report like qw
+* ezsay command exclusion list
 ```
-timbergeron@gmail.com
+timbergeron@gmail.com | discord.quakeone.com (woods#3451)
 ```
