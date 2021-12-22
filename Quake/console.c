@@ -130,11 +130,14 @@ Con_Typing_Status_Off -- woods #typing
 */
 void Con_Typing_Status_Off(void)
 {
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
+	{
 		if (!strcmp(cl.typing, "a"))
 		{
 			Cvar_Set("name", basicname);
 			strncpy(cl.typing, "n", sizeof(cl.typing)); // set flag [n]ot active
 		}
+	}
 }
 
 /*
@@ -146,7 +149,8 @@ extern int history_line; //johnfitz
 
 void Con_ToggleConsole_f (void)
 {
-	Con_Typing_Status_Off (); // woods #typing
+	if ((cls.state == ca_connected))
+		Con_Typing_Status_Off (); // woods #typing
 
 	if (key_dest == key_console/* || (key_dest == key_game && con_forcedup)*/)
 	{

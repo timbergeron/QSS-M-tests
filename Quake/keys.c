@@ -582,13 +582,15 @@ void Key_Console (int key)
 	size_t		len;
 	char *workline = key_lines[edit_line];
 
-	Con_Typing_Status (); // woods #typing
+	if ((cls.state == ca_connected))
+		Con_Typing_Status (); // woods #typing
 
 	switch (key)
 	{
 	case K_ENTER:
 		if (cls.state == ca_connected && !CheckForCommand() && cl_say.value) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
 			Cbuf_AddText("say ");
+		if ((cls.state == ca_connected))
 			Con_Typing_Status_Off (); // woods #typing
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
@@ -859,7 +861,8 @@ void Key_Message (int key)
 
 	case K_ESCAPE:
 		Key_EndChat ();
-		Con_Typing_Status_Off(); // woods #typing
+		if ((cls.state == ca_connected))
+			Con_Typing_Status_Off(); // woods #typing
 		return;
 
 	case K_BACKSPACE:

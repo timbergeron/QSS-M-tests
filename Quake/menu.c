@@ -3126,7 +3126,8 @@ M_ToggleMenu_f
 void M_ToggleMenu (int mode)
 {
 
-	Con_Typing_Status_Off(); // woods #typing
+	if ((cls.state == ca_connected))
+		Con_Typing_Status_Off(); // woods #typing
 
 	if (cls.menu_qcvm.extfuncs.m_toggle)
 	{
