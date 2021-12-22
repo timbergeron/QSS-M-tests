@@ -463,14 +463,13 @@ void CL_Record_f (void)
 		{
 			// woods added time for demo output
 			char	str[24];
-			int hours, minutes, seconds, day, month, year, mapid;
+			int hours, minutes, day, month, year;
 			SYSTEMTIME systime;
 			char m[3] = "am";   // took out am
 
 			GetLocalTime(&systime);
 			hours = systime.wHour;
 			minutes = systime.wMinute;
-			seconds = systime.wSecond;
 			day = systime.wDay;
 			month = systime.wMonth;
 			year = systime.wYear;
@@ -485,7 +484,7 @@ void CL_Record_f (void)
 			Sys_mkdir(name); 
 
 			sprintf(str, "%i-%i-%i-%i%i%i%s", month, day, year, hours, minutes / 10, minutes % 10, m);
-			q_snprintf(name, sizeof(name), "%s/demos/%s-%s", com_gamedir, cl.mapname, str, Cmd_Argv(1));  // woods added demos folder, added args for demo output info
+			q_snprintf(name, sizeof(name), "%s/demos/%s-%s", com_gamedir, cl.mapname, str);  // woods added demos folder, added args for demo output info
 		}
 		else if (c == 2)
 		{

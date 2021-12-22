@@ -47,6 +47,7 @@ qboolean	keydown[MAX_KEYS];
 
 void Con_Typing_Status (void); // woods #typing
 void Con_Typing_Status_Off (void); // woods #typing
+qboolean	Cmd_Exists2(const char* cmd_name); // woods #ezsay
 
 typedef struct
 {

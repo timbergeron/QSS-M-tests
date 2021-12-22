@@ -77,6 +77,12 @@ int			glx, gly, glwidth, glheight;
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display
 
+void Sbar_SortFrags(void); // woods #scrping
+void Sbar_SortTeamFrags(void); // woods #matchhud
+int	Sbar_ColorForMap(int m); // woods #matchhud
+void Sbar_DrawCharacter(int x, int y, int num); // woods #matchhud
+void Sbar_SortFrags_Obs(void); // woods #observerhud
+
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
@@ -651,14 +657,13 @@ void SCR_DrawClock (void)
 
 	else if (scr_clock.value == 2)
 	{
-		int hours, minutes, seconds;
+		int hours, minutes;
 		SYSTEMTIME systime;
 		char m[3] = "am";   // took out am
 
 		GetLocalTime(&systime);
 		hours = systime.wHour;
 		minutes = systime.wMinute;
-		seconds = systime.wSecond;
 
 		if (hours >= 12)
 			strcpy(m, "pm"); // took out pm
@@ -703,7 +708,7 @@ SCR_Show_Ping -- added by woods #scrping
 void SCR_ShowPing(void)
 {
 	int	i, k, l;
-	int	x, y, f;
+	int	x, y;
 	char	num[12];
 	scoreboard_t* s;
 
@@ -805,21 +810,15 @@ SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match c
 void SCR_DrawMatchClock(void)
 
 {
-	int				i, k, l;
-	int				top, bottom;
-	int				x, y, f;
-	int				xofs;
+	int				l;
 	char			num[12];
-	scoreboard_t* s;
-	int				teamscores, colors, ent, minutes, seconds, mask; // JPG - added these
+	int				teamscores, minutes, seconds; // JPG - added these
 	int				match_time; // JPG - added this
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
 
 	l = scoreboardlines <= 4 ? scoreboardlines : 4;
-
-	x = 23;
 
 	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM
 	{
@@ -833,11 +832,9 @@ void SCR_DrawMatchClock(void)
 	{
 		if (l > 2)
 			l = 2;
-		mask = 0;
 		if (cl.minutes == 254)
 		{
 			strcpy(num, "    SD");
-			mask = 128;
 		}
 		else if (cl.minutes || cl.seconds)
 		{
@@ -852,8 +849,6 @@ void SCR_DrawMatchClock(void)
 				minutes = match_time / 60;
 				seconds = match_time - 60 * minutes;
 				sprintf(num, "%3d:%02d", minutes, seconds);
-				if (!minutes)
-					mask = 128;
 			}
 		}
 		else
@@ -904,11 +899,8 @@ void SCR_DrawMatchScores(void)
 	int				i, k, l;
 	int				top, bottom;
 	int				x, y, f;
-	int				xofs;
 	char			num[12];
-	scoreboard_t* s;
-	int				teamscores, colors, ent, minutes, seconds, mask; // JPG - added these
-	int				match_time; // JPG - added this
+	int				teamscores, colors;// JPG - added these
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
@@ -971,10 +963,6 @@ void SCR_DrawMatchScores(void)
 				Sbar_DrawCharacter(((x + 2) * 8) + 7, y - 23, num[1]);
 				Sbar_DrawCharacter(((x + 3) * 8) + 7, y - 23, num[2]);
 
-				// JPG - check for self's team
-				ent = cl.viewentity - 1;
-
-
 				x += 0;
 				y += 9;  // woods to position vertical
 			}
@@ -994,7 +982,7 @@ SCR_ShowObsFrags -- added by woods #observerhud
 void SCR_ShowObsFrags(void)
 {
 
-	int	i, k, x, y, f, numlines;
+	int	i, k, x, y, f;
 	char	num[12];
 	float	scale; //johnfitz
 	scoreboard_t* s;
@@ -1051,11 +1039,9 @@ void SCR_ShowFlagStatus(void)
 {
 	float z;
 	int x, y, xx, yy;
-	int teamscores;
 	GL_SetCanvas(CANVAS_TOPRIGHT3);
 
 	z = 0.20; // abandoned not at base flag (alpha)
-	teamscores = cl.teamgame;
 	x = 0; xx = 0; 	y = 0; 	yy = 0; // initiate
 
 	if (!strcmp(cl.ffa, "y")) // change position in ffa mode below the clock
@@ -1155,11 +1141,11 @@ void SCR_DrawSpeed (void)
 	if (scr_showspeed.value && !cl.intermission) {
 		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
 		float	speed = VectorLength(vel);
-		float	vspeed = cl.velocity[2];
 
 		sprintf (st, "%-4.0f", speed);
 
-		if (scr_viewsize.value <= 100) 
+		if (scr_viewsize.value <= 100)
+		{ 
 			if (speed > 400 && !(speed > 600)) // red
 				M_Print (x, y, st);
 			else
@@ -1167,8 +1153,10 @@ void SCR_DrawSpeed (void)
 					M_Print2 (x, y, st); // yellow/gold
 			else
 				M_PrintWhite (x, y, st);  // white
+		}
 		
-		if (scr_viewsize.value == 110) 
+		if (scr_viewsize.value == 110)
+		{
 			if (speed > 400 && !(speed >600)) // red
 				M_Print (x, y, st);
 			else	
@@ -1176,6 +1164,7 @@ void SCR_DrawSpeed (void)
 					M_Print2 (x, y, st);
 			else
 				M_PrintWhite (x, y, st); // white
+			 }
 		
 	}
 }

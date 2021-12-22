@@ -860,10 +860,10 @@ void Sbar_DrawFrags(void)
 	int				i, k, l;
 	int				top, bottom;
 	int				numscores;
-	int				x, y, f;
+	int				x, f;
 	char			num[12];
 	scoreboard_t* s;
-	int				teamscores, colors, ent, minutes, seconds, mask; // JPG - added these
+	int				teamscores, colors, minutes, seconds, mask; // JPG - added these
 	int				match_time; // JPG - added this
 
 	// JPG - check to see if we should sort teamscores instead
@@ -878,7 +878,6 @@ void Sbar_DrawFrags(void)
 	l = scoreboardlines <= 4 ? scoreboardlines : 4;
 
 	x = 23;
-	y = vid.height - 1;
 
 	// display match clock
 	// 
@@ -1345,7 +1344,7 @@ Sbar_DeathmatchOverlay
 */
 void Sbar_DeathmatchOverlay (void)
 {
-	qpic_t	*pic;
+	//qpic_t	*pic; // woods disabled
 	int	i, k, l;
 	int	x, y, f;
 	int w, w2; // woods for dynamic scoreboard
@@ -1379,7 +1378,7 @@ void Sbar_DeathmatchOverlay (void)
 	x = xofs + 64 + w2; // woods #scoreboard
 	y = yofs - 20; // woods #scoreboard
 
-	pic = Draw_CachePic ("gfx/ranking.lmp"); //woods #scoreboard (remove rankings logo)
+	//pic = Draw_CachePic ("gfx/ranking.lmp"); //woods #scoreboard (remove rankings logo)
 	//M_DrawPic ((320-pic->width)/2, 8, pic); woods #scoreboard
 
 // scores
