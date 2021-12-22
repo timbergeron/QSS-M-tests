@@ -1136,15 +1136,18 @@ void SCR_DrawSpeed (void)
 
 	GL_SetCanvas (CANVAS_SBAR2);
 	x = 0;
-	y = 18;
+
+	if (scr_viewsize.value <= 100)
+		y = 18;
+	else if (scr_viewsize.value == 110)
+		y = 43;
 
 	if (scr_showspeed.value && !cl.intermission) {
 		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
 		float	speed = VectorLength(vel);
 
 		sprintf (st, "%-4.0f", speed);
-
-		if (scr_viewsize.value <= 100)
+		if (scr_viewsize.value <= 110)
 		{ 
 			if (speed > 400 && !(speed > 600)) // red
 				M_Print (x, y, st);
@@ -1154,18 +1157,6 @@ void SCR_DrawSpeed (void)
 			else
 				M_PrintWhite (x, y, st);  // white
 		}
-		
-		if (scr_viewsize.value == 110)
-		{
-			if (speed > 400 && !(speed >600)) // red
-				M_Print (x, y, st);
-			else	
-				if (speed > 600) // // yellow/gold
-					M_Print2 (x, y, st);
-			else
-				M_PrintWhite (x, y, st); // white
-			 }
-		
 	}
 }
 
