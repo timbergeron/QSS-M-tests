@@ -1180,7 +1180,7 @@ void IN_SendKeyEvents (void)
 					S_UnblockSound();
 					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
 						Cvar_Set("name", afk_name);
-					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
+					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
 						Cmd_ExecuteString("say_team back", src_command);
 				}
 			}
