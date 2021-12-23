@@ -2382,6 +2382,10 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					strncpy(cl.omi, "y", sizeof(cl.omi)); 
 				}
+				if ((strstr(string, "νατγθ μεξητθ") || (strstr(string, "match length"))))  // woods vote match length auto vote yes
+				{
+					Cbuf_AddText("yes\n");
+				}
 				if (!strncmp(string, "ΓμαξÒιξη", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
