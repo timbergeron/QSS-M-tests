@@ -792,7 +792,7 @@ void Char_Console (int key)
 	size_t		len;
 	char *workline = key_lines[edit_line];
 
-	if (key_linepos < MAX_CHAT_SIZE-1) // woods limit chat to 45 server limit  #chatlimit
+	if (key_linepos < MAX_CHAT_SIZE) // woods limit chat to 45 server limit  #chatlimit
 	{
 		qboolean endpos = !workline[key_linepos];
 
