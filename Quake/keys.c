@@ -853,7 +853,7 @@ void Key_Message (int key)
 			Cbuf_AddText ("say_team \"");
 		else
 			Cbuf_AddText ("say \"");
-		Cbuf_AddText(strlwr(chat_buffer)); // woods #capslock (disable caps in messagemode)
+		Cbuf_AddText(q_strlwr(chat_buffer)); // woods #capslock (disable caps in messagemode)
 		Cbuf_AddText("\"\n");
 
 		Key_EndChat ();
