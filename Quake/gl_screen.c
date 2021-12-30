@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // screen.c -- master for refresh, status bar, console, chat, notify, etc
 
+#include "time.h"
 #include "quakedef.h"
 
 /*
@@ -658,12 +659,12 @@ void SCR_DrawClock (void)
 	else if (scr_clock.value == 2)
 	{
 		int hours, minutes;
-		SYSTEMTIME systime;
-		char m[3] = "am";   // took out am
+		time_t systime;
+		char m[2] = "am";   // took out am
 
-		GetLocalTime(&systime);
-		hours = systime.wHour;
-		minutes = systime.wMinute;
+		struct tm loct =*localtime(&systime);
+		hours = loct.tm_hour;
+		minutes = loct.tm_min;
 
 		if (hours >= 12)
 			strcpy(m, "pm"); // took out pm
@@ -677,12 +678,12 @@ void SCR_DrawClock (void)
 	else if (scr_clock.value == 3)
 	{
 		int hours, minutes, seconds;
-		SYSTEMTIME systime;
+		time_t systime;
 
-		GetLocalTime(&systime);
-		hours = systime.wHour;
-		minutes = systime.wMinute;
-		seconds = systime.wSecond;
+		struct tm loct =*localtime(&systime);
+		hours = loct.tm_hour;
+		minutes = loct.tm_min;
+		seconds = loct.tm_sec;
 
 		sprintf(str, "%i:%i%i:%i%i", hours % 12, minutes / 10, minutes % 10, seconds / 10, seconds % 10);
 	}
