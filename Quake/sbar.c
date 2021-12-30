@@ -463,8 +463,6 @@ void Sbar_DrawNum (int x, int y, int num, int digits, int color)
 
 //=============================================================================
 
-int		fragsort[MAX_SCOREBOARD];
-int		scoreboardlines;
 
 /*
 ===============
