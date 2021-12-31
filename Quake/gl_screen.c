@@ -659,33 +659,19 @@ void SCR_DrawClock (void)
 	else if (scr_clock.value == 2)
 	{
 		int hours, minutes;
-		time_t systime;
-		char m[3] = "am";   // took out am
-
+		time_t systime = time(0);
 		struct tm loct =*localtime(&systime);
-		hours = loct.tm_hour;
-		minutes = loct.tm_min;
 
-		if (hours >= 12)
-			strcpy(m, "pm"); // took out pm
-		hours = hours % 12;
-		if (hours == 0)
-			hours = 12;
-
-		sprintf(str, "%i:%i%i %s", hours, minutes / 10, minutes % 10, m);  // removed seconds, not needed | woods 9/1/2021
+		strptime(str, "%I:%M %p", &loct);
 	}
 
 	else if (scr_clock.value == 3)
 	{
 		int hours, minutes, seconds;
-		time_t systime;
-
+		time_t systime = time(0);
 		struct tm loct =*localtime(&systime);
-		hours = loct.tm_hour;
-		minutes = loct.tm_min;
-		seconds = loct.tm_sec;
 
-		sprintf(str, "%i:%i%i:%i%i", hours % 12, minutes / 10, minutes % 10, seconds / 10, seconds % 10);
+		strptime(str, "%T", &loct);
 	}
 
 	else

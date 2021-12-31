@@ -463,29 +463,16 @@ void CL_Record_f (void)
 		if (c == 1)
 		{
 			// woods added time for demo output
-			char	str[24];
+			char str[24];
 			int hours, minutes, day, month, year;
-			time_t systime;
-			char m[3] = "am";   // took out am
-
+			time_t systime = time(0);
 			struct tm loct =*localtime(&systime);
-			hours = loct.tm_hour;
-			minutes = loct.tm_min;
-			day = loct.tm_mday;
-			month = loct.tm_mon;
-			year = loct.tm_year;
-
-			if (hours > 12)
-				strcpy(m, "pm"); // took out pm
-			hours = hours % 12;
-			if (hours == 0)
-				hours = 12;
 
 			q_snprintf(name, sizeof(name), "%s/demos", com_gamedir); //  create demos folder if not there
 			Sys_mkdir(name); 
 
-			sprintf(str, "%i-%i-%i-%i%i%i%s", month, day, year + 1900, hours, minutes / 10, minutes % 10, m);
-			q_snprintf(name, sizeof(name), "%s/demos/%s-%s", com_gamedir, cl.mapname, str);  // woods added demos folder, added args for demo output info
+			strptime(str, "%m-%d-%Y-%H.%M.%S", &loct);
+			q_snprintf(name, sizeof(name), "%s/demos/%s_%s", com_gamedir, cl.mapname, str);  // woods added demos folder, added args for demo output info
 		}
 		else if (c == 2)
 		{
