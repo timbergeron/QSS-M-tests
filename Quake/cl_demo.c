@@ -471,7 +471,7 @@ void CL_Record_f (void)
 			q_snprintf(name, sizeof(name), "%s/demos", com_gamedir); //  create demos folder if not there
 			Sys_mkdir(name); 
 
-			strptime(str, "%m-%d-%Y-%H.%M.%S", &loct);
+			strftime(str, 24, "%m-%d-%Y-%H.%M.%S", &loct);
 			q_snprintf(name, sizeof(name), "%s/demos/%s_%s", com_gamedir, cl.mapname, str);  // woods added demos folder, added args for demo output info
 		}
 		else if (c == 2)
