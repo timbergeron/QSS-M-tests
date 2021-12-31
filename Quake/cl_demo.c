@@ -464,7 +464,6 @@ void CL_Record_f (void)
 		{
 			// woods added time for demo output
 			char str[24];
-			int hours, minutes, day, month, year;
 			time_t systime = time(0);
 			struct tm loct =*localtime(&systime);
 
