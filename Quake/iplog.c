@@ -301,7 +301,7 @@ void IPLog_DumpTree (iplog_t *root, FILE *f)
 			*ch = ' ';
 	}
 
-	fprintf(f, "%-16s  %s %s\n", address, name);
+	fprintf(f, "%-16s  %s\n", address, name); // woods 
 
 	IPLog_DumpTree(root->children[1], f);
 }
