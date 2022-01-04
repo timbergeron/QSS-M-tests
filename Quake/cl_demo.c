@@ -194,7 +194,7 @@ void CL_Stop_f (void)
 	fclose (cls.demofile);
 	cls.demofile = NULL;
 	cls.demorecording = false;
-	Con_Printf ("Completed demo\n");
+	Con_Printf ("completed demo\n");
 
 	Cvar_SetROM(cl_recordingdemo.name, "");
 	
@@ -553,7 +553,7 @@ void CL_Record_f (void)
 
 	Cvar_SetROM(cl_recordingdemo.name, name);
 
-	Con_Printf ("recording to %s.\n", name);
+	Con_Printf ("demo recording\n", name);
 	cls.demofile = fopen (name, "wb");
 	if (!cls.demofile)
 	{
