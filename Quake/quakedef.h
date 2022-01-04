@@ -373,5 +373,8 @@ extern qboolean		isDedicated;
 
 extern int		minimum_memory;
 
+int		scoreboardlines; // woods #scrping -- moved here for gl_screen.c and sbar.c
+int		fragsort[MAX_SCOREBOARD]; // woods #scrping -- moved here for gl_screen.c and sbar.c
+
 #endif	/* QUAKEDEFS_H */
 

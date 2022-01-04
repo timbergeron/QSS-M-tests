@@ -684,9 +684,6 @@ void SCR_DrawClock (void)
 	scr_tileclear_updates = 0;
 }
 
-int		scoreboardlines; // woods #scrping
-int		fragsort[MAX_SCOREBOARD]; // woods #scrping
-
 /*
 ==================
 SCR_Show_Ping -- added by woods #scrping

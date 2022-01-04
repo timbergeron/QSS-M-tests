@@ -461,11 +461,6 @@ void Sbar_DrawNum (int x, int y, int num, int digits, int color)
 	}
 }
 
-//=============================================================================
-
-int		frag_sort[MAX_SCOREBOARD];
-int		scoreboard_lines;
-
 /*
 ===============
 Sbar_SortFrags
@@ -476,25 +471,25 @@ void Sbar_SortFrags (void)
 	int		i, j, k;
 
 // sort by frags
-	scoreboard_lines = 0;
+	scoreboardlines = 0;
 	for (i = 0; i < cl.maxclients; i++)
 	{
 		if (cl.scores[i].name[0])
 		{
-			frag_sort[scoreboard_lines] = i;
-			scoreboard_lines++;
+			fragsort[scoreboardlines] = i;
+			scoreboardlines++;
 		}
 	}
 
-	for (i = 0; i < scoreboard_lines; i++)
+	for (i = 0; i < scoreboardlines; i++)
 	{
-		for (j = 0; j < scoreboard_lines - 1 - i; j++)
+		for (j = 0; j < scoreboardlines - 1 - i; j++)
 		{
-			if (cl.scores[frag_sort[j]].frags < cl.scores[frag_sort[j+1]].frags)
+			if (cl.scores[fragsort[j]].frags < cl.scores[fragsort[j+1]].frags)
 			{
-				k = frag_sort[j];
-				frag_sort[j] = frag_sort[j+1];
-				frag_sort[j+1] = k;
+				k = fragsort[j];
+				fragsort[j] = fragsort[j+1];
+				fragsort[j+1] = k;
 			}
 		}
 	}
@@ -510,25 +505,25 @@ void Sbar_SortFrags_Obs(void)
 	int		i, j, k;
 
 // sort by frags
-	scoreboard_lines = 0;
+	scoreboardlines = 0;
 	for (i = 0; i < cl.maxclients; i++)
 	{
 		if (cl.scores[i].name[0])
 		{
-			frag_sort[scoreboard_lines] = i;
-			scoreboard_lines++;
+			fragsort[scoreboardlines] = i;
+			scoreboardlines++;
 		}
 	}
 
-	for (i = 0; i < scoreboard_lines; i++)
+	for (i = 0; i < scoreboardlines; i++)
 	{
-		for (j = 0; j < scoreboard_lines - 1 - i; j++)
+		for (j = 0; j < scoreboardlines - 1 - i; j++)
 		{
-			if (cl.scores[frag_sort[j]].frags > cl.scores[frag_sort[j+1]].frags) // woods '>'
+			if (cl.scores[fragsort[j]].frags > cl.scores[fragsort[j+1]].frags) // woods '>'
 			{
-				k = frag_sort[j];
-				frag_sort[j] = frag_sort[j+1];
-				frag_sort[j+1] = k;
+				k = fragsort[j];
+				fragsort[j] = fragsort[j+1];
+				fragsort[j+1] = k;
 			}
 		}
 	}
@@ -544,23 +539,23 @@ void Sbar_SortTeamFrags(void)
 	int		i, j, k;
 
 	// sort by frags
-	scoreboard_lines = 0;
+	scoreboardlines = 0;
 	for (i = 0; i < 14; i++)
 	{
 		if (cl.teamscores[i].colors)
 		{
-			frag_sort[scoreboard_lines] = i;
-			scoreboard_lines++;
+			fragsort[scoreboardlines] = i;
+			scoreboardlines++;
 		}
 	}
 
-	for (i = 0; i < scoreboard_lines; i++)
-		for (j = 0; j < scoreboard_lines - 1 - i; j++)
-			if (cl.teamscores[frag_sort[j]].frags < cl.teamscores[frag_sort[j + 1]].frags)
+	for (i = 0; i < scoreboardlines; i++)
+		for (j = 0; j < scoreboardlines - 1 - i; j++)
+			if (cl.teamscores[fragsort[j]].frags < cl.teamscores[fragsort[j + 1]].frags)
 			{
-				k = frag_sort[j];
-				frag_sort[j] = frag_sort[j + 1];
-				frag_sort[j + 1] = k;
+				k = fragsort[j];
+				fragsort[j] = fragsort[j + 1];
+				fragsort[j + 1] = k;
 			}
 }
 
@@ -875,7 +870,7 @@ void Sbar_DrawFrags(void)
 		Sbar_SortFrags();
 
 	// draw the text
-	l = scoreboard_lines <= 4 ? scoreboard_lines : 4;
+	l = scoreboardlines <= 4 ? scoreboardlines : 4;
 
 	x = 23;
 
@@ -927,7 +922,7 @@ void Sbar_DrawFrags(void)
 	{
 		for (i = 0; i < l; i++)
 		{
-			k = frag_sort[i];
+			k = fragsort[i];
 			colors = cl.teamscores[k].colors;
 
 			top = (colors & 15) << 4;
@@ -950,11 +945,11 @@ void Sbar_DrawFrags(void)
 	else
 	{ 
 		// draw the text
-		numscores = q_min(scoreboard_lines, 2); // woods only show 2 scores to make room for clock
+		numscores = q_min(scoreboardlines, 2); // woods only show 2 scores to make room for clock
 
 		for (i = 0, x = 184; i < numscores; i++, x += 32)
 		{
-			s = &cl.scores[frag_sort[i]];
+			s = &cl.scores[fragsort[i]];
 			if (!s->name[0])
 				continue;
 
@@ -971,7 +966,7 @@ void Sbar_DrawFrags(void)
 			Sbar_DrawCharacter (x + 28, -24, num[2]);
 
 			// brackets
-			if (frag_sort[i] == cl.viewentity - 1)
+			if (fragsort[i] == cl.viewentity - 1)
 			{
 				Sbar_DrawCharacter (x + 6, -24, 16);
 				Sbar_DrawCharacter (x + 32, -24, 17);
@@ -1385,7 +1380,7 @@ void Sbar_DeathmatchOverlay (void)
 	Sbar_SortFrags ();
 
 // draw the text
-	l = scoreboard_lines;
+	l = scoreboardlines;
 
 	//x = 80; //johnfitz -- simplified becuase some positioning is handled elsewhere woods #scoreboard
 	//y = 40; woods #scoreboard
@@ -1406,7 +1401,7 @@ void Sbar_DeathmatchOverlay (void)
 
 	for (i = 0; i < l; i++)
 	{
-		k = frag_sort[i];
+		k = fragsort[i];
 		s = &cl.scores[k];
 		if (!s->name[0])
 			continue;
@@ -1511,23 +1506,23 @@ void Sbar_MiniDeathmatchOverlay (void)
 	numlines = (scr_viewsize.value >= 110) ? 3 : 6; //johnfitz
 
 	//find us
-	for (i = 0; i < scoreboard_lines; i++)
-		if (frag_sort[i] == cl.viewentity - 1)
+	for (i = 0; i < scoreboardlines; i++)
+		if (fragsort[i] == cl.viewentity - 1)
 			break;
-	if (i == scoreboard_lines) // we're not there
+	if (i == scoreboardlines) // we're not there
 		i = 0;
 	else // figure out start
 		i = i - numlines/2;
-	if (i > scoreboard_lines - numlines)
-		i = scoreboard_lines - numlines;
+	if (i > scoreboardlines - numlines)
+		i = scoreboardlines - numlines;
 	if (i < 0)
 		i = 0;
 
 	x = 324;
 	y = (scr_viewsize.value >= 110) ? 24 : 0; //johnfitz -- start at the right place
-	for ( ; i < scoreboard_lines && y <= 48; i++, y+=8) //johnfitz -- change y init, test, inc
+	for ( ; i < scoreboardlines && y <= 48; i++, y+=8) //johnfitz -- change y init, test, inc
 	{
-		k = frag_sort[i];
+		k = fragsort[i];
 		s = &cl.scores[k];
 		if (!s->name[0])
 			continue;
