@@ -1364,8 +1364,9 @@ SCR_SetUpToDrawConsole
 void SCR_SetUpToDrawConsole (void)
 {
 	//johnfitz -- let's hack away the problem of slow console when host_timescale is <0
-	extern cvar_t host_timescale;
-	float timescale;
+	extern float frame_timescale; // woods #demorewind (Baker Fitzquake Mark V)
+	//extern cvar_t host_timescale;
+	//float timescale;
 	//johnfitz
 
 	Con_CheckResize ();
@@ -1386,19 +1387,21 @@ void SCR_SetUpToDrawConsole (void)
 	else
 		scr_conlines = 0; //none visible
 
-	timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
+	//timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
 
 	if (scr_conlines < scr_con_current)
 	{
 		// ericw -- (glheight/600.0) factor makes conspeed resolution independent, using 800x600 as a baseline
-		scr_con_current -= scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
+		scr_con_current -= scr_conspeed.value * host_frametime / frame_timescale; //johnfitz -- timescale // woods #demorewind (Baker Fitzquake Mark V)
+	//	scr_con_current -= scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines > scr_con_current)
 			scr_con_current = scr_conlines;
 	}
 	else if (scr_conlines > scr_con_current)
 	{
 		// ericw -- (glheight/600.0)
-		scr_con_current += scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
+		scr_con_current += scr_conspeed.value * (glheight / 600.0) * host_frametime / frame_timescale; //johnfitz -- timescale // woods #demorewind (Baker Fitzquake Mark V)
+		//scr_con_current += scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines < scr_con_current)
 			scr_con_current = scr_conlines;
 	}

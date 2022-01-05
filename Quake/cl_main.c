@@ -429,7 +429,8 @@ void CL_DecayLights (void)
 	dlight_t	*dl;
 	float		time;
 
-	time = cl.time - cl.oldtime;
+	time = fabs(cl.time - cl.oldtime); // To make sure it stays forward oriented time // woods #demorewind (Baker Fitzquake Mark V)
+	//time = cl.time - cl.oldtime;
 	if (time < 0)
 		return;
 
@@ -456,13 +457,15 @@ should be put at.
 */
 float	CL_LerpPoint (void)
 {
+	extern qboolean bumper_on; // woods #demorewind (Baker Fitzquake Mark V)
 	float	f, frac;
 
 	f = cl.mtime[0] - cl.mtime[1];
 
 	if (!f || cls.timedemo || (sv.active && !host_netinterval))
 	{
-		cl.time = cl.mtime[0];
+		cl.time = cl.ctime = cl.mtime[0]; // woods #demorewind (Baker Fitzquake Mark V)
+	//	cl.time = cl.mtime[0];
 		return 1;
 	}
 
@@ -472,18 +475,27 @@ float	CL_LerpPoint (void)
 		f = 0.1;
 	}
 
-	frac = (cl.time - cl.mtime[1]) / f;
+	frac = (cl.ctime - cl.mtime[1]) / f;
+	//frac = (cl.time - cl.mtime[1]) / f;
 
 	if (frac < 0)
 	{
 		if (frac < -0.01)
-			cl.time = cl.mtime[1];
+			if (bumper_on) // woods #demorewind (Baker Fitzquake Mark V)
+			{
+				cl.ctime = cl.mtime[1];
+			}
+			else cl.time = cl.ctime = cl.mtime[1];
+			//cl.time = cl.mtime[1];
 		frac = 0;
 	}
 	else if (frac > 1)
 	{
 		if (frac > 1.01)
-			cl.time = cl.mtime[0];
+			if (bumper_on) // woods #demorewind (Baker Fitzquake Mark V)
+				cl.ctime = cl.mtime[0];
+			else cl.time = cl.ctime = cl.mtime[0]; // Here is where we get foobar'd
+		//	cl.time = cl.mtime[0];
 		frac = 1;
 	}
 
@@ -1132,6 +1144,11 @@ int CL_ReadFromServer (void)
 
 	cl.oldtime = cl.time;
 	cl.time += host_frametime;
+
+	if (!cls.demorewind || !cls.demoplayback)	// by joe // woods #demorewind (Baker Fitzquake Mark V)
+		cl.ctime += host_frametime;
+	else
+		cl.ctime -= host_frametime;
 
 	do
 	{

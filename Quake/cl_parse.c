@@ -2024,7 +2024,8 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	ent->trailstate = NULL;
 	ent->emitstate = NULL;
 	ent->model = cl.model_precache[ent->baseline.modelindex];
-	ent->lerpflags |= LERP_RESETANIM; //johnfitz -- lerping
+	ent->lerpflags |= LERP_RESETANIM | LERP_RESETMOVE; //johnfitz -- lerping  Baker: Added LERP_RESETMOVE to list // woods #demorewind (Baker Fitzquake Mark V)
+	//ent->lerpflags |= LERP_RESETANIM; //johnfitz -- lerping
 	ent->frame = ent->baseline.frame;
 
 	ent->skinnum = ent->baseline.skin;
@@ -2946,11 +2947,17 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_killedmonster:
+			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
+				cl.stats[STAT_MONSTERS]--;
+			else
 			cl.stats[STAT_MONSTERS]++;
 			cl.statsf[STAT_MONSTERS] = cl.stats[STAT_MONSTERS];
 			break;
 
 		case svc_foundsecret:
+			if (cls.demoplayback && cls.demorewind)  // woods #demorewind (Baker Fitzquake Mark V)
+				cl.stats[STAT_SECRETS]--;
+			else
 			cl.stats[STAT_SECRETS]++;
 			cl.statsf[STAT_SECRETS] = cl.stats[STAT_SECRETS];
 			break;
@@ -2974,12 +2981,18 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_intermission:
+			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
+				cl.intermission = 0;
+			else
 			cl.intermission = 1;
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen
 			break;
 
 		case svc_finale:
+			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
+				cl.intermission = 0;
+			else
 			cl.intermission = 2;
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen
@@ -2989,6 +3002,9 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_cutscene:
+			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
+				cl.intermission = 0;
+			else
 			cl.intermission = 3;
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen

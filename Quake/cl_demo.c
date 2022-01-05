@@ -24,6 +24,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static void CL_FinishTimeDemo (void);
 
+typedef struct framepos_s // woods #demorewind (Baker Fitzquake Mark V)
+{
+	long				baz;
+	struct framepos_s* next;
+} framepos_t;
+
+framepos_t* dem_framepos = NULL;
+qboolean	start_of_demo = false;
+qboolean	bumper_on = false;
+
 /*
 ==============================================================================
 
@@ -83,6 +93,34 @@ static void CL_WriteDemoMessage (void)
 	fflush (cls.demofile);
 }
 
+void PushFrameposEntry(long fbaz) // woods #demorewind (Baker Fitzquake Mark V)
+{
+	framepos_t* newf;
+
+	newf = malloc(sizeof(framepos_t)); // Demo rewind
+	newf->baz = fbaz;
+
+	if (!dem_framepos)
+	{
+		newf->next = NULL;
+		start_of_demo = false;
+	}
+	else
+	{
+		newf->next = dem_framepos;
+	}
+	dem_framepos = newf;
+}
+
+static void EraseTopEntry(void) // woods #demorewind (Baker Fitzquake Mark V)
+{
+	framepos_t* top;
+
+	top = dem_framepos;
+	dem_framepos = dem_framepos->next;
+	free(top);
+}
+
 static int CL_GetDemoMessage (void)
 {
 	int	r, i;
@@ -90,6 +128,13 @@ static int CL_GetDemoMessage (void)
 
 	if (cls.demopaused)
 		return 0;
+
+	if (start_of_demo && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
+		return 0;
+
+	if (cls.signon < SIGNONS)	// clear stuffs if new demo 
+		while (dem_framepos)
+			EraseTopEntry(); // end woods #demorewind (Baker Fitzquake Mark V)
 
 	// decide if it is time to grab the next message
 	if (cls.signon == SIGNONS)	// always grab until fully connected
@@ -104,10 +149,22 @@ static int CL_GetDemoMessage (void)
 			if (host_framecount == cls.td_startframe + 1)
 				cls.td_starttime = realtime;
 		}
-		else if (/* cl.time > 0 && */ cl.time <= cl.mtime[0])
-		{
-			return 0;	// don't need another message yet
-		}
+
+		else if (!cls.demorewind && cl.ctime <= cl.mtime[0]) // woods #demorewind (Baker Fitzquake Mark V)
+			return 0;		// don't need another message yet
+		else if (cls.demorewind && cl.ctime >= cl.mtime[0])
+			return 0;
+
+		// joe: fill in the stack of frames' positions
+		// enable on intermission or not...?
+		// NOTE: it can't handle fixed intermission views!
+		if (!cls.demorewind /*&& !cl.intermission*/)
+			PushFrameposEntry(ftell(cls.demofile)); 
+
+	//	else if (/* cl.time > 0 && */ cl.time <= cl.mtime[0])
+	//	{
+	//		return 0;	// don't need another message yet
+	//	} // end woods #demorewind (Baker Fitzquake Mark V)
 	}
 
 // get the next message
@@ -127,6 +184,19 @@ static int CL_GetDemoMessage (void)
 	{
 		CL_StopPlayback ();
 		return 0;
+	}
+
+	// woods #demorewind (Baker Fitzquake Mark V)
+	// joe: get out framestack's top entry
+	if (cls.demorewind /*&& !cl.intermission*/)
+	{
+		if (dem_framepos/* && dem_framepos->baz*/)	// Baker: in theory, if this occurs we ARE at the start of the demo with demo rewind on
+		{
+			fseek(cls.demofile, dem_framepos->baz, SEEK_SET);
+			EraseTopEntry(); // Baker: we might be able to improve this better but not right now.
+		}
+		if (!dem_framepos)
+			bumper_on = start_of_demo = true;
 	}
 
 	return 1;
@@ -611,7 +681,12 @@ void CL_PlayDemo_f (void)
 	}
 
 // disconnect from server
-	CL_Disconnect ();
+	CL_Disconnect (); // woods #demorewind (Baker Fitzquake Mark V)
+
+	// Revert
+	cls.demorewind = false;
+	cls.demospeed = 0; // 0 = Don't use
+	bumper_on = false;
 
 // open the demo file
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));

@@ -681,6 +681,9 @@ Host_FilterTime
 Returns false if the time is too short to run a frame
 ===================
 */
+
+float frame_timescale = 1.0f; // woods #demorewind (Baker Fitzquake Mark V)
+
 qboolean Host_FilterTime (float time)
 {
 	float maxfps; //johnfitz
@@ -700,9 +703,22 @@ qboolean Host_FilterTime (float time)
 
 	oldrealtime = realtime;
 
+	frame_timescale = 1; // woods #demorewind (Baker Fitzquake Mark V)
+	if (cls.demoplayback && cls.demospeed && !cls.timedemo && /*!cls.capturedemo &&*/ cls.demonum == -1)
+	{
+		host_frametime *= cls.demospeed;
+		frame_timescale = cls.demospeed;
+	}
+	else
+		if (host_timescale.value > 0 && !(cls.demoplayback && cls.demospeed && !cls.timedemo && /*!cls.capturedemo &&*/ cls.demonum == -1))
+		{
+			host_frametime *= host_timescale.value;
+			frame_timescale = host_timescale.value; // end woods #demorewind (Baker Fitzquake Mark V)
+		}
+
 	//johnfitz -- host_timescale is more intuitive than host_framerate
-	if (host_timescale.value > 0)
-		host_frametime *= host_timescale.value;
+	//if (host_timescale.value > 0)
+	//	host_frametime *= host_timescale.value;
 	//johnfitz
 	else if (host_framerate.value > 0)
 		host_frametime = host_framerate.value;

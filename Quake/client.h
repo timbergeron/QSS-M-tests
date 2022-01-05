@@ -127,6 +127,8 @@ typedef struct
 // entering a map (and clearing client_state_t)
 	qboolean	demorecording;
 	qboolean	demoplayback;
+	qboolean	demorewind; // woods #demorewind (Baker Fitzquake Mark V)
+	float		demospeed; // woods #demorewind (Baker Fitzquake Mark V)
 
 // did the user pause demo playback? (separate from cl.paused because we don't
 // want a svc_setpause inside the demo to actually pause demo playback).
@@ -221,6 +223,7 @@ typedef struct
 	double		time;			// clients view of time, should be between
 								// servertime and oldservertime to generate
 								// a lerp point for other data
+	double		ctime;			// woods #demorewind (Baker Fitzquake Mark V) -- inclusive of demo speed (can go backwards)
 	double		oldtime;		// previous cl.time, time-oldtime is used
 								// to decay light values and smooth step ups
 
