@@ -41,6 +41,8 @@ extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in 
 
 static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
 
+void Sound_Toggle_Mute_f(void); // woods #mute -- adapted from Fitzquake Mark V
+
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
 #define MACOS_X_ACCELERATION_HACK
@@ -1177,7 +1179,8 @@ void IN_SendKeyEvents (void)
 			{
 				if ((cls.state == ca_connected))
 				{
-					S_UnblockSound();
+					//S_UnblockSound();
+					Sound_Toggle_Mute_f(); // woods #mute -- adapted from Fitzquake Mark V
 					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
 						Cvar_Set("name", afk_name);
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
@@ -1187,7 +1190,8 @@ void IN_SendKeyEvents (void)
 
 			else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
 			{
-				S_BlockSound();
+				//S_BlockSound();
+				Sound_Toggle_Mute_f(); // woods #mute -- adapted from Fitzquake Mark V
 				if ((cls.state == ca_connected))
 				{
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods #smartafk

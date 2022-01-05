@@ -31,6 +31,14 @@ short		*snd_out;
 
 static int	snd_vol;
 
+qboolean muted = false; // // woods #mute -- adapted from Fitzquake Mark V
+
+void Sound_Toggle_Mute_f(void) // woods #mute -- adapted from Fitzquake Mark V
+{
+	muted = !muted;
+	SND_InitScaletable();
+}
+
 static void Snd_WriteLinearBlastStereo16 (void)
 {
 	int		i;
@@ -342,6 +350,9 @@ void S_PaintChannels (int endtime)
 	channel_t	*ch;
 	sfxcache_t	*sc;
 
+	if (muted) // woods #mute -- adapted from Fitzquake Mark V
+		snd_vol = 0;
+	else
 	snd_vol = sfxvolume.value * 256;
 
 	while (paintedtime < endtime)
@@ -455,6 +466,9 @@ void SND_InitScaletable (void)
 
 	for (i = 0; i < 32; i++)
 	{
+		if (muted) // woods #mute -- adapted from Fitzquake Mark V
+			scale = 0;
+		else 
 		scale = i * 8 * 256 * sfxvolume.value;
 		for (j = 0; j < 256; j++)
 		{
