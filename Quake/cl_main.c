@@ -306,8 +306,7 @@ void CL_SignonReply (void)
 			Cmd_ExecuteString("stopsound\n", src_command);
 		if ((cl_autodemo.value == 1) && (!cls.demoplayback) && (!cls.demorecording))   // woods for #autodemo
 			Cmd_ExecuteString("record\n", src_command);
-		if ((key_dest == key_console) && scr_con_current) // woods exit console on server connect
-			Cmd_ExecuteString("toggleconsole\n", src_command);
+		key_dest = key_game; // woods exit console on server connect
 		break;
 	}
 }
