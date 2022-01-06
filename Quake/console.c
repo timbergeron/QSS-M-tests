@@ -68,6 +68,9 @@ qboolean	con_debuglog = false;
 
 qboolean	con_initialized;
 
+static char	typingname[16]; // woods #typing
+static char basicname[16]; // woods #typing
+
 
 /*
 ================
@@ -102,7 +105,6 @@ const char *Con_Quakebar (int len)
 
 /*
 ================
-<<<<<<< HEAD
 Con_Typing_Status -- woods #typing (shows ... when a player is tpying by changing their name during event)
 ================
 */
@@ -140,8 +142,6 @@ void Con_Typing_Status_Off(void)
 
 /*
 ================
-=======
->>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 Con_ToggleConsole_f
 ================
 */
@@ -149,12 +149,9 @@ extern int history_line; //johnfitz
 
 void Con_ToggleConsole_f (void)
 {
-<<<<<<< HEAD
 	if ((cls.state == ca_connected))
 		Con_Typing_Status_Off (); // woods #typing
 
-=======
->>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 	if (key_dest == key_console/* || (key_dest == key_game && con_forcedup)*/)
 	{
 		key_lines[edit_line][1] = 0;	// clear any typing
@@ -260,7 +257,6 @@ void Con_ClearNotify (void)
 		con_times[i] = 0;
 }
 
-
 /*
 ================
 Con_MessageMode_f
@@ -272,6 +268,7 @@ static void Con_MessageMode_f (void)
 		return;
 	chat_team = false;
 	key_dest = key_message;
+	Con_Typing_Status(); // woods #typing
 }
 
 /*
@@ -285,8 +282,8 @@ static void Con_MessageMode2_f (void)
 		return;
 	chat_team = true;
 	key_dest = key_message;
+	Con_Typing_Status (); // woods #typing
 }
-
 
 /*
 ================

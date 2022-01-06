@@ -35,6 +35,7 @@ extern cvar_t	pausable;
 int	current_skill;
 
 void Mod_Print (void);
+void Con_Typing_Status_Off(void); // woods #typing
 
 /*
 ==================
@@ -933,6 +934,8 @@ Goes to a new map, taking all clients along
 static void Host_Changelevel_f (void)
 {
 	char	level[MAX_QPATH];
+
+	Con_Typing_Status_Off(); // woods #typing
 
 	if (Cmd_Argc() != 2)
 	{
