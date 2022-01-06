@@ -39,6 +39,18 @@ void Sound_Toggle_Mute_f(void) // woods #mute -- adapted from Fitzquake Mark V
 	SND_InitScaletable();
 }
 
+void Sound_Toggle_Mute_Off_f(void) // woods #mute -- adapted from Fitzquake Mark V
+{
+	muted = false;
+	SND_InitScaletable();
+}
+
+void Sound_Toggle_Mute_On_f(void) // woods #mute -- adapted from Fitzquake Mark V
+{
+	muted = true;
+	SND_InitScaletable();
+}
+
 static void Snd_WriteLinearBlastStereo16 (void)
 {
 	int		i;
