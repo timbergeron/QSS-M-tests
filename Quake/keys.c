@@ -45,10 +45,13 @@ qboolean	consolekeys[MAX_KEYS];	// if true, can't be rebound while in console
 qboolean	menubound[MAX_KEYS];	// if true, can't be rebound while in menu
 qboolean	keydown[MAX_KEYS];
 
+<<<<<<< HEAD
 void Con_Typing_Status (void); // woods #typing
 void Con_Typing_Status_Off (void); // woods #typing
 qboolean	Cmd_Exists2(const char* cmd_name); // woods #ezsay
 
+=======
+>>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 typedef struct
 {
 	const char	*name;
@@ -583,16 +586,22 @@ void Key_Console (int key)
 	size_t		len;
 	char *workline = key_lines[edit_line];
 
+<<<<<<< HEAD
 	if ((cls.state == ca_connected))
 		Con_Typing_Status (); // woods #typing
 
+=======
+>>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 	switch (key)
 	{
 	case K_ENTER:
 		if (cls.state == ca_connected && !CheckForCommand() && cl_say.value) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
 			Cbuf_AddText("say ");
+<<<<<<< HEAD
 		if ((cls.state == ca_connected))
 			Con_Typing_Status_Off (); // woods #typing
+=======
+>>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
 		Cbuf_AddText (workline + 1);	// skip the prompt
@@ -857,13 +866,15 @@ void Key_Message (int key)
 		Cbuf_AddText("\"\n");
 
 		Key_EndChat ();
-		Con_Typing_Status_Off(); // woods #typing
 		return;
 
 	case K_ESCAPE:
 		Key_EndChat ();
+<<<<<<< HEAD
 		if ((cls.state == ca_connected))
 			Con_Typing_Status_Off(); // woods #typing
+=======
+>>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 		return;
 
 	case K_BACKSPACE:

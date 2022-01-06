@@ -2379,6 +2379,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
 				}
+<<<<<<< HEAD
 				if (strstr(string, "ÔÌÈ„ÚÔÓ∆ÔÚÎ"))  // woods omifork incompatibility #typing
 				{
 					strncpy(cl.omi, "y", sizeof(cl.omi)); 
@@ -2387,6 +2388,8 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					Cbuf_AddText("yes\n");
 				}
+=======
+>>>>>>> parent of 7823e8f3 (show ... in name when tpying (beta))
 				if (!strncmp(string, "√Ï·Ó“ÈÓÁ", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
