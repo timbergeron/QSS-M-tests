@@ -23,8 +23,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 
-void Con_Typing_Status_Off(void); // woods #typing
-
 void (*vid_menucmdfn)(void); //johnfitz
 void (*vid_menudrawfn)(void);
 void (*vid_menukeyfn)(int key);
@@ -3125,10 +3123,6 @@ M_ToggleMenu_f
 */
 void M_ToggleMenu (int mode)
 {
-
-	if ((cls.state == ca_connected))
-		Con_Typing_Status_Off(); // woods #typing
-
 	if (cls.menu_qcvm.extfuncs.m_toggle)
 	{
 		MQC_Begin();
