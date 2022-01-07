@@ -1558,7 +1558,12 @@ static void Host_Say(qboolean teamonly)
 	}
 // turn on color set 1
 	if (!fromServer)
-		q_snprintf (text, sizeof(text), "\001%s: %s", save->name, p);
+	{
+		if (teamplay.value && teamonly) // JPG - added () for mm2
+			q_snprintf(text, sizeof(text), "\001(%s): %s", save->name, p);
+		else
+			q_snprintf(text, sizeof(text), "\001%s: %s", save->name, p);
+	}
 	else
 		q_snprintf (text, sizeof(text), "\001<%s> %s", hostname.string, p);
 
