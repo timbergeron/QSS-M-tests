@@ -47,6 +47,9 @@ qboolean	keydown[MAX_KEYS];
 
 qboolean	Cmd_Exists2(const char* cmd_name); // woods #ezsay
 
+void Sound_Toggle_Mute_f (void); // woods #usermute
+void SCR_Mute_Switch (void); // woods #usermute
+
 typedef struct
 {
 	const char	*name;
@@ -1365,6 +1368,20 @@ void Key_Event (int key, qboolean down)
 	if (down && (key == K_ENTER || key == K_KP_ENTER) && keydown[K_ALT])
 	{
 		VID_Toggle();
+		return;
+	}
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #usermute
+	if (down && (key == 'm') && keydown[K_COMMAND])
+	{ 
+		Sound_Toggle_Mute_f();
+		return;
+	}
+#endif
+
+	if (down && (key == 'm') && keydown[K_CTRL]) // woods #usermute
+	{
+		Sound_Toggle_Mute_f();
 		return;
 	}
 

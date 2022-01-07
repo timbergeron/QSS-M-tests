@@ -47,6 +47,7 @@ static void S_Update_ (void);
 static void GetSoundtime (void);
 void S_StopAllSounds (qboolean clear);
 static void S_StopAllSoundsC (void);
+void Sound_Toggle_Mute_f (void); // woods
 
 // =======================================================================
 // Internal sound data & structures
@@ -250,6 +251,7 @@ void S_Init (void)
 	Cmd_AddCommand("soundlist", S_SoundList);
 	Cmd_AddCommand("soundinfo", S_SoundInfo_f);
 	Cmd_AddCommand("snd_restart", S_Restart_f);
+	Cmd_AddCommand("mute", Sound_Toggle_Mute_f); // woods #usermute
 
 	i = COM_CheckParm("-sndspeed");
 	if (i && i < com_argc-1)

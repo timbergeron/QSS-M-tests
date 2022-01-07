@@ -83,6 +83,7 @@ void Sbar_SortTeamFrags(void); // woods #matchhud
 int	Sbar_ColorForMap(int m); // woods #matchhud
 void Sbar_DrawCharacter(int x, int y, int num); // woods #matchhud
 void Sbar_SortFrags_Obs(void); // woods #observerhud
+void Sound_Toggle_Mute_On_f(void); // woods #usermute -- adapted from Fitzquake Mark V
 
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
@@ -1146,6 +1147,45 @@ void SCR_DrawSpeed (void)
 
 /*
 ==============
+SCR_DrawMute -- woods #usermute
+==============
+*/
+void SCR_Mute(void)
+{
+	int				x, y;
+
+	GL_SetCanvas(CANVAS_SBAR2);
+
+	if (!strcmp(mute, "y"))
+	{
+	x = 288;
+	y = 0;
+
+	if (scr_viewsize.value <= 100)
+		y = 18;
+	else if (scr_viewsize.value == 110)
+		y = 43;
+	else
+		return;
+	M_PrintWhite(x, y, "mute");
+	}
+}
+
+/*
+==============
+SCR_Mute_Switch -- woods
+==============
+*/
+void SCR_Mute_Switch(void)
+{
+	if (!strcmp(mute, "y") != true)
+		strncpy(mute, "y", sizeof(mute));
+	else
+		strncpy(mute, "n", sizeof(mute));
+}
+
+/*
+==============
 SCR_DrawDevStats
 ==============
 */
@@ -1859,6 +1899,7 @@ void SCR_UpdateScreen (void)
 		SCR_ShowFlagStatus (); // woods #matchhud #flagstatus
 		SCR_ShowObsFrags (); // woods #observerhud
 		SCR_DrawSpeed (); // woods #speed
+		SCR_Mute (); // woods #usermute
 		SCR_DrawConsole ();
 		M_Draw ();
 	}

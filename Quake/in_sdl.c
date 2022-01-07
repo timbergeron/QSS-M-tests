@@ -1178,10 +1178,13 @@ void IN_SendKeyEvents (void)
 		case SDL_WINDOWEVENT:
 			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 			{
+				//S_UnblockSound();
+				if (!strcmp(mute, "y")) // woods #usermute
+					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
+				else
+					Sound_Toggle_Mute_Off_f();
 				if ((cls.state == ca_connected))
 				{
-					//S_UnblockSound();
-					Sound_Toggle_Mute_Off_f(); // woods #mute -- adapted from Fitzquake Mark V
 					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
 						Cvar_Set("name", afk_name);
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))

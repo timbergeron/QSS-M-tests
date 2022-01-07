@@ -32,11 +32,17 @@ short		*snd_out;
 static int	snd_vol;
 
 qboolean muted = false; // // woods #mute -- adapted from Fitzquake Mark V
+void SCR_Mute_Switch(void); // woods #usermute
 
 void Sound_Toggle_Mute_f(void) // woods #mute -- adapted from Fitzquake Mark V
 {
 	muted = !muted;
 	SND_InitScaletable();
+	SCR_Mute_Switch(); // woods #usermute
+	if (muted) // woods #usermute
+		Con_Printf("Mute: ÏÎ\n"); // ON
+	else
+		Con_Printf("Mute: ÏÆÆ\n"); // OFF
 }
 
 void Sound_Toggle_Mute_Off_f(void) // woods #mute -- adapted from Fitzquake Mark V

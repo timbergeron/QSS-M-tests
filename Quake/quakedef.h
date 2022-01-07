@@ -376,5 +376,7 @@ extern int		minimum_memory;
 int		scoreboardlines; // woods #scrping -- moved here for gl_screen.c and sbar.c
 int		fragsort[MAX_SCOREBOARD]; // woods #scrping -- moved here for gl_screen.c and sbar.c
 
+char		mute[2];			// woods for mute to memory #usermute
+
 #endif	/* QUAKEDEFS_H */
 
