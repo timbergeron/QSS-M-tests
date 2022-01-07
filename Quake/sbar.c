@@ -978,6 +978,28 @@ void Sbar_DrawFrags(void)
 
 /*
 ===============
+Sbar_DrawRecord -- woods #showrecord
+===============
+*/
+
+void Sbar_DrawRecord(void)
+{
+	int y;
+
+	y = 0;
+
+	GL_SetCanvas(CANVAS_SBAR);
+
+	if (scr_viewsize.value <= 100)
+		y = 4;
+	else
+		return;
+
+	Draw_Fill(315, y, 1, 1, 249, 1);
+}
+
+/*
+===============
 Sbar_DrawFace
 ===============
 */
@@ -1295,6 +1317,9 @@ void Sbar_Draw (void)
 	//johnfitz -- removed the vid.width > 320 check here
 	if (cl.gametype == GAME_DEATHMATCH)
 			Sbar_MiniDeathmatchOverlay ();
+
+	if (cls.demorecording) // woods #showrecord
+		Sbar_DrawRecord ();
 }
 
 //=============================================================================
