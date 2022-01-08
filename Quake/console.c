@@ -68,6 +68,8 @@ qboolean	con_debuglog = false;
 
 qboolean	con_initialized;
 
+int fly; // woods #observer flag
+
 /*
 ================
 Con_Quakebar -- johnfitz -- returns a bar of the desired length, but never wider than the console
@@ -469,13 +471,31 @@ static void Con_Print (const char *txt)
 			cl.conflag = 0; // reset flag	
 		}
 
+		// woods parsing to know whether you joined a team in match mode
+
 		if (!strcmp(txt, "chase mode - help-chase for help\n") || // woods #observer
-			!strcmp(txt, "eyecam mode - help-chase for help\n"))
+			!strcmp(txt, "fly mode - help-fly for help\n") || // typed fly me or observer (crctf)
+			!strcmp(txt, "walk mode - help-walk for help\n") || // typed fly me or observer (crmod)
+			!strcmp(txt, "eyecam mode - help-chase for help\n"))  // typed eyecam (crctf)
 			strncpy(cl.observer, "y", sizeof(cl.observer));
 
-		if ((!strcmp(txt, "Smoothing ")) || (!strcmp(txt, "OFF "))) // "smoothing OFF" woods #observer
-			strncpy(cl.observer, "n", sizeof(cl.observer));
+		if (!strcmp(txt, "ghost ")) // joined a team, gives you a ghostcode message
+			fly = 1;
 
+		if ((!strcmp(txt, "OFF ")) && fly == 1) // woods #observer
+		{
+			strncpy(cl.observer, "n", sizeof(cl.observer));
+			fly = 0;
+			return;
+		}
+
+		if ((!strcmp(txt, "OFF ")) && fly != 1)
+		{
+			strncpy(cl.observer, "y", sizeof(cl.observer));
+			fly = 0;
+			return;
+		}
+				
 		if     // other messages, exact cases
 			(
 				!strcmp(txt, "Quad Damage is wearing off\n") ||

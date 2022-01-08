@@ -2377,7 +2377,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				}
 				if (!strcmp(string, "ClanRing CRCTF v3.5\n"))  // woods #observerhud
 				{
-					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
+					strncpy(cl.observer, "y", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
 				}
 				if ((strstr(string, "νατγθ μεξητθ") || (strstr(string, "match length"))))  // woods vote match length auto vote yes
 				{
@@ -2391,7 +2391,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					else
 						Cbuf_AddText("exec dm.cfg\n");
 
-					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
+					strncpy(cl.observer, "y", sizeof(cl.observer)); // woods #observer set to no on join
 				}
 				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods #matchhud
 					strncpy(cl.ffa, "y", sizeof(cl.ffa));
