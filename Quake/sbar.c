@@ -827,6 +827,7 @@ void Sbar_DrawInventory (void)
 	else
 	{
 	// sigils
+		if (!cls.demoplayback) // woods #demopercent (Baker Fitzquake Mark V) -- make room for demo %
 		for (i = 0; i < 4; i++)
 		{
 			if (cl.items & (1<<(28+i)))
@@ -1320,6 +1321,22 @@ void Sbar_Draw (void)
 
 	if (cls.demorecording) // woods #showrecord
 		Sbar_DrawRecord ();
+
+	if (cls.demoplayback && scr_viewsize.value <= 100) // woods #demopercent (Baker Fitzquake Mark V)
+	{
+		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
+		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
+		char* tempstring = va("%i%%", complete_pct_int);
+		int len = strlen(tempstring), i;
+		int	leveldrawwidth = 320;
+
+		// Bronze it
+		for (i = 0; i < len; i++)
+			tempstring[i] |= 128;
+
+		Sbar_DrawString(316 - len * 8, -13, tempstring);
+	}
+
 }
 
 //=============================================================================

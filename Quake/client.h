@@ -130,6 +130,21 @@ typedef struct
 	qboolean	demorewind; // woods #demorewind (Baker Fitzquake Mark V)
 	float		demospeed; // woods #demorewind (Baker Fitzquake Mark V)
 
+	// woods #demopercent (Baker Fitzquake Mark V)
+
+	int			demo_file_length;		// Length of file in bytes
+	int			demo_offset_start;		// If in a pak, the offset into the file otherwise 0.
+	int			demo_offset_current;	// Current offset into the file, updated as the demo is player
+
+	float		demo_hosttime_start;	// For measuring capturedemo time completion estimates.
+	float		demo_hosttime_elapsed;	// Does not advance if paused.
+	float		demo_cltime_start;		// Above except cl.time
+	float		demo_cltime_elapsed;	// Above except cl.time
+
+	char		demoname[MAX_OSPATH];	// So we can print demo whatever completed. 
+
+	// end woods #demopercent ((Baker Fitzquake Mark V)
+
 // did the user pause demo playback? (separate from cl.paused because we don't
 // want a svc_setpause inside the demo to actually pause demo playback).
 	qboolean	demopaused;

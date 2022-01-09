@@ -168,6 +168,9 @@ static int CL_GetDemoMessage (void)
 	}
 
 // get the next message
+
+	cls.demo_offset_current = ftell(cls.demofile); // woods #demopercent (Baker Fitzquake Mark V)
+
 	fread (&net_message.cursize, 4, 1, cls.demofile);
 	VectorCopy (cl.mviewangles[0], cl.mviewangles[1]);
 	for (i = 0 ; i < 3 ; i++)
@@ -702,6 +705,16 @@ void CL_PlayDemo_f (void)
 		return;
 	}
 
+	// woods #demopercent (Baker Fitzquake Mark V)
+
+	strcpy(cls.demoname, name); 
+	cls.demo_offset_start = ftell(cls.demofile);	// qfs_lastload.offset instead?
+	cls.demo_file_length = com_filesize;
+	cls.demo_hosttime_start = cls.demo_hosttime_elapsed = 0; // Fill this in ... host_time;
+	cls.demo_cltime_start = cls.demo_cltime_elapsed = 0; // Fill this in
+
+	// end #demopercent (Baker Fitzquake Mark V)
+	// 
 // ZOID, fscanf is evil
 // O.S.: if a space character e.g. 0x20 (' ') follows '\n',
 // fscanf skips that byte too and screws up further reads.

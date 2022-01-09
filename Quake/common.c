@@ -3847,3 +3847,15 @@ size_t LOC_Format (const char *format, const char* (*getarg_fn) (int idx, void* 
 
 	return written;
 }
+
+// woods #demopercent (Baker Fitzquake Mark V)
+
+int COM_Minutes(int seconds)
+{
+	return seconds / 60;
+}
+
+int COM_Seconds(int seconds)
+{
+	return seconds % 60;
+}
