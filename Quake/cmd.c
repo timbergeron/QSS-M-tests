@@ -1349,6 +1349,25 @@ void Cmd_ForwardToServer (void)
 					dst += sprintf(dst, "%d:%02d", minutes, seconds);
 					break;
 
+				case 'T':
+					if ((cl.minutes || cl.seconds) && cl.seconds < 128)
+					{
+						if (cl.match_pause_time)
+							match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
+						else
+							match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+						minutes = match_time / 60;
+						seconds = match_time - 60 * minutes;
+					}
+					else
+					{
+						minutes = cl.time / 60;
+						seconds = cl.time - 60 * minutes;
+						minutes &= 511;
+					}
+					dst += sprintf(dst, ":%02d", minutes, seconds);
+					break;
+
 				default:
 					*dst++ = '%';
 					*dst++ = *src;
