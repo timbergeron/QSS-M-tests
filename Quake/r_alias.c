@@ -1205,7 +1205,7 @@ void R_DrawAliasModel (entity_t *e)
 	//
 	// set up for alpha blending
 	//
-	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe) //no alpha in drawflat or lightmap mode
+	if (r_drawflat_cheatsafe/* || r_lightmap_cheatsafe*/) //no alpha in drawflat or lightmap mode // woods #textureless to keep models
 		entalpha = 1;
 	else
 		entalpha = ENTALPHA_DECODE(e->alpha);
@@ -1292,14 +1292,14 @@ void R_DrawAliasModel (entity_t *e)
 				glDisable(GL_BLEND);
 			}
 		}
-		else if (r_lightmap_cheatsafe)
+/*		else if (r_lightmap_cheatsafe) // woods #textureless
 		{
 			glDisable (GL_TEXTURE_2D);
 			shading = false;
 			glColor3f(1,1,1);
 			GL_DrawAliasFrame (paliashdr, lerpdata);
 			glEnable (GL_TEXTURE_2D);
-		}
+		}*/
 	// call fast path if possible. if the shader compliation failed for some reason,
 	// r_alias_program will be 0.
 		else if (glsl->program != 0 && (paliashdr->numbones <= glsl->maxbones||!lerpdata.bonestate))
