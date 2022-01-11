@@ -913,8 +913,11 @@ void Sbar_DrawFrags(void)
 			sprintf (num, "%3d:%02d", minutes, seconds);
 		}
 
-		for (i = 0; i < 6; i++)
-			Sbar_DrawCharacter (((x + 9 + i) * 8)+3, -24, num[i] + mask);
+		if (scr_match_hud.value != 2)
+		{
+			for (i = 0; i < 6; i++)
+				Sbar_DrawCharacter(((x + 9 + i) * 8) + 3, -24, num[i] + mask);
+		}
 	}
 
 	// display frag/team colors

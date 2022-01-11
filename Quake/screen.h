@@ -51,6 +51,7 @@ extern	qboolean	scr_disabled_for_loading;
 extern	qboolean	scr_skipupdate;
 
 extern	cvar_t		scr_viewsize;
+extern	cvar_t		scr_match_hud;
 
 extern	cvar_t		scr_sbaralpha; //johnfitz
 

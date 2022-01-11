@@ -795,53 +795,65 @@ SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match c
 void SCR_DrawMatchClock(void)
 
 {
-	int				l;
 	char			num[12];
-	int				teamscores, minutes, seconds; // JPG - added these
-	int				match_time; // JPG - added this
+	int				teamscores, minutes, upminutes, seconds, upseconds;
+	int				match_time;
+	int				ctfcountdown, crmodcountdown;
 
-	// JPG - check to see if we should sort teamscores instead
-	teamscores = /*pq_teamscores.value && */cl.teamgame;
+	teamscores = cl.teamgame;
+	ctfcountdown = ((cl.seconds <= 20 && cl.seconds > 0) && cl.minutes < 1 || (cl.minutes == cl.timerup)); // the timer is in countdown after ready
+	crmodcountdown = (cl.seconds >= 128); // timer is in countdown after ready
 
-	l = scoreboardlines <= 4 ? scoreboardlines : 4;
-
-	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM
+	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM above team score
 	{
 		GL_SetCanvas(CANVAS_TOPRIGHT2);
 		sprintf(num, "%3d:%02d", 0, 0);
 		Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 	}
 
-	// JPG - check to see if we need to draw the timer
-	if (/*pq_timer.value && */(cl.minutes != 255))
+	if (cl.minutes != 255) // don't display crmod wrong pre-match time
 	{
-		if (l > 2)
-			l = 2;
-		if (cl.minutes == 254)
+		if (cl.minutes || cl.seconds)
 		{
-			strcpy(num, "    SD");
-		}
-		else if (cl.minutes || cl.seconds)
-		{
-			if (cl.seconds >= 128)
-				sprintf(num, " -0:%02d", cl.seconds - 128);
-			else
-			{
+				// game timer is on, lets set it up by printing num
 				if (cl.match_pause_time)
 					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
 				else
 					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+
 				minutes = match_time / 60;
+				upminutes = (cl.timerup - 1) - (match_time / 60);
 				seconds = match_time - 60 * minutes;
-				sprintf(num, "%3d:%02d", minutes, seconds);
-			}
+				upseconds = 59 - seconds;
+
+				if (scr_match_hud.value == 2) // don't use up-clock in countdown
+					sprintf(num, "%3d:%02d", upminutes, upseconds);
+				else
+					sprintf(num, "%3d:%02d", minutes, seconds);
+
+				if (!scr_match_hud.value == 2)
+				{
+				if (crmodcountdown) // crmod countdown the seconds are off, so special case
+					sprintf(num, " 0:%02d", (cl.seconds - 128));
+
+				if (!crmodcountdown && ctfcountdown) // ctf countdown
+					sprintf(num, " 0:%02d", cl.seconds);
+				}
+
+				if (scr_match_hud.value == 2)
+				{
+					if (crmodcountdown) // crmod countdown the seconds are off, so special case
+						sprintf(num, " 0:%02d", (cl.seconds - 128));
+
+					if (!crmodcountdown && ctfcountdown) // ctf countdown
+						sprintf(num, " %02d", upseconds - 59);
+				}
 		}
 		else
 			// draw level time if in FFA mode
 
 			if (!strcmp(cl.ffa, "y"))
 			{
-
 				minutes = cl.time / 60;
 				seconds = cl.time - 60 * minutes;
 				minutes = minutes & 511;
@@ -863,15 +875,12 @@ void SCR_DrawMatchClock(void)
 		if (scr_match_hud.value)
 		{
 			GL_SetCanvas(CANVAS_TOPRIGHT2);
-			match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
-			minutes = match_time / 60;
-			seconds = match_time - 60 * minutes;
-			if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+
+			if (((ctfcountdown) || (crmodcountdown)) & cl.seconds != 0) // color red last 20 seconds to draw attention
 				M_Print(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // M_Print is colored text
 			else
-				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
+				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // white normal text
 		}
-		//	scr_tileclear_updates = 0;
 	}
 }
 

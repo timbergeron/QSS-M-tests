@@ -473,6 +473,28 @@ static void Con_Print (const char *txt)
 			!strcmp(txt, "eyecam mode - help-chase for help\n"))
 			strncpy(cl.observer, "y", sizeof(cl.observer));
 
+		if (!strcmp(txt, "30 minutes remaining\n")) // woods #observer
+			cl.timerup = 30;
+
+		if (!strcmp(txt, "25 minutes remaining\n")) // woods #observer
+			cl.timerup = 25;
+
+		if (!strcmp(txt, "20 minutes remaining\n")) // woods #observer
+			cl.timerup = 20;
+
+		if (!strcmp(txt, "15 minutes remaining\n")) // woods #observer
+			cl.timerup = 15;
+
+		if (!strcmp(txt, "10 minutes remaining\n")) // woods #observer
+			cl.timerup = 10;
+
+		if (!strcmp(txt, "5 minutes remaining\n")) // woods #observer
+			cl.timerup = 5;
+
+		if (!strcmp(txt, "Match tied - Overtime!!\n")) // woods #observer
+			cl.timerup = 5;
+
+
 		if ((!strcmp(txt, "Smoothing ")) || (!strcmp(txt, "OFF "))) // "smoothing OFF" woods #observer
 			strncpy(cl.observer, "n", sizeof(cl.observer));
 
