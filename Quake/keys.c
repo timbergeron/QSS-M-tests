@@ -1408,7 +1408,7 @@ void Key_Event (int key, qboolean down)
 	}
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
-	if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
+		if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
 	if (down && (key == K_MWHEELDOWN) && keydown[K_COMMAND])
 	{
 		Cmd_ExecuteString("inc scr_conscale -.1\n", src_command);
@@ -1424,6 +1424,24 @@ void Key_Event (int key, qboolean down)
 		Cmd_ExecuteString("inc scr_sbarscale -.1\n", src_command);
 		return;
 	}
+
+	if (sfxvolume.value < 1) // min clamp
+		if (down && (key == K_MWHEELUP) && keydown[K_ALT]) // woods #shortcuts
+		{
+			Cmd_ExecuteString("inc volume .02\n", src_command);
+			if (!strcmp(mute, "y"))
+				Sound_Toggle_Mute_f();			
+			return;
+		}
+
+	if (sfxvolume.value > 0)// min clamp
+		if (down && (key == K_MWHEELDOWN) && keydown[K_ALT]) // woods #shortcuts
+		{
+			Cmd_ExecuteString("inc volume -.02\n", src_command);
+			if (!strcmp(mute, "y"))
+				Sound_Toggle_Mute_f();			
+			return;
+		}
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (down && (key == 'm') && keydown[K_COMMAND])
