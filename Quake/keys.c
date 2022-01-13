@@ -1376,6 +1376,20 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shotcuts
+	if (down && (key == 'q') && keydown[K_COMMAND])
+	{
+		Host_Quit_f();
+		return;
+	}
+#endif
+
+	if (down && (key == 'q') && keydown[K_CTRL]) // woods #shotcuts
+	{
+		Host_Quit_f();
+		return;
+	}
+
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #usermute
 	if (down && (key == 'm') && keydown[K_COMMAND])
 	{ 
