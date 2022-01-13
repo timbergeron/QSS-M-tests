@@ -1390,7 +1390,42 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
-#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #usermute
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
+	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp
+	if (down && (key == K_MWHEELUP) && keydown[K_COMMAND])
+	{
+		Cmd_ExecuteString("inc scr_conscale .1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale .1\n", src_command);
+		return;
+	}
+#endif
+	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp
+	if (down && (key == K_MWHEELUP) && keydown[K_CTRL]) // woods #shortcuts
+	{
+		Cmd_ExecuteString("inc scr_conscale .1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale .1\n", src_command);
+		return;
+	}
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
+	if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
+	if (down && (key == K_MWHEELDOWN) && keydown[K_COMMAND])
+	{
+		Cmd_ExecuteString("inc scr_conscale -.1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale -.1\n", src_command);
+		return;
+}
+#endif
+
+	if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
+	if (down && (key == K_MWHEELDOWN) && keydown[K_CTRL]) // woods #shortcuts
+	{
+		Cmd_ExecuteString("inc scr_conscale -.1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale -.1\n", src_command);
+		return;
+	}
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (down && (key == 'm') && keydown[K_COMMAND])
 	{ 
 		Sound_Toggle_Mute_f();
