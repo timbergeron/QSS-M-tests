@@ -75,6 +75,8 @@ console is:
 
 int			glx, gly, glwidth, glheight;
 
+int ct; // woods connected map time #maptime
+
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display
 
@@ -697,6 +699,8 @@ void SCR_ShowPing(void)
 	char	num[12];
 	scoreboard_t* s;
 
+	ct = cl.time - cl.maptime; // woods connected map time #maptime
+
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
 
 		if (scr_ping.value) {
@@ -726,7 +730,7 @@ void SCR_ShowPing(void)
 				}
 			}
 
-			if (!scr_con_current) // dont update when console down
+			if (!scr_con_current || (ct > 2)) // dont update when console down
 
 				if (!cls.message.cursize && cl.expectingpingtimes < realtime)
 				{
@@ -749,6 +753,8 @@ void SCR_ShowPL(void)
 	int pl;
 	char			num[12];
 
+	ct = cl.time - cl.maptime; // woods connected map time #maptime
+
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
 
 		pl = atoi(cl.scrpacketloss); // convert string to integer
@@ -761,29 +767,21 @@ void SCR_ShowPL(void)
 		else
 			y = 20;
 
-		if (!scr_con_current) // dont update when console down
-		{
-			if (pl > 0) // color red
-			{
-				sprintf(num, "%-4i", pl);
-				M_Print(6, y, num);
-			}
-			/*
-
-			else  // color white (better UI not showing 0?)
-			{
-			sprintf(num, "%-4i", pl);
-			M_PrintWhite(6, y, num);
-			}
-
-			*/
-		}
 
 		if (cl.expectingpltimes < realtime)
 		{
 			cl.expectingpltimes = realtime + 5;   // update frequency
 			Cmd_ExecuteString("pl\n", src_command);
 
+		}
+
+		if ((!scr_con_current) && (ct > 6)) // dont update when console down
+		{
+			if (pl > 0) // color red
+			{
+				sprintf(num, "%-4i", pl);
+				M_Print(6, y, num);
+			}
 		}
 	}
 }
