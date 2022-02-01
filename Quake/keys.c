@@ -567,6 +567,32 @@ static void PasteToConsole (void)
 	Z_Free(cbd);
 }
 
+void Char_Console2(int key) // woods #ezsay add leading space for mode 2
+{
+	size_t		len;
+	char* workline = key_lines[edit_line];
+	int max;
+
+	if (cl_say.value && (cls.state == ca_connected && cl.gametype == GAME_DEATHMATCH))
+		max = MAX_CHAT_SIZE;
+	else
+		max = MAXCMDLINE;
+	if (key_linepos < max) // woods limit chat to 45 server limit  #chatlimit
+	{
+		qboolean endpos = !workline[key_linepos];
+
+		
+		{
+			workline += key_linepos;
+			*workline = key;
+			// null terminate if at the end
+			if (endpos)
+				workline[1] = 0;
+		}
+		key_linepos++;
+	}
+}
+
 /*
 ====================
 Key_Console -- johnfitz -- heavy revision
@@ -606,6 +632,8 @@ void Key_Console (int key)
 		key_linepos = 1;
 		if (cls.state == ca_disconnected)
 			SCR_UpdateScreen (); // force an update, because the command may take some time
+		if (cl_say.value == 2) // woods #ezsay add leading space for mode 2
+			Char_Console2(32);
 		return;
 
 	case K_TAB:

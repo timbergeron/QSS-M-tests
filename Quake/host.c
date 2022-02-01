@@ -1187,6 +1187,8 @@ void Host_Init (void)
 	// johnfitz -- in case the vid mode was locked during vid_init, we can unlock it now.
 		// note: two leading newlines because the command buffer swallows one of them.
 		Cbuf_AddText ("\n\nvid_unlock\n");
+		Cbuf_AddText("toggleconsole\n"); // woods #ezsay add leading space for mode 2
+		Cbuf_AddText("togglemenu\n"); // woods #ezsay add leading space for mode 2
 	}
 
 	if (cls.state == ca_dedicated)

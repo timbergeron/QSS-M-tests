@@ -68,6 +68,8 @@ qboolean	con_debuglog = false;
 
 qboolean	con_initialized;
 
+void Char_Console2(int key); // woods #ezsay add leading space for mode 2
+
 /*
 ================
 Con_Quakebar -- johnfitz -- returns a bar of the desired length, but never wider than the console
@@ -125,6 +127,9 @@ void Con_ToggleConsole_f (void)
 		M_ToggleMenu(0);
 		key_dest = key_console;
 	}
+
+	if ((key_linepos == 1) && (cl_say.value == 2)) // woods #ezsay add leading space for mode 2
+		Char_Console2(32);
 
 	SCR_EndLoadingPlaque ();
 	memset (con_times, 0, sizeof(con_times));
