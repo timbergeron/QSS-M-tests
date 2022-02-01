@@ -101,7 +101,7 @@ qboolean LOC_LoadLocations (void)
 
 	if (COM_FileExists(filename, NULL) == false)
 	{
-		Con_Printf("%s could not be found.\n", filename);
+		//Con_Printf("%s could not be found.\n", filename);
 		return false;
 	}
 
@@ -219,5 +219,5 @@ char *LOC_GetLocation (vec3_t p)
 	{
 		return bestloc->name;
 	}
-	return "no .loc file for this map in id1/locs";
+	return "no .loc";
 }
