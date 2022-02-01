@@ -93,6 +93,7 @@ cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbaralpha = {"scr_sbaralpha", "0.75", CVAR_ARCHIVE};
 cvar_t		scr_conwidth = {"scr_conwidth", "0", CVAR_ARCHIVE};
 cvar_t		scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
+cvar_t		scr_consize = {"scr_consize", ".5", CVAR_ARCHIVE}; // woods #consize (joequake)
 cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_crosshaircolor = {"scr_crosshaircolor", "0", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
@@ -562,6 +563,7 @@ void SCR_Init (void)
 	Cvar_SetCallback (&scr_conscale, &SCR_Conwidth_f);
 	Cvar_RegisterVariable (&scr_conwidth);
 	Cvar_RegisterVariable (&scr_conscale);
+	Cvar_RegisterVariable (&scr_consize); // woods #consize (joequake)
 	Cvar_RegisterVariable (&scr_crosshairscale);
 	Cvar_RegisterVariable (&scr_crosshaircolor); // woods #crosshair
 	Cvar_RegisterVariable (&scr_showfps);
@@ -1421,7 +1423,13 @@ void SCR_SetUpToDrawConsole (void)
 		scr_con_current = scr_conlines;
 	}
 	else if (key_dest == key_console)
-		scr_conlines = glheight/2; //half screen //johnfitz -- glheight instead of vid.height
+	{
+		scr_conlines = glheight * scr_consize.value; //johnfitz -- glheight instead of vid.height // woods #consize (joequake)
+		if (scr_conlines < 50)
+			scr_conlines = 50;
+		if (scr_conlines > glheight - 50)
+			scr_conlines = glheight - 50;
+	}
 	else
 		scr_conlines = 0; //none visible
 
