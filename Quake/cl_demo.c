@@ -670,7 +670,7 @@ play [demoname]
 */
 void CL_PlayDemo_f (void)
 {
-	char	name[MAX_OSPATH];
+	char	name[MAX_OSPATH], name2[MAX_OSPATH]; // woods #demosfolder
 	int	i, c;
 	qboolean neg;
 
@@ -695,12 +695,14 @@ void CL_PlayDemo_f (void)
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
 	COM_AddExtension (name, ".dem", sizeof(name));
 
-	Con_Printf ("Playing demo from %s.\n", name);
+	q_snprintf(name2, sizeof(name2), "demos/%s", name); // woods #demosfolder
 
-	COM_FOpenFile (name, &cls.demofile, NULL);
+	Con_Printf ("Playing demo from %s.\n", name2); // woods #demosfolder
+
+	COM_FOpenFile (name2, &cls.demofile, NULL); // woods #demosfolder
 	if (!cls.demofile)
 	{
-		Con_Printf ("ERROR: couldn't open %s\n", name);
+		Con_Printf ("ERROR: couldn't open %s\n", name2); // woods #demosfolder
 		cls.demonum = -1;	// stop demo loop
 		return;
 	}

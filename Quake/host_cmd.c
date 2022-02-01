@@ -329,7 +329,7 @@ void DemoList_Init (void)
 		if (!search->pack) //directory
 		{
 #ifdef _WIN32
-			q_snprintf (filestring, sizeof(filestring), "%s/*.dem", search->filename);
+			q_snprintf (filestring, sizeof(filestring), "%s/demos/*.dem", search->filename); // woods #demosfolder
 			fhnd = FindFirstFile(filestring, &fdat);
 			if (fhnd == INVALID_HANDLE_VALUE)
 				continue;
@@ -340,7 +340,7 @@ void DemoList_Init (void)
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 #else
-			q_snprintf (filestring, sizeof(filestring), "%s/", search->filename);
+			q_snprintf (filestring, sizeof(filestring), "%s/demos/", search->filename); // woods #demosfolder
 			dir_p = opendir(filestring);
 			if (dir_p == NULL)
 				continue;
