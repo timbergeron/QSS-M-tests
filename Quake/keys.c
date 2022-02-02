@@ -1574,6 +1574,52 @@ void Key_Event (int key, qboolean down)
 					return; // Otherwise carry on ...
 			}
 
+	// woods #demorewind (Baker Fitzquake Mark V) -- scrollwheel rewind and fast-forward demos
+	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo /*&& !cls.capturedemo*/) // woods #demorewind (Baker Fitzquake Mark V)
+		if (key == K_MWHEELUP || key == K_MWHEELDOWN)
+			if (key_dest == key_game && down /* && cls.demospeed == 0 && cls.demorewind == false*/)
+			{
+				// During normal demoplayback, PGUP/PGDN will rewind and fast forward (if key_dest is game)
+				if (key == K_MWHEELUP)
+				{ 
+					if (cls.demospeed == 5)
+					{
+						cls.demospeed = 0;
+						cls.demorewind = false;
+					}
+					else
+					{
+					cls.demospeed = 5;
+					cls.demorewind = false;
+					}
+				}
+				else if (key == K_MWHEELDOWN)
+				{
+					if (cls.demospeed == 5)
+					{
+						cls.demospeed = 0;
+						cls.demorewind = false;
+					}
+					else
+					{
+						cls.demospeed = 5;
+						cls.demorewind = true;
+					}
+				}
+				return; // If something is bound to it, do not process it.
+			}
+		/*	else //if (!down && (cls.demospeed != 0 || cls.demorewind != 0))
+			{
+				// During normal demoplayback, releasing PGUP/PGDN resets the speed
+				// We need to check even if not key_game in case something silly happened (to be safe)
+				cls.demospeed = 0;
+				cls.demorewind = false;
+
+				if (key_dest == key_game)
+					return; // Otherwise carry on ...
+			}
+			*/
+
 	//Spike -- give menuqc a chance to handle (and swallow) key events.
 	if ((key_dest == key_menu || !down) && Menu_HandleKeyEvent(down, key, 0))
 		return;
