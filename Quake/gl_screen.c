@@ -1167,7 +1167,8 @@ void SCR_Mute(void)
 		y = 43;
 	else
 		return;
-	M_PrintWhite(x, y, "mute");
+	if (!cl.intermission)
+		M_PrintWhite(x, y, "mute");
 	}
 }
 
