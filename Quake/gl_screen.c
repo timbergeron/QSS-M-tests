@@ -735,7 +735,7 @@ void SCR_ShowPing(void)
 				}
 			}
 
-			if (!scr_con_current || (ct > 2)) // dont update when console down
+			if (key_dest != key_console && ((ct != (int) cl.time) && (ct > 2))) // dont update when console down
 
 				if (!cls.message.cursize && cl.expectingpingtimes < realtime)
 				{
@@ -772,22 +772,18 @@ void SCR_ShowPL(void)
 		else
 			y = 20;
 
-
 		if (cl.expectingpltimes < realtime)
 		{
 			cl.expectingpltimes = realtime + 5;   // update frequency
 			Cmd_ExecuteString("pl\n", src_command);
 
 		}
-
-		if ((!scr_con_current) && (ct > 6)) // dont update when console down
-		{
+		if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 6)))
 			if (pl > 0) // color red
 			{
 				sprintf(num, "%-4i", pl);
 				M_Print(6, y, num);
 			}
-		}
 	}
 }
 

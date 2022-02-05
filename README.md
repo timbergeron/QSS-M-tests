@@ -1,5 +1,5 @@
 Mission: 
-Qracks is the defaco engine for compeittive DM & CTF Net Quake. This project aims to add features from Qrack and more modern engines to the Quakespawm Spiked Code Base
+Qrack is the defaco engine for compeittive DM & CTF Net Quake. This project aims to add features from Qrack and more modern engines to the Quakespawm Spiked Code Base
 
 Credits:
 JPG, r00k, Spike for QSS, Ozkan Sezer & Eric Wasylishen (Quakespasm), John Fitzgibbons (FitzQuake), Baker (MarkV), MH, Joe, & many more
@@ -126,6 +126,11 @@ Typing record with no arguments will record a demo to id1/demos with the map nam
 * deadbodyfilter default
 * automaticaly report to team next quad time when expire sound begins, auto report powerup grabs in CRMOD
 * show all connected clients sorted by score in lower left in observer/eyecam mode
+* automatically vote yes on timelimit vote
+* demo rewind from fitzquake mark v (use pgup & pgdn)
+* demo percent remaing shows in sbar from fitzquake mark v
+* demo red record status shows in sbar right top corner
+* cvars show defaults (from Andrei Drexler QS fork)
 * [custom particle set](https://github.com/timbergeron/qss-particles)
 
 ## other changes features/behaviors
@@ -155,6 +160,10 @@ Typing record with no arguments will record a demo to id1/demos with the map nam
 * remove IPX from menu
 * sbar face damagehue
 * screenshots play a sound
+* limit chat length to server limit 44 characters
+* console toggles upon connecting to server
+* sounds mutes in minmization, not queue'd to sounds don't bunch upon refocus* limit chat length to server limit 44 characters
+* remove record path print
 
 ## TODO / MAYBE
 
