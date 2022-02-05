@@ -1574,6 +1574,40 @@ void Key_Event (int key, qboolean down)
 					return; // Otherwise carry on ...
 			}
 
+	// woods #demorewind (Baker Fitzquake Mark V) -- scrollwheel rewind and fast-forward demos
+	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo) // woods #demorewind (Baker Fitzquake Mark V)
+		if (key == K_MWHEELUP || key == K_MWHEELDOWN)
+			if (key_dest == key_game && down)
+			{
+				if (key == K_MWHEELUP)
+				{
+					if (cls.demospeed == 5)
+					{
+						cls.demospeed = 0;
+						cls.demorewind = false;
+					}
+					else
+					{
+						cls.demospeed = 5;
+						cls.demorewind = false;
+					}
+				}
+				else if (key == K_MWHEELDOWN)
+				{
+					if (cls.demospeed == 5)
+					{
+						cls.demospeed = 0;
+						cls.demorewind = false;
+					}
+					else
+					{
+						cls.demospeed = 5;
+						cls.demorewind = true;
+					}
+				}
+				return;
+			}
+
 	//Spike -- give menuqc a chance to handle (and swallow) key events.
 	if ((key_dest == key_menu || !down) && Menu_HandleKeyEvent(down, key, 0))
 		return;
