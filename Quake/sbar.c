@@ -47,7 +47,7 @@ qpic_t		*sb_face_quad;
 qpic_t		*sb_face_invuln;
 qpic_t		*sb_face_invis_invuln;
 
-qboolean	sb_showscores;
+// qboolean	sb_showscores; woods moved for broader access
 
 int		sb_lines;			// scan lines to draw
 
