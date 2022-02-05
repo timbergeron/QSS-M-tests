@@ -735,7 +735,7 @@ void SCR_ShowPing(void)
 				}
 			}
 
-			if (!scr_con_current || (ct > 2)) // dont update when console down
+			if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 2))) // dont update when console down
 
 				if (!cls.message.cursize && cl.expectingpingtimes < realtime)
 				{
@@ -780,7 +780,7 @@ void SCR_ShowPL(void)
 
 		}
 
-		if ((!scr_con_current) && (ct > 6)) // dont update when console down
+		if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 6)))
 		{
 			if (pl > 0) // color red
 			{
