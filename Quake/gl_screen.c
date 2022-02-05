@@ -320,6 +320,9 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		x, y;
 	int		remaining;
 
+	if (sb_showscores == true) // woods don't overlap centerprints with scoreboard
+		return;
+
 	if (!strcmp(cl.observer, "y")) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
 	else
