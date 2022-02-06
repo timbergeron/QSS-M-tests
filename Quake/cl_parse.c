@@ -2634,6 +2634,25 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		}
 	}
 
+	const char* platform = SDL_GetPlatform(); // woods #q_sysinfo (qrack)
+	const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
+	const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
+
+	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": q_sysinfo\n"))) // woods #q_sysinfo (qrack)
+	{
+		if (realtime > cl.printqsys)
+		{
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s, %d l-cores, %dgb ram", platform, num_cpus, sdlRam / 1000));
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s", videoc));
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s", videosetg));
+
+			cl.printqsys = realtime + 20;
+		}
+	}
+
 	return false;
 }
 

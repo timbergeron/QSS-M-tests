@@ -757,6 +757,18 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 				depthbits,
 				fsaa_obtained);
 
+	char videoset[50]; // woods #q_sysinfo (qrack)
+
+	sprintf(videoset, "%dx%dx%d %dHz (%d-bit z-buffer, %dx FSAA)",  // woods #q_sysinfo (qrack)
+		VID_GetCurrentWidth(),
+		VID_GetCurrentHeight(),
+		VID_GetCurrentBPP(),
+		VID_GetCurrentRefreshRate(),
+		depthbits,
+		fsaa_obtained);
+
+	strncpy(videosetg, videoset, sizeof(videosetg)); // woods #q_sysinfo (qrack)
+
 	vid.recalc_refdef = 1;
 
 // no pending changes
@@ -1302,6 +1314,8 @@ static void GL_Init (void)
 	gl_renderer = (const char *) glGetString (GL_RENDERER);
 	gl_version = (const char *) glGetString (GL_VERSION);
 	gl_extensions = (const char *) glGetString (GL_EXTENSIONS);
+
+	strncpy(videoc, gl_renderer, sizeof(videoc)); // woods #q_sysinfo (qrack)
 
 	Con_SafePrintf ("GL_VENDOR: %s\n", gl_vendor);
 	Con_SafePrintf ("GL_RENDERER: %s\n", gl_renderer);
