@@ -320,7 +320,7 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		x, y;
 	int		remaining;
 
-	if (sb_showscores == true) // // woods don't overlap centerprints with scoreboard
+	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap centerprints with scoreboard
 		return;
 
 	if (!strcmp(cl.observer, "y")) // woods #observer
@@ -1347,6 +1347,9 @@ SCR_DrawCrosshair -- johnfitz -- woods major change #crosshair
 void SCR_DrawCrosshair (void)
 {
 	int x;
+
+	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
+		return;
 
 	if (!crosshair.value || (!strcmp(cl.observer, "y")))
 		return;
