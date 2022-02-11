@@ -320,9 +320,6 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		x, y;
 	int		remaining;
 
-	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap centerprints with scoreboard
-		return;
-
 	if (!strcmp(cl.observer, "y")) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
 	else
@@ -1348,9 +1345,6 @@ void SCR_DrawCrosshair (void)
 {
 	int x;
 
-	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
-		return;
-
 	if (!crosshair.value || (!strcmp(cl.observer, "y")))
 		return;
 
@@ -1867,7 +1861,7 @@ void SCR_UpdateScreen (void)
 		//FIXME: only call this when needed
 		SCR_TileClear ();
 
-		if (!cl.intermission)
+		if (!cl.intermission && !(sb_showscores && cl.gametype == GAME_DEATHMATCH)) // woods #cleanshowscores
 		{
 			Sbar_Draw ();
 			if (!scr_drawloading && !con_forcedup)
@@ -1894,6 +1888,10 @@ void SCR_UpdateScreen (void)
 	{
 		Sbar_FinaleOverlay ();
 		SCR_CheckDrawCenterString ();
+	}
+	else if ((cl.gametype == GAME_DEATHMATCH && sb_showscores) && key_dest == key_game) // woods #cleanshowscores
+	{ 
+			Sbar_IntermissionOverlay();
 	}
 	else
 	{
