@@ -573,18 +573,42 @@ void Sbar_SoloScoreboard (void)
 {
 	char	str[256];
 	int	minutes, seconds, tens, units;
-	int	len;
+	int	len, ct, pl; // woods ct, pl
 
-	sprintf (str,"Kills: %i/%i", cl.stats[STAT_MONSTERS], cl.stats[STAT_TOTALMONSTERS]);
-	Sbar_DrawString (8, 12, str);
+	if (cl.gametype != GAME_DEATHMATCH)  // woods only in singleplayer
+	{
+		sprintf(str, "Kills: %i/%i", cl.stats[STAT_MONSTERS], cl.stats[STAT_TOTALMONSTERS]);
+		Sbar_DrawString(8, 12, str);
 
-	sprintf (str,"Secrets: %i/%i", cl.stats[STAT_SECRETS], cl.stats[STAT_TOTALSECRETS]);
-	Sbar_DrawString (312 - strlen(str)*8, 12, str);
+		sprintf(str, "Secrets: %i/%i", cl.stats[STAT_SECRETS], cl.stats[STAT_TOTALSECRETS]);
+		Sbar_DrawString(312 - strlen(str) * 8, 12, str);
+	}
+
+	if (cl.gametype == GAME_DEATHMATCH) // woods add server connected time and total packet loss
+	{
+		ct = cl.time - cl.maptime;
+		pl = atoi(cl.packetloss);
+		minutes = ct / 60;
+		seconds = ct - 60 * minutes;
+		tens = seconds / 10;
+		units = seconds - 10 * tens;
+
+		sprintf(str, "Connected Time: %i:%i%i   Total PL:%i", minutes, tens, units, pl);
+
+		len = strlen(str);
+		if (len > 40)
+			Sbar_DrawScrollString(0, 12, 320, str);
+		else
+			Sbar_DrawString(160 - len * 4, 12, str);
+	}
 
 	if (!fitzmode)
 	{ /* QuakeSpasm customization: */
-		q_snprintf (str, sizeof(str), "skill %i", (int)(skill.value + 0.5));
-		Sbar_DrawString (160 - strlen(str)*4, 12, str);
+		if (cl.gametype != GAME_DEATHMATCH) // woods only in singleplayer
+		{
+			q_snprintf(str, sizeof(str), "skill %i", (int)(skill.value + 0.5));
+			Sbar_DrawString(160 - strlen(str) * 4, 12, str);
+		}
 
 		q_snprintf (str, sizeof(str), "%s (%s)", cl.levelname, cl.mapname);
 		len = strlen (str);
