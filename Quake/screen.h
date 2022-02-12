@@ -66,6 +66,7 @@ typedef enum {
 	CANVAS_SBAR,
 	CANVAS_SBAR2, // woods #speed
 	CANVAS_CROSSHAIR,
+	CANVAS_MATCHCLOCK,
 	CANVAS_BOTTOMLEFT,
 	CANVAS_BOTTOMLEFT2, // woods #scrping
 	CANVAS_MOD, // woods #modprint
@@ -86,6 +87,7 @@ extern	cvar_t		scr_consize; // woods #consize (joequake)
 extern	cvar_t		scr_scale;
 extern	cvar_t		scr_crosshairscale;
 extern	cvar_t		scr_crosshaircolor; // woods #crosshair
+extern	cvar_t		scr_matchclockscale; // woods #varmatchclock
 //johnfitz
 
 extern int scr_tileclear_updates; //johnfitz

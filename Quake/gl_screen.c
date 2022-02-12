@@ -101,6 +101,10 @@ cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_NONE };  // woods #matchhud
 cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_NONE}; // woods #speed
+cvar_t		scr_matchclock = {"scr_matchclock", "0",CVAR_ARCHIVE}; // woods #varmatchclock
+cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #varmatchclock
+cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
+cvar_t		scr_matchclockscale = {"scr_matchclockscale", "1",CVAR_ARCHIVE}; // woods #varmatchclock
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -574,6 +578,10 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
 	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
 	Cvar_RegisterVariable (&scr_showspeed); // woods #speed
+	Cvar_RegisterVariable (&scr_matchclock); // woods #varmatchclock
+	Cvar_RegisterVariable (&scr_matchclock_y); // woods #varmatchclock
+	Cvar_RegisterVariable (&scr_matchclock_x); // woods #varmatchclock
+	Cvar_RegisterVariable (&scr_matchclockscale); // woods #varmatchclock
 	//johnfitz
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
@@ -874,6 +882,22 @@ void SCR_DrawMatchClock(void)
 			else
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 		}
+
+		if (scr_matchclock.value) // woods #varmatchclock
+		{
+			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
+			{
+				GL_SetCanvas(CANVAS_MATCHCLOCK);
+				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+				minutes = match_time / 60;
+				seconds = match_time - 60 * minutes;
+				if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+					M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num); // M_Print is colored text
+				else
+					Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
+			}
+		}
+
 		//	scr_tileclear_updates = 0;
 	}
 }
