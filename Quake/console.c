@@ -988,7 +988,9 @@ void AddToTabList (const char *name, const char *type)
 	char	*i_bash;
 	const char *i_name;
 
-	if (!*bash_partial)
+	//mxd. Added bash_singlematch check, so bash_partial is set only once per BuildTabList() call.
+	//mxd. Because matched part is no longer expected to be at the start of a command, we can end up with empty bash_partial in the middle of BuildTabList() call.
+	if (!*bash_partial && bash_singlematch) // mxd
 	{
 		strncpy (bash_partial, name, 79);
 		bash_partial[79] = '\0';
@@ -1119,6 +1121,19 @@ const char *FindCompletion (const char *partial, filelist_item_t *filelist, int 
 
 /*
 ============
+TabListItemNameContains -- mxd (https://github.com/m-x-d/Quakespasm/tree/better-tab-completion)
+============
+*/
+qboolean TabListItemNameContains(const char* name, const char* partial, const int len)
+{
+	if (len < 2)
+		return !q_strncasecmp(partial, name, len);
+
+	return q_strcasestr(name, partial) != NULL;
+}
+
+/*
+============
 BuildTabList -- johnfitz
 ============
 */
@@ -1137,15 +1152,15 @@ void BuildTabList (const char *partial)
 
 	cvar = Cvar_FindVarAfter ("", CVAR_NONE);
 	for ( ; cvar ; cvar=cvar->next)
-		if (!q_strncasecmp (partial, cvar->name, len))
+		if (TabListItemNameContains(cvar->name, partial, len)) //mxd
 			AddToTabList (cvar->name, "cvar");
 
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
-		if (!q_strncasecmp (partial,cmd->name, len) && cmd->srctype != src_server)
+		if (cmd->srctype != src_server && TabListItemNameContains(cmd->name, partial, len)) // mxd
 			AddToTabList (cmd->name, "command");
 
 	for (alias=cmd_alias ; alias ; alias=alias->next)
-		if (!q_strncasecmp (partial, alias->name, len))
+		if (TabListItemNameContains(alias->name, partial, len)) // mxd
 			AddToTabList (alias->name, "alias");
 }
 
@@ -1225,6 +1240,7 @@ void Con_TabComplete (void)
 	mark = Hunk_LowMark();
 	if (!key_tabpartial[0]) //first time through
 	{
+		const size_t partial_len = strlen(partial);
 		q_strlcpy (key_tabpartial, partial, MAXCMDLINE);
 		BuildTabList (key_tabpartial);
 
@@ -1238,7 +1254,14 @@ void Con_TabComplete (void)
 			Con_SafePrintf("\n");
 			do
 			{
-				Con_SafePrintf("   %s (%s)\n", t->name, t->type);
+				char* matchchar = q_strcasestr(t->name, partial); // mxd
+				char start[MAXCMDLINE], mid[MAXCMDLINE], end[MAXCMDLINE]; // mxd
+
+				q_strlcpy(start, t->name, matchchar - t->name + 1); // mxd
+				q_strlcpy(mid, matchchar, partial_len + 1); // mxd
+				q_strlcpy(end, matchchar + partial_len, strlen(t->name) - partial_len + 1); // mxd
+
+				Con_SafePrintf("   %s^m%s^m%s (%s)\n", start, mid, end, t->type); // mxd
 				t = t->next;
 			} while (t != tablist);
 			Con_SafePrintf("\n");
@@ -1246,7 +1269,9 @@ void Con_TabComplete (void)
 
 	//	match = tablist->name;
 	// First time, just show maximum matching chars -- S.A.
-		match = bash_partial;
+	//match = bash_partial;
+	//mxd. Use bash_partial only when it starts with entered text. 
+		match = ((strlen(bash_partial) > partial_len && !q_strncasecmp(partial, bash_partial, partial_len)) ? bash_partial : partial); // mxd
 	}
 	else
 	{
