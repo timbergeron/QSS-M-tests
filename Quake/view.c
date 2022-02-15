@@ -577,6 +577,7 @@ V_UpdateBlend -- johnfitz -- V_UpdatePalette cleaned up and renamed
 void V_UpdateBlend (void)
 {
 	int		i, j;
+	float	frametime = cl.time - cl.oldtime; // woods iw
 	qboolean	blend_changed;
 
 	V_CalcPowerupCshift ();
@@ -599,12 +600,12 @@ void V_UpdateBlend (void)
 	}
 
 // drop the damage value
-	cl.cshifts[CSHIFT_DAMAGE].percent -= host_frametime*150;
+	cl.cshifts[CSHIFT_DAMAGE].percent -= frametime*150; // woods iw
 	if (cl.cshifts[CSHIFT_DAMAGE].percent <= 0)
 		cl.cshifts[CSHIFT_DAMAGE].percent = 0;
 
 // drop the bonus value
-	cl.cshifts[CSHIFT_BONUS].percent -= host_frametime*100;
+	cl.cshifts[CSHIFT_BONUS].percent -= frametime*100; // woods iw
 	if (cl.cshifts[CSHIFT_BONUS].percent <= 0)
 		cl.cshifts[CSHIFT_BONUS].percent = 0;
 

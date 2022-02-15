@@ -59,7 +59,7 @@ typedef struct
 typedef struct
 {
 	int		destcolor[3];
-	float	percent;		// 0-256
+	float	percent;		// 0-256 -- woods iw
 } cshift_t;
 
 #define	CSHIFT_CONTENTS	0
