@@ -186,32 +186,32 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	{
 		// RED
 
-		if (strpbrk(str, "") && strpbrk(str, "r") && !strpbrk(str, "b") && !strpbrk(str, "â")) // red taken
+		if (strstr(str, "r") && !strstr(str, "bŸ") && !strstr(str, "âŸ")) // red taken
 			strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
 
-		if (strpbrk(str, "") && strpbrk(str, "ò") && !strpbrk(str, "b") && !strpbrk(str, "â")) // red abandoned
+		if (strstr(str, "ò") && !strstr(str, "bŸ") && !strstr(str, "âŸ")) // red abandoned
 			strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
 
 	// BLUE
 
-		if (strpbrk(str, "") && strpbrk(str, "b") && !strpbrk(str, "r") && !strpbrk(str, "ò")) // blue taken
+		if (strstr(str, "bŸ") && !strstr(str, "r") && !strstr(str, "ò")) // blue taken
 			strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
 
-		if (strpbrk(str, "") && strpbrk(str, "â") && !strpbrk(str, "r") && !strpbrk(str, "ò")) // blue abandoned
+		if (strstr(str, "âŸ") && !strstr(str, "r") && !strstr(str, "ò")) // blue abandoned
 			strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
 
 	// RED & BLUE
 
-		if ((strpbrk(str, "")) && (strpbrk(str, "b")) && (strpbrk(str, "r"))) //  blue & red taken
+		if ((strstr(str, "bŸ")) && (strstr(str, "r"))) //  blue & red taken
 			strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
 
-		if ((strpbrk(str, "")) && (strpbrk(str, "â")) && (strpbrk(str, "ò"))) // blue & red abandoned
+		if ((strstr(str, "âŸ")) && (strstr(str, "ò"))) // blue & red abandoned
 			strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
 
-		if ((strpbrk(str, "")) && (strpbrk(str, "â")) && (strpbrk(str, "r"))) // blue abandoned, red taken
+		if ((strstr(str, "âŸ")) && (strstr(str, "r"))) // blue abandoned, red taken
 			strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
 
-		if ((strpbrk(str, "")) && (strpbrk(str, "b")) && (strpbrk(str, "ò"))) // red abandoned, blue taken
+		if ((strstr(str, "bŸ")) && (strstr(str, "ò"))) // red abandoned, blue taken
 			strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
 	}
 
