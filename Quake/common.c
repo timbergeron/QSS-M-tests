@@ -2623,6 +2623,7 @@ static qboolean COM_AddPackage(searchpath_t *basepath, const char *pakfile, cons
 	searchpath_t *search;
 	pack_t *pak;
 	const char *ext = COM_FileGetExtension(pakfile);
+	extern cvar_t r_nopak_list;
 
 	//don't add the same pak twice.
 	for (search = com_searchpaths; search; search = search->next)
@@ -2631,6 +2632,10 @@ static qboolean COM_AddPackage(searchpath_t *basepath, const char *pakfile, cons
 			if (!q_strcasecmp(pakfile, search->pack->filename))
 				return true;
 	}
+	search = (searchpath_t*)Z_Malloc(sizeof(searchpath_t));
+	q_strlcpy(search->purename, purename, sizeof(search->purename));
+	if (strstr(r_nopak_list.string, search->purename))
+		return true;
 
 	{
 		struct stat sb;
