@@ -656,6 +656,42 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	glEnd ();
 }
 
+// woods #sbarstyles for qw hud
+
+void Draw_SubPic_QW (int x, int y, qpic_t *pic, int ofsx, int ofsy, int w, int h)
+{
+	glpic_t			*gl;
+	float nsl, ntl, nsh, nth;
+	float oldw, oldh;
+
+	if (scrap_dirty)
+		Scrap_Upload ();
+	gl = (glpic_t *)pic->data;
+	GL_Bind (gl->gltexture);
+
+    oldw = gl->sh - gl->sl;
+    oldh = gl->th - gl->tl;
+
+    nsl = gl->sl + (ofsx * oldw) / pic->width;
+    nsh = nsl + (w * oldw) / pic->width;
+
+    ntl = gl->tl + (ofsy * oldh) / pic->height;
+    nth = ntl + (h * oldh) / pic->height;
+
+    glBegin (GL_QUADS);
+
+    glTexCoord2f (nsl, ntl);
+    glVertex2f (x, y);
+    glTexCoord2f (nsh, ntl);
+    glVertex2f (x+w, y);
+    glTexCoord2f (nsh, nth);
+    glVertex2f (x+w, y+h);
+    glTexCoord2f (nsl, nth);
+    glVertex2f (x, y+h);
+
+    glEnd ();
+}
+
 void Draw_SubPic (float x, float y, float w, float h, qpic_t *pic, float s1, float t1, float s2, float t2)
 {
 	glpic_t			*gl;
@@ -968,6 +1004,11 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, 320, 80, 0, -99999, 99999);
 		glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 80*s);
 		break;
+	case CANVAS_IBAR_QW: //split for cleaner QW hud support // woods #sbarstyles
+        s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+        glOrtho (0, 44, 188, 0, -99999, 99999);
+        glViewport (glwidth - 44*s, 48*s, 44*s, 188*s);
+        break;
 	case CANVAS_CROSSHAIR: //0,0 is center of viewport
 		s = CLAMP (1.0, scr_crosshairscale.value, 10.0);
 		glOrtho (scr_vrect.width/-2/s, scr_vrect.width/2/s, scr_vrect.height/2/s, scr_vrect.height/-2/s, -99999, 99999);

@@ -318,6 +318,22 @@ void Sbar_DrawPic (int x, int y, qpic_t *pic)
 
 /*
 =============
+Sbar_DrawSubPicAlpha -- // woods #sbarstyles
+=============
+*/
+void Sbar_DrawSubPicAlpha(int x, int y, qpic_t* pic, int ofsx, int ofsy, int w, int h, float alpha)
+{
+	glDisable(GL_ALPHA_TEST);
+	glEnable(GL_BLEND);
+	glColor4f(1, 1, 1, alpha);
+	Draw_SubPic_QW(x, y + 24, pic, ofsx, ofsy, w, h);
+	glColor4f(1, 1, 1, 1); // ericw -- changed from glColor3f to work around intel 855 bug with "r_oldwater 0" and "scr_sbaralpha 0"
+	glDisable(GL_BLEND);
+	glEnable(GL_ALPHA_TEST);
+}
+
+/*
+=============
 Sbar_DrawPicAlpha -- johnfitz
 =============
 */
@@ -870,6 +886,236 @@ void Sbar_DrawInventory (void)
 	}
 }
 
+/*
+===============
+Sbar_DrawInventory_QW -- github.com/bangstk/Quakespasm // woods #sbarstyles
+===============
+*/
+void Sbar_DrawInventory_QW (void)
+{
+	int	i, val;
+	char	num[6];
+	float	time;
+	int	flashon;
+	int extraguns = 2 * hipnotic;
+
+	GL_SetCanvas(CANVAS_IBAR_QW);
+
+	//for qw hud, ammo backgrounds
+	for (i = 0; i < 4; i++)
+	{
+		if (rogue)
+		{
+			if (cl.stats[STAT_ACTIVEWEAPON] >= RIT_LAVA_NAILGUN)
+				Sbar_DrawSubPicAlpha(0, 188 - 11 * (4 - i) - 24, rsb_invbar[0], 1 + (i * 48), 0, 44, 11, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
+			else
+				Sbar_DrawSubPicAlpha(0, 188 - 11 * (4 - i) - 24, rsb_invbar[1], 1 + (i * 48), 0, 44, 11, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
+		}
+		else
+			Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 1);
+	}
+
+	// weapons
+	for (i = 0; i < 7; i++)
+	{
+		if (cl.items & (IT_SHOTGUN << i))
+		{
+			time = cl.item_gettime[i];
+			flashon = (int)((cl.time - time) * 10);
+			if (flashon >= 10)
+			{
+				if (cl.stats[STAT_ACTIVEWEAPON] == (IT_SHOTGUN << i))
+					flashon = 1;
+				else
+					flashon = 0;
+			}
+			else
+				flashon = (flashon % 5) + 2;
+
+			Sbar_DrawPicAlpha(20, 32 + i * 16 - (16 * extraguns) - 24, sb_weapons[flashon][i], scr_sbaralpha.value);
+
+			if (flashon > 1)
+				sb_updates = 0;		// force update to remove flash
+		}
+	}
+
+	// MED 01/04/97
+	// hipnotic weapons
+	if (hipnotic)
+	{
+		int grenadeflashing = 0;
+		for (i = 0; i < 4; i++)
+		{
+			if (cl.items & (1 << hipweapons[i]))
+			{
+				time = cl.item_gettime[hipweapons[i]];
+				flashon = (int)((cl.time - time) * 10);
+				if (flashon >= 10)
+				{
+					if (cl.stats[STAT_ACTIVEWEAPON] == (1 << hipweapons[i]))
+						flashon = 1;
+					else
+						flashon = 0;
+				}
+				else
+					flashon = (flashon % 5) + 2;
+
+				// check grenade launcher
+				if (i == 2)
+				{
+					if (cl.items & HIT_PROXIMITY_GUN)
+					{
+						if (flashon)
+						{
+							grenadeflashing = 1;
+							Sbar_DrawPicAlpha(20, 40, hsb_weapons[flashon][2], scr_sbaralpha.value);
+						}
+					}
+				}
+				else if (i == 3)
+				{
+					if (cl.items & (IT_SHOTGUN << 4))
+					{
+						if (flashon && !grenadeflashing)
+						{
+							Sbar_DrawPicAlpha(20, 40, hsb_weapons[flashon][3], scr_sbaralpha.value);
+						}
+						else if (!grenadeflashing)
+						{
+							Sbar_DrawPicAlpha(20, 40, hsb_weapons[0][3], scr_sbaralpha.value);
+						}
+					}
+					else
+						Sbar_DrawPicAlpha(20, 40, hsb_weapons[flashon][4], scr_sbaralpha.value);
+				}
+				else
+					Sbar_DrawPicAlpha(20, (i + 7) * 16 - 24, hsb_weapons[flashon][i], scr_sbaralpha.value);
+
+				if (flashon > 1)
+					sb_updates = 0;	// force update to remove flash
+			}
+		}
+	}
+
+	if (rogue)
+	{
+		// check for powered up weapon.
+		if (cl.stats[STAT_ACTIVEWEAPON] >= RIT_LAVA_NAILGUN)
+		{
+			for (i = 0;i < 5;i++)
+			{
+				if (cl.stats[STAT_ACTIVEWEAPON] == (RIT_LAVA_NAILGUN << i))
+				{
+					Sbar_DrawPicAlpha(20, (i + 2) * 16 - 24 + 32, rsb_weapons[i], scr_sbaralpha.value);
+				}
+			}
+		}
+	}
+	
+	// ammo counts
+	for (i = 0; i < 4; i++)
+	{
+		val = cl.stats[STAT_SHELLS + i];
+		val = (val < 0) ? 0 : q_min(999, val);//johnfitz -- cap displayed value to 999
+		sprintf(num, "%3i", val);
+		if (num[0] != ' ')
+			Sbar_DrawCharacter(9, 188 - 11 * (4 - i) - 24, 18 + num[0] - '0');
+		if (num[1] != ' ')
+			Sbar_DrawCharacter(17, 188 - 11 * (4 - i) - 24, 18 + num[1] - '0');
+		if (num[2] != ' ')
+			Sbar_DrawCharacter(25, 188 - 11 * (4 - i) - 24, 18 + num[2] - '0');
+	}
+
+	flashon = 0;
+	// items
+	for (i = 0; i < 6; i++)
+	{
+		if (cl.items & (1 << (17 + i)))
+		{
+			time = cl.item_gettime[17 + i];
+			if (time && time > cl.time - 2 && flashon)
+			{	// flash frame
+				sb_updates = 0;
+			}
+			else
+			{
+				//MED 01/04/97 changed keys
+				if (!hipnotic || (i > 1))
+				{
+					Sbar_DrawPic(192 + i * 16, -16, sb_items[i]);
+				}
+			}
+			if (time && time > cl.time - 2)
+				sb_updates = 0;
+		}
+	}
+	//MED 01/04/97 added hipnotic items
+	// hipnotic items
+	if (hipnotic)
+	{
+		for (i = 0; i < 2; i++)
+		{
+			if (cl.items & (1 << (24 + i)))
+			{
+				time = cl.item_gettime[24 + i];
+				if (time && time > cl.time - 2 && flashon)
+				{	// flash frame
+					sb_updates = 0;
+				}
+				else
+				{
+					Sbar_DrawPic(288 + i * 16, -16, hsb_items[i]);
+				}
+				if (time && time > cl.time - 2)
+					sb_updates = 0;
+			}
+		}
+	}
+
+	if (rogue)
+	{
+		// new rogue items
+		for (i = 0; i < 2; i++)
+		{
+			if (cl.items & (1 << (29 + i)))
+			{
+				time = cl.item_gettime[29 + i];
+				if (time && time > cl.time - 2 && flashon)
+				{	// flash frame
+					sb_updates = 0;
+				}
+				else
+				{
+					Sbar_DrawPic(288 + i * 16, -16, rsb_items[i]);
+				}
+				if (time && time > cl.time - 2)
+					sb_updates = 0;
+			}
+		}
+	}
+	else
+	{
+		// sigils
+		if (!cls.demoplayback) // woods #demopercent (Baker Fitzquake Mark V) -- make room for demo %
+			for (i = 0; i < 4; i++)
+			{
+				if (cl.items & (1 << (28 + i)))
+				{
+					time = cl.item_gettime[28 + i];
+					if (time && time > cl.time - 2 && flashon)
+					{	// flash frame
+						sb_updates = 0;
+					}
+					else
+						Sbar_DrawPic(320 - 32 + i * 8, -16, sb_sigil[i]);
+					if (time && time > cl.time - 2)
+						sb_updates = 0;
+				}
+			}
+	}
+	GL_SetCanvas(CANVAS_SBAR);
+}
+
 //=============================================================================
 
 /*===============
@@ -886,6 +1132,9 @@ void Sbar_DrawFrags(void)
 	int				teamscores, colors, minutes, seconds, mask; // JPG - added these
 	int				match_time; // JPG - added this
 
+	if (scr_sbar.value == 2) // woods #sbarstyles
+		return;
+	
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = cl.teamgame;
 
@@ -1012,6 +1261,9 @@ void Sbar_DrawRecord(void)
 	int y;
 
 	y = 0;
+
+	if (scr_sbar.value == 2) // woods #sbarstyles
+		return;
 
 	GL_SetCanvas(CANVAS_SBAR);
 
@@ -1222,27 +1474,19 @@ void Sbar_Draw (void)
 	else
 		Sbar_Voice(16);
 
-	//johnfitz -- don't waste fillrate by clearing the area behind the sbar
+	//johnfitz -- don't waste fillrate by clearing the area behind the sbar // woods edited for #sbarstyles
 	w = CLAMP (320.0f, scr_sbarscale.value * 320.0f, (float)glwidth);
 	if (sb_lines && glwidth > w)
-	{
-		if (scr_sbaralpha.value < 1)
-			Draw_TileClear (0, glheight - sb_lines, glwidth, sb_lines);
-	//	if (cl.gametype == GAME_DEATHMATCH)	// woods #sbarmiddle
-	//		Draw_TileClear (w, glheight - sb_lines, glwidth - w, sb_lines); // woods #sbarmiddle
-		else
-		{
-			Draw_TileClear (0, glheight - sb_lines, (glwidth - w) / 2.0f, sb_lines);
-			Draw_TileClear ((glwidth - w) / 2.0f + w, glheight - sb_lines, (glwidth - w) / 2.0f, sb_lines);
-		}
-	}
-	//johnfitz
+		Draw_TileClear (0, glheight - sb_lines, glwidth, sb_lines);
 
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
 
 	if (scr_viewsize.value < 110) //johnfitz -- check viewsize instead of sb_lines
 	{
-		Sbar_DrawInventory ();
+		if (scr_sbar.value != 2)
+			Sbar_DrawInventory ();
+		if (scr_sbar.value == 2)
+			Sbar_DrawInventory_QW ();
 		if (cl.maxclients != 1)
 			Sbar_DrawFrags ();
 	}
@@ -1346,19 +1590,23 @@ void Sbar_Draw (void)
 	if (cls.demorecording) // woods #showrecord
 		Sbar_DrawRecord ();
 
-	if (cls.demoplayback && scr_viewsize.value <= 100) // woods #demopercent (Baker Fitzquake Mark V)
+	if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
 	{
 		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
 		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
 		char* tempstring = va("%i%%", complete_pct_int);
 		int len = strlen(tempstring), i;
 		int	leveldrawwidth = 320;
+		int x;
+		x = 316;
+		if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
+			x = 280;
 
 		// Bronze it
 		for (i = 0; i < len; i++)
 			tempstring[i] |= 128;
 
-		Sbar_DrawString(316 - len * 8, -13, tempstring);
+		Sbar_DrawString(x - len * 8, -13, tempstring);
 	}
 
 }

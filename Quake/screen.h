@@ -53,6 +53,7 @@ extern	qboolean	scr_skipupdate;
 extern	cvar_t		scr_viewsize;
 
 extern	cvar_t		scr_sbaralpha; //johnfitz
+extern	cvar_t		scr_sbar; // woods #sbarstyles
 
 void SCR_UpdateWholeScreen (void);
 
@@ -65,6 +66,7 @@ typedef enum {
 	CANVAS_MENU,
 	CANVAS_SBAR,
 	CANVAS_SBAR2, // woods #speed
+	CANVAS_IBAR_QW, // woods #sbarstyles
 	CANVAS_CROSSHAIR,
 	CANVAS_MATCHCLOCK,
 	CANVAS_BOTTOMLEFT,
