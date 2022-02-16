@@ -811,12 +811,22 @@ void SCR_DrawMatchClock(void)
 	int				l;
 	char			num[12];
 	int				teamscores, minutes, seconds; // JPG - added these
-	int				match_time; // JPG - added this
+	int				match_time, tl, z;
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
 
 	l = scoreboardlines <= 4 ? scoreboardlines : 4;
+
+	if (teamscores) // find match timelimit
+		if (strlen(cl.serverinfo) > 1) // qss server check
+		{
+			char serverinfo[13];
+			char timelimit[4];
+
+			strrev(strncpy(timelimit, strrev(strncpy(serverinfo, strstr(cl.serverinfo, "timelimit\\"), 13)), 3)); // get timelimit number
+			tl = atoi(timelimit);
+		}
 
 	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM
 	{
@@ -862,10 +872,16 @@ void SCR_DrawMatchClock(void)
 
 			}
 			else
-				if (teamscores) // display 0.00 for pre match mode in CTF
+				if (teamscores) // display 0.00 for pre match mode or timelimit if we can get it
 				{
 					GL_SetCanvas(CANVAS_TOPRIGHT2);
-					sprintf(num, "%3d:%02d", 0, 0);
+
+					if (strlen(cl.serverinfo) > 1) // qss server check
+						z = tl;
+					else
+						z = 0;
+					sprintf(num, "%3d:%02d", z, 0);
+
 					Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 				}
 				else
