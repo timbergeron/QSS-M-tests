@@ -287,6 +287,69 @@ void Modlist_Init (void)
 #endif
 
 //==============================================================================
+//woods -- execlist management #execlist
+//==============================================================================
+
+filelist_item_t* execlist;
+
+static void Execlist_Add(const char* name)
+{
+	FileList_Add(name, &execlist);
+}
+
+#ifdef _WIN32
+void Execlist_Init(void)
+{
+	WIN32_FIND_DATA	fdat;
+	HANDLE		fhnd;
+	DWORD		attribs;
+	char		file_string[MAX_OSPATH], exec_string[MAX_OSPATH];
+
+	q_snprintf(file_string, sizeof(file_string), "%s/*.cfg", com_gamedir);
+	fhnd = FindFirstFile(file_string, &fdat);
+	if (fhnd == INVALID_HANDLE_VALUE)
+		return;
+
+	do
+	{
+		if (!strcmp(fdat.cFileName, ".") || !strcmp(fdat.cFileName, ".."))
+			continue;
+		q_snprintf(exec_string, sizeof(exec_string), "%s/%s", com_gamedir, fdat.cFileName);
+		attribs = GetFileAttributes(exec_string);
+		if (attribs != INVALID_FILE_ATTRIBUTES) {
+			/* don't bother testing for pak files / progs.dat */
+			Execlist_Add(fdat.cFileName);
+		}
+	} while (FindNextFile(fhnd, &fdat));
+
+	FindClose(fhnd);
+}
+#else
+void Execlist_Init(void)
+{
+	DIR* dir_p, * exec_dir_p;
+	struct dirent* dir_t;
+	char		file_string[MAX_OSPATH], exec_string[MAX_OSPATH];
+
+	q_snprintf(file_string, sizeof(file_string), "%s/", com_gamedir);
+	dir_p = opendir(file_string);
+	if (dir_p == NULL)
+		continue;
+
+	while ((dir_t = readdir(dir_p)) != NULL)
+	{	
+		if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "cfg") != 0)
+			continue;
+		Execlist_Add(dir_t->d_name);
+		closedir(exec_dir_p);
+	}
+
+	closedir(dir_p);
+}
+#endif
+
+
+//==============================================================================
 //ericw -- demo list management
 //==============================================================================
 

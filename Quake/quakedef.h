@@ -328,6 +328,7 @@ typedef struct filelist_item_s
 } filelist_item_t;
 
 extern filelist_item_t	*modlist;
+extern filelist_item_t	*execlist; // woods #execlist
 extern filelist_item_t	*extralevels;
 extern filelist_item_t	*demolist;
 
@@ -354,6 +355,7 @@ void Host_DownloadAck(client_t *client);
 
 void ExtraMaps_Init (void);
 void Modlist_Init (void);
+void Execlist_Init(void);
 void DemoList_Init (void);
 
 void ExtraMaps_NewGame (void);

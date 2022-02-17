@@ -1144,6 +1144,7 @@ void Host_Init (void)
 		Chase_Init ();
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
+		Execlist_Init(); // woods #execlist
 		DemoList_Init (); //ericw
 		VID_Init ();
 		IN_Init ();
