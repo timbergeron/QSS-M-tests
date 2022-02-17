@@ -1684,8 +1684,18 @@ static void Host_Color_f(void)
 
 	if (Cmd_Argc() == 1)
 	{
+		Con_Printf("\n");
 		Con_Printf ("\"%s\" is \"%s %s\"\n", Cmd_Argv(0), CL_PLColours_ToString(CL_PLColours_Parse(cl_topcolor.string)), CL_PLColours_ToString(CL_PLColours_Parse(cl_bottomcolor.string)));
 		Con_Printf ("color <0-13> [0-13]\n");
+		Con_Printf("\n");
+		Con_Printf("0 - white         7 - peach\n");
+		Con_Printf("1 - brown         8 - purple\n");
+		Con_Printf("2 - light blue    9 - magenta\n");
+		Con_Printf("3 - green        10 - tan\n");
+		Con_Printf("4 - red          11 - green\n");
+		Con_Printf("5 - orange       12 - yellow\n");
+		Con_Printf("6 - gold         13 - blue\n");
+		Con_Printf("\n");
 		return;
 	}
 
