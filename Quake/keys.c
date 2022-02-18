@@ -49,6 +49,7 @@ qboolean	Cmd_Exists2(const char* cmd_name); // woods #ezsay
 
 void Sound_Toggle_Mute_f (void); // woods #usermute
 void SCR_Mute_Switch (void); // woods #usermute
+void Con_Copy_f (void); // woods #concopy
 
 typedef struct
 {
@@ -799,7 +800,22 @@ void Key_Console (int key)
 
 	case 'c':
 	case 'C':
-		if (keydown[K_CTRL]) {		/* Ctrl+C: abort the line -- S.A */
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #concopy
+		if (key_dest = key_console)
+			if (keydown[K_COMMAND]) {	/* Cmd+c: condump and copy to clipboard (Mac-only) */
+				Con_Copy_f();
+				return;
+		}
+#endif
+		if (key_dest = key_console)
+			if (keydown[K_CTRL]) {		/* Ctrl+c: condump and copy to clipboard */
+			Con_Copy_f();
+			return;
+		}
+		break;
+	case 'd':
+	case 'D':
+		if (keydown[K_CTRL]) {		/* Ctrl+d: abort the line -- S.A */ // woods switched to D, from C #concopy
 			Con_Printf ("%s\n", workline);
 			workline[0] = ']';
 			workline[1] = 0;

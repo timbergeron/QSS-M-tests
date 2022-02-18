@@ -207,6 +207,22 @@ static void Con_Dump_f (void)
 
 /*
 ================
+Con_Copy_f -- woods #concopy
+================
+*/
+void Con_Copy_f(void)
+{
+	FILE* f;
+
+	Con_Dump_f();
+	f = (char*)COM_LoadHunkFile("condump.txt", NULL);
+#if defined(USE_SDL2)
+	SDL_SetClipboardText(f);
+#endif
+}
+
+/*
+================
 Con_ClearNotify
 ================
 */
