@@ -1391,7 +1391,7 @@ SCR_DrawCrosshair -- johnfitz -- woods major change #crosshair
 */
 void SCR_DrawCrosshair (void)
 {
-	int x;
+	int x,hue;
 
 	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 		return;
@@ -1399,18 +1399,33 @@ void SCR_DrawCrosshair (void)
 	if (!crosshair.value || (!strcmp(cl.observer, "y")))
 		return;
 
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value == 2)
+		hue = 1;
+
 	GL_SetCanvas (CANVAS_CROSSHAIR);
 
 	x = 0;
 
 	if (scr_crosshaircolor.value == 0)
-		x = 254;
+		if (hue)
+			x = 234; // orange
+		else
+			x = 254;
 	if (scr_crosshaircolor.value == 1)
-		x = 192;
+		if (hue)
+			x = 234; // orange
+		else
+			x = 192;
 	if (scr_crosshaircolor.value == 2)
-		x = 251;
+		if (hue)
+			x = 254; // white
+		else
+			x = 251;
 	if (scr_crosshaircolor.value == 3)
-		x = 208;
+		if (hue)
+			x = 254; // white
+		else
+			x = 208;
 
 	if (crosshair.value == 1)
 		Draw_Fill(-2, 1, 3, 3, x, 1); // simple dot
