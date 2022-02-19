@@ -72,6 +72,7 @@ static int hudtype;
 void Sbar_MiniDeathmatchOverlay (void);
 void Sbar_DeathmatchOverlay (void);
 void M_DrawPic (int x, int y, qpic_t *pic);
+void Draw_SubPic_QW (int x, int y, qpic_t* pic, int ofsx, int ofsy, int w, int h); // woods #sbarstyles for qw hud
 
 qboolean Sbar_CSQCCommand(void)
 {
@@ -1596,7 +1597,6 @@ void Sbar_Draw (void)
 		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
 		char* tempstring = va("%i%%", complete_pct_int);
 		int len = strlen(tempstring), i;
-		int	leveldrawwidth = 320;
 		int x;
 		x = 316;
 		if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
