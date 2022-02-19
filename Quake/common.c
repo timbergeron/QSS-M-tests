@@ -160,6 +160,26 @@ void InsertLinkAfter (link_t *l, link_t *after)
 ============================================================================
 */
 
+// woods string reverse
+
+#define SWAP(T, a, b) \
+    do { T save = (a); (a) = (b); (b) = save; } while (0)
+
+char* Q_strrev(char* s)
+{
+	size_t len = strlen(s);
+
+	if (len > 1) {
+		char* a = s;
+		char* b = s + len - 1;
+
+		for (; a < b; ++a, --b)
+			SWAP(char, *a, *b);
+	}
+
+	return s;
+}
+
 int q_strcasecmp(const char * s1, const char * s2)
 {
 	const char * p1 = s1;

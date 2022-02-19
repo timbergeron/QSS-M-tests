@@ -824,7 +824,7 @@ void SCR_DrawMatchClock(void)
 			char serverinfo[13];
 			char timelimit[4];
 
-			strrev(strncpy(timelimit, strrev(strncpy(serverinfo, strstr(cl.serverinfo, "timelimit\\"), 13)), 3)); // get timelimit number
+			Q_strrev(strncpy(timelimit, Q_strrev(strncpy(serverinfo, strstr(cl.serverinfo, "timelimit\\"), 13)), 3)); // get timelimit number
 			tl = atoi(timelimit);
 		}
 
