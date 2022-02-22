@@ -1365,6 +1365,8 @@ void SCR_DrawCrosshair (void)
 {
 	int x,hue;
 
+	hue = 0;
+
 	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 		return;
 
