@@ -2623,13 +2623,15 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		return true;
 	}*/
 
+	const int bit = sizeof(void*) * 8; // woods add bit, adapted from ironwail
+
 	//check for chat messages of the form 'name: q_version'
 	if (!cls.demoplayback && *printtext == 1 && e-printtext > 13 && (!strcmp(e-12, ": f_version\n") || !strcmp(e-12, ": q_version\n")))
 	{
 		if (realtime > cl.printversionresponse)
 		{
 			MSG_WriteByte (&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message,va("say "ENGINE_NAME_AND_VER));
+			MSG_WriteString(&cls.message,va("say %s %d-bit", ENGINE_NAME_AND_VER, bit)); // woods add bit, adapted from ironwail
 			cl.printversionresponse = realtime+20;
 		}
 	}
