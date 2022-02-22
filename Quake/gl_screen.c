@@ -806,117 +806,89 @@ SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match c
 ====================
 */
 void SCR_DrawMatchClock(void)
-
 {
-	int				l;
 	char			num[12];
-	int				teamscores, minutes, seconds; // JPG - added these
-	int				match_time, tl, z;
+	int				teamscores, minutes, seconds;
+	int				match_time, tl;
 
-	// JPG - check to see if we should sort teamscores instead
-	teamscores = /*pq_teamscores.value && */cl.teamgame;
+	match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+	minutes = match_time / 60;
+	seconds = match_time - 60 * minutes;
+	teamscores = cl.teamgame;
 
-	l = scoreboardlines <= 4 ? scoreboardlines : 4;
-
-	if (teamscores) // find match timelimit
-		if (strlen(cl.serverinfo) > 1) // qss server check
-		{
-			char serverinfo[13];
-			char timelimit[4];
-
-			Q_strrev(strncpy(timelimit, Q_strrev(strncpy(serverinfo, strstr(cl.serverinfo, "timelimit\\"), 13)), 3)); // get timelimit number
-			tl = atoi(timelimit);
-		}
+	GL_SetCanvas(CANVAS_TOPRIGHT2);
 
 	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM
 	{
-		GL_SetCanvas(CANVAS_TOPRIGHT2);
 		sprintf(num, "%3d:%02d", 0, 0);
 		Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 	}
 
-	// JPG - check to see if we need to draw the timer
-	if (/*pq_timer.value && */(cl.minutes != 255))
+	if ((cl.minutes != 255))
 	{
-		if (l > 2)
-			l = 2;
-		if (cl.minutes == 254)
+		sprintf(num, ""); // base case, print nothing
+
+		if (!strcmp(cl.ffa, "y")) // display count up to timelimit in normal/ffa mode
 		{
-			strcpy(num, "    SD");
+			
+			minutes = cl.time / 60;
+			seconds = cl.time - 60 * minutes;
+			minutes = minutes & 511;
+			sprintf(num, "%3d:%02d", minutes, seconds);
 		}
-		else if (cl.minutes || cl.seconds)
+
+		if (teamscores) // display timelimit if we can get it if there is a team
 		{
-			if (cl.seconds >= 128)
-				sprintf(num, " -0:%02d", cl.seconds - 128);
-			else
+			if (strlen(cl.serverinfo) > 0) // fte/qss server check, if so parse serverinfo for timelimit
 			{
-				if (cl.match_pause_time)
-					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
-				else
-					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
-				minutes = match_time / 60;
-				seconds = match_time - 60 * minutes;
-				sprintf(num, "%3d:%02d", minutes, seconds);
-			}
-		}
-		else
-			// draw level time if in FFA mode
-
-			if (!strcmp(cl.ffa, "y"))
-			{
-
-				minutes = cl.time / 60;
-				seconds = cl.time - 60 * minutes;
-				minutes = minutes & 511;
-				sprintf(num, "%3d:%02d", minutes, seconds);
-
+				char mtimelimit[3];
+				char* str = cl.serverinfo;
+				char* position_ptr = strstr(str, "timelimit\\");
+				int position = (position_ptr - str);
+				strncpy(mtimelimit, str + position + 10, 3);
+				tl = atoi(mtimelimit);
 			}
 			else
-				if (teamscores) // display 0.00 for pre match mode or timelimit if we can get it
-				{
-					GL_SetCanvas(CANVAS_TOPRIGHT2);
+				tl = 0; // if no timelimit available, set clock to 0:00
 
-					if (strlen(cl.serverinfo) > 1) // qss server check
-						z = tl;
-					else
-						z = 0;
-					sprintf(num, "%3d:%02d", z, 0);
+			sprintf(num, "%3d:%02d", tl, 0);
+		}
 
-					Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
-				}
-				else
-					return;
+		if (cl.minutes || cl.seconds) // counter is rolling
+		{
+			if (cl.match_pause_time)
+				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
+			else
+				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+			minutes = match_time / 60;
+			seconds = match_time - 60 * minutes;
+			sprintf(num, "%3d:%02d", minutes, seconds);
+		}
 
-		// DRAW the clock woods
+		if (cl.seconds >= 128) // DM CRMOD 6.6 countdown, second count inaccurate in countdown, fix it
+			sprintf(num, " 0:%02d", cl.seconds - 128);
+
+		// now lets draw the clocks
 
 		if (scr_match_hud.value)
 		{
-			GL_SetCanvas(CANVAS_TOPRIGHT2);
-			match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
-			minutes = match_time / 60;
-			seconds = match_time - 60 * minutes;
-			if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+			if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y")) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 				M_Print(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // M_Print is colored text
 			else
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 		}
 
-		if (scr_matchclock.value) // woods #varmatchclock
+		if (scr_matchclock.value) // woods #varmatchclock draw variable clock where players wants based on their x, y cvar
 		{
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 			{
 				GL_SetCanvas(CANVAS_MATCHCLOCK);
-				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
-				minutes = match_time / 60;
-				seconds = match_time - 60 * minutes;
-				if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+				if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y")) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 					M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num); // M_Print is colored text
 				else
 					Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
 			}
 		}
-
-		//	scr_tileclear_updates = 0;
 	}
 }
 
