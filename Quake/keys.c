@@ -594,6 +594,32 @@ void Char_Console2(int key) // woods #ezsay add leading space for mode 2
 	}
 }
 
+void Word_Delete (void) // woods from ezquake
+{
+	size_t len = 0;
+
+	while (key_linepos > 1 && key_lines[edit_line][key_linepos - 1] == ' ')
+	{
+		key_linepos--;
+		len++;
+	}
+
+	while (key_linepos > 1 && key_lines[edit_line][key_linepos - 1] != ' ')
+	{
+		key_linepos--;
+		len++;
+	}
+
+	// remove spaces after this word leaving only last one
+	while (key_linepos < strlen(key_lines[edit_line]) && key_lines[edit_line][key_linepos - 1] == ' ' && key_lines[edit_line][key_linepos - 2] == ' ')
+	{
+		key_linepos--;
+		len++;
+	}
+
+	strcpy(key_lines[edit_line] + key_linepos, key_lines[edit_line] + key_linepos + len);
+}
+
 /*
 ====================
 Key_Console -- johnfitz -- heavy revision
@@ -657,6 +683,13 @@ void Key_Console (int key)
 			else	*workline = 0;
 			key_linepos--;
 		}
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+		if (keydown[K_COMMAND]) // woods from ezquake
+			Word_Delete();
+		return;
+#endif
+		if (keydown[K_CTRL]) // woods from ezquake
+			Word_Delete();
 		return;
 
 	case K_DEL:
