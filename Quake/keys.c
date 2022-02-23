@@ -615,7 +615,10 @@ void Key_Console (int key)
 	{
 	case K_ENTER:
 		if (cls.state == ca_connected && !CheckForCommand() && cl_say.value) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
-			Cbuf_AddText("say ");
+			if (keydown[K_CTRL])
+				Cbuf_AddText("say_team ");
+			else
+				Cbuf_AddText("say ");
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
 		Cbuf_AddText (workline + 1);	// skip the prompt
