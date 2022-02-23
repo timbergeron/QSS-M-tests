@@ -755,6 +755,13 @@ void Key_Console (int key)
 			key_linepos--;
 			key_blinktime = realtime;
 		}
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+		if (keydown[K_COMMAND])
+			key_linepos = 1;
+		return;
+#endif
+		if (keydown[K_CTRL])
+			key_linepos = 1;
 		return;
 
 	case K_RIGHTARROW:
@@ -774,6 +781,13 @@ void Key_Console (int key)
 			key_linepos++;
 			key_blinktime = realtime;
 		}
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+		if (keydown[K_COMMAND])
+			key_linepos = strlen(workline);
+		return;
+#endif
+		if (keydown[K_CTRL])
+			key_linepos = strlen(workline);
 		return;
 
 	case K_UPARROW:
