@@ -834,6 +834,22 @@ void Key_Console (int key)
 		else	key_insert ^= 1;
 		return;
 
+	case 'U':
+	case 'u':
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+		if (keydown[K_COMMAND]) {
+			key_lines[edit_line][1] = 0;	// woods clear all line typing (Qrack)
+			key_linepos = 1;
+			return;
+		}
+#endif
+		if (keydown[K_CTRL]) {
+			key_lines[edit_line][1] = 0;	// woods clear all line typing (Qrack)
+			key_linepos = 1;
+			return;
+		}
+		break;
+
 	case 'v':
 	case 'V':
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
@@ -920,6 +936,7 @@ void Char_Console (int key)
 qboolean	chat_team = false;
 static char	chat_buffer[MAX_CHAT_SIZE]; // woods limit chat to 45 server limit  #chatlimit
 static int	chat_bufferlen = 0;
+int			chat_linepos = 0;
 
 const char *Key_GetChatBuffer (void)
 {
@@ -961,6 +978,10 @@ void Key_Message (int key)
 	case K_BACKSPACE:
 		if (chat_bufferlen)
 			chat_buffer[--chat_bufferlen] = 0;
+		return;
+	case K_LEFTARROW:
+		if (chat_linepos > 0)
+			chat_linepos--;
 		return;
 	}
 }
