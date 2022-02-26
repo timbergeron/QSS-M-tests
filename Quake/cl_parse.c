@@ -2637,6 +2637,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 	}
 
 	const char* platform = SDL_GetPlatform(); // woods #q_sysinfo (qrack)
+	const char* sound = SDL_GetAudioDeviceName(0, SDL_FALSE); // woods #q_sysinfo (qrack)
 	const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
 	const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
 
@@ -2650,6 +2651,8 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 			MSG_WriteString(&cls.message, va("say %s", videoc));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %s", videosetg));
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s", sound));
 
 			cl.printqsys = realtime + 20;
 		}
