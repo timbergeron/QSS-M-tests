@@ -1957,6 +1957,7 @@ void M_Menu_Help_f (void)
 	m_entersound = true;
 	help_page = 0;
 	IN_UpdateGrabs();
+	SDL_OpenURL("https://qssm.quakeone.com");
 }
 
 
