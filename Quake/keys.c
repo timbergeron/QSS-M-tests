@@ -1289,6 +1289,36 @@ void History_Shutdown (void)
 	}
 }
 
+void Print_History(void) // woods #shortcuts
+{
+	FILE* fp;
+	int c;
+	int n = 0;
+
+	History_Shutdown();
+	History_Init();
+
+	Con_Printf("\n");
+
+	fp = fopen(va("%s/%s", host_parms->userdir, HISTORY_FILE_NAME), "rt");
+	if (fp == NULL) {
+		perror("Error in opening file");
+		return(-1);
+	} do {
+		c = fgetc(fp);
+		if (feof(fp)) {
+			break;
+		}
+		Con_Printf("%c", c);
+	} while (1);
+
+	fclose(fp);
+
+	Con_Printf("\n");
+
+	return(0);
+}
+
 /*
 ===================
 Key_Init
@@ -1483,6 +1513,20 @@ void Key_Event (int key, qboolean down)
 	if (down && (key == K_ENTER || key == K_KP_ENTER) && keydown[K_ALT])
 	{
 		VID_Toggle();
+		return;
+	}
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shotcuts
+	if (down && (key == 'h') && keydown[K_COMMAND])
+	{
+		Print_History();
+		return;
+	}
+#endif
+
+	if (down && (key == 'h') && keydown[K_CTRL]) // woods #shotcuts
+	{
+		Print_History();
 		return;
 	}
 
