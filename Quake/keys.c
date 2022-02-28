@@ -1289,7 +1289,7 @@ void History_Shutdown (void)
 	}
 }
 
-void Print_History(void) // woods #shortcuts
+void Print_History(void) // woods #shortcuts #history
 {
 	FILE* fp;
 	int c;
@@ -1298,25 +1298,39 @@ void Print_History(void) // woods #shortcuts
 	History_Shutdown();
 	History_Init();
 
+	fp = fopen(va("%s/%s", host_parms->userdir, HISTORY_FILE_NAME), "rt");
+
+	if (fp == NULL) 
+	{
+		Con_Printf("Error in opening file"); // history init will print, but error check anyway.
+		return;
+	} 
+
+	int ch = fgetc(fp); // is there a history?
+
+	if (ch == EOF)
+	{ 
+		Con_Printf("no current console history\n");
+		return;
+	}
+	else
+		ungetc(ch, fp);
+
+	Con_Printf("\n");
+	Con_Printf("^mconsole history:\n");
 	Con_Printf("\n");
 
-	fp = fopen(va("%s/%s", host_parms->userdir, HISTORY_FILE_NAME), "rt");
-	if (fp == NULL) {
-		perror("Error in opening file");
-		return(-1);
-	} do {
+	do 
+	{
 		c = fgetc(fp);
-		if (feof(fp)) {
+		if (feof(fp))
 			break;
-		}
 		Con_Printf("%c", c);
-	} while (1);
-
+	} 
+	while (1);
 	fclose(fp);
 
-	Con_Printf("\n");
-
-	return(0);
+	Con_Printf("\n"); // bottom padding
 }
 
 /*
@@ -1516,15 +1530,15 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
-#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shotcuts
-	if (down && (key == 'h') && keydown[K_COMMAND])
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts #history, "command-y", not h, is mac standard for history
+	if (down && (key == 'y') && keydown[K_COMMAND])
 	{
 		Print_History();
 		return;
 	}
 #endif
 
-	if (down && (key == 'h') && keydown[K_CTRL]) // woods #shotcuts
+	if (down && (key == 'h') && keydown[K_CTRL]) // woods #shortcuts #history
 	{
 		Print_History();
 		return;
