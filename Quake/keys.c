@@ -1544,7 +1544,7 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
-#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shotcuts
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (down && (key == 'q') && keydown[K_COMMAND])
 	{
 		Host_Quit_f();
@@ -1552,7 +1552,13 @@ void Key_Event (int key, qboolean down)
 	}
 #endif
 
-	if (down && (key == 'q') && keydown[K_CTRL]) // woods #shotcuts
+	if (down && (key == 'q') && keydown[K_CTRL]) // woods #shortcuts
+	{
+		Host_Quit_f();
+		return;
+	}
+
+	if (down && (key == 'w') && keydown[K_CTRL]) // woods #shortcuts
 	{
 		Host_Quit_f();
 		return;
