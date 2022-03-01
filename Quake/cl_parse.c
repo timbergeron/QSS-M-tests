@@ -2713,7 +2713,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 	platform = SYSINFO_windows_version;
 #endif
 
-	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": q_sysinfo\n"))) // woods #q_sysinfo (qrack)
+	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": q_sysinfo\n") || !strcmp(e - 11, ": f_system\n"))) // woods #q_sysinfo (qrack)
 	{
 		if (realtime > cl.printqsys)
 		{
@@ -2728,7 +2728,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %s", videosetg));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say %s", sound));
+			MSG_WriteString(&cls.message, va("say Audio: %s", sound));
 		
 			cl.printqsys = realtime + 20;
 		}
