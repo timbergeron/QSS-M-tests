@@ -2624,6 +2624,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 	}*/
 
 	const int bit = sizeof(void*) * 8; // woods add bit, adapted from ironwail
+	const char* platform = SDL_GetPlatform(); // woods #q_sysinfo (qrack)
 
 	//check for chat messages of the form 'name: q_version'
 	if (!cls.demoplayback && *printtext == 1 && e-printtext > 13 && (!strcmp(e-12, ": f_version\n") || !strcmp(e-12, ": q_version\n")))
@@ -2631,12 +2632,11 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		if (realtime > cl.printversionresponse)
 		{
 			MSG_WriteByte (&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message,va("say %s %d-bit", ENGINE_NAME_AND_VER, bit)); // woods add bit, adapted from ironwail
+			MSG_WriteString(&cls.message,va("say %s %s %d-bit", ENGINE_NAME_AND_VER, platform, bit)); // woods add bit, adapted from ironwail
 			cl.printversionresponse = realtime+20;
 		}
 	}
 
-	const char* platform = SDL_GetPlatform(); // woods #q_sysinfo (qrack)
 	const char* sound = SDL_GetAudioDeviceName(0, SDL_FALSE); // woods #q_sysinfo (qrack)
 	const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
 	const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
