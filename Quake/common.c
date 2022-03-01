@@ -3075,6 +3075,41 @@ static void COM_Dir_f(void)
 		COM_ListAllFiles(NULL, Cmd_Argv(i), COM_Dir_Result, 0, NULL);
 }
 
+static void COM_Dir_Open_f(void) // woods #openfolder opens folder outside of game
+{
+	int c = Cmd_Argc();
+
+	if (c > 2 || c < 2)
+	{
+		Con_Printf("\n");
+		Con_Printf("^mopen^m <gamedir folder> or <id1 path>  ie: open id1, open id1/maps, open demos\n");
+		Con_Printf("\n");
+		return;
+	}
+	else
+	{
+		char	path[MAX_OSPATH];
+		char	folder[MAX_OSPATH];
+
+		if (strstr(Cmd_Argv(1), "id1"))
+			q_snprintf(path, sizeof(path), "file://%s/%s", com_basedir, Cmd_Argv(1));
+		else
+		{ 
+			q_strlcpy(folder, Cmd_Argv(1), sizeof(folder));
+			q_snprintf(path, sizeof(path), "file://%s/%s", com_gamedir, folder);
+		}
+
+		if (SDL_OpenURL(path) == -1)
+		{ 
+			Con_Printf("\n");
+			Con_Printf("no folder found\n");
+			Con_Printf("\n");
+		}
+		else
+			SDL_OpenURL(path);
+	}
+}
+
 static qboolean COM_SameDirs(const char *dir1, const char *dir2)
 {
 #ifdef _WIN32
@@ -3119,6 +3154,7 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 	Cmd_AddCommand ("flocate", COM_Dir_f);
 	Cmd_AddCommand ("game", COM_Game_f); //johnfitz
 	Cmd_AddCommand ("gamedir", COM_Game_f); //Spike -- alternative name for it, consistent with quakeworld and a few other engines
+	Cmd_AddCommand ("open", COM_Dir_Open_f); // woods #openfolder
 
 	i = COM_CheckParm ("-basedir");
 	if (i && i < com_argc-1)
