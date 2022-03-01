@@ -2641,10 +2641,86 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 	const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
 	const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
 
+	
+#if defined(_WIN32) // use windows registry to get some more detailed info that SDL2 can't, adapted from ezquake
+	char* SYSINFO_processor_description = NULL;
+	char* SYSINFO_windows_version = NULL;
+	int	 SYSINFO_MHz = 0;
+	HKEY hKey;
+
+	// find/set registry location
+	long ret = RegOpenKey(
+		HKEY_LOCAL_MACHINE,
+		"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+		&hKey);
+
+	// get processor mhz
+
+	if (ret == ERROR_SUCCESS) {
+		DWORD type;
+		byte  data[1024];
+		DWORD datasize;
+
+		datasize = 1024;
+		ret = RegQueryValueEx(
+			hKey,
+			"~MHz",
+			NULL,
+			&type,
+			data,
+			&datasize);
+
+		if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_DWORD)
+			SYSINFO_MHz = *((DWORD*)data);
+		
+	// get processor name and description
+
+		datasize = 1024;
+		ret = RegQueryValueEx(
+			hKey,
+			"ProcessorNameString",
+			NULL,
+			&type,
+			data,
+			&datasize);
+
+		if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_SZ)
+			SYSINFO_processor_description = strdup((char*)data);
+
+		// find/set registry location
+		long ret = RegOpenKey(
+			HKEY_LOCAL_MACHINE,
+			"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+			&hKey);
+
+		// get windows version
+
+		datasize = 1024;
+		ret = RegQueryValueEx(
+			hKey,
+			"ProductName",
+			NULL,
+			&type,
+			data,
+			&datasize);
+
+		if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_SZ)
+			SYSINFO_windows_version = strdup((char*)data);
+
+		RegCloseKey(hKey);
+	}
+
+	platform = SYSINFO_windows_version;
+#endif
+
 	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": q_sysinfo\n"))) // woods #q_sysinfo (qrack)
 	{
 		if (realtime > cl.printqsys)
 		{
+#if defined(_WIN32)
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %1.1fGHz %s", (float)SYSINFO_MHz/1000, SYSINFO_processor_description));
+#endif
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %s, %d l-cores, %dgb ram", platform, num_cpus, sdlRam / 1000));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
@@ -2653,7 +2729,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 			MSG_WriteString(&cls.message, va("say %s", videosetg));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %s", sound));
-
+		
 			cl.printqsys = realtime + 20;
 		}
 	}
