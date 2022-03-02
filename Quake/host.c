@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 #include <setjmp.h>
+#include "time.h" // woods #cfgbackup
 
 /*
 
@@ -408,6 +409,61 @@ void Host_WriteConfiguration (void)
 	}
 }
 
+/*
+===============
+Host_SaveConfiguration // woods #cfgsave
+===============
+*/
+void Host_SaveConfiguration(void)
+{
+	Host_WriteConfiguration();
+	Con_Printf("settings saved to config.cfg\n");
+}
+
+/*
+===============
+Host_BackupConfiguration // woods #cfgbackup
+===============
+*/
+void Host_BackupConfiguration(void)
+{
+	FILE* f;
+
+	char	name[MAX_OSPATH];
+	
+	char str[24];
+	time_t systime = time(0);
+	struct tm loct = *localtime(&systime);
+
+	q_snprintf(name, sizeof(name), "%s/backups", com_gamedir); //  create backups folder if not there
+	Sys_mkdir(name);
+
+	strftime(str, 24, "config-%m-%d-%Y", &loct);
+
+	// dedicated servers initialize the host but don't parse and set the
+	// config.cfg cvars
+	if (host_initialized && !isDedicated && !host_parms->errstate)
+	{
+		f = fopen(va("%s/backups/%s.cfg", com_gamedir, str), "w");
+		if (!f)
+		{
+			Con_Printf("Couldn't write backup config.cfg.\n");
+			return;
+		}
+
+		//VID_SyncCvars (); //johnfitz -- write actual current mode to config file, in case cvars were messed with
+
+		Key_WriteBindings(f);
+		Cvar_WriteVariables(f);
+
+		//johnfitz -- extra commands to preserve state
+		fprintf(f, "vid_restart\n");
+		if (in_mlook.state & 1) fprintf(f, "+mlook\n");
+		//johnfitz
+
+		fclose(f);
+	}
+}
 
 /*
 =================
@@ -1229,6 +1285,8 @@ void Host_Shutdown(void)
 	scr_disabled_for_loading = true;
 
 	Host_WriteConfiguration ();
+
+	Host_BackupConfiguration (); // woods #cfgbackup
 
 	IPLog_WriteLog ();	// JPG 1.05 - ip loggging  // woods #iplog
 

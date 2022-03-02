@@ -349,6 +349,9 @@ void Host_ClientCommands (const char *fmt, ...) FUNC_PRINTF(1,2);
 void Host_ShutdownServer (qboolean crash);
 void Host_WriteConfiguration (void);
 
+void Host_SaveConfiguration (void); // woods #cfgsave
+void Host_BackupConfiguration (void); // woods #cfgbackup
+
 void Host_AppendDownloadData(client_t *client, sizebuf_t *buf);
 void Host_DownloadAck(client_t *client);
 
