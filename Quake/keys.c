@@ -51,6 +51,8 @@ void Sound_Toggle_Mute_f (void); // woods #usermute
 void SCR_Mute_Switch (void); // woods #usermute
 void Con_Copy_f (void); // woods #concopy
 
+void VID_Minimize (void); // woods for mac command-tab
+
 typedef struct
 {
 	const char	*name;
@@ -1529,6 +1531,14 @@ void Key_Event (int key, qboolean down)
 		VID_Toggle();
 		return;
 	}
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods for mac command-tab to exit fullscreen
+	if (down && (key == K_TAB) && keydown[K_COMMAND])
+	{
+		VID_Minimize();
+		return;
+	}
+#endif
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts #history, "command-y", not h, is mac standard for history
 	if (down && (key == 'y') && keydown[K_COMMAND])

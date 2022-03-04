@@ -2412,3 +2412,8 @@ void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float c
 	if (oldcursor)
 		SDL_FreeCursor(oldcursor);
 }
+
+void VID_Minimize (void) // woods for mac command-tab
+{
+	SDL_MinimizeWindow(draw_context);
+}
