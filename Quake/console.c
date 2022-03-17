@@ -449,8 +449,6 @@ static void Con_Print (const char *txt)
 				Cmd_ExecuteString(com, src_command);
 				Cmd_ExecuteString(com, src_command);
 			}
-
-
 			if (!strcmp(txt, "Quad Damage is wearing off\n") && match_time > 33)
 				{
 					sprintf(com, "say_team next quad at: %02d", seconds_next);
@@ -461,19 +459,13 @@ static void Con_Print (const char *txt)
  				
 		}
 
-		if (!strcmp(txt, "You receive ") ||
-			!strcmp(txt, "You got the ") ||
-			!strcmp(txt, "You get the") ||
-			!strcmp(txt, "You get the\n") ||
-			!strcmp(txt, "You get the \n"))
+		if (!strcmp(txt, "You receive "))
+
 			cl.conflag = 2;  // flag beginnings
 
-	// need to terminate the conflag with end of prints to prase out numbers
-		if ((!strcmp(txt, "\n") ||	// line end
-			!strcmp(txt, " health\n")))  // line end included
-		{
+	// need to terminate the conflag with end of prints to parse out numbers
+		if ((!strcmp(txt, " health\n")))  // line end included
 			cl.conflag = 0; // flag end of string
-		}
 
 		if (cl.conflag == 2)  // delete when flag set
 		{
@@ -506,6 +498,17 @@ static void Con_Print (const char *txt)
 				!strcmp(txt, "You got armor\n") ||
 				!strcmp(txt, "Ring of Shadows magic is fading\n") ||
 				!strcmp(txt, "Air supply in Biosuit expiring\n") ||
+				!strcmp(txt, "You got the ") ||
+				!strcmp(txt, "Rocket Launcher") ||
+				!strcmp(txt, "Grenade Launcher") ||
+				!strcmp(txt, "Super Nailgun") ||
+				!strcmp(txt, "Thunderbolt") ||
+				!strcmp(txt, "Double-barrelled Shotgun") ||
+				!strcmp(txt, "nailgun") ||
+				!strcmp(txt, "nails") ||
+				!strcmp(txt, "cells") ||
+				!strcmp(txt, "rockets") ||
+				!strcmp(txt, "shells") ||
 				!strncmp(txt, "The Blue team has", 17) ||
 				!strncmp(txt, "The Red team has", 16) ||
 				!strncmp(txt, "Match ends", 10) ||
@@ -513,6 +516,20 @@ static void Con_Print (const char *txt)
 				!strncmp(txt, "\"timelimit\" changed",19))
 		{
 			fixline = 1;
+			if (
+				!strcmp(txt, "Quad Damage is wearing off\n") ||
+				!strcmp(txt, "Protection is almost burned out\n") ||
+				!strcmp(txt, "no weapon.\n") ||
+				!strcmp(txt, "not enough ammo.\n") ||
+				!strcmp(txt, "You got armor\n") ||
+				!strcmp(txt, "Ring of Shadows magic is fading\n") ||
+				!strcmp(txt, "Air supply in Biosuit expiring\n") ||
+				!strncmp(txt, "The Blue team has", 17) ||
+				!strncmp(txt, "The Red team has", 16) ||
+				!strncmp(txt, "Match ends", 10) ||
+				!strncmp(txt, "\"timelimit\" changed", 19))
+				Con_Printf("\n");
+
 			return;
 		}
 
