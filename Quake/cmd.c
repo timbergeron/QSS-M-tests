@@ -1172,6 +1172,10 @@ void Cmd_ForwardToServer (void)
 				case 'd':
 					dst += sprintf(dst, "%s", LOC_GetLocation(cl.death_location));
 					break;
+				case 'D':
+					if (cl.stats[STAT_HEALTH] <= 0)
+					dst += sprintf(dst, "%s", "died");
+					break;
 
 				case 'c':
 					dst += sprintf(dst, "%d", cl.stats[STAT_CELLS]);
