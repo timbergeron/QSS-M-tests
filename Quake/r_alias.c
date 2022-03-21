@@ -1511,7 +1511,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	GL_DisableMultitexture ();
 	glDisable (GL_TEXTURE_2D);
 	shading = false;
-	glColor4f(0,0,0,entalpha * shade * 0.3); // woods (R00k) : fade light based on ambientlight
+	glColor4f(0,0,0,entalpha * shade * r_shadows.value); // woods (R00k) : fade light based on ambientlight
 	GL_DrawAliasFrame (paliashdr, lerpdata);
 	glEnable (GL_TEXTURE_2D);
 	glDisable (GL_BLEND);
