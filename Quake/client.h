@@ -408,6 +408,7 @@ extern	cvar_t	m_side;
 extern	cvar_t	cl_truelightning; // woods for truelightning #truelight
 extern	cvar_t	gl_lightning_alpha; // woods transparent lightning #lightalpha
 extern	cvar_t	cl_say; // woods #ezsay
+extern	cvar_t	cl_afk; // woods #smartafk
 
 #define	MAX_TEMP_ENTITIES			256		//johnfitz -- was 64
 

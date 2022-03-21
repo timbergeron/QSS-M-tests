@@ -61,6 +61,7 @@ cvar_t	cl_demospeed = { "cl_demospeed", "1", CVAR_ARCHIVE }; // woods #demotools
 
 cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
+cvar_t  cl_afk = {"cl_afk", "1", CVAR_ARCHIVE }; // woods #smartafk
 
 client_static_t	cls;
 client_state_t	cl;
@@ -1668,6 +1669,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_truelightning); // woods for #truelight
 	Cvar_RegisterVariable (&gl_lightning_alpha); // woods for lighting alpha #lightalpha
 	Cvar_RegisterVariable (&cl_say); // woods for #ezsay
+	Cvar_RegisterVariable (&cl_afk); // woods #smartafk
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);

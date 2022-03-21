@@ -435,6 +435,9 @@ void Host_BackupConfiguration(void)
 	time_t systime = time(0);
 	struct tm loct = *localtime(&systime);
 
+	q_snprintf(name, sizeof(name), "%s/id1", com_basedir); //  make an id1 folder if it doesnt exist already #smartafk
+	Sys_mkdir(name);
+
 	q_snprintf(name, sizeof(name), "%s/backups", com_gamedir); //  create backups folder if not there
 	Sys_mkdir(name);
 
@@ -1245,6 +1248,7 @@ void Host_Init (void)
 		Cbuf_AddText ("\n\nvid_unlock\n");
 		Cbuf_AddText("toggleconsole\n"); // woods #ezsay add leading space for mode 2
 		Cbuf_AddText("togglemenu\n"); // woods #ezsay add leading space for mode 2
+		Cbuf_AddText("namebk\n"); // woods #smartafk lets run a backup name check for AFK leftovers (crash/force quit)
 	}
 
 	if (cls.state == ca_dedicated)

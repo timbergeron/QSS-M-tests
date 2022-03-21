@@ -1522,6 +1522,89 @@ static void Host_Name_f (void)
 			IPLog_Add((a << 16) | (b << 8) | c, newName);
 }
 
+/*
+===============
+Host_Name_Backup_f // woods #smartafk backup the name externally to a text file for possible crash event
+===============
+*/
+void Host_Name_Backup_f(void)
+{
+	FILE* f;
+
+	char	name[MAX_OSPATH];
+	char str[24];
+
+	q_snprintf(name, sizeof(name), "%s/id1/backups", com_basedir); //  create backups folder if not there
+	Sys_mkdir(name);
+
+	sprintf(str, "name");
+
+	// dedicated servers initialize the host but don't parse and set the
+	// config.cfg cvars
+	if (host_initialized && !isDedicated && !host_parms->errstate)
+	{
+		f = fopen(va("%s/id1/backups/%s.txt", com_basedir, str), "w");
+
+		if (!f)
+		{
+			Con_Printf("Couldn't write backup config.cfg.\n");
+			return;
+		}
+
+		fprintf(f, "%s\n", afk_name);
+	
+		fclose(f);
+	}
+}
+
+/*
+===============
+Host_Name_Clear_Backup_f // woods #smartafk clear name from backup text
+===============
+*/
+void Host_Name_Clear_Backup_f(void)
+{
+	FILE* f;
+
+	f = fopen(va("%s/id1/backups/name.txt", com_basedir), "w");
+}
+
+/*
+===============
+Host_Name_Load_Backup_f // woods #smartafk load that backup name if AFK in name at startup, and clear it
+===============
+*/
+void Host_Name_Load_Backup_f(void)
+{
+	FILE* f;
+
+		f = fopen(va("%s/id1/backups/name.txt", com_basedir), "r");
+
+		if (f == NULL) // lets not load backup
+		{
+			//Con_Printf("no AFK backup to restore from"); //no file means it was deleted normally
+			return;
+		}
+
+		int c = fgetc(f);
+
+		if (c == EOF) // lets not load backup
+		{
+			//Con_Printf("no non-AFK name in file"); //empty file means it was deleted normally
+			return;
+		}
+
+		char buf[16];
+		ungetc(c, f);
+		while (fscanf(f, "%s", buf) != EOF)
+			//Con_Printf("%s\n", &buf); // report name update
+
+		fclose(f);
+
+		Cvar_Set("name", &buf);
+		Host_Name_Clear_Backup_f();
+}
+
 static void Host_Say(qboolean teamonly)
 {
 	int		j;
@@ -3003,6 +3086,7 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_ServerCommand ("reconnect", Host_Reconnect_Sv_f);
 	Cmd_AddCommand_ServerCommand ("ls", Host_Lightstyle_f);
 	Cmd_AddCommand_ClientCommand ("name", Host_Name_f);
+	Cmd_AddCommand_ClientCommand ("namebk", Host_Name_Load_Backup_f); // woods #smartafk
 	Cmd_AddCommand_ClientCommandQC ("noclip", Host_Noclip_f);
 	Cmd_AddCommand_ClientCommandQC ("setpos", Host_SetPos_f); //QuakeSpasm
 

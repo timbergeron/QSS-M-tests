@@ -22,7 +22,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "quakedef.h"
-#include "client.h" // woods #smartafk
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
 #if defined(USE_SDL2)
 #include <SDL2/SDL.h>
@@ -33,7 +32,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
-static char	afk_name[16]; // woods #smartafk
 static char	normalname[16]; // woods #smartafk
 
 static qboolean	textmode;
@@ -43,6 +41,10 @@ static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
 
 void Sound_Toggle_Mute_On_f(void); // woods #mute -- adapted from Fitzquake Mark V
 void Sound_Toggle_Mute_Off_f(void); // woods #mute -- adapted from Fitzquake Mark V
+
+void Host_Name_Backup_f(void); // woods #smartafk
+void Host_Name_Load_Backup_f(void); // woods #smartafk
+void Host_Name_Clear_Backup_f(void); // woods #smartafk
 
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
@@ -1183,12 +1185,18 @@ void IN_SendKeyEvents (void)
 					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 				else
 					Sound_Toggle_Mute_Off_f();
-				if ((cls.state == ca_connected))
+			
+				if (cl_afk.value) // woods #smartafk
 				{
-					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
+					if (strlen(afk_name) > 1) // intiate only if a AFK event has occured
+					{ 
 						Cvar_Set("name", afk_name);
+						Host_Name_Clear_Backup_f(); // lets delete the backup
+					}
+
+					// be polite during matches (only) and let teammates know you have alt-tabbed
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
-						Cmd_ExecuteString("say_team back", src_command);
+						Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 				}
 			}
 
@@ -1196,17 +1204,21 @@ void IN_SendKeyEvents (void)
 			{
 				//S_BlockSound();
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
-				if ((cls.state == ca_connected))
+
+				if (cl_afk.value) // woods #smartafk
 				{
+					if (!strstr(cl_name.string, "AFK")) // initiate AFK-in-name if AFK not already in the name
+					{
+						Q_strcpy(afk_name, cl_name.string); // store name to memory
+						sprintf(normalname, "%.11s", cl_name.string); // cut name
+						sprintf(normalname, "%s%s", normalname, " AFK"); // add AFK to name
+						Cvar_Set("name", normalname); // set name with AFK
+						Host_Name_Backup_f(); // back up the full name incase of crash
+					}
+
+					// be polite during matches (only) and let teammates know you have alt-tabbed
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods #smartafk
 						Cmd_ExecuteString("say_team alt-tabbed", src_command);
-					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
-					{
-						Q_strcpy(afk_name, cl_name.string);
-						sprintf(normalname, "%.11s", cl_name.string);
-						strcat(normalname, " AFK");
-						Cvar_Set("name", normalname);
-					}
 				}
 			}
 			else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)

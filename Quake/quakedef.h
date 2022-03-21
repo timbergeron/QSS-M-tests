@@ -383,6 +383,7 @@ char		mute[2];			// woods for mute to memory #usermute
 qboolean	sb_showscores; // woods moved for broader access
 const char	videoc[40];		// woods #q_sysinfo (qrack)
 const char	videosetg[50];	// woods #q_sysinfo (qrack)
+char		afk_name[16]; // woods #smartafk
 
 #endif	/* QUAKEDEFS_H */
 
