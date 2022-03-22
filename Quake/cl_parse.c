@@ -25,6 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "arch_def.h" // woods for f_system
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods for f_system
+#include <sys/sysctl.h>
+#include <stdio.h>
+#endif
 
 const char *svc_strings[128] =
 {
@@ -2637,94 +2642,235 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		}
 	}
 
-	const char* sound = SDL_GetAudioDeviceName(0, SDL_FALSE); // woods #q_sysinfo (qrack)
-	const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
-	const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
-
-	
-#if defined(_WIN32) // use windows registry to get some more detailed info that SDL2 can't, adapted from ezquake
-	char* SYSINFO_processor_description = NULL;
-	char* SYSINFO_windows_version = NULL;
-	int	 SYSINFO_MHz = 0;
-	HKEY hKey;
-
-	// find/set registry location
-	long ret = RegOpenKey(
-		HKEY_LOCAL_MACHINE,
-		"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
-		&hKey);
-
-	// get processor mhz
-
-	if (ret == ERROR_SUCCESS) {
-		DWORD type;
-		byte  data[1024];
-		DWORD datasize;
-
-		datasize = 1024;
-		ret = RegQueryValueEx(
-			hKey,
-			"~MHz",
-			NULL,
-			&type,
-			data,
-			&datasize);
-
-		if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_DWORD)
-			SYSINFO_MHz = *((DWORD*)data);
-		
-	// get processor name and description
-
-		datasize = 1024;
-		ret = RegQueryValueEx(
-			hKey,
-			"ProcessorNameString",
-			NULL,
-			&type,
-			data,
-			&datasize);
-
-		if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_SZ)
-			SYSINFO_processor_description = strdup((char*)data);
-
-		// find/set registry location
-		long ret = RegOpenKey(
-			HKEY_LOCAL_MACHINE,
-			"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-			&hKey);
-
-		// get windows version
-
-		datasize = 1024;
-		ret = RegQueryValueEx(
-			hKey,
-			"ProductName",
-			NULL,
-			&type,
-			data,
-			&datasize);
-
-		if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_SZ)
-			SYSINFO_windows_version = strdup((char*)data);
-
-		RegCloseKey(hKey);
-	}
-
-	platform = SYSINFO_windows_version;
-#endif
-
 	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": q_sysinfo\n") || !strcmp(e - 11, ": f_system\n"))) // woods #q_sysinfo (qrack)
 	{
 		if (realtime > cl.printqsys)
 		{
-#if defined(_WIN32)
+
+			const char* sound = SDL_GetAudioDeviceName(0, SDL_FALSE); // woods #q_sysinfo (qrack)
+			const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
+			const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
+
+#if defined(_WIN32) // use windows registry to get some more detailed info that SDL2 can't, adapted from ezquake
+			char* SYSINFO_processor_description = NULL;
+			char* SYSINFO_windows_version = NULL;
+			int	 SYSINFO_MHz = 0;
+			HKEY hKey;
+
+			// find/set registry location
+			long ret = RegOpenKey(
+				HKEY_LOCAL_MACHINE,
+				"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+				&hKey);
+
+			// get processor mhz
+
+			if (ret == ERROR_SUCCESS) {
+				DWORD type;
+				byte  data[1024];
+				DWORD datasize;
+
+				datasize = 1024;
+				ret = RegQueryValueEx(
+					hKey,
+					"~MHz",
+					NULL,
+					&type,
+					data,
+					&datasize);
+
+				if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_DWORD)
+					SYSINFO_MHz = *((DWORD*)data);
+
+				// get processor name and description
+
+				datasize = 1024;
+				ret = RegQueryValueEx(
+					hKey,
+					"ProcessorNameString",
+					NULL,
+					&type,
+					data,
+					&datasize);
+
+				if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_SZ)
+					SYSINFO_processor_description = strdup((char*)data);
+
+				// find/set registry location
+				long ret = RegOpenKey(
+					HKEY_LOCAL_MACHINE,
+					"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+					&hKey);
+
+				// get windows version
+
+				datasize = 1024;
+				ret = RegQueryValueEx(
+					hKey,
+					"ProductName",
+					NULL,
+					&type,
+					data,
+					&datasize);
+
+				if (ret == ERROR_SUCCESS && datasize > 0 && type == REG_SZ)
+					SYSINFO_windows_version = strdup((char*)data);
+
+				RegCloseKey(hKey);
+			}
+
+			platform = SYSINFO_windows_version;
+	
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %1.1fGHz %s", (float)SYSINFO_MHz/1000, SYSINFO_processor_description));
+#endif
+
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods -- use mac terminal to get some more detailed info that SDL2 can't
+
+			char* SYSINFO_processor_description = NULL;
+			char* osversion_num = NULL;
+			char* os_codename = NULL;
+			char* com_modelname = NULL;
+
+			char buf[75];
+			char buf2[75];
+			char buf2a[75];
+			size_t buflen = 75;
+			size_t buflen2 = 75;
+			size_t buflen2a = 75;
+
+			// get prcoessor info: brand, name, ghz
+
+			if (sysctlbyname("machdep.cpu.brand_string", &buf, &buflen, NULL, 0) == -1)
+				SYSINFO_processor_description = "Could Not Find Processor Info";
+			else
+				SYSINFO_processor_description = buf;
+
+			// get os version: apple codename, release year, and number
+
+			if (sysctlbyname("kern.osproductversion", &buf2, &buflen2, NULL, 0) == -1)
+			{
+				osversion_num = "Unknown Version #";
+				os_codename = "Unknown OS Name";
+			}
+			else
+			{
+				osversion_num = buf2;
+
+				if (!strncmp(buf2, "12.", 3))
+					os_codename = "macOS Monterey (2021)";
+				else if (!strncmp(buf2, "11", 2))
+					os_codename = "macOS Big Sur (2020)";
+				else if (!strncmp(buf2, "10.15", 4))
+					os_codename = "macOS Catalina (2019)";
+				else if (!strncmp(buf2, "10.14", 4))
+					os_codename = "macOS Mojave (2018)";
+				else if (!strncmp(buf2, "10.13", 4))
+					os_codename = "macOS High Sierra (2017)";
+				else if (!strncmp(buf2, "10.12", 4))
+					os_codename = "macOS Sierra (2016)";
+				else if (!strncmp(buf2, "10.11", 4))
+					os_codename = "Mac OS X El Capitan (2015)";
+				else if (!strncmp(buf2, "10.10", 4))
+					os_codename = "Mac OS X Yosemite (2014)";
+				else if (!strncmp(buf2, "10.9", 3))
+					os_codename = "Mac OS X Mavericks (2013)";
+				else if (!strncmp(buf2, "10.8", 3))
+					os_codename = "Mac OS X Mountain Lion (2012)";
+				else if (!strncmp(buf2, "10.7", 3))
+					os_codename = "Mac OS X Lion (2011)";
+				else if (!strncmp(buf2, "10.6", 3))
+					os_codename = "Mac OS X Snow Leopard (2009)";
+				else if (!strncmp(buf2, "10.5", 3))
+					os_codename = "Mac OS X Leopard (2007)";
+				else
+					sprintf(osversion_num, "Mac OS %s", buf2);
+			}
+
+			platform = os_codename;
+
+			// get the specific model name and release year
+
+			if (sysctlbyname("hw.optional.arm64", &buf2a, &buflen2a, NULL, 0) == 0) // m1 mac, simplest case
+
+			{
+				FILE* fmodelname = popen("/usr/libexec/PlistBuddy -c 'print 0:product-name' /dev/stdin <<< \"$(/usr/sbin/ioreg -ar -d1 -k product-name)\"", "r");
+
+				char buf10[75];
+				while (fgets(buf10, sizeof(buf10), fmodelname) != 0)
+					pclose(fmodelname);
+
+				if (strstr(buf10, "Mac")) // did it find a clean mac name, if so set var
+					com_modelname = buf10;
+			}
+
+			else // if not a m1 mac, (About My Mac needs to have run ONCE by user to fill plist, or run it)
+
+			{
+
+				FILE* fmodelname = popen("/usr/libexec/PlistBuddy -c \"print :'CPU Names':$(system_profiler SPHardwareDataType | awk '/Serial/ {print $4}' | cut -c 9-)-en-US_US\" ~/Library/Preferences/com.apple.SystemProfiler.plist", "r");
+
+				char buf3[75];
+				while (fgets(buf3, sizeof(buf3), fmodelname) != 0)
+					pclose(fmodelname);
+
+				if (strstr(buf3, "Mac"))
+
+					com_modelname = buf3;
+
+				else // did it find a clean mac name, if so set var, else run About My Mac
+
+				{
+					FILE* fmodelname1 = popen("/usr/bin/open '/System/Library/CoreServices/Applications/About This Mac.app'; /bin/sleep 2", "r");
+
+					char buf4[75];
+					while (fgets(buf4, sizeof(buf4), fmodelname1) != 0)
+						pclose(fmodelname1);
+
+					FILE* fmodelname2 = popen("/usr/bin/pkill -ail 'System Information'; /bin/sleep 2", "r");
+
+					char buf5[75];
+					while (fgets(buf5, sizeof(buf5), fmodelname2) != 0)
+						pclose(fmodelname2);
+
+					FILE* fmodelname3 = popen("/usr/bin/killall cfprefsd; /bin/sleep 2", "r");
+
+					char buf6[75];
+					while (fgets(buf6, sizeof(buf6), fmodelname3) != 0)
+						pclose(fmodelname3);
+
+					FILE* fmodelname = popen("/usr/libexec/PlistBuddy -c \"print :'CPU Names':$(system_profiler SPHardwareDataType | awk '/Serial/ {print $4}' | cut -c 9-)-en-US_US\" ~/Library/Preferences/com.apple.SystemProfiler.plist", "r");
+
+					char buf3[75];
+					while (fgets(buf3, sizeof(buf3), fmodelname) != 0)
+						pclose(fmodelname);
+
+					if (strstr(buf3, "Mac"))
+						com_modelname = buf3;
+
+					else // did it find a clean mac name, if so set var, else give generic simple name
+					{
+						char buf7[75];
+
+						if (sysctlbyname("hw.model", &buf7, &buflen, NULL, 0) == -1)
+							com_modelname = "Cannot Find Mac Model Name"; // final fall back
+						else
+							com_modelname = buf7; // second to last fall back
+					}
+				}
+			}
+
+			com_modelname = strtok(com_modelname, "\n");
+
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s", com_modelname));
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s", SYSINFO_processor_description));
 #endif
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %s, %d l-cores, %dgb ram", platform, num_cpus, sdlRam / 1000));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say %s", videoc));
+			MSG_WriteString(&cls.message, va("say Video: %s", videoc));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say %s", videosetg));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
