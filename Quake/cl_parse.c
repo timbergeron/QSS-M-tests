@@ -2618,7 +2618,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		cl.printtype = PRINT_NONE;
 	}
 
-	if (!strcmp(printtext, "Client ping times:\n") && cl.expectingpingtimes > realtime)
+	if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realtime || cls.demoplayback))
 	{
 		cl.printtype = PRINT_PINGS;
 		cl.printplayer = 0;
