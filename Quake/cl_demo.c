@@ -699,10 +699,14 @@ void CL_PlayDemo_f (void)
 
 	Con_Printf ("Playing demo from %s.\n", name2); // woods #demosfolder
 
-	COM_FOpenFile (name2, &cls.demofile, NULL); // woods #demosfolder
+	COM_FOpenFile (name2, &cls.demofile, NULL); // check demos folder
+
+	if (!cls.demofile)
+		COM_FOpenFile(name, &cls.demofile, NULL); // check gamedir too
+
 	if (!cls.demofile)
 	{
-		Con_Printf ("ERROR: couldn't open %s\n", name2); // woods #demosfolder
+		Con_Printf ("ERROR: couldn't open %s\n", name); // woods #demosfolder
 		cls.demonum = -1;	// stop demo loop
 		return;
 	}
