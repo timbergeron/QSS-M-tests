@@ -644,8 +644,11 @@ void SCR_DrawFPS (void)
 	if (scr_showfps.value)
 	{
 		char	st[16];
+		char	st2[16]; // woods #f_config
 		int	x, y;
 		sprintf (st, "%4.0f fps", lastfps);
+		sprintf (st2, "%4.0f", lastfps); // woods #f_config
+		cl.fps = atoi(st2); // woods #f_config
 		x = 312 - (strlen(st)<<3); // woods added padding
 		y = 200 - 14; // woods added padding
 		if (scr_clock.value) y -= 12; //make room for clock // woods added padding

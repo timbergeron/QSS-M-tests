@@ -317,6 +317,7 @@ typedef struct
 	float expectingpltimes;  // woods #scrpl
 	float printversionresponse;
 	float printqsys; // woods #q_sysinfo (qrack)
+	float printconfig; // woods #f_config
 
 	//spike -- moved this stuff here to deal with downloading content named by the server
 	qboolean sendprespawn;	//download+load content, send the prespawn command once done
@@ -360,6 +361,7 @@ typedef struct
 	char		ghostcode[2];		// woods for ghost code to memory #ghostcode
 	char		observer[2];		// woods for ghost code to memory #observer
 	int			maptime;			// woods connected map time #maptime
+	int			fps;				// woods #f_config
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;

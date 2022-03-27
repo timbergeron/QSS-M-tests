@@ -30,7 +30,7 @@ const int	gl_alpha_format = 4;
 static cvar_t	gl_texturemode = {"gl_texturemode", "", CVAR_ARCHIVE};
 static cvar_t	gl_texture_anisotropy = {"gl_texture_anisotropy", "1", CVAR_ARCHIVE};
 static cvar_t	gl_max_size = {"gl_max_size", "0", CVAR_NONE};
-static cvar_t	gl_picmip = {"gl_picmip", "0", CVAR_NONE};
+cvar_t	gl_picmip = {"gl_picmip", "0", CVAR_NONE}; // woods remove static for #f_config
 static GLint	gl_hardware_maxsize;
 
 static int numgltextures;

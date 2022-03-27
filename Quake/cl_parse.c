@@ -31,6 +31,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdio.h>
 #endif
 
+extern cvar_t scr_fov; // woods #f_config
+extern cvar_t host_maxfps; // woods #f_config
+extern cvar_t crosshair; // woods #f_config
+extern cvar_t r_particledesc; // woods #f_config
+extern cvar_t gl_picmip; // woods #f_config
+extern cvar_t scr_showfps; // woods #f_config
+
 const char *svc_strings[128] =
 {
 	"svc_bad",
@@ -2627,6 +2634,67 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		//   ipaddress
 		return true;
 	}*/
+
+	//woods #f_config check for chat messages of the form 'name: f_config'
+	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 11, ": f_config\n")))
+	{
+		if (realtime > cl.printconfig)
+		{
+			char key[1];
+			char particles[15];
+			char textures[3];
+			char hud[2];
+			char lfps[20];
+			
+			if (!strcmp(r_particledesc.string, ""))
+				sprintf(particles, "classic");
+			else
+				sprintf(particles, r_particledesc.string);
+
+			if (r_lightmap.value == 1 || gl_picmip.value >= 2)
+				sprintf(textures, "OFF");
+			else
+				sprintf(textures, "ON");
+
+			if (scr_sbar.value == 2)
+				sprintf(hud, "qw");
+			else
+				sprintf(hud, "nq");
+
+			// for movement key
+			int	i, count;
+			int bindmap = 0;
+
+			count = 0;
+			for (i = 0; i < MAX_KEYS; i++)
+			{
+				if (keybindings[bindmap][i] && *keybindings[bindmap][i])
+				{
+					if ((!strcmp(keybindings[bindmap][i], "+forward")))
+						sprintf(key, Key_KeynumToString(i));
+
+					count++;
+				}
+			}
+
+			// for fps
+			if (scr_showfps.value)
+			{ 
+				if (host_maxfps.value == 0)
+					sprintf(lfps, "fps (0) %d", cl.fps);
+				else
+					sprintf(lfps, "fps %d/%s", cl.fps, host_maxfps.string);
+			}
+			else
+				sprintf(lfps, "fpsmax %s", host_maxfps.string);
+			
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say fov %s, sens %s, tlighting %s, %s, +forward %s", scr_fov.string, sensitivity.string, cl_truelightning.string, lfps, key));
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say cross %s, vmodel %s, hud %s, particles %s, textures %s", crosshair.string, r_drawviewmodel.string, hud, particles, textures));
+			cl.printconfig = realtime + 20;
+		}
+	}
 
 	const int bit = sizeof(void*) * 8; // woods add bit, adapted from ironwail
 	const char* platform = SDL_GetPlatform(); // woods #q_sysinfo (qrack)
