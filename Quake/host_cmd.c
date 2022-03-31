@@ -1601,7 +1601,7 @@ void Host_Name_Load_Backup_f(void)
 
 		fclose(f);
 
-		Cvar_Set("name", &buf);
+		Cvar_Set("name", buf);
 		Host_Name_Clear_Backup_f();
 }
 

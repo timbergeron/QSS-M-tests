@@ -572,7 +572,6 @@ static void PasteToConsole (void)
 
 void Char_Console2(int key) // woods #ezsay add leading space for mode 2
 {
-	size_t		len;
 	char* workline = key_lines[edit_line];
 	int max;
 
@@ -643,10 +642,12 @@ void Key_Console (int key)
 	{
 	case K_ENTER:
 		if (cls.state == ca_connected && !CheckForCommand() && cl_say.value) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
+		{
 			if (keydown[K_CTRL])
 				Cbuf_AddText("say_team ");
 			else
 				Cbuf_AddText("say ");
+		}
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
 		Cbuf_AddText (workline + 1);	// skip the prompt
@@ -869,13 +870,13 @@ void Key_Console (int key)
 	case 'c':
 	case 'C':
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #concopy
-		if (key_dest = key_console)
+		if (key_dest == key_console)
 			if (keydown[K_COMMAND]) {	/* Cmd+c: condump and copy to clipboard (Mac-only) */
 				Con_Copy_f();
 				return;
 		}
 #endif
-		if (key_dest = key_console)
+		if (key_dest == key_console)
 			if (keydown[K_CTRL]) {		/* Ctrl+c: condump and copy to clipboard */
 			Con_Copy_f();
 			return;
@@ -1295,7 +1296,6 @@ void Print_History(void) // woods #shortcuts #history
 {
 	FILE* fp;
 	int c;
-	int n = 0;
 
 	History_Shutdown();
 	History_Init();

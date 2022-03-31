@@ -2643,23 +2643,23 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 			char key[2];
 			char particles[15];
 			char textures[3];
-			char hud[4];
+			char hud[3];
 			char lfps[20];
 			
 			if (!strcmp(r_particledesc.string, ""))
 				sprintf(particles, "classic");
 			else
-				sprintf(particles, r_particledesc.string);
+				sprintf(particles, "%s", r_particledesc.string);
 
 			if (r_lightmap.value == 1 || gl_picmip.value >= 2)
-				sprintf(textures, "OFF");
+				sprintf(textures, "%s", "OFF");
 			else
-				sprintf(textures, "ON");
+				sprintf(textures, "%s", "ON");
 
 			if (scr_sbar.value == 2)
-				sprintf(hud, "qw");
+				sprintf(hud, "%s", "qw");
 			else
-				sprintf(hud, "nq");
+				sprintf(hud, "%s", "nq");
 
 			// for movement key
 			int	i, count;
@@ -2671,7 +2671,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 				if (keybindings[bindmap][i] && *keybindings[bindmap][i])
 				{
 					if ((!strcmp(keybindings[bindmap][i], "+forward")))
-						sprintf(key, Key_KeynumToString(i));
+						sprintf(key, "%s", Key_KeynumToString(i));
 
 					count++;
 				}
