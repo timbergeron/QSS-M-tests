@@ -2640,10 +2640,10 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 	{
 		if (realtime > cl.printconfig)
 		{
-			char key[1];
+			char key[2];
 			char particles[15];
 			char textures[3];
-			char hud[2];
+			char hud[4];
 			char lfps[20];
 			
 			if (!strcmp(r_particledesc.string, ""))
