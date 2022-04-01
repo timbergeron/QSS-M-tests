@@ -743,12 +743,12 @@ void SCR_ShowPing(void)
 
 					sprintf (num, "%-4i", s->ping);
 
-					if ((s->ping != 0) && (!scr_con_current)) // dont update when console down or ping 0
+					if (ct > 5 && !scr_con_current) // dont update when console down or report ping 0
 						M_PrintWhite (x - 8 * 5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays 
 				}
 			}
 
-			if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 2))) // dont update when console down
+			if (key_dest != key_console && (cls.signon >= SIGNONS)) // dont update when console down or not fully connected
 
 				if (!cls.message.cursize && cl.expectingpingtimes < realtime)
 				{

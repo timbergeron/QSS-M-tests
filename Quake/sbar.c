@@ -1661,6 +1661,7 @@ void Sbar_DeathmatchOverlay (void)
 	char	num[12];
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	scoreboard_t	*s;
+	int ct = cl.time - cl.maptime; // woods connected map time #maptime
 
 	// JPG 1.05 - check to see if we should update IP status  // woods for #iplog
 	if (iplog_size && (cl.time - cl.last_status_time > 5))
@@ -1769,6 +1770,7 @@ void Sbar_DeathmatchOverlay (void)
 #endif
 
 		sprintf (num, "%4i", s->ping);
+		if (ct > 5) // woods don't print 0 print on connect
 		M_PrintWhite ((x-8*4)-22, y, num); //johnfitz -- was Draw_String, changed for stretched overlays // woods centered ping #scoreboard
 
 	// draw name
@@ -1787,7 +1789,7 @@ void Sbar_DeathmatchOverlay (void)
 
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
 
-	if (!cls.message.cursize && cl.expectingpingtimes < realtime)
+	if ((!cls.message.cursize && cl.expectingpingtimes < realtime) && (cls.signon >= SIGNONS))
 	{
 		cl.expectingpingtimes = realtime + 5;
 		MSG_WriteByte (&cls.message, clc_stringcmd);
