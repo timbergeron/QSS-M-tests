@@ -1551,22 +1551,10 @@ void Host_Name_Backup_f(void)
 			return;
 		}
 
-		fprintf(f, "%s\n", afk_name);
+		fprintf(f, "%s", afk_name);
 	
 		fclose(f);
 	}
-}
-
-/*
-===============
-Host_Name_Clear_Backup_f // woods #smartafk clear name from backup text
-===============
-*/
-void Host_Name_Clear_Backup_f(void)
-{
-	FILE* f;
-
-	f = fopen(va("%s/id1/backups/name.txt", com_basedir), "w");
 }
 
 /*
@@ -1576,6 +1564,8 @@ Host_Name_Load_Backup_f // woods #smartafk load that backup name if AFK in name 
 */
 void Host_Name_Load_Backup_f(void)
 {
+	char buffer[30];
+
 	FILE* f;
 
 		f = fopen(va("%s/id1/backups/name.txt", com_basedir), "r");
@@ -1586,23 +1576,12 @@ void Host_Name_Load_Backup_f(void)
 			return;
 		}
 
-		int c = fgetc(f);
-
-		if (c == EOF) // lets not load backup
+		while (fgets(buffer, sizeof(buffer), f) != NULL)
 		{
-			//Con_Printf("no non-AFK name in file"); //empty file means it was deleted normally
-			return;
+			Cvar_Set("name", buffer);
 		}
 
-		char buf[16];
-		ungetc(c, f);
-		while (fscanf(f, "%s", buf) != EOF)
-			//Con_Printf("%s\n", &buf); // report name update
-
 		fclose(f);
-
-		Cvar_Set("name", buf);
-		Host_Name_Clear_Backup_f();
 }
 
 static void Host_Say(qboolean teamonly)

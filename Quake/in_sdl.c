@@ -1189,10 +1189,7 @@ void IN_SendKeyEvents (void)
 				if (cl_afk.value) // woods #smartafk
 				{
 					if (strlen(afk_name) > 1) // intiate only if a AFK event has occured
-					{ 
 						Cvar_Set("name", afk_name);
-						Host_Name_Clear_Backup_f(); // lets delete the backup
-					}
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
