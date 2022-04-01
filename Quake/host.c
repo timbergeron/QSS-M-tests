@@ -1247,7 +1247,7 @@ void Host_Init (void)
 		// note: two leading newlines because the command buffer swallows one of them.
 		Cbuf_AddText ("\n\nvid_unlock\n");
 		Cbuf_AddText("toggleconsole\n"); // woods #ezsay add leading space for mode 2
-		Cbuf_AddText("togglemenu\n"); // woods #ezsay add leading space for mode 2
+//		Cbuf_AddText("togglemenu\n"); // woods #ezsay add leading space for mode 2
 		Cbuf_AddText("namebk\n"); // woods #smartafk lets run a backup name check for AFK leftovers (crash/force quit)
 	}
 
