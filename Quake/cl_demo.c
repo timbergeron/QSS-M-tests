@@ -626,7 +626,7 @@ void CL_Record_f (void)
 
 	Cvar_SetROM(cl_recordingdemo.name, name);
 
-	Con_Printf ("demo recording\n", name);
+	Con_Printf ("demo recording\n");
 	cls.demofile = fopen (name, "wb");
 	if (!cls.demofile)
 	{

@@ -32,7 +32,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
-static char	normalname[32]; // woods #smartafk
+char	normalname[20]; // woods #smartafk
+char	normalname2[32]; // woods #smartafk
 
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through
@@ -44,7 +45,6 @@ void Sound_Toggle_Mute_Off_f(void); // woods #mute -- adapted from Fitzquake Mar
 
 void Host_Name_Backup_f(void); // woods #smartafk
 void Host_Name_Load_Backup_f(void); // woods #smartafk
-void Host_Name_Clear_Backup_f(void); // woods #smartafk
 
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
@@ -1208,8 +1208,8 @@ void IN_SendKeyEvents (void)
 					{
 						Q_strcpy(afk_name, cl_name.string); // store name to memory
 						sprintf(normalname, "%.11s", cl_name.string); // cut name
-						sprintf(normalname, "%s%s", normalname, " AFK"); // add AFK to name
-						Cvar_Set("name", normalname); // set name with AFK
+						sprintf(normalname2, "%s%s", normalname, " AFK"); // add AFK to name
+						Cvar_Set("name", normalname2); // set name with AFK
 						Host_Name_Backup_f(); // back up the full name incase of crash
 					}
 

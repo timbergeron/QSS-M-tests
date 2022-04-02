@@ -484,6 +484,7 @@ float	CL_LerpPoint (void)
 	if (frac < 0)
 	{
 		if (frac < -0.01)
+		{
 			if (bumper_on) // woods #demorewind (Baker Fitzquake Mark V)
 			{
 				cl.ctime = cl.mtime[1];
@@ -491,15 +492,18 @@ float	CL_LerpPoint (void)
 			else cl.time = cl.ctime = cl.mtime[1];
 			//cl.time = cl.mtime[1];
 		frac = 0;
+		}
 	}
 	else if (frac > 1)
 	{
 		if (frac > 1.01)
+		{
 			if (bumper_on) // woods #demorewind (Baker Fitzquake Mark V)
 				cl.ctime = cl.mtime[0];
 			else cl.time = cl.ctime = cl.mtime[0]; // Here is where we get foobar'd
 		//	cl.time = cl.mtime[0];
-		frac = 1;
+			frac = 1;
+		}
 	}
 
 	//johnfitz -- better nolerp behavior

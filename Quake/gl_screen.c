@@ -181,7 +181,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 
 // begin woods for flagstatus parsing --  â = blue abandoned, ò = red abandoned, r = taken, b = taken
 
-	strncpy(cl.flagstatus, "no", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
+	strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
 	if (!strpbrk(str, "€")) // cdmod MOD print
 	{
@@ -679,7 +679,6 @@ void SCR_DrawClock (void)
 
 	else if (scr_clock.value == 2)
 	{
-		int hours, minutes;
 		time_t systime = time(0);
 		struct tm loct =*localtime(&systime);
 
@@ -688,11 +687,10 @@ void SCR_DrawClock (void)
 
 	else if (scr_clock.value == 3)
 	{
-		int hours, minutes, seconds;
 		time_t systime = time(0);
 		struct tm loct =*localtime(&systime);
 
-		strftime(str, 12, "%T", &loct);
+		strftime(str, 12, "%X", &loct);
 	}
 
 	else
@@ -810,7 +808,7 @@ SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match c
 */
 void SCR_DrawMatchClock(void)
 {
-	char			num[12];
+	char			num[22] = "empty";
 	int				teamscores, minutes, seconds;
 	int				match_time, tl;
 
@@ -829,8 +827,6 @@ void SCR_DrawMatchClock(void)
 
 	if ((cl.minutes != 255))
 	{
-		sprintf(num, ""); // base case, print nothing
-
 		if (!strcmp(cl.ffa, "y")) // display count up to timelimit in normal/ffa mode
 		{
 			
@@ -844,7 +840,7 @@ void SCR_DrawMatchClock(void)
 		{
 			if (strlen(cl.serverinfo) > 0) // fte/qss server check, if so parse serverinfo for timelimit
 			{
-				char mtimelimit[3];
+				char mtimelimit[10];
 				char* str = cl.serverinfo;
 				char* position_ptr = strstr(str, "timelimit\\");
 				int position = (position_ptr - str);
@@ -873,9 +869,12 @@ void SCR_DrawMatchClock(void)
 
 		// now lets draw the clocks
 
+		if (!strcmp(num, "empty"))
+			return;
+
 		if (scr_match_hud.value)
 		{
-			if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y")) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+			if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y"))) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 				M_Print(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // M_Print is colored text
 			else
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
@@ -886,7 +885,7 @@ void SCR_DrawMatchClock(void)
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 			{
 				GL_SetCanvas(CANVAS_MATCHCLOCK);
-				if (((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y")) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+				if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y"))) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 					M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num); // M_Print is colored text
 				else
 					Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
@@ -1141,6 +1140,7 @@ void SCR_DrawSpeed (void)
 
 	GL_SetCanvas (CANVAS_SBAR2);
 	x = 0;
+	y = 0;
 
 	if (scr_viewsize.value <= 100)
 		y = 18;
@@ -1202,7 +1202,7 @@ SCR_Mute_Switch -- woods
 */
 void SCR_Mute_Switch(void)
 {
-	if (!strcmp(mute, "y") != true)
+	if ((!strcmp(mute, "y")) != true)
 		strncpy(mute, "y", sizeof(mute));
 	else
 		strncpy(mute, "n", sizeof(mute));
@@ -1384,26 +1384,33 @@ void SCR_DrawCrosshair (void)
 	x = 0;
 
 	if (scr_crosshaircolor.value == 0)
+	{ 
 		if (hue)
 			x = 234; // orange
 		else
 			x = 254;
+	}
 	if (scr_crosshaircolor.value == 1)
+	{
 		if (hue)
 			x = 234; // orange
 		else
 			x = 192;
+	}
 	if (scr_crosshaircolor.value == 2)
+	{
 		if (hue)
 			x = 254; // white
 		else
 			x = 251;
+	}
 	if (scr_crosshaircolor.value == 3)
+	{ 
 		if (hue)
 			x = 254; // white
 		else
 			x = 208;
-
+	}
 	if (crosshair.value == 1)
 		Draw_Fill(-2, 1, 3, 3, x, 1); // simple dot
 	if (crosshair.value == 2)

@@ -2642,7 +2642,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		{
 			char key[2];
 			char particles[15];
-			char textures[3];
+			char textures[4];
 			char hud[3];
 			char lfps[20];
 			

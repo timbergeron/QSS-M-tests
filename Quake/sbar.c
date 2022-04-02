@@ -1128,7 +1128,7 @@ void Sbar_DrawFrags(void)
 	int				top, bottom;
 	int				numscores;
 	int				x, f;
-	char			num[12];
+	char			num[20];
 	scoreboard_t* s;
 	int				teamscores, colors, minutes, seconds, mask; // JPG - added these
 	int				match_time; // JPG - added this

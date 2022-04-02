@@ -1490,7 +1490,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	R_SetupAliasFrame (paliashdr, e, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 	R_LightPoint (e->origin);
-	shade = (((lightcolor[1] + lightcolor[2] + lightcolor[3]) / 3) / 128); // woods (R00k) : fade light based on ambientlight
+	shade = (((lightcolor[0] + lightcolor[1] + lightcolor[2]) / 3) / 128); // woods (R00k) : fade light based on ambientlight
 	lheight = currententity->origin[2] - lightspot[2];
 
 // set up matrix

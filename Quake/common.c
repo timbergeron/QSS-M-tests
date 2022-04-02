@@ -3085,6 +3085,7 @@ static void COM_Dir_f(void)
 		COM_ListAllFiles(NULL, Cmd_Argv(i), COM_Dir_Result, 0, NULL);
 }
 
+#if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 static void COM_Dir_Open_f(void) // woods #openfolder opens folder outside of game
 {
 	int c = Cmd_Argc();
@@ -3119,6 +3120,7 @@ static void COM_Dir_Open_f(void) // woods #openfolder opens folder outside of ga
 			SDL_OpenURL(path);
 	}
 }
+#endif
 
 static qboolean COM_SameDirs(const char *dir1, const char *dir2)
 {
@@ -3164,7 +3166,9 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 	Cmd_AddCommand ("flocate", COM_Dir_f);
 	Cmd_AddCommand ("game", COM_Game_f); //johnfitz
 	Cmd_AddCommand ("gamedir", COM_Game_f); //Spike -- alternative name for it, consistent with quakeworld and a few other engines
+#if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 	Cmd_AddCommand ("open", COM_Dir_Open_f); // woods #openfolder
+#endif
 	Cmd_AddCommand ("cfg_save", Host_SaveConfiguration); // woods #cfgsave
 
 	i = COM_CheckParm ("-basedir");

@@ -1369,7 +1369,7 @@ void Cmd_ForwardToServer (void)
 						seconds = cl.time - 60 * minutes;
 						minutes &= 511;
 					}
-					dst += sprintf(dst, ":%02d", minutes, seconds);
+					dst += sprintf(dst, ":%02d", seconds);
 					break;
 
 				default:

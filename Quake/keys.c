@@ -1704,6 +1704,7 @@ void Key_Event (int key, qboolean down)
 	// woods #demorewind (Baker Fitzquake Mark V) -- PGUP and PGDN rewind and fast-forward demos
 	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo /*&& !cls.capturedemo*/) // woods #demorewind (Baker Fitzquake Mark V)
 		if (key == K_PGUP || key == K_PGDN)
+		{ 
 			if (key_dest == key_game && down /* && cls.demospeed == 0 && cls.demorewind == false*/)
 			{
 				// During normal demoplayback, PGUP/PGDN will rewind and fast forward (if key_dest is game)
@@ -1729,7 +1730,7 @@ void Key_Event (int key, qboolean down)
 				if (key_dest == key_game)
 					return; // Otherwise carry on ...
 			}
-
+		}
 	// woods #demorewind (Baker Fitzquake Mark V) -- scrollwheel rewind and fast-forward demos
 	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo) // woods #demorewind (Baker Fitzquake Mark V)
 		if (key == K_MWHEELUP || key == K_MWHEELDOWN)

@@ -212,7 +212,7 @@ Con_Copy_f -- woods #concopy
 */
 void Con_Copy_f(void)
 {
-	FILE* f;
+	char *f;
 
 	Con_Dump_f();
 	f = (char*)COM_LoadHunkFile("condump.txt", NULL);
@@ -404,7 +404,7 @@ static void Con_Print (const char *txt)
 	static int	cr;
 	int		mask;
 	int     minutes, minutes_next, seconds, seconds_next, match_time; // #smartteam
-	char			com[30]; // #smartteam
+	char			com[35]; // #smartteam
 	qboolean	boundary;
 	static int fixline = 0; // woods #confilter
 
@@ -478,7 +478,7 @@ static void Con_Print (const char *txt)
 
 		if ((cl.conflag == 3) && (strcmp(txt, "is ")))  // string before ghost number #ghostcode
 		{
-			strncpy(cl.ghostcode, txt, sizeof(cl.ghostcode)); // copy ghostcode to memory
+			memcpy(cl.ghostcode, txt, sizeof(cl.ghostcode)); // copy ghostcode to memory
 			cl.conflag = 0; // reset flag	
 		}
 
@@ -509,6 +509,7 @@ static void Con_Print (const char *txt)
 				!strcmp(txt, "cells") ||
 				!strcmp(txt, "rockets") ||
 				!strcmp(txt, "shells") ||
+				!strcmp(txt, "spikes") ||
 				!strncmp(txt, "The Blue team has", 17) ||
 				!strncmp(txt, "The Red team has", 16) ||
 				!strncmp(txt, "Match ends", 10) ||
