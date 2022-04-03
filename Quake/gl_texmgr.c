@@ -1620,7 +1620,7 @@ void TexMgr_ReloadImage (gltexture_t *glt, plcolour_t shirt, plcolour_t pants)
 		data = (byte *) glt->source_offset; //image in memory
 	}
 	if (!data) {
-invalid:	Con_Printf ("TexMgr_ReloadImage: invalid source for %s\n", glt->name);
+invalid:	/*Con_Printf("TexMgr_ReloadImage: invalid source for %s\n", glt->name);*/ // woods disable 
 		Hunk_FreeToLowMark(mark);
 		return;
 	}
