@@ -164,6 +164,8 @@ int			scr_erase_center;
 #define CPRINT_TALIGN		(1u<<2)
 unsigned int scr_centerprint_flags;
 
+int paused = 0; // woods #showpaused
+
 /*
 ==============
 SCR_CenterPrint
@@ -175,6 +177,14 @@ for a few moments
 void SCR_CenterPrint (const char *str) //update centerprint data
 {
 	unsigned int flags = 0;
+
+	if (strstr(str, "паусед")) // #showpaused
+	{
+		paused = 1;
+		return;
+	}
+	else
+		paused = 0;
 
 // ===============================
 // woods for center print filter  -> this is #flagstatus
@@ -1343,6 +1353,24 @@ void SCR_DrawPause (void)
 
 /*
 ==============
+DrawPause2 -- woods #showpaused
+==============
+*/
+void SCR_DrawPause2(void)
+{
+	qpic_t* pic;
+
+	GL_SetCanvas(CANVAS_MENU2); //johnfitz
+
+	pic = Draw_CachePic("gfx/pause.lmp");
+	if (paused == 1)
+	Draw_Pic((320 - pic->width) / 2, (240 - 48 - pic->height) / 2, pic); //johnfitz -- stretched menus
+
+	scr_tileclear_updates = 0; //johnfitz
+}
+
+/*
+==============
 SCR_DrawLoading
 ==============
 */
@@ -1947,6 +1975,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawNet ();
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
+		SCR_DrawPause2 (); // woods #showpaused
 		SCR_CheckDrawCenterString ();
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
