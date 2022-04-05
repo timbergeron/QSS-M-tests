@@ -106,6 +106,7 @@ cvar_t		scr_matchclock = {"scr_matchclock", "0",CVAR_ARCHIVE}; // woods #varmatc
 cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclockscale = {"scr_matchclockscale", "1",CVAR_ARCHIVE}; // woods #varmatchclock
+cvar_t		scr_showscores = {"scr_showscores", "0",CVAR_ARCHIVE}; // woods #observerhud
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
@@ -584,6 +585,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_matchclock_y); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_x); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclockscale); // woods #varmatchclock
+	Cvar_RegisterVariable (&scr_showscores); // woods #observerhud
 	//johnfitz
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
@@ -993,7 +995,7 @@ void SCR_ShowObsFrags(void)
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 
 
-	if (!strcmp(cl.observer, "y"))
+	if (!strcmp(cl.observer, "y") || scr_showscores.value)
 	{ 
 		GL_SetCanvas(CANVAS_BOTTOMLEFT);
 
