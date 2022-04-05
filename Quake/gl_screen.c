@@ -1351,7 +1351,7 @@ void SCR_DrawLoading (void)
 	if (!scr_drawloading)
 		return;
 
-	GL_SetCanvas (CANVAS_MENU); //johnfitz
+	GL_SetCanvas (CANVAS_MENU2); //johnfitz
 
 	pic = Draw_CachePic ("gfx/loading.lmp");
 	Draw_Pic ( (320 - pic->width)/2, (240 - 48 - pic->height)/2, pic); //johnfitz -- stretched menus

@@ -64,6 +64,7 @@ typedef enum {
 	CANVAS_SCOREBOARD, // woods #scoreboard
 	CANVAS_CONSOLE,
 	CANVAS_MENU,
+	CANVAS_MENU2,
 	CANVAS_SBAR,
 	CANVAS_SBAR2, // woods #speed
 	CANVAS_IBAR_QW, // woods #sbarstyles
