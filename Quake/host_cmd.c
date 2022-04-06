@@ -1019,6 +1019,7 @@ static void Host_Reconnect_Con_f (void)
 }
 static void Host_Reconnect_Sv_f (void)
 {
+	int ct;
 	if (cls.demoplayback)	// cross-map demo playback fix from Baker
 		return;
 
@@ -1028,6 +1029,9 @@ static void Host_Reconnect_Sv_f (void)
 	SCR_BeginLoadingPlaque ();
 	cl.protocol_dpdownload = false;
 	cls.signon = 0;		// need new connection messages
+
+	ct = cl.time - cl.maptime; // woods #servertime
+	mpservertime = mpservertime + ct; // woods #servertime
 }
 
 static void Host_Lightstyle_f (void)
@@ -1055,6 +1059,8 @@ static void Host_Connect_f (void)
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
 	CL_EstablishConnection (name);
 	Host_Reconnect_Sv_f ();
+
+	mpservertime = 0; // woods #servertime
 }
 
 

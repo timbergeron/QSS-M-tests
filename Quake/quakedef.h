@@ -384,6 +384,7 @@ qboolean	sb_showscores; // woods moved for broader access
 char		videoc[40];		// woods #q_sysinfo (qrack)
 char		videosetg[50];	// woods #q_sysinfo (qrack)
 char		afk_name[16]; // woods #smartafk
+double		mpservertime;	// woods #servertime
 
 #endif	/* QUAKEDEFS_H */
 

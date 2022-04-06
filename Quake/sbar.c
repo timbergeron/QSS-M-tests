@@ -589,8 +589,9 @@ Sbar_SoloScoreboard -- johnfitz -- new layout
 void Sbar_SoloScoreboard (void)
 {
 	char	str[256];
-	int	minutes, seconds, tens, units;
-	int	len, ct, pl; // woods ct, pl
+	int minutes, seconds, tens, units;
+	int	min, smin, cmin;
+	int	len, ct, pl, st, mpc; // woods ct, pl
 
 	if (cl.gametype != GAME_DEATHMATCH)  // woods only in singleplayer
 	{
@@ -603,14 +604,16 @@ void Sbar_SoloScoreboard (void)
 
 	if (cl.gametype == GAME_DEATHMATCH) // woods add server connected time and total packet loss
 	{
-		ct = cl.time - cl.maptime;
+		ct = cl.time - cl.maptime; // map connected time
+		st = ct + mpservertime; // server connected time #servertime
+		mpc = SDL_GetTicks() / 1000; // client open time
 		pl = atoi(cl.packetloss);
-		minutes = ct / 60;
-		seconds = ct - 60 * minutes;
-		tens = seconds / 10;
-		units = seconds - 10 * tens;
+		
+		min = ct / 60;
+		smin = st / 60;
+		cmin = mpc / 60;
 
-		sprintf(str, "Connected Time: %i:%i%i   Total PL:%i", minutes, tens, units, pl);
+		sprintf(str, "Map %i  Server %i  QSSM %i  PL %i", min, smin, cmin, pl);
 
 		len = strlen(str);
 		if (len > 40)
