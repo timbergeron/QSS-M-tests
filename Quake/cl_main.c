@@ -636,6 +636,26 @@ static qboolean CL_AttachEntity(entity_t *ent, float frac)
 
 /*
 ===============
+CL_RocketTrail - woods (ironwail) #pemission
+Rate-limiting wrapper over R_RocketTrail
+===============
+*/
+static void CL_RocketTrail(entity_t* ent, int type)
+{
+	if (!(ent->lerpflags & LERP_RESETMOVE) && !ent->forcelink)
+	{
+		ent->traildelay -= cl.time - cl.oldtime;
+		if (ent->traildelay > 0.f)
+			return;
+		R_RocketTrail(ent->trailorg, ent->origin, type);
+	}
+
+	ent->traildelay = 1.f / 72.f;
+	VectorCopy(ent->origin, ent->trailorg);
+}
+
+/*
+===============
 CL_RelinkEntities
 ===============
 */
@@ -812,27 +832,27 @@ void CL_RelinkEntities (void)
 			if (modelflags & EF_GIB)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_BLOOD"))
-				R_RocketTrail (oldorg, ent->origin, 2);
+				CL_RocketTrail(ent, 2); // woods(ironwail) #pemission
 		}
 		else if (modelflags & EF_ZOMGIB)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_SLIGHTBLOOD"))
-				R_RocketTrail (oldorg, ent->origin, 4);
+				CL_RocketTrail(ent, 4); // woods(ironwail) #pemission
 		}
 		else if (modelflags & EF_TRACER)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_WIZSPIKE"))
-				R_RocketTrail (oldorg, ent->origin, 3);
+				CL_RocketTrail(ent, 3); // woods(ironwail) #pemission
 		}
 		else if (modelflags & EF_TRACER2)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_KNIGHTSPIKE"))
-				R_RocketTrail (oldorg, ent->origin, 5);
+				CL_RocketTrail(ent, 5); // woods(ironwail) #pemission
 		}
 		else if (modelflags & EF_ROCKET)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_ROCKET"))
-				R_RocketTrail (oldorg, ent->origin, 0);
+				CL_RocketTrail(ent, 0); // woods(ironwail) #pemission
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin, dl->origin);
 			dl->radius = 0;		// woods eliminate rocket light
@@ -841,12 +861,12 @@ void CL_RelinkEntities (void)
 		else if (modelflags & EF_GRENADE)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_GRENADE"))
-				R_RocketTrail (oldorg, ent->origin, 1);
+				CL_RocketTrail(ent, 1); // woods(ironwail) #pemission
 		}
 		else if (modelflags & EF_TRACER3)
 		{
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_VORESPIKE"))
-				R_RocketTrail (oldorg, ent->origin, 6);
+				CL_RocketTrail(ent, 6); // woods(ironwail) #pemission
 		}
 
 		ent->forcelink = false;
