@@ -392,7 +392,7 @@ void Sbar_DrawScrollString (int x, int y, int width, const char *str)
 
 	scale = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 	left = x * scale;
-	if (cl.gametype != GAME_DEATHMATCH)
+	//if (cl.gametype != GAME_DEATHMATCH) // woods sbar now middle default
 		left += (((float)glwidth - 320.0 * scale) / 2);
 
 	glEnable (GL_SCISSOR_TEST);
@@ -401,9 +401,9 @@ void Sbar_DrawScrollString (int x, int y, int width, const char *str)
 	len = strlen(str)*8 + 40;
 	ofs = ((int)(realtime*30))%len;
 	Sbar_DrawString (x - ofs, y, str);
-	Sbar_DrawCharacter (x - ofs + len - 32, y, '/');
-	Sbar_DrawCharacter (x - ofs + len - 24, y, '/');
-	Sbar_DrawCharacter (x - ofs + len - 16, y, '/');
+	//Sbar_DrawCharacter (x - ofs + len - 32, y, '/'); // woods
+	//Sbar_DrawCharacter (x - ofs + len - 24, y, '/'); // woods
+	//Sbar_DrawCharacter (x - ofs + len - 16, y, '/'); // woods
 	Sbar_DrawString (x - ofs + len, y, str);
 
 	glDisable (GL_SCISSOR_TEST);
@@ -602,7 +602,7 @@ void Sbar_SoloScoreboard (void)
 		Sbar_DrawString(312 - strlen(str) * 8, 12, str);
 	}
 
-	if (cl.gametype == GAME_DEATHMATCH) // woods add server connected time and total packet loss
+	else // woods add various times + PL
 	{
 		ct = cl.time - cl.maptime; // map connected time
 		st = ct + mpservertime; // server connected time #servertime
@@ -619,7 +619,7 @@ void Sbar_SoloScoreboard (void)
 		if (len > 40)
 			Sbar_DrawScrollString(0, 12, 320, str);
 		else
-			Sbar_DrawString(160 - len * 4, 12, str);
+			M_Print(160 - len * 4, 37, str); // woods lets make this colored
 	}
 
 	if (!fitzmode)
