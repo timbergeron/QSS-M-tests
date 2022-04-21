@@ -2670,9 +2670,18 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 			{
 				if (keybindings[bindmap][i] && *keybindings[bindmap][i])
 				{
-					if ((!strcmp(keybindings[bindmap][i], "+forward")))
-						sprintf(key, "%s", Key_KeynumToString(i));
-
+					if (!q_strcasecmp(keybindings[bindmap][i], "+forward"))
+					{
+							if (strlen(Key_KeynumToString(i)) == 1) // could be UPARROW?
+							{
+								sprintf(key, "%s", Key_KeynumToString(i));
+								break;
+							}
+					}
+					else
+					{ 
+						sprintf(key, "%s", "?");
+					}
 					count++;
 				}
 			}
@@ -2689,9 +2698,11 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 				sprintf(lfps, "fpsmax %s", host_maxfps.string);
 			
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say fov %s, sens %s, tlighting %s, %s, +forward %s", scr_fov.string, sensitivity.string, cl_truelightning.string, lfps, key));
+			MSG_WriteString(&cls.message, va("say fov %s, sens %s, tlighting %s, %s", scr_fov.string, sensitivity.string, cl_truelightning.string, lfps));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say cross %s, vmodel %s, hud %s, particles %s, textures %s", crosshair.string, r_drawviewmodel.string, hud, particles, textures));
+			MSG_WriteString(&cls.message, va("say cross %s, vmodel %s, hud %s, particles %s", crosshair.string, r_drawviewmodel.string, hud, particles));
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say textures %s, +forward %s, chatmode %s", textures, key, cl_say.string));
 			cl.printconfig = realtime + 20;
 		}
 	}
