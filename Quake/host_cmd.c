@@ -1827,8 +1827,8 @@ static void Host_Pause_f (void)
 //ericw -- demo pause support (inspired by MarkV)
 	if (cls.demoplayback)
 	{
-		cls.demopaused = !cls.demopaused;
-		cl.paused = cls.demopaused;
+		//cls.demopaused = !cls.demopaused; // woods, use spacebar
+		//cl.paused = cls.demopaused; // woods, use spacebar
 		return;
 	}
 

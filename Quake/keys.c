@@ -1701,6 +1701,27 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
+	if (down && (key == K_SPACE)) // woods
+	{
+		if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo)
+		{
+			if (cl_demospeed.value > 0)
+			{
+				cls.demospeed_state = cl_demospeed.value;
+				Cvar_SetValue("cl_demospeed", 0);
+			}
+			else
+			{
+				if (cls.demospeed_state > 0)
+					Cvar_SetValue("cl_demospeed", cls.demospeed_state);
+				else
+					Cvar_SetValue("cl_demospeed", 1);
+			}
+
+			return;
+		}
+	}
+
 	// woods #demorewind (Baker Fitzquake Mark V) -- PGUP and PGDN rewind and fast-forward demos
 	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo /*&& !cls.capturedemo*/) // woods #demorewind (Baker Fitzquake Mark V)
 		if (key == K_PGUP || key == K_PGDN)
@@ -1764,6 +1785,37 @@ void Key_Event (int key, qboolean down)
 				}
 				return;
 			}
+
+	// woods #demorewind (Baker Fitzquake Mark V) -- LEFT and RIGHT ARROW skip 5 seconds forward of back + SUPER FAST
+	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo) // woods #demorewind (Baker Fitzquake Mark V)
+		if (key == K_RIGHTARROW || key == K_LEFTARROW)
+		{
+			if (key_dest == key_game && down /* && cls.demospeed == 0 && cls.demorewind == false*/)
+			{
+				// During normal demoplayback, PGUP/PGDN will rewind and fast forward (if key_dest is game)
+				if (key == K_RIGHTARROW)
+				{
+					cls.demospeed = 75;
+					cls.demorewind = false;
+				}
+				else if (key == K_LEFTARROW)
+				{
+					cls.demospeed = 75;
+					cls.demorewind = true;
+				}
+				return; // If something is bound to it, do not process it.
+			}
+			else //if (!down && (cls.demospeed != 0 || cls.demorewind != 0))
+			{
+				// During normal demoplayback, releasing PGUP/PGDN resets the speed
+				// We need to check even if not key_game in case something silly happened (to be safe)
+				cls.demospeed = 0;
+				cls.demorewind = false;
+
+				if (key_dest == key_game)
+					return; // Otherwise carry on ...
+			}
+		}
 
 	//Spike -- give menuqc a chance to handle (and swallow) key events.
 	if ((key_dest == key_menu || !down) && Menu_HandleKeyEvent(down, key, 0))

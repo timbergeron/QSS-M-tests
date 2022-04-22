@@ -143,6 +143,8 @@ typedef struct
 
 	char		demoname[MAX_OSPATH];	// So we can print demo whatever completed. 
 
+	float		demospeed_state;		// woods, use spacebar for pause
+
 	// end woods #demopercent ((Baker Fitzquake Mark V)
 
 // did the user pause demo playback? (separate from cl.paused because we don't

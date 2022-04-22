@@ -57,7 +57,7 @@ cvar_t	cl_minpitch = {"cl_minpitch", "-90", CVAR_ARCHIVE}; //johnfitz -- variabl
 
 cvar_t cl_recordingdemo = {"cl_recordingdemo", "", CVAR_ROM};	//the name of the currently-recording demo.
 cvar_t	cl_demoreel = {"cl_demoreel", "0", CVAR_ARCHIVE};
-cvar_t	cl_demospeed = { "cl_demospeed", "1", CVAR_ARCHIVE }; // woods #demotools
+cvar_t	cl_demospeed = { "cl_demospeed", "1", CVAR_NONE }; // woods #demotools
 
 cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
