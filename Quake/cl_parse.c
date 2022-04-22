@@ -2635,6 +2635,43 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		return true;
 	}*/
 
+	//woods #f_random
+	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 11, ": f_random\n")))
+	{
+		if (realtime > cl.printrandom)
+		{
+			char coin[6];
+			char color[5];
+			char rps[10];
+			int v1 = rand() % 2; // head / tails
+			int v2 = rand() % 100 + 1; // 1-100
+			int v3 = rand() % 3 + 1; // rock, paper, scissors
+			int v4 = rand() % 2; // red or blue
+			int v5 = rand() % 21 + 1; // blackjack
+
+			if (v1 == 1)
+				sprintf(coin, "heads");
+			else
+				sprintf(coin, "tails");
+
+			if (v3 == 1)
+				sprintf(rps, "rock");
+			else if (v3 == 2)
+				sprintf(rps, "paper");
+			else
+				sprintf(rps, "scissors");
+
+			if (v4 == 1)
+				sprintf(color, "red");
+			else
+				sprintf(color, "blue");
+
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			MSG_WriteString(&cls.message, va("say %s, %s, %s, blackjack: %d, 1-100: %d", coin, rps, color, v5, v2));
+			cl.printrandom = realtime + 20;
+		}
+	}
+
 	//woods #f_config check for chat messages of the form 'name: f_config'
 	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 11, ": f_config\n")))
 	{

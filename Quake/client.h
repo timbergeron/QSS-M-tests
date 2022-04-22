@@ -320,6 +320,7 @@ typedef struct
 	float printversionresponse;
 	float printqsys; // woods #q_sysinfo (qrack)
 	float printconfig; // woods #f_config
+	float printrandom; // woods #f_random
 
 	//spike -- moved this stuff here to deal with downloading content named by the server
 	qboolean sendprespawn;	//download+load content, send the prespawn command once done
