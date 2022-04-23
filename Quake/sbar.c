@@ -645,7 +645,10 @@ void Sbar_SoloScoreboard (void)
 			Sbar_DrawString(160 - strlen(str) * 4, 12, str);
 		}
 
-		q_snprintf (str, sizeof(str), "%s (%s)", cl.levelname, cl.mapname);
+		if (cl.levelname[0]) // woods iw 74dd336
+			q_snprintf (str, sizeof(str), "%s (%s)", cl.levelname, cl.mapname);
+		else
+			q_strlcpy (str, cl.mapname, sizeof(str));
 		len = strlen (str);
 		if (len > 40)
 			Sbar_DrawScrollString (0, 4, 320, str);
@@ -660,11 +663,11 @@ void Sbar_SoloScoreboard (void)
 	sprintf (str,"%i:%i%i", minutes, tens, units);
 	Sbar_DrawString (160 - strlen(str)*4, 12, str);
 
-	len = strlen (cl.levelname);
+	len = q_strlcpy (str, cl.levelname[0] ? cl.levelname : cl.mapname, sizeof(str)); // woods iw
 	if (len > 40)
-		Sbar_DrawScrollString (0, 4, 320, cl.levelname);
+		Sbar_DrawScrollString (0, 4, 320, str); // woods iw
 	else
-		Sbar_DrawString (160 - len*4, 4, cl.levelname);
+		Sbar_DrawString (160 - len*4, 4, str); // woods iw
 }
 
 /*
@@ -2107,13 +2110,13 @@ void Sbar_DeathmatchOverlay (void)
 
 		if (cl.modtype == 1 || cl.modtype == 4) // woods -- dynamic status flash scoreboard label if not ready #smartstatus
 		{
-			if (strstr(s->name, "ׂובהש") || strstr(s->name, "Ready"))
+			if (strstr(s->name, "???) || strstr(s->name, "Ready"))
 				oneready = true;
 			
-			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (!strstr(s->name, "ׂובהש") || !strstr(s->name, "Ready")))
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (!strstr(s->name, "???) || !strstr(s->name, "Ready")))
 				notready = true;
 
-			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (strstr(s->name, "ׂובהש") || strstr(s->name, "Ready")))
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (strstr(s->name, "???) || strstr(s->name, "Ready")))
 				notready = false;
 		}
 
