@@ -3288,6 +3288,8 @@ void M_GameOptions_Key (int key)
 		break;
 
 	case K_LEFTARROW:
+	case K_MWHEELDOWN:
+	//case K_MOUSE2:
 		if (gameoptions_cursor == 0)
 			break;
 		S_LocalSound ("misc/menu3.wav");
@@ -3295,6 +3297,7 @@ void M_GameOptions_Key (int key)
 		break;
 
 	case K_RIGHTARROW:
+	case K_MWHEELUP:
 		if (gameoptions_cursor == 0)
 			break;
 		S_LocalSound ("misc/menu3.wav");
