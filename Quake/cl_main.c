@@ -1719,7 +1719,7 @@ void CL_Viewpos_f (void)
 #if 0
 	//camera position
 	q_snprintf (buf, sizeof (buf),
-		"Viewpos: (%i %i %i) %i %i %i",
+		"(%i %i %i) %i %i %i",
 		(int)r_refdef.vieworg[0],
 		(int)r_refdef.vieworg[1],
 		(int)r_refdef.vieworg[2],
@@ -1735,7 +1735,7 @@ void CL_Viewpos_f (void)
 		(int)cl.entities[cl.viewentity].origin[2],
 =======
 	q_snprintf (buf, sizeof (buf),
-		"Viewpos: (%i %i %i) %i %i %i",
+		"(%i %i %i) %i %i %i",
 		(int)cl_entities[cl.viewentity].origin[0],
 		(int)cl_entities[cl.viewentity].origin[1],
 		(int)cl_entities[cl.viewentity].origin[2],
@@ -1745,7 +1745,7 @@ void CL_Viewpos_f (void)
 		(int)cl.viewangles[ROLL]
 	);
 #endif
-	Con_Printf ("%s\n", buf);
+	Con_Printf ("Viewpos: %s\n", buf);
 
 	if (Cmd_Argc () >= 2 && !q_strcasecmp (Cmd_Argv (1), "copy"))
 		if (SDL_SetClipboardText (buf) < 0)
