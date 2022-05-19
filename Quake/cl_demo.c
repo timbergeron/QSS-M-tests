@@ -670,13 +670,7 @@ play [demoname]
 */
 void CL_PlayDemo_f (void)
 {
-<<<<<<< HEAD
 	char	name[MAX_OSPATH], name2[MAX_OSPATH]; // woods #demosfolder
-	int	i, c;
-	qboolean neg;
-=======
-	char	name[MAX_OSPATH];
->>>>>>> upstream/qsrebase
 
 	if (cmd_source != src_command)
 		return;
