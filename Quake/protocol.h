@@ -347,6 +347,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define svcfte_updateentities		86
 //spike -- end
 
+<<<<<<< HEAD
 // JPG - added ProQuake commands woods #pqteam
 #define pqc_nop			1
 #define pqc_new_team	2
@@ -360,6 +361,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //used by the 2021 rerelease
 //Note: same value as svcdp_effect!
 #define svcqx_achievement				52		// [string] id
+=======
+// 2021 re-release server messages - see:
+// https://steamcommunity.com/sharedfiles/filedetails/?id=2679459726
+#define svcqe_botchat				38
+#define svcqe_setviews				45
+#define svcqe_updateping			46
+#define svcqe_updatesocial			47
+#define svcqe_updateplinfo			48
+#define svcqe_rawprint				49
+#define svcqe_servervars			50	/*svcdp_downloaddata*/
+#define svcqe_seq					51	/*svcdp_updatestatbyte*/
+#define svcqe_achievement			52	/*svcdp_effect*/	// [string] id
+#define svcqe_chat					53	/*svcdp_effect2*/
+#define svcqe_levelcompleted		54	/*svcdp_precache*/
+#define svcqe_backtolobby			55	/*svcdp_spawnbaseline2*/
+#define svcqe_localsound			56	/*svcdp_spawnstatic2*/
+>>>>>>> upstream/qsrebase
 
 //
 // client to server
@@ -450,6 +468,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#define EFDP_LOWPRECISION			(1u<<22)
 #define EF_NOMODELFLAGS				(1u<<23)
 //24-31 are used for modelflag overrides (rotate, legacy trails, etc)
+
+//Fixed up when qcvm->brokeneffects is true
+#define EFQE_QUADLIGHT				(1<<4)
+#define EFQE_PENTLIGHT				(1<<5)
+#define EFQE_CANDLELIGHT			(1<<6)
 
 typedef struct entity_state_s
 {
