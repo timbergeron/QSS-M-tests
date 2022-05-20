@@ -1402,11 +1402,11 @@ void SCR_DrawCrosshair (void)
 
 	hue = 0;
 
-	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
+	/*if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 		return;
 
 	if (!crosshair.value || (!strcmp(cl.observer, "y")))
-		return;
+		return;*/
 
 	if (cl.time <= cl.faceanimtime && cl_damagehue.value == 2)
 		hue = 1;
