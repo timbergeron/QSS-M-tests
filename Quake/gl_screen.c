@@ -107,6 +107,7 @@ cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #var
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclockscale = {"scr_matchclockscale", "1",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_showscores = {"scr_showscores", "0",CVAR_ARCHIVE}; // woods #observerhud
+cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet
 //johnfitz
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
 
@@ -597,6 +598,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_matchclock_x); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclockscale); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_showscores); // woods #observerhud
+	Cvar_RegisterVariable (&scr_shownet); // woods #shownet
 	//johnfitz
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
@@ -1320,6 +1322,9 @@ SCR_DrawNet
 */
 void SCR_DrawNet (void)
 {
+	if (!scr_shownet.value)
+		return;
+	
 	if (realtime - cl.last_received_message < 0.3)
 		return;
 	if (cls.demoplayback)
