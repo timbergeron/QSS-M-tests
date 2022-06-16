@@ -1586,16 +1586,18 @@ void Key_Event (int key, qboolean down)
 	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp
 	if (down && (key == K_MWHEELUP) && keydown[K_COMMAND])
 	{
-		Cmd_ExecuteString("inc scr_conscale .1\n", src_command);
-		Cmd_ExecuteString("inc scr_sbarscale .1\n", src_command);
+		Cmd_ExecuteString("inc scr_conscale 1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale 1\n", src_command);
+		Cmd_ExecuteString("inc scr_crosshairscale 1\n", src_command);
 		return;
 	}
 #endif
 	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp
 	if (down && (key == K_MWHEELUP) && keydown[K_CTRL]) // woods #shortcuts
 	{
-		Cmd_ExecuteString("inc scr_conscale .1\n", src_command);
-		Cmd_ExecuteString("inc scr_sbarscale .1\n", src_command);
+		Cmd_ExecuteString("inc scr_conscale 1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale 1\n", src_command);
+		Cmd_ExecuteString("inc scr_crosshairscale 1\n", src_command);
 		return;
 	}
 
@@ -1603,8 +1605,9 @@ void Key_Event (int key, qboolean down)
 		if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
 	if (down && (key == K_MWHEELDOWN) && keydown[K_COMMAND])
 	{
-		Cmd_ExecuteString("inc scr_conscale -.1\n", src_command);
-		Cmd_ExecuteString("inc scr_sbarscale -.1\n", src_command);
+		Cmd_ExecuteString("inc scr_conscale -1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale -1\n", src_command);
+		Cmd_ExecuteString("inc scr_crosshairscale -1\n", src_command);
 		return;
 }
 #endif
@@ -1612,8 +1615,9 @@ void Key_Event (int key, qboolean down)
 	if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
 	if (down && (key == K_MWHEELDOWN) && keydown[K_CTRL]) // woods #shortcuts
 	{
-		Cmd_ExecuteString("inc scr_conscale -.1\n", src_command);
-		Cmd_ExecuteString("inc scr_sbarscale -.1\n", src_command);
+		Cmd_ExecuteString("inc scr_conscale -1\n", src_command);
+		Cmd_ExecuteString("inc scr_sbarscale -1\n", src_command);
+		Cmd_ExecuteString("inc scr_crosshairscale -1\n", src_command);
 		return;
 	}
 
