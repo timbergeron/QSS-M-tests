@@ -309,6 +309,13 @@ void CL_SignonReply (void)
 			Cmd_ExecuteString("record\n", src_command);
 		key_dest = key_game; // woods exit console on server connect
 		cl.maptime = cl.time; // woods connected map time #maptime
+
+		char versionedname[10]; // woods #modtype [crx server check]
+		const char* val;
+		val = Info_GetKey(cl.serverinfo, "mod", versionedname, sizeof(versionedname));
+		if (!strcmp(val, "crx"))
+			cl.modtype = 1;
+
 		break;
 	}
 }

@@ -2399,6 +2399,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 
 				if (!strcmp(string, "Sending ClanRing CRCTF v3.5 bindings\n"))  // woods differemt cfgs per mod #modcfg
 				{
+					cl.modtype = 2; // woods #modtype [crctf server check]
 					q_snprintf(checkname, sizeof(checkname), "%s/ctf.cfg", com_gamedir); // woods for cfg particles per mod
 					if (Sys_FileTime(checkname) == -1)
 						return;	// file doesn't exist
@@ -2415,12 +2416,12 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				}
 				if (!strncmp(string, "ÃìáîÒéîç", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
+					cl.modtype = 3; // woods #modtype [crmod server check]
 					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
 					if (Sys_FileTime(checkname) == -1)
 						return;	// file doesn't exist
 					else
 						Cbuf_AddText("exec dm.cfg\n");
-
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
 				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods #matchhud
@@ -2671,7 +2672,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		cl.printtype = PRINT_NONE;
 	}
 
-	if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realtime || cls.demoplayback))
+if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realtime || cls.demoplayback))
 	{
 		cl.printtype = PRINT_PINGS;
 		cl.printplayer = 0;

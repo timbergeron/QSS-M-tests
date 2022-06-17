@@ -365,6 +365,7 @@ typedef struct
 	char		observer[2];		// woods for ghost code to memory #observer
 	int			maptime;			// woods connected map time #maptime
 	int			fps;				// woods #f_config
+	int			modtype;			// woods #modtype detect mp server mod type 3 - crmod, 2 - crctf, 1 - crx
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;
