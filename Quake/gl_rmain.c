@@ -60,16 +60,16 @@ mleaf_t		*r_viewleaf, *r_oldviewleaf;
 
 int		d_lightstylevalue[MAX_LIGHTSTYLES];	// 8.8 fraction of base light value
 
-cvar_t	cl_damagehue = {"cl_damagehue", "1",CVAR_NONE};  // woods #damage
-cvar_t	cl_autodemo = {"cl_autodemo","0",CVAR_NONE};	//R00k   // woods #autodemo
+cvar_t	cl_damagehue = {"cl_damagehue", "1",CVAR_ARCHIVE};  // woods #damage
+cvar_t	cl_autodemo = {"cl_autodemo","0",CVAR_ARCHIVE};	//R00k   // woods #autodemo
 
 cvar_t	r_norefresh = {"r_norefresh","0",CVAR_NONE};
 cvar_t	r_drawentities = {"r_drawentities","1",CVAR_NONE};
-cvar_t	r_drawviewmodel = {"r_drawviewmodel","1",CVAR_NONE};
+cvar_t	r_drawviewmodel = {"r_drawviewmodel","1",CVAR_ARCHIVE};
 cvar_t	r_speeds = {"r_speeds","0",CVAR_NONE};
 cvar_t	r_pos = {"r_pos","0",CVAR_NONE};
 cvar_t	r_fullbright = {"r_fullbright","0",CVAR_NONE};
-cvar_t	r_lightmap = {"r_lightmap","0",CVAR_NONE};
+cvar_t	r_lightmap = {"r_lightmap","0",CVAR_ARCHIVE};
 cvar_t	r_shadows = {"r_shadows","0",CVAR_ARCHIVE};
 cvar_t	r_wateralpha = {"r_wateralpha","1",CVAR_ARCHIVE};
 cvar_t	r_dynamic = {"r_dynamic","1",CVAR_ARCHIVE};
@@ -80,7 +80,7 @@ cvar_t	gl_clear = {"gl_clear","1",CVAR_NONE};
 cvar_t	gl_cull = {"gl_cull","1",CVAR_NONE};
 cvar_t	gl_smoothmodels = {"gl_smoothmodels","1",CVAR_NONE};
 cvar_t	gl_affinemodels = {"gl_affinemodels","0",CVAR_NONE};
-cvar_t	gl_polyblend = {"gl_polyblend","1",CVAR_NONE};
+cvar_t	gl_polyblend = {"gl_polyblend","1",CVAR_ARCHIVE};
 cvar_t	gl_flashblend = {"gl_flashblend","0",CVAR_ARCHIVE};
 cvar_t	gl_playermip = {"gl_playermip","0",CVAR_NONE};
 cvar_t	gl_nocolors = {"gl_nocolors","0",CVAR_NONE};
@@ -101,17 +101,17 @@ cvar_t	r_showtris = {"r_showtris", "0", CVAR_NONE};
 cvar_t	r_showbboxes = {"r_showbboxes", "0", CVAR_NONE};
 cvar_t	r_lerpmodels = {"r_lerpmodels", "1", CVAR_ARCHIVE};
 cvar_t	r_lerpmove = {"r_lerpmove", "1", CVAR_ARCHIVE};
-cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs/braztall.mdl,progs/brazshrt.mdl,progs/longtrch.mdl,progs/flame_pyre.mdl,progs/v_saw.mdl,progs/v_xfist.mdl,progs/h2stuff/newfire.mdl", CVAR_NONE};
-cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,progs/bolt1.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/laser.mdl", CVAR_NONE};
+cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs/braztall.mdl,progs/brazshrt.mdl,progs/longtrch.mdl,progs/flame_pyre.mdl,progs/v_saw.mdl,progs/v_xfist.mdl,progs/h2stuff/newfire.mdl", CVAR_ARCHIVE};
+cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,progs/bolt1.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/laser.mdl", CVAR_ARCHIVE};
 
 extern cvar_t	r_vfog;
 //johnfitz
 
 cvar_t	gl_zfix = {"gl_zfix", "0", CVAR_NONE}; // QuakeSpasm z-fighting fix
 
-cvar_t	r_lavaalpha = {"r_lavaalpha","0",CVAR_NONE};
-cvar_t	r_telealpha = {"r_telealpha","0",CVAR_NONE};
-cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_NONE};
+cvar_t	r_lavaalpha = {"r_lavaalpha","0",CVAR_ARCHIVE};
+cvar_t	r_telealpha = {"r_telealpha","0",CVAR_ARCHIVE};
+cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
