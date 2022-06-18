@@ -97,11 +97,11 @@ cvar_t		scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_consize = {"scr_consize", ".5", CVAR_ARCHIVE}; // woods #consize (joequake)
 cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_crosshaircolor = {"scr_crosshaircolor", "0", CVAR_ARCHIVE}; // woods #crosshair
-cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_NONE};
-cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
-cvar_t		scr_ping = {"scr_ping", "1", CVAR_NONE};  // woods #scrping
-cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_NONE };  // woods #matchhud
-cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_NONE}; // woods #speed
+cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_ARCHIVE};
+cvar_t		scr_clock = {"scr_clock", "0", CVAR_ARCHIVE};
+cvar_t		scr_ping = {"scr_ping", "1", CVAR_ARCHIVE};  // woods #scrping
+cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_ARCHIVE };  // woods #matchhud
+cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_ARCHIVE}; // woods #speed
 cvar_t		scr_matchclock = {"scr_matchclock", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
@@ -112,7 +112,7 @@ cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
-cvar_t		scr_fov = {"fov","90",CVAR_NONE};	// 10 - 170
+cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
 cvar_t		scr_conspeed = {"scr_conspeed","500",CVAR_ARCHIVE};
 cvar_t		scr_centertime = {"scr_centertime","2",CVAR_NONE};
@@ -180,7 +180,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 {
 	unsigned int flags = 0;
 
-	if (strstr(str, "ĞÁÕÓÅÄ")) // #showpaused
+	if (strstr(str, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½")) // #showpaused
 	{
 		paused = 1;
 		return;
@@ -192,40 +192,40 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 // woods for center print filter  -> this is #flagstatus
 // ===============================
 
-// begin woods for flagstatus parsing --  â = blue abandoned, ò = red abandoned, r = taken, b = taken
+// begin woods for flagstatus parsing --  ï¿½ = blue abandoned, ï¿½ = red abandoned, r = taken, b = taken
 
 	strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
-	if (!strpbrk(str, "€")) // cdmod MOD print
+	if (!strpbrk(str, "ï¿½ï¿½ï¿½ï¿½")) // cdmod MOD print
 	{
 		// RED
 
-		if (strstr(str, "r") && !strstr(str, "bŸ") && !strstr(str, "âŸ")) // red taken
+		if (strstr(str, "rï¿½") && !strstr(str, "bï¿½") && !strstr(str, "ï¿½")) // red taken
 			strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
 
-		if (strstr(str, "ò") && !strstr(str, "bŸ") && !strstr(str, "âŸ")) // red abandoned
+		if (strstr(str, "ï¿½") && !strstr(str, "bï¿½") && !strstr(str, "ï¿½")) // red abandoned
 			strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
 
 	// BLUE
 
-		if (strstr(str, "bŸ") && !strstr(str, "r") && !strstr(str, "ò")) // blue taken
+		if (strstr(str, "bï¿½") && !strstr(str, "rï¿½") && !strstr(str, "ï¿½")) // blue taken
 			strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
 
-		if (strstr(str, "âŸ") && !strstr(str, "r") && !strstr(str, "ò")) // blue abandoned
+		if (strstr(str, "ï¿½") && !strstr(str, "rï¿½") && !strstr(str, "ï¿½")) // blue abandoned
 			strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
 
 	// RED & BLUE
 
-		if ((strstr(str, "bŸ")) && (strstr(str, "r"))) //  blue & red taken
+		if ((strstr(str, "bï¿½")) && (strstr(str, "rï¿½"))) //  blue & red taken
 			strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
 
-		if ((strstr(str, "âŸ")) && (strstr(str, "ò"))) // blue & red abandoned
+		if ((strstr(str, "ï¿½")) && (strstr(str, "ï¿½"))) // blue & red abandoned
 			strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
 
-		if ((strstr(str, "âŸ")) && (strstr(str, "r"))) // blue abandoned, red taken
+		if ((strstr(str, "ï¿½")) && (strstr(str, "rï¿½"))) // blue abandoned, red taken
 			strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
 
-		if ((strstr(str, "bŸ")) && (strstr(str, "ò"))) // red abandoned, blue taken
+		if ((strstr(str, "bï¿½")) && (strstr(str, "ï¿½"))) // red abandoned, blue taken
 			strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
 	}
 
@@ -234,10 +234,10 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	if (!strcmp(str, "You found a secret area!") || // woods remove these
 		!strcmp(str, "Your team captured the flag!\n") ||
 		!strcmp(str, "Your flag was captured!\n") ||
-		!strcmp(str, "Enemy æìáç has been returned to base!") ||
-		!strcmp(str, "Your ÆÌÁÇ has been taken!") ||
-		!strcmp(str, "Your team has the enemy ÆÌÁÇ!") ||
-		!strcmp(str, "Your æìáç has been returned to base!"))
+		!strcmp(str, "Enemy ï¿½ï¿½ï¿½ï¿½ has been returned to base!") ||
+		!strcmp(str, "Your ï¿½ï¿½ï¿½ï¿½ has been taken!") ||
+		!strcmp(str, "Your team has the enemy ï¿½ï¿½ï¿½ï¿½!") ||
+		!strcmp(str, "Your ï¿½ï¿½ï¿½ï¿½ has been returned to base!"))
 		return;
 
 	if (*str != '/' && cl.intermission)
