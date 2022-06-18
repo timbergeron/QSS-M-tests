@@ -341,7 +341,7 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap centerprints with scoreboard
 		return;
 
-	if (!strcmp(cl.observer, "y")) // woods #observer
+	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
 	else
 		GL_SetCanvas(CANVAS_MOD); //johnfitz // woods messages scale with console font size instead
@@ -1009,7 +1009,7 @@ void SCR_ShowObsFrags(void)
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 
 
-	if (!strcmp(cl.observer, "y") || scr_showscores.value)
+	if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value)
 	{ 
 		GL_SetCanvas(CANVAS_BOTTOMLEFT);
 
