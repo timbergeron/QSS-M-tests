@@ -1208,7 +1208,7 @@ void IN_SendKeyEvents (void)
 					{
 						Q_strcpy(afk_name, cl_name.string); // store name to memory
 						sprintf(normalname, "%.11s", cl_name.string); // cut name
-						sprintf(normalname2, "%s%s", normalname, " AFK"); // add AFK to name
+						sprintf(normalname2, "%s%s", normalname, " ÁÆË"); // add AFK to name
 						Cvar_Set("name", normalname2); // set name with AFK
 						Host_Name_Backup_f(); // back up the full name incase of crash
 					}
