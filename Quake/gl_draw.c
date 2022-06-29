@@ -380,7 +380,7 @@ qpic_t	*Draw_TryCachePic (const char *path, unsigned int texflags)
 
 	//Spike -- if we're loading external images, and one exists, then use that instead (but with the sizes of the lmp).
 	COM_StripExtension(path, newname, sizeof(newname));
-	if (draw_load24bit && (gl.gltexture=TexMgr_LoadImage (NULL, path, 0, 0, SRC_EXTERNAL, NULL, newname, 0, texflags|TEXPREF_MIPMAP|TEXPREF_ALLOWMISSING)))
+	if (draw_load24bit && (gl.gltexture=TexMgr_LoadImage (NULL, path, 0, 0, SRC_EXTERNAL, NULL, newname, 0, texflags|TEXPREF_MIPMAP|TEXPREF_ALLOWMISSING|TEXPREF_CLAMP))) // woods iw add clamp
 	{
 		gl.sl = 0;
 		gl.sh = (texflags&TEXPREF_PAD)?(float)gl.gltexture->source_width/(float)TexMgr_PadConditional(gl.gltexture->source_width):1;
@@ -390,7 +390,7 @@ qpic_t	*Draw_TryCachePic (const char *path, unsigned int texflags)
 	else
 	{
 		gl.gltexture = TexMgr_LoadImage (NULL, path, dat->width, dat->height, SRC_INDEXED, dat->data, path,
-										  sizeof(int)*2, texflags | TEXPREF_NOPICMIP); //johnfitz -- TexMgr
+										  sizeof(int)*2, texflags | TEXPREF_NOPICMIP | TEXPREF_CLAMP); //johnfitz -- TexMgr -- woods iw add clamp
 		gl.sl = 0;
 		gl.sh = (texflags&TEXPREF_PAD)?(float)dat->width/(float)TexMgr_PadConditional(dat->width):1; //johnfitz
 		gl.tl = 0;
