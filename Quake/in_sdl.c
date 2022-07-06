@@ -1204,7 +1204,7 @@ void IN_SendKeyEvents (void)
 
 				if (cl_afk.value) // woods #smartafk
 				{
-					if (!strstr(cl_name.string, "AFK")) // initiate AFK-in-name if AFK not already in the name
+					if (!strstr(cl_name.string, "ÁÆË")) // initiate AFK-in-name if AFK not already in the name
 					{
 						Q_strcpy(afk_name, cl_name.string); // store name to memory
 						sprintf(normalname, "%.11s", cl_name.string); // cut name
