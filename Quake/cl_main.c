@@ -62,6 +62,7 @@ cvar_t	cl_demospeed = { "cl_demospeed", "1", CVAR_NONE }; // woods #demotools
 cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
 cvar_t  cl_afk = {"cl_afk", "1", CVAR_ARCHIVE }; // woods #smartafk
+cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 
 client_static_t	cls;
 client_state_t	cl;
@@ -310,11 +311,38 @@ void CL_SignonReply (void)
 		key_dest = key_game; // woods exit console on server connect
 		cl.maptime = cl.time; // woods connected map time #maptime
 
-		char versionedname[10]; // woods #modtype [crx server check]
+		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
+
 		const char* val;
-		val = Info_GetKey(cl.serverinfo, "mod", versionedname, sizeof(versionedname));
+
+		char buf[10]; // woods #modtype [crx server check]
+		val = Info_GetKey(cl.serverinfo, "mod", buf, sizeof(buf));
 		if (!strcmp(val, "crx"))
+		{ 
 			cl.modtype = 1;
+			strncpy(cl.observer, "n", sizeof(cl.observer));
+		}
+		/*
+		
+		char buf2[10]; // woods #modtype [qecrx server check]
+		val = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mod", buf2, sizeof(buf2));
+		if (!strcmp(val, "qecrx"))
+		{
+			cl.modtype = 4;
+			strncpy(cl.observer, "n", sizeof(cl.observer));
+		}*/
+
+		// woods lets exec some configs based on server mode
+
+		char buf3[10];
+		val = Info_GetKey(cl.serverinfo, "mode", buf3, sizeof(buf3));
+		if (!strcmp(val, "dm"))
+			Cbuf_AddText("exec dm.cfg\n");
+
+		char buf4[10];
+		val = Info_GetKey(cl.serverinfo, "mode", buf4, sizeof(buf4));
+		if (!strcmp(val, "ctf"))
+			Cbuf_AddText("exec ctf.cfg\n");
 
 		break;
 	}
@@ -1701,6 +1729,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&gl_lightning_alpha); // woods for lighting alpha #lightalpha
 	Cvar_RegisterVariable (&cl_say); // woods for #ezsay
 	Cvar_RegisterVariable (&cl_afk); // woods #smartafk
+	Cvar_RegisterVariable (&cl_idle); // woods #smartafk
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);

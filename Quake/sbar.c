@@ -1217,6 +1217,12 @@ void Sbar_DrawFrags(void)
 			Sbar_DrawCharacter (((x + 2) * 8) + 4, -24, num[1]);
 			Sbar_DrawCharacter (((x + 3) * 8) + 4, -24, num[2]);
 
+			if ((teamscores && bottom == (cl.scores[cl.viewentity - 1].pants.basic & 15) << 4) || (!teamscores && (k == cl.viewentity - 1)))
+			{
+				Sbar_DrawCharacter((x) * 8 + 5, -24, 16);
+				Sbar_DrawCharacter((x + 4) * 8 + 1, -24, 17);
+			}
+
 			x += 4;
 		}
 	}

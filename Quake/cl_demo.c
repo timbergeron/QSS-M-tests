@@ -403,7 +403,7 @@ void CL_Record_Prespawn(void)
 void CL_Record_Spawn(void)
 {
 	const char *cmd;
-	int i, c;
+	int i, c, s ,p;
 
 	// player names, colors, and frag counts
 	for (i = 0; i < cl.maxclients; i++)
@@ -417,10 +417,13 @@ void CL_Record_Spawn(void)
 		MSG_WriteByte (&net_message, svc_updatecolors);
 		MSG_WriteByte (&net_message, i);
 		c = 0;
-		if (cl.scores[i].shirt.type == 1)
-			c |= (cl.scores[i].shirt.rgb[0]<<4)&0xf;
-		if (cl.scores[i].pants.type == 1)
-			c |= (cl.scores[i].pants.rgb[0]<<0)&0xf;
+		s = 0; p = 0;
+		if ((cl.scores[i].shirt.type == 1) && (cl.scores[i].pants.type == 1)) //woods type; //0 for none, 1 for legacy colours, 2 for rgb.
+		{
+			s = (cl.scores[i].shirt.basic);
+			p = (cl.scores[i].pants.basic);
+			c = 17 * s + (p - s);
+		}
 		MSG_WriteByte (&net_message, c);
 	}
 

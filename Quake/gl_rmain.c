@@ -708,14 +708,14 @@ void R_DrawViewModel (void)
 	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value || skyroom_drawing/*silly depthrange*/)
 		return;
 	
-	if (cl.gametype == GAME_DEATHMATCH) // woods MH for eyes weapon trans (MHQuakeSpasm)
-	{
-		if (cl.stats[STAT_HEALTH] <= 0)
-			return;
-	}
-	
-	else
-	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
+	//if (cl.gametype == GAME_DEATHMATCH) // woods MH for eyes weapon trans (MHQuakeSpasm)
+	//{
+	//	if (cl.stats[STAT_HEALTH] <= 0)
+	//		return;
+	//}
+	//
+	//else
+	if (cl.stats[STAT_HEALTH] <= 0)
 		return;
 
 	currententity = &cl.viewent;
@@ -730,15 +730,11 @@ void R_DrawViewModel (void)
 	// woods, MH code for eyes weapon trans (MHQuakeSpasm)
 	
 	// interacts with SU_WEAPONALPHA bit in CL_ParseClientdata; this is overwritten/reset each frame so we don't need to cache & restore it
-	if (cl.gametype == GAME_DEATHMATCH)
-	{
-		if (currententity->alpha != ENTALPHA_DEFAULT)
-		; // server has sent alpha for the viewmodel so never override it
-		else if (cl.items & IT_INVISIBILITY)
 
-			currententity->alpha = ENTALPHA_ENCODE(0.50);  // woods show damage taken in alias model
+	if (cl.items & IT_INVISIBILITY)
+
+			currententity->alpha = ENTALPHA_ENCODE(0.50);  // dim
 		else currententity->alpha = ENTALPHA_DEFAULT;
-	}
 
 	// end woods, MH code for eyes weapon trans
 

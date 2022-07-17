@@ -1008,7 +1008,7 @@ static inline int IN_SDL_KeysymToQuakeKey(SDLKey sym)
 	case SDLK_BREAK: return K_PAUSE;
 	case SDLK_PAUSE: return K_PAUSE;
 
-	case SDLK_WORLD_18: return '~'; // the 'Â²' key
+	case SDLK_WORLD_18: return '~'; // the '²' key
 
 	default: return 0;
 	}
@@ -1170,6 +1170,19 @@ void IN_SendKeyEvents (void)
 	int key;
 	qboolean down;
 
+	const char* afk;
+	char afktype[15];
+	sprintf(afktype, "%s", "ÁÆË");
+
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+	{
+		char buf[15];
+		afk = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "afk", buf, sizeof(buf)); // use realview so eyecam doesnt give wrong value
+
+		if (cl.modtype == 4)
+			sprintf(afktype, "%s", "AFK");
+	}
+
 	IN_UpdateGrabs();
 
 	while (SDL_PollEvent(&event))
@@ -1178,6 +1191,7 @@ void IN_SendKeyEvents (void)
 		{
 #if defined(USE_SDL2)
 		case SDL_WINDOWEVENT:
+
 			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 			{
 				//S_UnblockSound();
@@ -1190,6 +1204,10 @@ void IN_SendKeyEvents (void)
 				{
 					if (strlen(afk_name) > 1) // intiate only if a AFK event has occured
 						Cvar_Set("name", afk_name);
+
+					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+						if ((cl.modtype == 1) && (!strcmp(afk, "yes"))) // woods if afk is NO
+							Cmd_ExecuteString("impulse 57", src_command); // afk
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
@@ -1204,14 +1222,23 @@ void IN_SendKeyEvents (void)
 
 				if (cl_afk.value) // woods #smartafk
 				{
-					if (!strstr(cl_name.string, "AFK")) // initiate AFK-in-name if AFK not already in the name
+					if (!strstr(cl_name.string, afktype)) // initiate AFK-in-name if AFK not already in the name
 					{
 						Q_strcpy(afk_name, cl_name.string); // store name to memory
 						sprintf(normalname, "%.11s", cl_name.string); // cut name
-						sprintf(normalname2, "%s%s", normalname, " AFK"); // add AFK to name
+						sprintf(normalname2, "%s %s", normalname, afktype); // add AFK to name
 						Cvar_Set("name", normalname2); // set name with AFK
 						Host_Name_Backup_f(); // back up the full name incase of crash
 					}
+					
+					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+						if ((cl.modtype == 1) && (strcmp(afk, "yes"))) // woods if afk is NO
+							Cmd_ExecuteString("impulse 57", src_command); // afk
+
+						
+						
+						
+						//&& (strcmp(name, cl_name.string)))) // woods don't get rid of center for active player
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 					if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods #smartafk

@@ -2396,7 +2396,11 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
 						Cmd_ExecuteString("record\n", src_command);
-
+				if (strstr(string, "welcome to CRx"))  // woods differemt cfgs per mod #modcfg
+				{
+					cl.modtype = 4; // woods #modtype [qecrx server check]
+					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
+				}
 				if (!strcmp(string, "Sending ClanRing CRCTF v3.5 bindings\n"))  // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 2; // woods #modtype [crctf server check]
@@ -2635,6 +2639,7 @@ static void CL_ParseStuffText(const char *msg)
 static qboolean CL_ParseSpecialPrints(const char *printtext)
 {
 	const char *e = printtext+strlen(printtext);
+	int ct; // woods #hidepings
 	if (cl.printtype == PRINT_PINGS)
 	{
 		//players are expected to be listed in slot order.
@@ -2672,7 +2677,9 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		cl.printtype = PRINT_NONE;
 	}
 
-if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realtime || cls.demoplayback))
+	ct = cl.time - cl.maptime; // woods connected map time #maptime
+
+if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realtime || cls.demoplayback || ct < 8))
 	{
 		cl.printtype = PRINT_PINGS;
 		cl.printplayer = 0;

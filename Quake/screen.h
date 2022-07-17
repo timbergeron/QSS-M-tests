@@ -78,6 +78,7 @@ typedef enum {
 	CANVAS_TOPRIGHT,
 	CANVAS_TOPRIGHT2, // woods #matchhud
 	CANVAS_TOPRIGHT3, // woods #matchhud
+	CANVAS_TOPRIGHT4, // woods #hud_diff
 	CANVAS_CSQC,
 	CANVAS_MENUQC,
 	CANVAS_INVALID = -1

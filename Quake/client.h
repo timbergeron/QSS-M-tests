@@ -366,6 +366,9 @@ typedef struct
 	int			maptime;			// woods connected map time #maptime
 	int			fps;				// woods #f_config
 	int			modtype;			// woods #modtype detect mp server mod type 3 - crmod, 2 - crctf, 1 - crx
+	int			teamscore[3];		// woods #hud_diff	
+	int			teamcolor[3];		// woods #hud_diff
+	int			realviewentity;		// woods #hud_diff
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;
@@ -415,6 +418,7 @@ extern	cvar_t	cl_truelightning; // woods for truelightning #truelight
 extern	cvar_t	gl_lightning_alpha; // woods transparent lightning #lightalpha
 extern	cvar_t	cl_say; // woods #ezsay
 extern	cvar_t	cl_afk; // woods #smartafk
+extern  cvar_t	cl_idle;  // woods #damage
 
 #define	MAX_TEMP_ENTITIES			256		//johnfitz -- was 64
 

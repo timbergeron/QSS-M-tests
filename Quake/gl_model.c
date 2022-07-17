@@ -782,6 +782,12 @@ void Mod_LoadTextures (lump_t *l)
 
 		mipend = m->dataofs[i];
 
+		if (!tx->name[0])
+		{
+			q_snprintf(tx->name, sizeof(tx->name), "unnamed%d", i);
+			Con_DPrintf(1, "Warning: unnamed texture in %s, renaming to %s\n", loadmodel->name, tx->name);
+		}
+
 		//johnfitz -- lots of changes
 		if (!isDedicated) //no texture uploading for dedicated server
 		{

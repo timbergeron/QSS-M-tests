@@ -54,6 +54,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #endif
 
+void Host_Reconnect_Con_f (void);
+
 static void Sys_AtExit (void)
 {
 	SDL_Quit();
@@ -96,6 +98,8 @@ static quakeparms_t	parms;
 #if defined(USE_SDL2) && defined(__APPLE__)
 #define main SDL_main
 #endif
+
+unsigned int lastTime = 0, currentTime;
 
 int main(int argc, char *argv[])
 {
@@ -184,6 +188,22 @@ int main(int argc, char *argv[])
 		{
 			scr_skipupdate = 0;
 		}
+
+		if (cl_idle.value && cls.state == ca_disconnected)
+		{
+			char ticks[256];
+			currentTime = SDL_GetTicks();
+			sprintf(ticks, "%i\n", currentTime);
+			if (currentTime > lastTime + 60000 * cl_idle.value) // 60000 = 1 min
+			{
+				Con_Printf(ticks);
+				//Host_Reconnect_Con_f ();
+				//Cmd_ExecuteString("reconnect", src_command);
+				Cbuf_AddText("reconnect\n");
+				lastTime = currentTime;
+			}
+		}
+
 		newtime = Sys_DoubleTime ();
 		time = newtime - oldtime;
 

@@ -1132,7 +1132,7 @@ void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 			glColor3f(0.5, 0.5, 0.5);
 		}
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // woods #textureless make white, more grey and less white
-		glColor3f(0.75, 0.75, 0.75); // woods #textureless make white, more grey
+		glColor3f(0.4, 0.4, 0.4); // woods #textureless make white, more grey
 		R_DrawLightmapChains ();
 		if (!gl_overbright.value)
 		{

@@ -110,6 +110,7 @@ cvar_t		scr_showscores = {"scr_showscores", "0",CVAR_ARCHIVE}; // woods #observe
 cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet
 //johnfitz
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
+cvar_t		cl_predict = { "cl_predict", "0", CVAR_NONE }; // 2021 re-release
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
 cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
@@ -180,7 +181,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 {
 	unsigned int flags = 0;
 
-	if (strstr(str, "паусед")) // #showpaused
+	if ((strstr(str, "паусед")) || (strstr(str, "PAUSED"))) // #showpaused
 	{
 		paused = 1;
 		return;
@@ -338,9 +339,24 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		x, y;
 	int		remaining;
 
+	char buf[15];
+	const char* name;
+	name = Info_GetKey(cl.scores[cl.viewentity - 1].userinfo, "name", buf, sizeof(buf));
+
+	char buf2[15];
+	const char* obs;
+	obs = Info_GetKey(cl.scores[cl.viewentity - 1].userinfo, "observer", buf2, sizeof(buf2));
+
+	char buf3[15];
+	const char* realobs;
+	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf3, sizeof(buf2));
+
 	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap centerprints with scoreboard
 		return;
-
+	if ((cl.modtype == 1) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods don't get rid of center for active player
+		return;
+	if ((cl.modtype == 1) && (!strcmp(obs, "off") && (strcmp(name, cl_name.string)))) // woods don't get rid of center for active player
+		return;
 	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
 	else
@@ -601,6 +617,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_shownet); // woods #shownet
 	//johnfitz
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
+	Cvar_RegisterVariable (&cl_predict); // 2021 re-release
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_viewsize, SCR_Callback_refdef);
@@ -753,7 +770,7 @@ void SCR_ShowPing(void)
 				if (!s->name[0])
 					continue;
 
-				if (fragsort[i] == cl.viewentity - 1) {
+				if (fragsort[i] == cl.realviewentity - 1) {
 
 					sprintf (num, "%-4i", s->ping);
 
@@ -921,9 +938,54 @@ void SCR_DrawMatchScores(void)
 	int				x, y, f;
 	char			num[12];
 	int				teamscores, colors;// JPG - added these
+	int				ts1, ts2, tc1, tc2, diff, l2; // woods #hud_diff
+	char			tcolor[12]; // woods #hud_diff
+	scoreboard_t* s; // woods #hud_diff
+	int				numscores;
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
+
+	if (cl.modtype == 4) // qe
+	{
+		// draw the text
+		numscores = q_min(scoreboardlines, 2); // woods only show 2 scores to make room for clock
+
+		x = 0;
+		y = 0; // woods to position vertical
+
+		GL_SetCanvas(CANVAS_TOPRIGHT3);
+
+		for (i = 0; i < numscores; i++)
+		{
+			s = &cl.scores[fragsort[i]];
+			if (!s->name[0])
+				continue;
+
+			// top color
+			Draw_FillPlayer((((x + 1) * 8) + 3), y + 1, 32, 6, s->shirt, .6);
+
+			// bottom color
+			Draw_FillPlayer((((x + 1) * 8) + 3), y + 7, 32, 3.5, s->pants, .6);
+
+			// number
+			sprintf(num, "%3i", s->frags);
+			Sbar_DrawCharacter(((x + 1) * 8) + 7, y - 23, num[0]);
+			Sbar_DrawCharacter(((x + 2) * 8) + 7, y - 23, num[1]);
+			Sbar_DrawCharacter(((x + 3) * 8) + 7, y - 23, num[2]);
+
+			// brackets
+			//if (fragsort[i] == cl.viewentity - 1)
+			//{
+			//	Sbar_DrawCharacter(x + 6, -24, 16);
+			//	Sbar_DrawCharacter(x + 32, -24, 17);
+			//}
+
+			x += 0;
+			y += 9;  // woods to position vertical
+
+		}
+	}
 
 	if (teamscores)    // display frags if it's a teamgame match
 		Sbar_SortTeamFrags();
@@ -938,9 +1000,6 @@ void SCR_DrawMatchScores(void)
 
 	if (cl.gametype == GAME_DEATHMATCH)
 	{
-
-		GL_SetCanvas(CANVAS_TOPRIGHT3);
-
 		if (scr_match_hud.value)   // woods for console var off and on
 		{
 			if (cl.minutes != 255)
@@ -955,6 +1014,8 @@ void SCR_DrawMatchScores(void)
 				{
 					colors = cl.teamscores[k].colors;
 					f = cl.teamscores[k].frags;
+					cl.teamscore[i] = f;
+					cl.teamcolor[i] = colors;
 				}
 				else
 					return;
@@ -973,6 +1034,8 @@ void SCR_DrawMatchScores(void)
 				top = Sbar_ColorForMap(top);
 				bottom = Sbar_ColorForMap(bottom);
 
+				GL_SetCanvas(CANVAS_TOPRIGHT3);
+
 				Draw_Fill((((x + 1) * 8) + 3), y + 1, 32, 6, top, .6);
 				Draw_Fill((((x + 1) * 8) + 3), y + 7, 32, 3.5, bottom, .6);
 
@@ -987,6 +1050,53 @@ void SCR_DrawMatchScores(void)
 				y += 9;  // woods to position vertical
 			}
 
+			// woods #hud_diff display point differential
+
+			for (i = 0; i < l; i++)
+			{
+				k = fragsort[i];
+
+				ts1 = cl.teamscore[0]; // high score
+				ts2 = cl.teamscore[1]; // low score
+				diff = abs(ts1 - ts2); // +/= differential
+
+				tc1 = cl.teamcolor[0]; // top score [color]
+				tc2 = cl.teamcolor[1]; // bottom score [color]
+
+				// lets get YOUR team color from scoreboard
+
+				Sbar_SortFrags();
+				l2 = scoreboardlines;
+
+				for (i = 0; i < l2; i++)
+				{
+					k = fragsort[i];
+					s = &cl.scores[k];
+					if (!s->name[0])
+						continue;
+
+					if (fragsort[i] == cl.viewentity - 1) {
+						sprintf(tcolor, "%u", s->pants.basic);
+					}
+				}
+
+				GL_SetCanvas(CANVAS_TOPRIGHT4); // lets do some printing
+
+				if ((ts1 == ts2) || (l < 2)) // don't show ties, l = # of teams
+					true;
+
+				else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
+				{
+					sprintf(num, "+%-i", diff);
+					M_Print(40 - (strlen(num) << 3), y, num);
+				}
+
+				else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
+				{
+					sprintf(num, "-%-i", diff);
+					M_Print(40 - (strlen(num) << 3), y + 20, num);
+				}				
+			}
 		}
 	}
 	else
@@ -1007,9 +1117,15 @@ void SCR_ShowObsFrags(void)
 	float	scale; //johnfitz
 	scoreboard_t* s;
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
+	char buf[15];
+	const char* obs;
 
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+	{
 
-	if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value)
+		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+
+		if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value || !strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk"))
 	{ 
 		GL_SetCanvas(CANVAS_BOTTOMLEFT);
 
@@ -1046,6 +1162,7 @@ void SCR_ShowObsFrags(void)
 			sprintf(shortname, "%.15s", s->name); // woods only show name, not 'ready' or 'afk' -- 15 characters
 			M_PrintWhite(x + 50, y, shortname);
 		}
+	}
 	}
 }
 
@@ -1222,6 +1339,52 @@ void SCR_Mute_Switch(void)
 		strncpy(mute, "y", sizeof(mute));
 	else
 		strncpy(mute, "n", sizeof(mute));
+}
+
+/*
+==============
+SCR_Observing -- woods -- detect if client is observing and print for crx. eyecam pulls keys from other persons viewentity, chase doesnt
+do not use for: fly or walk
+==============
+*/
+void SCR_Observing(void)
+{
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+	{
+		char printtxt[15];
+		char buf[15];
+		char buf2[25];
+		char buf3[25];
+		const char* name;
+		const char* obs;
+		const char* observing;
+		int color;
+		name = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "name", buf, sizeof(buf));
+		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf2, sizeof(buf));
+		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
+		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
+		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
+
+		GL_SetCanvas(CANVAS_SBAR2);
+
+		if (cl.modtype == 1) // crx case
+		{
+		//	if ((!strcmp(name, cl_name.string)) && (strcmp(obs, "chase"))) // if my name IS name of who I observing AND not chase (chase doesnt use viewentity)
+		//		return; // don't show for me when playing
+
+			if (!strcmp(obs, "chase")) // chase
+			{
+				sprintf(printtxt, "%s", observing); // print who you are observering
+				M_PrintWhite(136 - strlen(observing), 0, printtxt);
+			}
+			else if (!strcmp(obs, "eyecam"))// eyecam
+			{
+				sprintf(printtxt, "%s", observing); // // print self (name), viewentity hack (eyecam thinks your are them)
+				M_PrintWhite(136-strlen(observing), 0, printtxt);
+				Draw_Fill(125 - strlen(observing), 0, 8, 8, color, 1); // show their color
+			}		
+		}
+	}
 }
 
 /*
@@ -1995,6 +2158,7 @@ void SCR_UpdateScreen (void)
 		SCR_ShowObsFrags (); // woods #observerhud
 		SCR_DrawSpeed (); // woods #speed
 		SCR_Mute (); // woods #usermute
+		SCR_Observing (); // woods
 		SCR_DrawConsole ();
 		M_Draw ();
 	}

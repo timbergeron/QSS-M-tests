@@ -1006,7 +1006,7 @@ This is sent just before a server changes levels
 for compatibility with quakeworld et al, we also allow this as a user-command to reconnect to the last server we tried, but we can only reliably do that when we're not already connected
 ==================
 */
-static void Host_Reconnect_Con_f (void)
+void Host_Reconnect_Con_f (void)
 {
 	CL_Disconnect_f();
 	cls.demonum = -1;		// stop demo loop in case this fails

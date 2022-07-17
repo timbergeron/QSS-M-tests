@@ -53,7 +53,7 @@ char		*con_text = NULL;
 cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
 cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
 
-cvar_t		con_filter = {"con_filter", "0", CVAR_ARCHIVE}; // woods #confilter
+cvar_t		con_filter = { "con_filter", "1", CVAR_ARCHIVE }; //johnfitz
 
 char		con_lastcenterstring[1024]; //johnfitz
 
@@ -351,7 +351,7 @@ void Con_Init (void)
 	Cvar_RegisterVariable (&con_notifytime);
 	Cvar_RegisterVariable (&con_logcenterprint); //johnfitz
 
-	Cvar_RegisterVariable (&con_filter); // woods #confilter
+	Cvar_RegisterVariable( &con_filter);
 
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f);
 	Cmd_AddCommand ("messagemode", Con_MessageMode_f);
@@ -418,7 +418,7 @@ static void Con_Print (const char *txt)
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
 	{
-		if (cl.teamgame)  // begin woods smart team comm #smartteam
+		if ((cl.teamgame) || (cl.modtype == 4))  // begin woods smart team comm #smartteam
 		{ 
 			if (cl.match_pause_time)
 				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
@@ -486,6 +486,7 @@ static void Con_Print (const char *txt)
 			cl.conflag = 0; // reset flag	
 		}
 
+		if(cl.modtype == 2 || cl.modtype == 3)
 		if (!strcmp(txt, "chase mode - help-chase for help\n") || // woods #observer
 			!strcmp(txt, "eyecam mode - help-chase for help\n"))
 			strncpy(cl.observer, "y", sizeof(cl.observer));
