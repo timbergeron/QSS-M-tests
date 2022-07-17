@@ -53,6 +53,8 @@ char		*con_text = NULL;
 cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
 cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
 
+cvar_t		con_filter = {"con_filter", "0", CVAR_ARCHIVE}; // woods #confilter
+
 char		con_lastcenterstring[1024]; //johnfitz
 
 void (*con_redirect_flush)(const char *buffer);	//call this to flush the redirection buffer (for rcon)
@@ -349,6 +351,8 @@ void Con_Init (void)
 	Cvar_RegisterVariable (&con_notifytime);
 	Cvar_RegisterVariable (&con_logcenterprint); //johnfitz
 
+	Cvar_RegisterVariable (&con_filter); // woods #confilter
+
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f);
 	Cmd_AddCommand ("messagemode", Con_MessageMode_f);
 	Cmd_AddCommand ("messagemode2", Con_MessageMode2_f);
@@ -467,7 +471,7 @@ static void Con_Print (const char *txt)
 		if ((!strcmp(txt, " health\n")))  // line end included
 			cl.conflag = 0; // flag end of string
 
-		if (cl.conflag == 2)  // delete when flag set
+		if (cl.conflag == 2 && con_filter.value)  // delete when flag set
 		{
 			fixline = 1; // voodoo
 			return;
@@ -490,7 +494,7 @@ static void Con_Print (const char *txt)
 			strncpy(cl.observer, "n", sizeof(cl.observer));
 
 		if     // other messages, exact cases
-			(
+			((
 				!strcmp(txt, "Quad Damage is wearing off\n") ||
 				!strcmp(txt, "Protection is almost burned out\n") ||
 				!strcmp(txt, "no weapon.\n") ||
@@ -514,10 +518,10 @@ static void Con_Print (const char *txt)
 				!strncmp(txt, "The Red team has", 16) ||
 				!strncmp(txt, "Match ends", 10) ||
 			//	!strcmp(txt, " health\n") ||
-				!strncmp(txt, "\"timelimit\" changed",19))
+				!strncmp(txt, "\"timelimit\" changed",19)) && con_filter.value)
 		{
 			fixline = 1;
-			if (
+			if ((
 				!strcmp(txt, "Quad Damage is wearing off\n") ||
 				!strcmp(txt, "Protection is almost burned out\n") ||
 				!strcmp(txt, "no weapon.\n") ||
@@ -528,13 +532,13 @@ static void Con_Print (const char *txt)
 				!strncmp(txt, "The Blue team has", 17) ||
 				!strncmp(txt, "The Red team has", 16) ||
 				!strncmp(txt, "Match ends", 10) ||
-				!strncmp(txt, "\"timelimit\" changed", 19))
+				!strncmp(txt, "\"timelimit\" changed", 19)) && con_filter.value)
 				Con_Printf("\n");
 
 			return;
 		}
 
-		if (!strcmp(txt, " health\n"))
+		if ((!strcmp(txt, " health\n") && con_filter.value))
 		{
 			Con_Printf("\n");
 			return;
