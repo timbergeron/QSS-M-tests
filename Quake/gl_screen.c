@@ -871,7 +871,7 @@ void SCR_DrawMatchClock(void)
 
 		if (teamscores) // display timelimit if we can get it if there is a team
 		{
-			if (strlen(cl.serverinfo) > 0) // fte/qss server check, if so parse serverinfo for timelimit
+			if (cl.modtype == 1) // nq crx server check, if so parse serverinfo for timelimit
 			{
 				char mtimelimit[10];
 				char* str = cl.serverinfo;
