@@ -203,7 +203,7 @@ void S_Restart_f(void)
 			if (s->cache.data)
 				Cache_Free(&s->cache, false);
 		}
-	}
+	}*/
 }
 
 /*

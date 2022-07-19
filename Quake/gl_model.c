@@ -785,7 +785,7 @@ void Mod_LoadTextures (lump_t *l)
 		if (!tx->name[0])
 		{
 			q_snprintf(tx->name, sizeof(tx->name), "unnamed%d", i);
-			Con_DPrintf(1, "Warning: unnamed texture in %s, renaming to %s\n", loadmodel->name, tx->name);
+			Con_Warning ("Warning: unnamed texture in %s, renaming to %s\n", loadmodel->name, tx->name);
 		}
 
 		//johnfitz -- lots of changes
@@ -877,7 +877,7 @@ void Mod_LoadTextures (lump_t *l)
 
 					if (data)
 						tx->fullbright = TexMgr_LoadImage (loadmodel, filename2, fwidth, fheight,
-							rfmt, data, filename, 0, TEXPREF_MIPMAP | extraflags );
+							rfmt, data, filename2, 0, TEXPREF_MIPMAP | extraflags );
 				}
 				else //use the texture from the bsp file
 				{

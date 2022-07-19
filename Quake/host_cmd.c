@@ -1030,8 +1030,8 @@ static void Host_Reconnect_Sv_f (void)
 	cl.protocol_dpdownload = false;
 	cls.signon = 0;		// need new connection messages
 
-	ct = cl.time - cl.maptime; // woods #servertime
-	mpservertime = mpservertime + ct; // woods #servertime
+	ct = SDL_GetTicks(); - cl.maptime; // woods #servertime
+	mpservertime = (mpservertime + ct); // woods #servertime
 }
 
 static void Host_Lightstyle_f (void)

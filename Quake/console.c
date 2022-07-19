@@ -418,7 +418,7 @@ static void Con_Print (const char *txt)
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
 	{
-		if ((cl.teamgame) || (cl.modtype == 4))  // begin woods smart team comm #smartteam
+		if (cl.teamgame)  // begin woods smart team comm #smartteam
 		{ 
 			if (cl.match_pause_time)
 				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));

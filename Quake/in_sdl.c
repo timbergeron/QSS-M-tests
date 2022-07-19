@@ -1171,8 +1171,9 @@ void IN_SendKeyEvents (void)
 	qboolean down;
 
 	const char* afk;
-	char afktype[15];
+	char afktype[4];
 	sprintf(afktype, "%s", "ÁÆË");
+	afk = NULL;
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{

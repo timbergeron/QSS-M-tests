@@ -946,47 +946,6 @@ void SCR_DrawMatchScores(void)
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
 
-	if (cl.modtype == 4) // qe
-	{
-		// draw the text
-		numscores = q_min(scoreboardlines, 2); // woods only show 2 scores to make room for clock
-
-		x = 0;
-		y = 0; // woods to position vertical
-
-		GL_SetCanvas(CANVAS_TOPRIGHT3);
-
-		for (i = 0; i < numscores; i++)
-		{
-			s = &cl.scores[fragsort[i]];
-			if (!s->name[0])
-				continue;
-
-			// top color
-			Draw_FillPlayer((((x + 1) * 8) + 3), y + 1, 32, 6, s->shirt, .6);
-
-			// bottom color
-			Draw_FillPlayer((((x + 1) * 8) + 3), y + 7, 32, 3.5, s->pants, .6);
-
-			// number
-			sprintf(num, "%3i", s->frags);
-			Sbar_DrawCharacter(((x + 1) * 8) + 7, y - 23, num[0]);
-			Sbar_DrawCharacter(((x + 2) * 8) + 7, y - 23, num[1]);
-			Sbar_DrawCharacter(((x + 3) * 8) + 7, y - 23, num[2]);
-
-			// brackets
-			//if (fragsort[i] == cl.viewentity - 1)
-			//{
-			//	Sbar_DrawCharacter(x + 6, -24, 16);
-			//	Sbar_DrawCharacter(x + 32, -24, 17);
-			//}
-
-			x += 0;
-			y += 9;  // woods to position vertical
-
-		}
-	}
-
 	if (teamscores)    // display frags if it's a teamgame match
 		Sbar_SortTeamFrags();
 	else
@@ -1000,6 +959,8 @@ void SCR_DrawMatchScores(void)
 
 	if (cl.gametype == GAME_DEATHMATCH)
 	{
+		GL_SetCanvas(CANVAS_TOPRIGHT3);
+
 		if (scr_match_hud.value)   // woods for console var off and on
 		{
 			if (cl.minutes != 255)
@@ -1083,7 +1044,7 @@ void SCR_DrawMatchScores(void)
 				GL_SetCanvas(CANVAS_TOPRIGHT4); // lets do some printing
 
 				if ((ts1 == ts2) || (l < 2)) // don't show ties, l = # of teams
-					true;
+					continue;
 
 				else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
 				{

@@ -309,7 +309,7 @@ void CL_SignonReply (void)
 		if ((cl_autodemo.value == 1) && (!cls.demoplayback) && (!cls.demorecording))   // woods for #autodemo
 			Cmd_ExecuteString("record\n", src_command);
 		key_dest = key_game; // woods exit console on server connect
-		cl.maptime = cl.time; // woods connected map time #maptime
+		cl.maptime = SDL_GetTicks(); // woods connected map time #maptime
 
 		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
 
