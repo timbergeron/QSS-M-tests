@@ -857,6 +857,83 @@ void Host_ServerFrame (void)
 	SV_SendClientMessages ();
 }
 
+typedef struct summary_s {
+	struct {
+		int		skill;
+		int		monsters;
+		int		total_monsters;
+		int		secrets;
+		int		total_secrets;
+	}			stats;
+	char		map[countof(cl.mapname)];
+} summary_t;
+
+/*
+==================
+GetGameSummary - github.com/andrei-drexler/ironwail (Show game summary in window title)
+==================
+*/
+static void GetGameSummary(summary_t* s)
+{
+	if (cls.state != ca_connected || cls.signon != SIGNONS)
+	{
+		s->map[0] = 0;
+		memset(&s->stats, 0, sizeof(s->stats));
+	}
+	else
+	{
+		q_strlcpy(s->map, cl.mapname, countof(s->map));
+		s->stats.skill = (int)skill.value;
+		s->stats.monsters = cl.stats[STAT_MONSTERS];
+		s->stats.total_monsters = cl.stats[STAT_TOTALMONSTERS];
+		s->stats.secrets = cl.stats[STAT_SECRETS];
+		s->stats.total_secrets = cl.stats[STAT_TOTALSECRETS];
+	}
+}
+
+/*
+==================
+UpdateWindowTitle - github.com/andrei-drexler/ironwail (Show game summary in window title)
+==================
+*/
+static void UpdateWindowTitle(void)
+{
+	static float timeleft = 0.f;
+	static summary_t last;
+	summary_t current;
+
+	timeleft -= host_frametime;
+	if (timeleft > 0.f)
+		return;
+	timeleft = 0.125f;
+
+	GetGameSummary(&current);
+	if (!strcmp(current.map, last.map) && !memcmp(&current.stats, &last.stats, sizeof(current.stats)))
+		return;
+	last = current;
+
+	if (current.map[0])
+	{
+		char title[1024];
+
+		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods added connected server
+			q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, cl.levelname, current.map);
+		else
+			q_snprintf(title, sizeof(title),
+				"%s (%s)  |  skill %d  |  %d/%d kills  |  %d/%d secrets  -  " ENGINE_NAME_AND_VER,
+				cl.levelname, current.map,
+				current.stats.skill,
+				current.stats.monsters, current.stats.total_monsters,
+				current.stats.secrets, current.stats.total_secrets
+			);
+		VID_SetWindowTitle(title);
+	}
+	else
+	{
+		VID_SetWindowTitle(ENGINE_NAME_AND_VER);
+	}
+}
+
 //used for cl.qcvm.GetModel (so ssqc+csqc can share builtins)
 qmodel_t *CL_ModelForIndex(int index)
 {
@@ -1091,6 +1168,7 @@ void _Host_Frame (double time)
 	CL_DecayLights ();
 
 	CDAudio_Update();
+	UpdateWindowTitle(); // github.com/andrei-drexler/ironwail (Show game summary in window title)
 
 	if (host_speeds.value)
 	{
