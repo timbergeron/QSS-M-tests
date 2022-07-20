@@ -248,6 +248,8 @@ void CL_EstablishConnection (const char *host)
 	cls.state = ca_connected;
 	cls.signon = 0;				// need all the signon messages before playing
 	MSG_WriteByte (&cls.message, clc_nop);	// NAT Fix from ProQuake
+
+	q_strlcpy(lastmphost, host, sizeof(lastmphost)); // woods - connected server address
 }
 
 void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)

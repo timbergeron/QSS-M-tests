@@ -90,6 +90,7 @@ qboolean VID_HasMouseOrInputFocus (void);
 qboolean VID_IsMinimized (void);
 void	VID_Lock (void);
 void	VID_SetWindowCaption(const char *newcaption);
+void	VID_SetWindowTitle(const char* title); // github.com/andrei-drexler/ironwail (Show game summary in window title)
 
 void VID_UpdateCursor(void);
 void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float cursorscale);

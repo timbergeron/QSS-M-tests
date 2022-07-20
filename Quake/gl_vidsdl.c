@@ -467,6 +467,16 @@ void *VID_GetWindow (void)
 
 /*
 ====================
+VID_SetWindowTitle - github.com/andrei-drexler/ironwail (Show game summary in window title)
+====================
+*/
+void VID_SetWindowTitle(const char* title)
+{
+	SDL_SetWindowTitle(draw_context, title);
+}
+
+/*
+====================
 VID_HasMouseOrInputFocus
 ====================
 */
