@@ -748,7 +748,7 @@ void SCR_ShowPing(void)
 	char	num[12];
 	scoreboard_t* s;
 
-	ct = cl.time - cl.maptime; // woods connected map time #maptime
+	ct = (SDL_GetTicks() - maptime) / 1000; // woods connected map time #maptime
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
 
@@ -802,7 +802,7 @@ void SCR_ShowPL(void)
 	int pl;
 	char			num[12];
 
-	ct = cl.time - cl.maptime; // woods connected map time #maptime
+	ct = (SDL_GetTicks() - maptime) / 1000; // woods connected map time #maptime
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
 
@@ -941,7 +941,6 @@ void SCR_DrawMatchScores(void)
 	int				ts1, ts2, tc1, tc2, diff, l2; // woods #hud_diff
 	char			tcolor[12]; // woods #hud_diff
 	scoreboard_t* s; // woods #hud_diff
-	int				numscores;
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
@@ -1316,11 +1315,9 @@ void SCR_Observing(void)
 		char buf[15];
 		char buf2[25];
 		char buf3[25];
-		const char* name;
 		const char* obs;
 		const char* observing;
 		int color;
-		name = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "name", buf, sizeof(buf));
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf2, sizeof(buf));
 		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13

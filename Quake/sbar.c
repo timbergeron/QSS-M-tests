@@ -606,8 +606,8 @@ void Sbar_SoloScoreboard (void)
 	{
 
 		ticks = SDL_GetTicks();
-		ct = ticks - cl.maptime; // map connected time
-		st = ct + mpservertime; // server connected time #servertime
+		ct = ticks - maptime; // map connected time
+		st = ticks - mpservertime;
 		mpc = ticks / 1000; // client open time
 		pl = atoi(cl.packetloss);
 		
@@ -1672,7 +1672,7 @@ void Sbar_DeathmatchOverlay (void)
 	char	num[12];
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	scoreboard_t	*s;
-	int ct = cl.time - cl.maptime; // woods connected map time #maptime
+	int ct = (SDL_GetTicks() - maptime)/1000; // woods connected map time #maptime
 
 	// JPG 1.05 - check to see if we should update IP status  // woods for #iplog
 	if (iplog_size && (cl.time - cl.last_status_time > 5))

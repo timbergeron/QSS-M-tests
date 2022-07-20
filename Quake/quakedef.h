@@ -52,7 +52,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 	// combined version string like "2020-10-20-beta1"
 	#define	ENGINE_NAME_AND_VER	"QSS " QS_STRINGIFY(QSS_DATE) QUAKESPASM_VER_SUFFIX
 #else
-	#define ENGINE_NAME_AND_VER "QSS-M (1.4.3)" " " QUAKESPASM_VER_STRING
+	#define ENGINE_NAME_AND_VER "QSS-M (1.4.4)" " " QUAKESPASM_VER_STRING
 #endif
 
 //define	PARANOID			// speed sapping error checking
@@ -385,6 +385,7 @@ char		videoc[40];		// woods #q_sysinfo (qrack)
 char		videosetg[50];	// woods #q_sysinfo (qrack)
 char		afk_name[16]; // woods #smartafk
 double		mpservertime;	// woods #servertime
+int			maptime;		// woods connected map time #maptime
 
 #endif	/* QUAKEDEFS_H */
 

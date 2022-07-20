@@ -2677,7 +2677,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 		cl.printtype = PRINT_NONE;
 	}
 
-	ct = cl.time - cl.maptime; // woods connected map time #maptime
+	ct = cl.time - maptime; // woods connected map time #maptime
 
 if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realtime || cls.demoplayback || ct < 8))
 	{

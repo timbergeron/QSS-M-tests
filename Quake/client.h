@@ -363,7 +363,6 @@ typedef struct
 	char		flagstatus[2];		// woods for #flagstatus
 	char		ghostcode[2];		// woods for ghost code to memory #ghostcode
 	char		observer[2];		// woods for ghost code to memory #observer
-	int			maptime;			// woods connected map time #maptime
 	int			fps;				// woods #f_config
 	int			modtype;			// woods #modtype detect mp server mod type 3 - crmod, 2 - crctf, 1 - crx
 	int			teamscore[3];		// woods #hud_diff	
