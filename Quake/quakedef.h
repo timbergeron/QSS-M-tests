@@ -385,11 +385,8 @@ char		videoc[40];		// woods #q_sysinfo (qrack)
 char		videosetg[50];	// woods #q_sysinfo (qrack)
 char		afk_name[16]; // woods #smartafk
 double		mpservertime;	// woods #servertime
-<<<<<<< HEAD
 int			maptime;		// woods connected map time #maptime
-=======
 char		lastmphost[NET_NAMELEN]; // woods - connected server address
->>>>>>> qsrebase
 
 #endif	/* QUAKEDEFS_H */
 
