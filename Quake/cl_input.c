@@ -326,6 +326,8 @@ cvar_t	cl_anglespeedkey = {"cl_anglespeedkey","1.5",CVAR_NONE};
 
 cvar_t	cl_alwaysrun = {"cl_alwaysrun","0",CVAR_ARCHIVE}; // QuakeSpasm -- new always run
 
+cvar_t	pq_lag = { "pq_lag", "0" };			// JPG - synthetic lag // woods #pqlag
+
 /*
 ================
 CL_AdjustAngles
@@ -469,58 +471,94 @@ void CL_FinishMove(usercmd_t *cmd)
 	in_impulse = 0;
 }
 
+// woods #pqlag
+
+sizebuf_t lag_buff[32]; // JPG - support for synthetic lag
+byte lag_data[32][128];  // JPG - support for synthetic lag
+unsigned int lag_head, lag_tail; // JPG - support for synthetic lag
+double lag_sendtime[32]; // JPG - support for synthetic lag
+
+/* JPG - this function sends delayed move messages
+==============
+CL_SendLagMove
+==============
+*/
+void CL_SendLagMove(void)
+{
+	if (cls.demoplayback || (cls.state != ca_connected) || (cls.signon != SIGNONS))
+		return;
+
+	while ((lag_tail < lag_head) && (lag_sendtime[lag_tail & 31] <= realtime))
+	{
+		lag_tail++;
+		if (++cl.movemessages <= 2)
+		{
+			lag_head = lag_tail = 0;  // JPG - hack: if cl.movemessages has been reset, we should reset these too
+			continue;	// return -> continue
+		}
+
+		if (NET_SendUnreliableMessage(cls.netcon, &lag_buff[(lag_tail - 1) & 31]) == -1)
+		{
+			Con_Printf("CL_SendMove: lost server connection\n");
+			CL_Disconnect();
+		}
+	}
+}
+
 /*
 ==============
-CL_SendMove
+CL_SendMove - woods modified for #pqlag
 ==============
 */
 void CL_SendMove (const usercmd_t *cmd)
 {
 	unsigned int	i;
-	sizebuf_t		buf;
-	byte			data[1024];
+	sizebuf_t* buf;	// JPG - turned into a pointer (made corresponding changes below) 
+	byte		data[1024];
 
-	buf.maxsize = sizeof(data);
-	buf.cursize = 0;
-	buf.data = data;
+	buf = &lag_buff[lag_head & 31];
+	buf->maxsize = 1024;
+	buf->cursize = 0;
+	buf->data = lag_data[lag_head & 31]; // JPG - added head index
+	lag_sendtime[lag_head++ & 31] = realtime + (pq_lag.value / 1000.0);
 
 	for (i = 0; i < cl.ackframes_count; i++)
 	{
-		MSG_WriteByte(&buf, clcdp_ackframe);
-		MSG_WriteLong(&buf, cl.ackframes[i]);
+		MSG_WriteByte(buf, clcdp_ackframe);
+		MSG_WriteLong(buf, cl.ackframes[i]);
 	}
 	cl.ackframes_count = 0;
 
 	if (cmd)
 	{
-		int dump = buf.cursize;
+		int dump = buf->cursize;
 		unsigned int bits = cmd->buttons;
 
 	//
 	// send the movement message
 	//
-		MSG_WriteByte (&buf, clc_move);
+		MSG_WriteByte (buf, clc_move);
 
 		if (cl.protocol == PROTOCOL_VERSION_DP7)
 		{
 			if (0)
 			{
-				MSG_WriteLong(&buf, 0);
-				MSG_WriteFloat (&buf, cl.mtime[0]);	// so server can get ping times
+				MSG_WriteLong(buf, 0);
+				MSG_WriteFloat (buf, cl.mtime[0]);	// so server can get ping times
 			}
 			else
 			{
-				MSG_WriteLong(&buf, cl.movemessages);
-				MSG_WriteFloat (&buf, cmd->servertime);	// for input timing
+				MSG_WriteLong(buf, cl.movemessages);
+				MSG_WriteFloat (buf, cmd->servertime);	// for input timing
 			}
 		}
 		else if (cl.protocol_pext2 & PEXT2_PREDINFO)
 		{
-			MSG_WriteShort(&buf, cl.movemessages&0xffff);	//server will ack this once it has been applied to the player's entity state
-			MSG_WriteFloat (&buf, cmd->servertime);	// so server can get cmd timing (pings will be calculated by entframe acks).
+			MSG_WriteShort(buf, cl.movemessages&0xffff);	//server will ack this once it has been applied to the player's entity state
+			MSG_WriteFloat (buf, cmd->servertime);	// so server can get cmd timing (pings will be calculated by entframe acks).
 		}
 		else
-			MSG_WriteFloat (&buf, cl.mtime[0]);	// so server can get ping times
+			MSG_WriteFloat (buf, cl.mtime[0]);	// so server can get ping times
 
 		for (i=0 ; i<3 ; i++)
 			//johnfitz -- 16-bit angles for PROTOCOL_FITZQUAKE
@@ -528,14 +566,14 @@ void CL_SendMove (const usercmd_t *cmd)
 			//spike -- proquake servers bump client->server angles up to at least 16bit. this is safe because it only happens when both client+server advertise it, and because it never actually gets recorded into demos anyway.
 			//spike -- predinfo also always means 16bit angles, even if for some reason the server doesn't advertise proquake (like dp).
 			if ((cl.protocol == PROTOCOL_NETQUAKE || cl.protocol == PROTOCOL_VERSION_BJP3) && !NET_QSocketGetProQuakeAngleHack(cls.netcon) && !(cl.protocol_pext2 & PEXT2_PREDINFO))
-				MSG_WriteAngle (&buf, cl.viewangles[i], cl.protocolflags);
+				MSG_WriteAngle (buf, cl.viewangles[i], cl.protocolflags);
 			else
-				MSG_WriteAngle16 (&buf, cl.viewangles[i], cl.protocolflags);
+				MSG_WriteAngle16 (buf, cl.viewangles[i], cl.protocolflags);
 			//johnfitz
 
-		MSG_WriteShort (&buf, cmd->forwardmove);
-		MSG_WriteShort (&buf, cmd->sidemove);
-		MSG_WriteShort (&buf, cmd->upmove);
+		MSG_WriteShort (buf, cmd->forwardmove);
+		MSG_WriteShort (buf, cmd->sidemove);
+		MSG_WriteShort (buf, cmd->upmove);
 
 		if (cl.protocol_pext2 & PEXT2_PRYDONCURSOR)
 		{
@@ -546,29 +584,29 @@ void CL_SendMove (const usercmd_t *cmd)
 				cmd->cursor_impact[0] || cmd->cursor_impact[1] || cmd->cursor_impact[2] ||
 				cmd->cursor_entitynumber)
 				bits |= (1u<<31);
-			MSG_WriteLong (&buf, bits);
+			MSG_WriteLong (buf, bits);
 		}
 		else if (cl.protocol == PROTOCOL_VERSION_DP7)
 		{
-			MSG_WriteLong (&buf, bits);
+			MSG_WriteLong (buf, bits);
 			bits |= (1u<<31);
 		}
 		else
-			MSG_WriteByte (&buf, bits);
-		MSG_WriteByte (&buf, cmd->impulse);
+			MSG_WriteByte (buf, bits);
+		MSG_WriteByte (buf, cmd->impulse);
 		if (bits & (1u<<30))
-			MSG_WriteLong (&buf, cmd->weapon);
+			MSG_WriteLong (buf, cmd->weapon);
 		if (bits & (1u<<31))
 		{
-			MSG_WriteShort(&buf, cmd->cursor_screen[0] * 32767);
-			MSG_WriteShort(&buf, cmd->cursor_screen[1] * 32767);
-			MSG_WriteFloat(&buf, cmd->cursor_start[0]);	//start (view pos)
-			MSG_WriteFloat(&buf, cmd->cursor_start[1]);
-			MSG_WriteFloat(&buf, cmd->cursor_start[2]);
-			MSG_WriteFloat(&buf, cmd->cursor_impact[0]);	//impact
-			MSG_WriteFloat(&buf, cmd->cursor_impact[1]);
-			MSG_WriteFloat(&buf, cmd->cursor_impact[2]);
-			MSG_WriteEntity(&buf, cmd->cursor_entitynumber, cl.protocol_pext2);
+			MSG_WriteShort(buf, cmd->cursor_screen[0] * 32767);
+			MSG_WriteShort(buf, cmd->cursor_screen[1] * 32767);
+			MSG_WriteFloat(buf, cmd->cursor_start[0]);	//start (view pos)
+			MSG_WriteFloat(buf, cmd->cursor_start[1]);
+			MSG_WriteFloat(buf, cmd->cursor_start[2]);
+			MSG_WriteFloat(buf, cmd->cursor_impact[0]);	//impact
+			MSG_WriteFloat(buf, cmd->cursor_impact[1]);
+			MSG_WriteFloat(buf, cmd->cursor_impact[2]);
+			MSG_WriteEntity(buf, cmd->cursor_entitynumber, cl.protocol_pext2);
 		}
 		in_impulse = 0;
 
@@ -579,9 +617,9 @@ void CL_SendMove (const usercmd_t *cmd)
 	// from the last level
 	//
 		if (++cl.movemessages <= 2)
-			buf.cursize = dump;
+			buf->cursize = dump;
 		else
-			S_Voip_Transmit(clcfte_voicechat, &buf);/*Spike: Add voice data*/
+			S_Voip_Transmit(clcfte_voicechat, buf);/*Spike: Add voice data*/
 	}
 	else
 		S_Voip_Transmit(clcfte_voicechat, NULL);/*Spike: Add voice data (with cl_voip_test anyway)*/
@@ -591,14 +629,16 @@ void CL_SendMove (const usercmd_t *cmd)
 	//
 	// deliver the message
 	//
-	if (cls.demoplayback || !buf.cursize)
+	if (cls.demoplayback || !buf->cursize)
 		return;
 
-	if (NET_SendUnreliableMessage (cls.netcon, &buf) == -1)
+	/*if (NET_SendUnreliableMessage(cls.netcon, buf) == -1)
 	{
 		Con_Printf ("CL_SendMove: lost server connection\n");
 		CL_Disconnect ();
-	}
+	}*/
+
+	CL_SendLagMove();
 }
 
 /*
@@ -657,6 +697,8 @@ void CL_InitInput (void)
 	Cmd_AddCommand ("-klook", IN_KLookUp);
 	Cmd_AddCommand ("+mlook", IN_MLookDown);
 	Cmd_AddCommand ("-mlook", IN_MLookUp);
+
+	Cvar_RegisterVariable(&pq_lag, NULL); // JPG - synthetic lag // woods #pqlag
 
 }
 
