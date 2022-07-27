@@ -1068,7 +1068,12 @@ void _Host_Frame (double time)
 // decide the simulation time
 	accumtime += host_netinterval?CLAMP(0, time, 0.2):0;	//for renderer/server isolation
 	if (!Host_FilterTime (time))
+	{
+		// JPG - if we're not doing a frame, still check for lagged moves to send // woods #pqlag
+		if (!sv.active && (cl.movemessages > 2))
+			CL_SendLagMove ();
 		return;			// don't run too fast, or packets will flood out
+	}
 
 // get new key events
 	Key_UpdateForDest ();
