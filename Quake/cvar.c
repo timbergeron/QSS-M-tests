@@ -552,6 +552,23 @@ void Cvar_Set (const char *var_name, const char *value)
 	}
 
 	Cvar_SetQuick (var, value);
+
+
+	// JPG - there's probably a better place for this, but it works. // woods #pqlag
+	if (!strcmp(var_name, "pq_lag"))
+	{
+		if (var->value < 0)
+		{
+			Cvar_Set("pq_lag", "0");
+			return;
+		}
+		if (var->value > 400)
+		{
+			Cvar_Set("pq_lag", "400");
+			return;
+		}
+		Cbuf_AddText(va("say \"%cping +%d%c\"\n", 157, (int)var->value, 159));
+	}
 }
 
 /*

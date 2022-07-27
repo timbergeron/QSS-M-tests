@@ -786,6 +786,21 @@ static void Host_Ping_f (void)
 	int		i, j;
 	float		total;
 	client_t	*client;
+	char* n;	// JPG - for ping +N // woods #pqlag
+
+	// JPG - check for ping +N // woods #pqlag
+	if (Cmd_Argc() == 2)
+	{
+		if (cls.state != ca_connected)
+			return;
+
+		n = Cmd_Argv(1);
+		if (*n == '+')
+		{
+			Cvar_Set("pq_lag", n + 1);
+			return;
+		}
+	}
 
 	if (cmd_source != src_client)
 	{
