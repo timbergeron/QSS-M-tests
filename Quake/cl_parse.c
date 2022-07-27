@@ -3257,7 +3257,18 @@ void CL_ParseServerMessage (void)
 				CL_ParseProQuakeMessage();
 			// Still want to add text, even on ProQuake messages.  This guarantees compatibility;
 			// unrecognized messages will essentially be ignored but there will be no parse errors
-			CL_ParseStuffText(MSG_ReadString());
+			//CL_ParseStuffText(MSG_ReadString());
+
+			str = MSG_ReadString(); // woods Handle userinfo updates -- Fixes empty scoreboard on QSS demos / servers (vkQuake / temx)
+			// handle special commands
+			if (strlen(str) > 2 && str[0] == '/' && str[1] == '/')
+			{
+				if (!Cmd_ExecuteString(str + 2, src_server))
+					Con_DPrintf("Server sent unknown command %s\n", Cmd_Argv(0));
+			}
+			else
+				CL_ParseStuffText(str);
+
 			break;
 
 		case svc_damage:
