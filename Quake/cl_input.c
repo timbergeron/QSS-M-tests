@@ -514,7 +514,7 @@ void CL_SendMove (const usercmd_t *cmd)
 {
 	unsigned int	i;
 	sizebuf_t* buf;	// JPG - turned into a pointer (made corresponding changes below) 
-	byte		data[1024];
+	//byte		data[1024];
 
 	buf = &lag_buff[lag_head & 31];
 	buf->maxsize = 1024;
@@ -698,7 +698,7 @@ void CL_InitInput (void)
 	Cmd_AddCommand ("+mlook", IN_MLookDown);
 	Cmd_AddCommand ("-mlook", IN_MLookUp);
 
-	Cvar_RegisterVariable(&pq_lag, NULL); // JPG - synthetic lag // woods #pqlag
+	Cvar_RegisterVariable (&pq_lag); // JPG - synthetic lag // woods #pqlag
 
 }
 
