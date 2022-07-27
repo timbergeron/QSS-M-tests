@@ -1684,11 +1684,11 @@ void Sbar_DeathmatchOverlay (void)
 
 	GL_SetCanvas (CANVAS_SCOREBOARD); //johnfitz  // woods #scoreboard
 
-	if ((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
+	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.modtype != 4) // woods -- match running 0 for CRCTF, 255 for CDMOD
 		w = -64;
 	else
 		w = 0;
-	if ((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
+	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.modtype != 4) // woods -- match running 0 for CRCTF, 255 for CDMOD
 		w2 = 32;
 	else
 		w2 = 0;
@@ -1720,7 +1720,7 @@ void Sbar_DeathmatchOverlay (void)
 	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Bottom
 	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Top
 
-	if ((cl.seconds > 0 && cl.seconds !=255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
+	if (((cl.seconds > 0 && cl.seconds !=255) || (cl.minutes > 0 && cl.minutes != 255)) || cl.modtype == 4) // woods -- match running 0 for CRCTF, 255 for CDMOD
 		Draw_String(x - 64, y - 10, "  ping  frags   name"); // woods
 	else
 		Draw_String (x - 64, y - 10, "  ping  frags   name            status"); // woods
