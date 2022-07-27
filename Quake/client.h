@@ -368,6 +368,7 @@ typedef struct
 	int			teamscore[3];		// woods #hud_diff	
 	int			teamcolor[3];		// woods #hud_diff
 	int			realviewentity;		// woods #hud_diff
+	int			matchinp;
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;

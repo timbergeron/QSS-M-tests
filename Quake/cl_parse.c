@@ -2382,6 +2382,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 			{
 				if (!strcmp(string, "The match is over\n"))
 				{
+					cl.matchinp = 0;
 					cl.minutes = 255;					
 					if ((cl_autodemo.value == 2) && (cls.demorecording)) // woods #autodemo
 						Cmd_ExecuteString("stop\n", src_command);
@@ -2395,7 +2396,10 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
+					{
+						cl.matchinp = 1;
 						Cmd_ExecuteString("record\n", src_command);
+					}
 				if (strstr(string, "welcome to CRx"))  // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 4; // woods #modtype [qecrx server check]
@@ -2809,6 +2813,20 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 	const char* platform = SDL_GetPlatform(); // woods #q_sysinfo (qrack)
 
 	//check for chat messages of the form 'name: q_version'
+	
+	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": f_version\n")))
+	{
+		MSG_WriteByte(&cls.message, clc_stringcmd);
+		MSG_WriteString(&cls.message, va("say q_version")); // woods make f_version print for qrack clients
+	}
+
+	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 11, ": f_system\n")))
+	{
+		MSG_WriteByte(&cls.message, clc_stringcmd);
+		MSG_WriteString(&cls.message, va("say q_sysinfo")); // woods make f_system print for qrack clients
+	}
+
+	
 	if (!cls.demoplayback && *printtext == 1 && e-printtext > 13 && (!strcmp(e-12, ": f_version\n") || !strcmp(e-12, ": q_version\n")))
 	{
 		if (realtime > cl.printversionresponse)
