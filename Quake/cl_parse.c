@@ -3243,7 +3243,6 @@ void CL_ParseServerMessage (void)
 			s = MSG_ReadString();           //   woods pq string #pqteam
 			CL_ParseProQuakeString(s);      //   woods pq string #pqteam
 			CL_ParsePrint(s);				//   woods pq string #pqteam
-			Con_Printf("%s", s);			//	 woods pq string #pqteam
 			break;
 
 		case svc_centerprint:
