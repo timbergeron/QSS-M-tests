@@ -1399,6 +1399,26 @@ void Cmd_ForwardToServer (void)
 		}
 		*dst = 0;
 
+		if (!strcmp(Cmd_Argv(1), "f_version")) // woods make f_version print for legacy clients
+		{
+			SZ_Print(&cls.message, "q_version\n");
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			SZ_Print(&cls.message, Cmd_Argv(0));
+			SZ_Print(&cls.message, " ");
+			SZ_Print(&cls.message, "f_version\n");
+			return;
+		}
+
+		if (!strcmp(Cmd_Argv(1), "f_system")) // woods make f_system print for legacy clients
+		{
+			SZ_Print(&cls.message, "q_sysinfo\n");
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			SZ_Print(&cls.message, Cmd_Argv(0));
+			SZ_Print(&cls.message, " ");
+			SZ_Print(&cls.message, "f_system\n");
+			return;
+		}
+
 		SZ_Print(&cls.message, buff);
 		return;
 	}
