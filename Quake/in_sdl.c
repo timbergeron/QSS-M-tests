@@ -1172,7 +1172,7 @@ void IN_SendKeyEvents (void)
 
 	const char* afk;
 	char afktype[4];
-	sprintf(afktype, "%s", "ÁÆË");
+	sprintf(afktype, "%s", "AFK");
 	afk = NULL;
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
@@ -1180,8 +1180,8 @@ void IN_SendKeyEvents (void)
 		char buf[15];
 		afk = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "afk", buf, sizeof(buf)); // use realview so eyecam doesnt give wrong value
 
-		if (cl.modtype == 4)
-			sprintf(afktype, "%s", "AFK");
+		if (cl.modtype == 1)
+			sprintf(afktype, "%s", "ÁÆË");
 	}
 
 	IN_UpdateGrabs();
