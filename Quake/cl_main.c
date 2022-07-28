@@ -1471,6 +1471,36 @@ void CL_Viewpos_f (void)
 #endif
 }
 
+/*
+===============
+CL_Entdump_f -- woods (source: github.com/alexey-lysiuk/quakespasm-exp) #entcopy
+===============
+*/
+void CL_Entdump_f(void)
+{
+	char entfilename[MAX_QPATH];
+	size_t entlen;
+
+	if (!cl.worldmodel)
+	{
+		Con_SafePrintf("no map loaded, cannot save .ent\n");
+		return;
+	}
+
+	entlen = strlen(cl.worldmodel->entities);
+
+	if (Cmd_Argc() < 2)
+		q_snprintf(entfilename, sizeof entfilename, "%s.ent", cl.mapname);
+	else
+	{
+		strncpy(entfilename, Cmd_Argv(1), sizeof entfilename - 1);
+		entfilename[sizeof entfilename - 1] = '\0';
+	}
+
+	COM_WriteFile(entfilename, cl.worldmodel->entities, entlen);
+	Con_Printf("saved %s.ent to id1\n", cl.mapname);
+}
+
 static void CL_ServerExtension_FullServerinfo_f(void)
 {
 	const char *newserverinfo = Cmd_Argv(1);
@@ -1742,6 +1772,8 @@ void CL_Init (void)
 
 	Cmd_AddCommand ("tracepos", CL_Tracepos_f); //johnfitz
 	Cmd_AddCommand ("viewpos", CL_Viewpos_f); //johnfitz
+
+	Cmd_AddCommand("entdump", &CL_Entdump_f); // woods #entcopy
 
 	//spike -- serverinfo stuff
 	Cmd_AddCommand_ServerCommand ("fullserverinfo", CL_ServerExtension_FullServerinfo_f);
