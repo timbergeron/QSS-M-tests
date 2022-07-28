@@ -573,7 +573,19 @@ static void Cmd_ListAllContaining(const char* substr)
 	int hits = 0;
 	cmd_function_t	*cmd;
 	cvar_t *var;
+	cmdalias_t* alias;
 	const char* plural;
+	const char* plural2; // woods #addaliases
+
+	for (alias = cmd_alias; alias; alias = alias->next) // woods #addaliases
+	{
+		if (q_strcasestr(alias->name, substr) && alias->name != src_server)
+		{
+			hits++;
+			Con_SafePrintf("   %s (alias)\n", Cmd_TintSubstring(alias->name, substr, tmpbuf, sizeof(tmpbuf)));
+		}
+	}
+
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
 	{
 		if (q_strcasestr(cmd->name, substr) && cmd->srctype != src_server)
@@ -592,10 +604,11 @@ static void Cmd_ListAllContaining(const char* substr)
 		}
 	}
 	plural = (hits == 1) ? "" : "s";
+	plural2 = (hits == 1) ? "" : "es"; // woods #addaliases
 	if (!hits)
-		Con_SafePrintf("no cvars/commands contain '%s'\n", substr);
+		Con_SafePrintf("no cvars/commands/aliases contain '%s'\n", substr);
 	else
-		Con_SafePrintf("%d cvar%s/command%s containing '%s'\n", hits, plural, plural, substr);
+		Con_SafePrintf("%d cvar%s/command%s/alias%s containing '%s'\n", hits, plural, plural, plural2, substr); // woods #addaliases
 }
 
 /*
