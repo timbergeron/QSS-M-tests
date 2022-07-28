@@ -2814,19 +2814,6 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 
 	//check for chat messages of the form 'name: q_version'
 	
-	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 12, ": f_version\n")))
-	{
-		MSG_WriteByte(&cls.message, clc_stringcmd);
-		MSG_WriteString(&cls.message, va("say q_version")); // woods make f_version print for qrack clients
-	}
-
-	if (!cls.demoplayback && *printtext == 1 && e - printtext > 13 && (!strcmp(e - 11, ": f_system\n")))
-	{
-		MSG_WriteByte(&cls.message, clc_stringcmd);
-		MSG_WriteString(&cls.message, va("say q_sysinfo")); // woods make f_system print for qrack clients
-	}
-
-	
 	if (!cls.demoplayback && *printtext == 1 && e-printtext > 13 && (!strcmp(e-12, ": f_version\n") || !strcmp(e-12, ": q_version\n")))
 	{
 		if (realtime > cl.printversionresponse)
