@@ -2355,7 +2355,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
 	int color;
 
-	if (strstr(string, "Match Starting")) // try get my attention if match beginning IF on team
+	if (strstr(string, "Match Starting") && !cls.demoplayback) // try get my attention if match beginning IF on team
 	{
 		color = (int)cl_bottomcolor.value;
 		if (color == cl.teamcolor[0] || color == cl.teamcolor[1]) // am I on a team?
