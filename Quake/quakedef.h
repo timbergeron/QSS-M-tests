@@ -386,6 +386,6 @@ char		videosetg[50];	// woods #q_sysinfo (qrack)
 char		afk_name[16]; // woods #smartafk
 double		mpservertime;	// woods #servertime
 char		lastmphost[NET_NAMELEN]; // woods - connected server address
-
+char		demoplaying[MAX_OSPATH]; // woods for window title
 #endif	/* QUAKEDEFS_H */
 
