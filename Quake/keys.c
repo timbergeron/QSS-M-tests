@@ -1715,7 +1715,7 @@ void Key_Event (int key, qboolean down)
 
 	if (down && (key == K_SPACE)) // woods
 	{
-		if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo)
+		if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo && (key_dest != key_console))
 		{
 			if (cl_demospeed.value > 0)
 			{
