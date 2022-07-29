@@ -2353,6 +2353,15 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
 	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
+	int color;
+
+	if (strstr(string, "Match Starting")) // try get my attention if match beginning IF on team
+	{
+		color = (int)cl_bottomcolor.value;
+		if (color == cl.teamcolor[0] || color == cl.teamcolor[1]) // am I on a team?
+			if (!VID_HasMouseOrInputFocus())
+				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+	}
 
 	// check for match time
 	if (!strncmp(string, "Match ends in ", 14))
@@ -2393,7 +2402,6 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					else
 						Cbuf_AddText("exec end.cfg\n");
 				}
-
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
 					{
