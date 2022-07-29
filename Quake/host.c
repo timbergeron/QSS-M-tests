@@ -908,16 +908,19 @@ static void UpdateWindowTitle(void)
 	timeleft = 0.125f;
 
 	GetGameSummary(&current);
-	if (!strcmp(current.map, last.map) && !memcmp(&current.stats, &last.stats, sizeof(current.stats)))
-		return;
+	if ((!cls.demoplayback) || !(cl.gametype == GAME_DEATHMATCH) && !(cls.state = ca_connected)) // woods 
+		if (!strcmp(current.map, last.map) && !memcmp(&current.stats, &last.stats, sizeof(current.stats)))
+			return;
 	last = current;
 
 	if (current.map[0])
 	{
 		char title[1024];
 
-		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods added connected server
+		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected) && !cls.demoplayback) // woods added connected server
 			q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, cl.levelname, current.map);
+		else if (cls.demoplayback) // woods added demofile
+			q_snprintf(title, sizeof(title), "%s (%s)  |  %s  -  " ENGINE_NAME_AND_VER, cl.levelname, current.map, demoplaying);
 		else
 			q_snprintf(title, sizeof(title),
 				"%s (%s)  |  skill %d  |  %d/%d kills  |  %d/%d secrets  -  " ENGINE_NAME_AND_VER,

@@ -387,6 +387,6 @@ char		afk_name[16]; // woods #smartafk
 double		mpservertime;	// woods #servertime
 int			maptime;		// woods connected map time #maptime
 char		lastmphost[NET_NAMELEN]; // woods - connected server address
-
+char		demoplaying[MAX_OSPATH]; // woods for window title
 #endif	/* QUAKEDEFS_H */
 

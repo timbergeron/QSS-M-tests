@@ -694,6 +694,7 @@ void CL_PlayDemo_f (void)
 
 // open the demo file
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
+	q_strlcpy(demoplaying, Cmd_Argv(1), sizeof(demoplaying)); // store for window title
 	COM_AddExtension (name, ".dem", sizeof(name));
 
 	q_snprintf(name2, sizeof(name2), "demos/%s", name); // woods #demosfolder
