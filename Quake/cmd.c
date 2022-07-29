@@ -60,6 +60,17 @@ void Cmd_Wait_f (void)
 }
 
 /*
+===============
+Cmd_CfgMarker_f -- woods - Skip apropos text for unknown commands executed from config (ironwail)
+===============
+*/
+static qboolean in_cfg_exec = false;
+static void Cmd_CfgMarker_f(void)
+{
+	in_cfg_exec = false;
+}
+
+/*
 =============================================================================
 
 						COMMAND BUFFER
@@ -298,6 +309,13 @@ void Cmd_Exec_f (void)
 	}
 	if (cmd_warncmd.value)
 		Con_Printf ("execing %s\n",Cmd_Argv(1));
+
+	if (!in_cfg_exec) // woods - Skip apropos text for unknown commands executed from config (ironwail)
+	{
+		in_cfg_exec = true;
+		// Note: this will be executed *after* the config
+		Cbuf_InsertText("__cfgmarker");
+	}
 
 	Cbuf_InsertText ("\n");	//just in case there was no trailing \n.
 	Cbuf_InsertText (f);
@@ -649,6 +667,8 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("apropos", Cmd_Apropos_f);
 	Cmd_AddCommand ("find", Cmd_Apropos_f);
 
+	Cmd_AddCommand("__cfgmarker", Cmd_CfgMarker_f); // woods - Skip apropos text for unknown commands executed from config (ironwail)
+
 	Cvar_RegisterVariable (&cl_nopext);
 	Cvar_RegisterVariable (&cmd_warncmd);
 }
@@ -985,7 +1005,12 @@ qboolean	Cmd_ExecuteString (const char *text, cmd_source_t src)
 // check cvars
 	if (!Cvar_Command ())
 		if (cmd_warncmd.value || developer.value)
-			Cmd_ListAllContaining(Cmd_Argv(0));
+		{
+			if (in_cfg_exec) // woods - Skip apropos text for unknown commands executed from config (ironwail)
+				Con_Printf("Unknown command \"%s\"\n", Cmd_Argv(0));
+			else
+				Cmd_ListAllContaining(Cmd_Argv(0));
+		}
 
 	return true;
 }
