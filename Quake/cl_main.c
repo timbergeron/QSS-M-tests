@@ -1561,14 +1561,16 @@ static void CL_UserinfoChanged(scoreboard_t *sb)
 {
 	char tmp[64];
 	plcolour_t top, bot;
-	Info_GetKey(sb->userinfo, "name", sb->name, sizeof(sb->name));
+	Info_GetKey(sb->userinfo, "name", tmp, sizeof(tmp)); // Handle mixed svc_update*/UserinfoUpdates (vkQuake)
+	if (tmp[0])
+		strncpy(sb->name, tmp, sizeof(sb->name) - 1);
 
 	Info_GetKey(sb->userinfo, "topcolor", tmp, sizeof(tmp));
 	top = CL_PLColours_Parse(tmp);
 	Info_GetKey(sb->userinfo, "bottomcolor", tmp, sizeof(tmp));
 	bot = CL_PLColours_Parse(tmp);
 
-	if (!CL_PLColours_Equals(top, sb->shirt) || !CL_PLColours_Equals(bot, sb->pants))
+	if (tmp[0] && (!CL_PLColours_Equals(top, sb->shirt) || !CL_PLColours_Equals(bot, sb->pants))) // Handle mixed svc_update*/UserinfoUpdates (vkQuake)
 	{
 		sb->shirt = top;
 		sb->pants = bot;
