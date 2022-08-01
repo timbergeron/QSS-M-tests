@@ -547,10 +547,12 @@ static void Con_Print (const char *txt)
 	}
 	// end woods for eliminating messages confilter+
 
+#if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 	if (!VID_HasMouseOrInputFocus() && !cls.demoplayback) // woods flash if my name is mentioned
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 			if (strstr(txt, afk_name) && !strstr(txt, "AFK")) // !qe name change
 				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+#endif
 
 	if (txt[0] == 1)
 	{
