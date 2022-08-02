@@ -1973,8 +1973,8 @@ static void Host_Spawn_f (void)
 
 	for (i = 0, client = svs.clients; i < svs.maxclients; i++, client++)
 	{
-		if (!client->knowntoqc)
-			continue;
+	//	if (!client->knowntoqc)
+	//		continue;
 		if (host_client->protocol_pext2 & PEXT2_PREDINFO)
 		{
 			MSG_WriteByte (&host_client->message, svc_stufftext);
