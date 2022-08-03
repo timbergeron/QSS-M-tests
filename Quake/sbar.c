@@ -1381,6 +1381,35 @@ void Sbar_DrawFace (void)
 	Draw_Fill(112, 24, 24, 25, 25, .2);
 }
 
+/*
+===============
+Sbar_DrawFace_Team -- woods to color face in sbar when on a match team #teamface
+===============
+*/
+
+void Sbar_DrawFace_Team (void)
+{
+	int color;
+	color = (int)cl_bottomcolor.value;
+
+	if (sb_showscores == true)
+		return;
+
+	if (scr_viewsize.value <= 110 && cl.teamgame && color != 0)
+	{
+		if (color == cl.teamcolor[0] || color == cl.teamcolor[1]) // am I on a team?
+		{
+			// 	Draw_Fill(111, 24, 25, 1, color, .3); // top
+			//	Draw_Fill(111, 47, 25, 1, color, .3); // bottom
+
+			Draw_Fill(111, 24, 1, 25, (color * 16) + 8, .7); // left
+			Draw_Fill(136, 24, 1, 25, (color * 16) + 8, .7);  // right
+
+
+		}
+	}
+}
+
 static void Sbar_Voice(int y)
 {
 	cvar_t snd_voip_showmeter;
@@ -1418,6 +1447,7 @@ Sbar_Draw
 void Sbar_Draw (void)
 {
 	float w; //johnfitz
+	int color;
 
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
@@ -1602,6 +1632,8 @@ void Sbar_Draw (void)
 	if (cls.demorecording) // woods #showrecord
 		Sbar_DrawRecord ();
 
+	Sbar_DrawFace_Team(); // woods #teamface
+
 	if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
 	{
 		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
@@ -1720,7 +1752,7 @@ void Sbar_DeathmatchOverlay (void)
 	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Bottom
 	Draw_Fill (x - 64, y - 1, 329 + w, 1, 0, 1);		//Border - Top
 
-	if (((cl.seconds > 0 && cl.seconds !=255) || (cl.minutes > 0 && cl.minutes != 255)) || cl.modtype == 4) // woods -- match running 0 for CRCTF, 255 for CDMOD
+	if ((cl.seconds > 0 && cl.seconds !=255) || (cl.minutes > 0 && cl.minutes != 255)) // woods -- match running 0 for CRCTF, 255 for CDMOD
 		Draw_String(x - 64, y - 10, "  ping  frags   name"); // woods
 	else
 		Draw_String (x - 64, y - 10, "  ping  frags   name            status"); // woods
