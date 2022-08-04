@@ -24,8 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "glquake.h"
 
-qboolean	r_cache_thrash;		// compatability
-
 vec3_t		modelorg, r_entorigin;
 
 static entity_t r_worldentity;	//so we can make sure currententity is valid
@@ -37,9 +35,8 @@ int			r_framecount;		// used for dlight push checking
 mplane_t	frustum[4];
 
 //johnfitz -- rendering statistics
-int rs_brushpolys, rs_aliaspolys, rs_skypolys, rs_particles, rs_fogpolys;
+int rs_brushpolys, rs_aliaspolys, rs_skypolys;
 int rs_dynamiclightmaps, rs_brushpasses, rs_aliaspasses, rs_skypasses;
-float rs_megatexels;
 
 //
 // view origin
@@ -242,7 +239,7 @@ void GLSLGamma_GammaCorrect (void)
 // draw the texture back to the framebuffer with a fragment shader
 	GL_UseProgramFunc (r_gamma_program);
 	GL_Uniform1fFunc (gammaLoc, vid_gamma.value);
-	GL_Uniform1fFunc (contrastLoc, q_min(2.0, q_max(1.0, vid_contrast.value)));
+	GL_Uniform1fFunc (contrastLoc, q_min(2.0f, q_max(1.0f, vid_contrast.value)));
 	GL_Uniform1iFunc (textureLoc, 0); // use texture unit 0
 
 	glDisable (GL_ALPHA_TEST);
@@ -305,21 +302,22 @@ R_CullModelForEntity -- johnfitz -- uses correct bounds based on rotation
 qboolean R_CullModelForEntity (entity_t *e)
 {
 	vec3_t mins, maxs;
+	float scale = e->netstate.scale/16.0;
 
 	if (e->angles[0] || e->angles[2]) //pitch or roll
 	{
-		VectorAdd (e->origin, e->model->rmins, mins);
-		VectorAdd (e->origin, e->model->rmaxs, maxs);
+		VectorMA (e->origin, scale, e->model->rmins, mins);
+		VectorMA (e->origin, scale, e->model->rmaxs, maxs);
 	}
 	else if (e->angles[1]) //yaw
 	{
-		VectorAdd (e->origin, e->model->ymins, mins);
-		VectorAdd (e->origin, e->model->ymaxs, maxs);
+		VectorMA (e->origin, scale, e->model->ymins, mins);
+		VectorMA (e->origin, scale, e->model->ymaxs, maxs);
 	}
 	else //no rotation
 	{
-		VectorAdd (e->origin, e->model->mins, mins);
-		VectorAdd (e->origin, e->model->maxs, maxs);
+		VectorMA (e->origin, scale, e->model->mins, mins);
+		VectorMA (e->origin, scale, e->model->maxs, maxs);
 	}
 
 	return R_CullBox (mins, maxs);
@@ -601,8 +599,6 @@ void R_SetupView (void)
 	V_SetContentsColor (viewcontents);
 	V_CalcBlend ();
 
-	r_cache_thrash = false;
-
 	//johnfitz -- calculate r_fovx and r_fovy here
 	r_fovx = r_refdef.fov_x;
 	r_fovy = r_refdef.fov_y;
@@ -755,7 +751,7 @@ R_EmitWirePoint -- johnfitz -- draws a wireframe cross shape for point entities
 */
 void R_EmitWirePoint (vec3_t origin)
 {
-	int size=8;
+	const int size = 8;
 
 	glBegin (GL_LINES);
 	glVertex3f (origin[0]-size, origin[1], origin[2]);
@@ -1174,7 +1170,7 @@ void R_RenderView (void)
 		time1 = Sys_DoubleTime ();
 
 		//johnfitz -- rendering statistics
-		rs_brushpolys = rs_aliaspolys = rs_skypolys = rs_particles = rs_fogpolys = rs_megatexels =
+		rs_brushpolys = rs_aliaspolys = rs_skypolys =
 		rs_dynamiclightmaps = rs_aliaspasses = rs_skypasses = rs_brushpasses = 0;
 	}
 	else if (gl_finish.value)
@@ -1283,12 +1279,12 @@ void R_RenderView (void)
 	time2 = Sys_DoubleTime ();
 	if (r_pos.value)
 		Con_Printf ("x %i y %i z %i (pitch %i yaw %i roll %i)\n",
-			(int)cl.entities[cl.viewentity].origin[0],
-			(int)cl.entities[cl.viewentity].origin[1],
-			(int)cl.entities[cl.viewentity].origin[2],
-			(int)cl.viewangles[PITCH],
-			(int)cl.viewangles[YAW],
-			(int)cl.viewangles[ROLL]);
+					(int)cl.entities[cl.viewentity].origin[0],
+					(int)cl.entities[cl.viewentity].origin[1],
+					(int)cl.entities[cl.viewentity].origin[2],
+					(int)cl.viewangles[PITCH],
+					(int)cl.viewangles[YAW],
+					(int)cl.viewangles[ROLL]);
 	else if (r_speeds.value == 2)
 		Con_Printf ("%3i ms  %4i/%4i wpoly %4i/%4i epoly %3i lmap %4i/%4i sky %1.1f mtex\n",
 					(int)((time2-time1)*1000),

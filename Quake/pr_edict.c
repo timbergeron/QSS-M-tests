@@ -948,7 +948,7 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 
 		//johnfitz -- hack to support .alpha even when progs.dat doesn't know about it
 		if (!strcmp(keyname, "alpha"))
-			ent->alpha = ENTALPHA_ENCODE(atof(com_token));
+			ent->alpha = ENTALPHA_ENCODE(Q_atof(com_token));
 		//johnfitz
 
 		//spike -- hacks to support func_illusionary/info_notnull with all sorts of mdls, and various particle effects
@@ -1232,7 +1232,7 @@ static void PR_MergeEngineFieldDefs (void)
 PR_LoadProgs
 ===============
 */
-qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcrc, builtin_t *builtins, size_t numbuiltins)
+qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcrc, const builtin_t *builtins, size_t numbuiltins)
 {
 	int			i;
 

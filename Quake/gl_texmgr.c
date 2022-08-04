@@ -670,7 +670,6 @@ void TexMgr_Init (void)
 	int i;
 	static byte notexture_data[16] = {159,91,83,255,0,0,0,255,0,0,0,255,159,91,83,255}; //black and pink checker
 	static byte nulltexture_data[16] = {127,191,255,255,0,0,0,255,0,0,0,255,127,191,255,255}; //black and blue checker
-	extern texture_t *r_notexture_mip, *r_notexture_mip2;
 
 	// init texture list
 	int initialtexturecount = 256;
@@ -734,11 +733,15 @@ TexMgr_SafeTextureSize -- return a size with hardware and user prefs in mind
 */
 int TexMgr_SafeTextureSize (int s)
 {
+	int p = (int)gl_max_size.value;
 	if (!gl_texture_NPOT)
 		s = TexMgr_Pad(s);
-	if ((int)gl_max_size.value > 0)
-		s = q_min(TexMgr_Pad((int)gl_max_size.value), s);
-	s = q_min(gl_hardware_maxsize, s);
+	if (p > 0) {
+		p = TexMgr_Pad(p);
+		if (p < s) s = p;
+	}
+	if (s > gl_hardware_maxsize)
+	    s = gl_hardware_maxsize;
 	return s;
 }
 
@@ -1380,7 +1383,7 @@ static void TexMgr_LoadImage8 (gltexture_t *glt, byte *data)
 		}
 		else if (glt->shirt.type == 1)
 		{
-			shirt = glt->shirt.rgb[0] * 16;
+			shirt = glt->shirt.basic * 16;
 			if (shirt < 128)
 			{
 				for (i = 0; i < 16; i++)

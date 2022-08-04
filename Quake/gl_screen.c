@@ -116,7 +116,6 @@ cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
 cvar_t		scr_conspeed = {"scr_conspeed","500",CVAR_ARCHIVE};
 cvar_t		scr_centertime = {"scr_centertime","2",CVAR_NONE};
-cvar_t		scr_showram = {"showram","1",CVAR_NONE};
 cvar_t		scr_showturtle = {"showturtle","0",CVAR_NONE};
 cvar_t		scr_showpause = {"showpause","1",CVAR_NONE};
 cvar_t		scr_printspeed = {"scr_printspeed","8",CVAR_NONE};
@@ -128,7 +127,6 @@ extern	cvar_t	crosshair;
 
 qboolean	scr_initialized;		// ready to draw
 
-qpic_t		*scr_ram;
 qpic_t		*scr_net;
 qpic_t		*scr_turtle;
 
@@ -484,7 +482,7 @@ static void SCR_CalcRefdef (void)
 
 	//johnfitz -- rewrote this section
 	size = scr_viewsize.value;
-	scale = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	scale = CLAMP (1.0f, scr_sbarscale.value, (float)glwidth / 320.0f);
 
 	if (size >= 120 || cl.intermission || (scr_sbaralpha.value < 1 || cl.qcvm.extfuncs.CSQC_DrawHud || cl.qcvm.extfuncs.CSQC_UpdateView)) //johnfitz -- scr_sbaralpha.value. Spike -- simple csqc assumes fullscreen video the same way.
 		sb_lines = 0;
@@ -493,12 +491,12 @@ static void SCR_CalcRefdef (void)
 	else
 		sb_lines = 48 * scale;
 
-	size = q_min(scr_viewsize.value, 100) / 100;
+	size = q_min(scr_viewsize.value, 100.f) / 100;
 	//johnfitz
 
 	//johnfitz -- rewrote this section
-	r_refdef.vrect.width = q_max(glwidth * size, 96); //no smaller than 96, for icons
-	r_refdef.vrect.height = q_min(glheight * size, glheight - sb_lines); //make room for sbar
+	r_refdef.vrect.width = q_max(glwidth * size, 96.0f); //no smaller than 96, for icons
+	r_refdef.vrect.height = q_min((int)(glheight * size), glheight - sb_lines); //make room for sbar
 	r_refdef.vrect.x = (glwidth - r_refdef.vrect.width)/2;
 	r_refdef.vrect.y = (glheight - sb_lines - r_refdef.vrect.height)/2;
 	//johnfitz
@@ -563,7 +561,6 @@ SCR_LoadPics -- johnfitz
 */
 void SCR_LoadPics (void)
 {
-	scr_ram = Draw_PicFromWad ("ram");
 	scr_net = Draw_PicFromWad ("net");
 	scr_turtle = Draw_PicFromWad ("turtle");
 }
@@ -608,7 +605,6 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_fov_adapt);
 	Cvar_RegisterVariable (&scr_viewsize);
 	Cvar_RegisterVariable (&scr_conspeed);
-	Cvar_RegisterVariable (&scr_showram);
 	Cvar_RegisterVariable (&scr_showturtle);
 	Cvar_RegisterVariable (&scr_showpause);
 	Cvar_RegisterVariable (&scr_centertime);
@@ -1272,24 +1268,6 @@ void SCR_DrawDevStats (void)
 
 /*
 ==============
-SCR_DrawRam
-==============
-*/
-void SCR_DrawRam (void)
-{
-	if (!scr_showram.value)
-		return;
-
-	if (!r_cache_thrash)
-		return;
-
-	GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
-
-	Draw_Pic (scr_vrect.x+32, scr_vrect.y, scr_ram);
-}
-
-/*
-==============
 SCR_DrawTurtle
 ==============
 */
@@ -1918,7 +1896,7 @@ void SCR_UpdateScreen (void)
 //		Sbar_SortFrags ();
 
 		pr_global_struct->time = qcvm->time;
-		pr_global_struct->frametime = host_frametime;
+		pr_global_struct->frametime = qcvm->frametime;
 		G_FLOAT(OFS_PARM0) = glwidth/s;
 		G_FLOAT(OFS_PARM1) = glheight/s;
 		G_FLOAT(OFS_PARM2) = true;
@@ -1978,7 +1956,6 @@ void SCR_UpdateScreen (void)
 	}
 	else
 	{
-		SCR_DrawRam ();
 		SCR_DrawNet ();
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
