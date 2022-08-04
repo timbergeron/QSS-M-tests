@@ -3118,7 +3118,5 @@ void Host_InitCommands (void)
 	Cmd_AddCommand("identify", Host_Identify_f);	// JPG 1.05 - player IP logging // woods #iplog
 	Cmd_AddCommand("ipdump", IPLog_Dump);			// JPG 1.05 - player IP logging // woods #iplog
 	Cmd_AddCommand("ipmerge", IPLog_Import);		// JPG 3.00 - import an IP data file // woods #iplog
-
-	Cmd_AddCommand ("mcache", Mod_Print);
 }
 
