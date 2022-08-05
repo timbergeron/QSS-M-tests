@@ -34,8 +34,6 @@ extern cvar_t	pausable;
 
 int	current_skill;
 
-void Mod_Print (void);
-
 /*
 ==================
 Host_Quit_f
@@ -1111,7 +1109,9 @@ static void Host_SavegameComment (char *text)
 	if (p1 != NULL) *p1 = 0;
 	if (p2 != NULL) *p2 = 0;
 
-	memcpy (text, cl.levelname, q_min(strlen(cl.levelname),22)); //johnfitz -- only copy 22 chars.
+	i = (int) strlen(cl.levelname);
+	if (i > 22) i = 22;
+	memcpy (text, cl.levelname, (size_t)i);
 	sprintf (kills,"kills:%3i/%3i", cl.stats[STAT_MONSTERS], cl.stats[STAT_TOTALMONSTERS]);
 	memcpy (text+22, kills, strlen(kills));
 // convert space to _ to make stdio happy
@@ -2638,6 +2638,18 @@ static void Host_Stopdemo_f (void)
 }
 
 /*
+==================
+Host_Resetdemos
+Clear looping demo list (called on game change)
+==================
+*/
+void Host_Resetdemos (void)
+{
+	memset (cls.demos, 0, sizeof (cls.demos));
+	cls.demonum = 0;
+}
+
+/*
 ==========================================================
 PROQUAKE FUNCTIONS (JPG 1.05)  -- added for #iplog woods
 ==========================================================
@@ -3120,7 +3132,5 @@ void Host_InitCommands (void)
 	Cmd_AddCommand("identify", Host_Identify_f);	// JPG 1.05 - player IP logging // woods #iplog
 	Cmd_AddCommand("ipdump", IPLog_Dump);			// JPG 1.05 - player IP logging // woods #iplog
 	Cmd_AddCommand("ipmerge", IPLog_Import);		// JPG 3.00 - import an IP data file // woods #iplog
-
-	Cmd_AddCommand ("mcache", Mod_Print);
 }
 
