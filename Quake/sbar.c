@@ -1441,7 +1441,8 @@ void Sbar_DrawFace_Team (void)
 
 	if (scr_viewsize.value <= 110 && cl.teamgame && color != 0)
 	{
-		if (color == cl.teamcolor[0] || color == cl.teamcolor[1]) // am I on a team?
+		if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
+			(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
 		{
 			// 	Draw_Fill(111, 24, 25, 1, color, .3); // top
 			//	Draw_Fill(111, 47, 25, 1, color, .3); // bottom
