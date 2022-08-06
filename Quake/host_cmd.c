@@ -1768,6 +1768,8 @@ Host_Color_f
 static void Host_Color_f(void)
 {
 	const char *top, *bottom;
+	int t = rand() % 13 + 1; // woods for random colors
+	int b = rand() % 13 + 1; // woods for random colors
 
 	if (Cmd_Argc() == 1)
 	{
@@ -1792,6 +1794,18 @@ static void Host_Color_f(void)
 	{
 		top = Cmd_Argv(1);
 		bottom = Cmd_Argv(2);
+	}
+
+	if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
+	{
+		sprintf(top, "%i", t);
+		sprintf(bottom, "%i", b);
+	}
+
+	if ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
+	{
+		sprintf(top, "%i", t);
+		sprintf(bottom, "%i", b);
 	}
 
 	if (cmd_source != src_client)
