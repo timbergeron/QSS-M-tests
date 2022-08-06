@@ -679,10 +679,19 @@ void SCR_DrawFPS (void)
 		sprintf (st2, "%4.0f", lastfps); // woods #f_config
 		cl.fps = atoi(st2); // woods #f_config
 		x = 312 - (strlen(st)<<3); // woods added padding
-		y = 200 - 14; // woods added padding
+		if (scr_sbar.value == 3) // woods #qehud
+		{
+			x = 305;
+			y = 126;
+		}
+		else
+		{
+			x = 312;
+			y = 186;
+		}
 		if (scr_clock.value) y -= 12; //make room for clock // woods added padding
 		GL_SetCanvas (CANVAS_BOTTOMRIGHT);
-		Draw_String (x, y, st);
+		Draw_String (x - (strlen(st) << 3), y, st);
 		scr_tileclear_updates = 0;
 	}
 }
@@ -695,6 +704,7 @@ SCR_DrawClock -- johnfitz
 void SCR_DrawClock (void)
 {
 	char	str[12];
+	int x,y;
 
 	if (scr_clock.value == 1)
 	{
@@ -726,8 +736,20 @@ void SCR_DrawClock (void)
 		return;
 
 	//draw it
+
+	if (scr_sbar.value == 3) // woods #qehud
+	{ 
+		x = 305;
+		y = 126;
+	}
+	else
+	{ 
+		x = 312;
+		y = 186;
+	}
+
 	GL_SetCanvas (CANVAS_BOTTOMRIGHT);
-	Draw_String(312 - (strlen(str) << 3), 200 - 14, str); // woods added padding
+	Draw_String(x - (strlen(str) << 3), y, str); // woods added padding
 
 	scr_tileclear_updates = 0;
 }
@@ -759,6 +781,18 @@ void SCR_ShowPing(void)
 
 			x = 46; //johnfitz -- simplified becuase some positioning is handled elsewhere
 			y = 20;
+
+			if (scr_sbar.value == 3) // #qehud
+			{
+				x = 60;
+				y = 20;
+			}
+			else
+			{
+				x = 46;
+				y = 86;
+			}
+
 			for (i = 0; i < l; i++)
 			{
 				k = fragsort[i];
@@ -806,11 +840,18 @@ void SCR_ShowPL(void)
 
 		GL_SetCanvas(CANVAS_BOTTOMLEFT2);
 
-		int	y;
-		if (scr_ping.value)
-			y = 8; //make room for ping if enabled
+		int	x, y;
+
+		if (scr_sbar.value == 3) // #qehud
+		{
+			x = 20;
+			y = 9;
+		}
 		else
-			y = 20;
+		{
+			x = 6;
+			y = 77;
+		}
 
 
 		if (cl.expectingpltimes < realtime)
@@ -825,7 +866,7 @@ void SCR_ShowPL(void)
 			if (pl > 0) // color red
 			{
 				sprintf(num, "%-4i", pl);
-				M_Print(6, y, num);
+				M_Print(x, y, num);
 			}
 		}
 	}
@@ -1094,8 +1135,16 @@ void SCR_ShowObsFrags(void)
 		// scores
 		Sbar_SortFrags_Obs ();
 
-		x = 7;
-		y = 150; //johnfitz -- start at the right place
+		if (scr_sbar.value == 3)
+		{
+			x = 20;
+			y = 90; //johnfitz -- start at the right place
+		}
+		else
+		{ 
+			x = 7;
+			y = 150; //johnfitz -- start at the right place
+		}
 		for (i = 0; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
 		{
 			k = fragsort[i];
@@ -1264,23 +1313,46 @@ void SCR_Mute(void)
 {
 	int				x, y;
 
-	GL_SetCanvas(CANVAS_SBAR2);
+	if (cl.intermission)
+		return;
+	if (scr_sbar.value > 3)
+		return;
 
 	if (!strcmp(mute, "y"))
 	{
-	x = 288;
-	y = 0;
 
-	if (scr_viewsize.value <= 100)
-		y = 18;
-	else if (scr_viewsize.value == 110)
-		y = 43;
-	else
-		return;
-	if (scr_sbar.value == 2)
-		y = 43;
-	if (!cl.intermission)
-		M_PrintWhite(x, y, "mute");
+		if (scr_sbar.value == 3) // #qehud
+		{
+			y = 178;
+
+			GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+			
+			if (cl.stats[STAT_AMMO] > 99)
+				x = 160;
+			else if (cl.stats[STAT_AMMO] > 9)
+				x = 180;
+			else
+				x = 200;
+			M_PrintWhite(x, y, "mute");
+		}
+		else
+		{ 
+			GL_SetCanvas(CANVAS_SBAR2);
+
+			x = 288;
+			y = 0;
+
+			if (scr_viewsize.value <= 100)
+				y = 18;
+			else if (scr_viewsize.value == 110)
+				y = 43;
+			else
+				return;
+			if (scr_sbar.value == 2)
+				y = 43;
+
+			M_PrintWhite(x, y, "mute");
+		}
 	}
 }
 

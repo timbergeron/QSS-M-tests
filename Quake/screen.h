@@ -72,6 +72,7 @@ typedef enum {
 	CANVAS_MATCHCLOCK,
 	CANVAS_BOTTOMLEFT,
 	CANVAS_BOTTOMLEFT2, // woods #scrping
+	CANVAS_BOTTOMLEFT3, // woods for QE hud, scr_sbar 3
 	CANVAS_MOD, // woods #modprint
 	CANVAS_OBSERVER, // woods #observer
 	CANVAS_BOTTOMRIGHT,

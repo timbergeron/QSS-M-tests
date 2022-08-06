@@ -1122,6 +1122,50 @@ void Sbar_DrawInventory_QW (void)
 	GL_SetCanvas(CANVAS_SBAR);
 }
 
+/*
+===============
+Sbar_DrawInventory_QE -- woods - keys and runes only #qehud
+===============
+*/
+void Sbar_DrawInventory_QE (void)
+{
+	int	i, x;
+
+	GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+				
+	// keys
+
+	x = 288;
+
+	for (i = 0; i < 2; i++)
+	{
+		if (cl.items & (IT_KEY1 << i))
+		{
+			Sbar_DrawPic(x, 120, sb_items[i]);
+			x -= sb_items[i]->width;
+		}
+	}
+
+	// sigils
+
+	if (!(cl.items & IT_KEY1) && !(cl.items & IT_KEY2)) // no keys
+		x = 296;
+	else if ((cl.items & IT_KEY1) && (cl.items & IT_KEY2)) // both keys
+		x = 256;
+	else
+		x = 272; // one key
+
+	for (i = 0; i < 4; i++)
+	{
+		if (cl.items & (IT_SIGIL1 << i))
+		{
+			Sbar_DrawPic(x, 120, sb_sigil[i]);
+			x -= sb_sigil[i]->width;
+		}
+	}
+	GL_SetCanvas(CANVAS_SBAR);
+}
+
 //=============================================================================
 
 /*===============
@@ -1138,7 +1182,7 @@ void Sbar_DrawFrags(void)
 	int				teamscores, colors, minutes, seconds, mask; // JPG - added these
 	int				match_time; // JPG - added this
 
-	if (scr_sbar.value == 2) // woods #sbarstyles
+	if (scr_sbar.value > 1) // woods #sbarstyles
 		return;
 	
 	// JPG - check to see if we should sort teamscores instead
@@ -1441,13 +1485,53 @@ static void Sbar_Voice(int y)
 
 /*
 ===============
+Sbar_FacePic - woods fpr qe sbar #qehud
+===============
+*/
+static qpic_t* Sbar_FacePic(void)
+{
+	int f, anim;
+
+	if ((cl.items & (IT_INVISIBILITY | IT_INVULNERABILITY))
+		== (IT_INVISIBILITY | IT_INVULNERABILITY))
+		return sb_face_invis_invuln;
+
+	if (cl.items & IT_QUAD)
+		return sb_face_quad;
+
+	if (cl.items & IT_INVISIBILITY)
+		return sb_face_invis;
+
+	if (cl.items & IT_INVULNERABILITY)
+		return sb_face_invuln;
+
+	if (cl.stats[STAT_HEALTH] >= 100)
+		f = 4;
+	else
+		f = cl.stats[STAT_HEALTH] / 20;
+	if (f < 0)	// in case we ever decide to draw when health <= 0
+		f = 0;
+
+	if (cl.time <= cl.faceanimtime)
+	{
+		anim = 1;
+		sb_updates = 0;		// make sure the anim gets drawn over
+	}
+	else
+		anim = 0;
+
+	return sb_faces[f][anim];
+}
+
+/*
+===============
 Sbar_Draw
 ===============
 */
 void Sbar_Draw (void)
 {
 	float w; //johnfitz
-	int color;
+	int armor, invuln;
 
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
@@ -1525,131 +1609,226 @@ void Sbar_Draw (void)
 
 	if (scr_viewsize.value < 110) //johnfitz -- check viewsize instead of sb_lines
 	{
-		if (scr_sbar.value != 2)
+		if (scr_sbar.value == 1)
 			Sbar_DrawInventory ();
 		if (scr_sbar.value == 2)
 			Sbar_DrawInventory_QW ();
+		if (scr_sbar.value == 3)
+			Sbar_DrawInventory_QE();
 		if (cl.maxclients != 1)
 			Sbar_DrawFrags ();
 	}
 
-	if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
+	if (scr_sbar.value == 3) // qe hud does not use 'traditional sbar' #qehud
 	{
-		Sbar_DrawPicAlpha (0, 0, sb_scorebar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
-		Sbar_DrawScoreboard ();
-		sb_updates = 0;
-	}
-	else if (scr_viewsize.value < 120) //johnfitz -- check viewsize instead of sb_lines
-	{
-		Sbar_DrawPicAlpha (0, 0, sb_sbar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
+		GL_SetCanvas(CANVAS_BOTTOMLEFT3); //johnfitz
 
-   // keys (hipnotic only)
-		//MED 01/04/97 moved keys here so they would not be overwritten
-		if (hipnotic)
+		// armor
+
+		invuln = (cl.items & IT_INVULNERABILITY) != 0;
+		armor = invuln ? 666 : cl.stats[STAT_ARMOR];
+
+		if (armor > 0) // only draw if you have armor
 		{
-			if (cl.items & IT_KEY1)
-				Sbar_DrawPic (209, 3, sb_items[0]);
-			if (cl.items & IT_KEY2)
-				Sbar_DrawPic (209, 12, sb_items[1]);
-		}
-	// armor
-		if (cl.items & IT_INVULNERABILITY)
-		{
-			Sbar_DrawNum (24, 0, 666, 3, 1);
-			Sbar_DrawPic (0, 0, draw_disc);
-		}
-		else
-		{
-			if (rogue)
+			Sbar_DrawSubPicAlpha(18, 116, sb_sbar, 0, 0, 24, 24, 1); // armor sbar background
+
+			if (cl.items & IT_INVULNERABILITY)
 			{
-				Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3,
-								cl.stats[STAT_ARMOR] <= 25);
-				if (cl.items & RIT_ARMOR3)
-					Sbar_DrawPic (0, 0, sb_armor[2]);
-				else if (cl.items & RIT_ARMOR2)
-					Sbar_DrawPic (0, 0, sb_armor[1]);
-				else if (cl.items & RIT_ARMOR1)
-					Sbar_DrawPic (0, 0, sb_armor[0]);
+				Sbar_DrawNum(50, 106, 666, 3, 1);
+				Sbar_DrawPic(18, 106, draw_disc);
 			}
 			else
 			{
-				Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3
-				, cl.stats[STAT_ARMOR] <= 25);
-				if (cl.items & IT_ARMOR3)
-					Sbar_DrawPic (0, 0, sb_armor[2]);
-				else if (cl.items & IT_ARMOR2)
-					Sbar_DrawPic (0, 0, sb_armor[1]);
-				else if (cl.items & IT_ARMOR1)
-					Sbar_DrawPic (0, 0, sb_armor[0]);
+				if (rogue)
+				{
+					Sbar_DrawNum(50, 115, cl.stats[STAT_ARMOR], 3,
+						cl.stats[STAT_ARMOR] <= 25);
+					if (cl.items & RIT_ARMOR3)
+						Sbar_DrawPic(18, 115, sb_armor[2]);
+					else if (cl.items & RIT_ARMOR2)
+						Sbar_DrawPic(18, 115, sb_armor[1]);
+					else if (cl.items & RIT_ARMOR1)
+						Sbar_DrawPic(18, 115, sb_armor[0]);
+				}
+				else
+				{
+					Sbar_DrawNum(50, 115, cl.stats[STAT_ARMOR], 3
+						, cl.stats[STAT_ARMOR] <= 25);
+					if (cl.items & IT_ARMOR3)
+						Sbar_DrawPic(18, 115, sb_armor[2]);
+					else if (cl.items & IT_ARMOR2)
+						Sbar_DrawPic(18, 115, sb_armor[1]);
+					else if (cl.items & IT_ARMOR1)
+						Sbar_DrawPic(18, 115, sb_armor[0]);
+				}
 			}
 		}
 
-	// face
-		Sbar_DrawFace ();
+		// face
+		Sbar_DrawPic(18, 140, Sbar_FacePic());
 
-	// health
-		Sbar_DrawNum (136, 0, cl.stats[STAT_HEALTH], 3
-		, cl.stats[STAT_HEALTH] <= 25);
+		// health
+		Sbar_DrawNum(50, 139, cl.stats[STAT_HEALTH], 3
+			, cl.stats[STAT_HEALTH] <= 25);
 
-	// ammo icon
+		GL_SetCanvas(CANVAS_BOTTOMRIGHT); //johnfitz
+
+	//	if (cl.stats[STAT_AMMO] > 0)
+			Sbar_DrawSubPicAlpha(280, 140, sb_sbar, 0, 0, 24, 24, 1); // ammo sbar background
+
+		// ammo icon
 		if (rogue)
 		{
 			if (cl.items & RIT_SHELLS)
-				Sbar_DrawPic (224, 0, sb_ammo[0]);
+				Sbar_DrawPic(280, 140, sb_ammo[0]);
 			else if (cl.items & RIT_NAILS)
-				Sbar_DrawPic (224, 0, sb_ammo[1]);
+				Sbar_DrawPic(280, 140, sb_ammo[1]);
 			else if (cl.items & RIT_ROCKETS)
-				Sbar_DrawPic (224, 0, sb_ammo[2]);
+				Sbar_DrawPic(280, 140, sb_ammo[2]);
 			else if (cl.items & RIT_CELLS)
-				Sbar_DrawPic (224, 0, sb_ammo[3]);
+				Sbar_DrawPic(280, 140, sb_ammo[3]);
 			else if (cl.items & RIT_LAVA_NAILS)
-				Sbar_DrawPic (224, 0, rsb_ammo[0]);
+				Sbar_DrawPic(280, 140, rsb_ammo[0]);
 			else if (cl.items & RIT_PLASMA_AMMO)
-				Sbar_DrawPic (224, 0, rsb_ammo[1]);
+				Sbar_DrawPic(280, 140, rsb_ammo[1]);
 			else if (cl.items & RIT_MULTI_ROCKETS)
-				Sbar_DrawPic (224, 0, rsb_ammo[2]);
+				Sbar_DrawPic(280, 140, rsb_ammo[2]);
 		}
 		else
 		{
 			if (cl.items & IT_SHELLS)
-				Sbar_DrawPic (224, 0, sb_ammo[0]);
+				Sbar_DrawPic(280, 140, sb_ammo[0]);
 			else if (cl.items & IT_NAILS)
-				Sbar_DrawPic (224, 0, sb_ammo[1]);
+				Sbar_DrawPic(280, 140, sb_ammo[1]);
 			else if (cl.items & IT_ROCKETS)
-				Sbar_DrawPic (224, 0, sb_ammo[2]);
+				Sbar_DrawPic(280, 140, sb_ammo[2]);
 			else if (cl.items & IT_CELLS)
-				Sbar_DrawPic (224, 0, sb_ammo[3]);
+				Sbar_DrawPic(280, 140, sb_ammo[3]);
 		}
 
-		Sbar_DrawNum (248, 0, cl.stats[STAT_AMMO], 3,
-					  cl.stats[STAT_AMMO] <= 10);
+		Sbar_DrawNum(198, 140, cl.stats[STAT_AMMO], 3,
+			cl.stats[STAT_AMMO] <= 10);
 	}
+	else // end qe hud, use traditional sbare
+	{
+		if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
+		{
+			Sbar_DrawPicAlpha (0, 0, sb_scorebar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
+			Sbar_DrawScoreboard ();
+			sb_updates = 0;
+		}
+		else if (scr_viewsize.value < 120) //johnfitz -- check viewsize instead of sb_lines
+		{
+			Sbar_DrawPicAlpha (0, 0, sb_sbar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
 
-	//johnfitz -- removed the vid.width > 320 check here
-	if (cl.gametype == GAME_DEATHMATCH)
+	   // keys (hipnotic only)
+			//MED 01/04/97 moved keys here so they would not be overwritten
+			if (hipnotic)
+			{
+				if (cl.items & IT_KEY1)
+					Sbar_DrawPic (209, 3, sb_items[0]);
+				if (cl.items & IT_KEY2)
+					Sbar_DrawPic (209, 12, sb_items[1]);
+			}
+			// armor
+			if (cl.items & IT_INVULNERABILITY)
+			{
+				Sbar_DrawNum (24, 0, 666, 3, 1);
+				Sbar_DrawPic (0, 0, draw_disc);
+			}
+			else
+			{
+				if (rogue)
+				{
+					Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3,
+						cl.stats[STAT_ARMOR] <= 25);
+					if (cl.items & RIT_ARMOR3)
+						Sbar_DrawPic (0, 0, sb_armor[2]);
+					else if (cl.items & RIT_ARMOR2)
+						Sbar_DrawPic (0, 0, sb_armor[1]);
+					else if (cl.items & RIT_ARMOR1)
+						Sbar_DrawPic (0, 0, sb_armor[0]);
+				}
+				else
+				{
+					Sbar_DrawNum (24, 0, cl.stats[STAT_ARMOR], 3
+						, cl.stats[STAT_ARMOR] <= 25);
+					if (cl.items & IT_ARMOR3)
+						Sbar_DrawPic (0, 0, sb_armor[2]);
+					else if (cl.items & IT_ARMOR2)
+						Sbar_DrawPic (0, 0, sb_armor[1]);
+					else if (cl.items & IT_ARMOR1)
+						Sbar_DrawPic (0, 0, sb_armor[0]);
+				}
+			}
+
+			// face
+			Sbar_DrawFace ();
+
+			// health
+			Sbar_DrawNum (136, 0, cl.stats[STAT_HEALTH], 3
+				, cl.stats[STAT_HEALTH] <= 25);
+
+			// ammo icon
+			if (rogue)
+			{
+				if (cl.items & RIT_SHELLS)
+					Sbar_DrawPic (224, 0, sb_ammo[0]);
+				else if (cl.items & RIT_NAILS)
+					Sbar_DrawPic (224, 0, sb_ammo[1]);
+				else if (cl.items & RIT_ROCKETS)
+					Sbar_DrawPic (224, 0, sb_ammo[2]);
+				else if (cl.items & RIT_CELLS)
+					Sbar_DrawPic (224, 0, sb_ammo[3]);
+				else if (cl.items & RIT_LAVA_NAILS)
+					Sbar_DrawPic (224, 0, rsb_ammo[0]);
+				else if (cl.items & RIT_PLASMA_AMMO)
+					Sbar_DrawPic (224, 0, rsb_ammo[1]);
+				else if (cl.items & RIT_MULTI_ROCKETS)
+					Sbar_DrawPic (224, 0, rsb_ammo[2]);
+			}
+			else
+			{
+				if (cl.items & IT_SHELLS)
+					Sbar_DrawPic (224, 0, sb_ammo[0]);
+				else if (cl.items & IT_NAILS)
+					Sbar_DrawPic (224, 0, sb_ammo[1]);
+				else if (cl.items & IT_ROCKETS)
+					Sbar_DrawPic (224, 0, sb_ammo[2]);
+				else if (cl.items & IT_CELLS)
+					Sbar_DrawPic (224, 0, sb_ammo[3]);
+			}
+
+			Sbar_DrawNum (248, 0, cl.stats[STAT_AMMO], 3,
+				cl.stats[STAT_AMMO] <= 10);
+		}
+
+		//johnfitz -- removed the vid.width > 320 check here
+		if (cl.gametype == GAME_DEATHMATCH)
 			Sbar_MiniDeathmatchOverlay ();
 
-	if (cls.demorecording) // woods #showrecord
-		Sbar_DrawRecord ();
+		if (cls.demorecording) // woods #showrecord
+			Sbar_DrawRecord ();
 
-	Sbar_DrawFace_Team(); // woods #teamface
+		Sbar_DrawFace_Team(); // woods #teamface
 
-	if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
-	{
-		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
-		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
-		char* tempstring = va("%i%%", complete_pct_int);
-		int len = strlen(tempstring), i;
-		int x;
-		x = 316;
-		if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
-			x = 280;
+		if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
+		{
+			float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
+			int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
+			char* tempstring = va("%i%%", complete_pct_int);
+			int len = strlen(tempstring), i;
+			int x;
+			x = 316;
+			if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
+				x = 280;
 
-		// Bronze it
-		for (i = 0; i < len; i++)
-			tempstring[i] |= 128;
+			// Bronze it
+			for (i = 0; i < len; i++)
+				tempstring[i] |= 128;
 
-		Sbar_DrawString(x - len * 8, -13, tempstring);
+			Sbar_DrawString(x - len * 8, -13, tempstring);
+		}
 	}
 
 }

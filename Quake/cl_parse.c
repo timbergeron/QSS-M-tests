@@ -2767,6 +2767,8 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 
 			if (scr_sbar.value == 2)
 				sprintf(hud, "%s", "qw");
+			else if (scr_sbar.value == 3)
+				sprintf(hud, "%s", "qe");
 			else
 				sprintf(hud, "%s", "nq");
 
