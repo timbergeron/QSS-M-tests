@@ -1830,8 +1830,6 @@ void Sbar_Draw (void)
 
 	Sbar_DrawFace_Team(); // woods #teamface
 
-	GL_SetCanvas(CANVAS_BOTTOMRIGHT);
-
 	if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
 	{
 		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
@@ -1839,8 +1837,18 @@ void Sbar_Draw (void)
 		char* tempstring = va("%i%%", complete_pct_int);
 		int len = strlen(tempstring), i;
 		int x, y;
-		x = 196;
-		y = 154;
+		if (scr_sbar.value == 3)
+		{
+			GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+			x = 196;
+			y = 154;
+		}
+		else
+		{
+			GL_SetCanvas(CANVAS_SBAR);
+			x = 316;
+			y = -13;
+		}
 		if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
 			x = 280;
 
