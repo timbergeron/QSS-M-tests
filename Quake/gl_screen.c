@@ -682,7 +682,10 @@ void SCR_DrawFPS (void)
 		if (scr_sbar.value == 3) // woods #qehud
 		{
 			x = 305;
-			y = 126;
+			if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
+				y = 130;
+			else
+				y = 150;
 		}
 		else
 		{
@@ -740,7 +743,11 @@ void SCR_DrawClock (void)
 	if (scr_sbar.value == 3) // woods #qehud
 	{ 
 		x = 305;
-		y = 126;
+		if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
+			y = 130;
+		else
+			y = 150;
+		
 	}
 	else
 	{ 
@@ -784,8 +791,12 @@ void SCR_ShowPing(void)
 
 			if (scr_sbar.value == 3) // #qehud
 			{
-				x = 60;
-				y = 20;
+				if (cl.stats[STAT_ARMOR] < 1)
+					y = 50;
+				else
+					y = 24;
+				x = 58;
+				
 			}
 			else
 			{
@@ -844,8 +855,11 @@ void SCR_ShowPL(void)
 
 		if (scr_sbar.value == 3) // #qehud
 		{
-			x = 20;
-			y = 9;
+			x = 18;
+			if (cl.stats[STAT_ARMOR] < 1)
+				y = 39;
+			else
+				y = 13;
 		}
 		else
 		{
@@ -1276,30 +1290,39 @@ void SCR_DrawSpeed (void)
 	char			st[64];
 	int				x, y;
 
-	GL_SetCanvas (CANVAS_SBAR2);
-	x = 0;
-	y = 0;
+	if (scr_sbar.value == 3)
+	{
+		GL_SetCanvas(CANVAS_BOTTOMLEFT3);
+		y = 175;
+		x = 134;
+	}
+	else
+	{
+		GL_SetCanvas(CANVAS_SBAR2);
+		x = 0;
+		y = 0;
 
-	if (scr_viewsize.value <= 100)
-		y = 18;
-	else if (scr_viewsize.value == 110)
-		y = 43;
-	if (scr_sbar.value == 2)
-		y = 43;
+		if (scr_viewsize.value <= 100)
+			y = 18;
+		else if (scr_viewsize.value == 110)
+			y = 43;
+		if (scr_sbar.value == 2)
+			y = 43;
+	}
+
 	if (scr_showspeed.value && !cl.intermission) {
 		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
 		float	speed = VectorLength(vel);
 
-		sprintf (st, "%-4.0f", speed);
-		if (scr_viewsize.value <= 110)
-		{ 
+	sprintf(st, "%-4.0f", speed);
+	if (scr_viewsize.value <= 110)
+		{
 			if (speed > 400 && !(speed > 600)) // red
-				M_Print (x, y, st);
+				M_Print(x, y, st);
+			else if (speed > 600)
+					M_Print2(x, y, st); // yellow/gold
 			else
-				if (speed > 600)
-					M_Print2 (x, y, st); // yellow/gold
-			else
-				M_PrintWhite (x, y, st);  // white
+					M_PrintWhite(x, y, st);  // white
 		}
 	}
 }
@@ -1333,6 +1356,10 @@ void SCR_Mute(void)
 				x = 180;
 			else
 				x = 200;
+
+			if (cls.demoplayback)
+				x -= 30;
+
 			M_PrintWhite(x, y, "mute");
 		}
 		else

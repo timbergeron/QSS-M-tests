@@ -1712,13 +1712,7 @@ void Sbar_Draw (void)
 	}
 	else // end qe hud, use traditional sbare
 	{
-		if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
-		{
-			Sbar_DrawPicAlpha (0, 0, sb_scorebar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
-			Sbar_DrawScoreboard ();
-			sb_updates = 0;
-		}
-		else if (scr_viewsize.value < 120) //johnfitz -- check viewsize instead of sb_lines
+		if (scr_viewsize.value < 120) //johnfitz -- check viewsize instead of sb_lines
 		{
 			Sbar_DrawPicAlpha (0, 0, sb_sbar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
 
@@ -1804,32 +1798,45 @@ void Sbar_Draw (void)
 				cl.stats[STAT_AMMO] <= 10);
 		}
 
-		//johnfitz -- removed the vid.width > 320 check here
-		if (cl.gametype == GAME_DEATHMATCH)
-			Sbar_MiniDeathmatchOverlay ();
+	}
 
-		if (cls.demorecording) // woods #showrecord
-			Sbar_DrawRecord ();
+	GL_SetCanvas(CANVAS_SBAR); //johnfitz
 
-		Sbar_DrawFace_Team(); // woods #teamface
+	if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
+	{
+		Sbar_DrawPicAlpha(0, 0, sb_scorebar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
+		Sbar_DrawScoreboard();
+		sb_updates = 0;
+	}
 
-		if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
-		{
-			float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
-			int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
-			char* tempstring = va("%i%%", complete_pct_int);
-			int len = strlen(tempstring), i;
-			int x;
-			x = 316;
-			if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
-				x = 280;
+	//johnfitz -- removed the vid.width > 320 check here
+	if (cl.gametype == GAME_DEATHMATCH)
+		Sbar_MiniDeathmatchOverlay();
 
-			// Bronze it
-			for (i = 0; i < len; i++)
-				tempstring[i] |= 128;
+	if (cls.demorecording) // woods #showrecord
+		Sbar_DrawRecord();
 
-			Sbar_DrawString(x - len * 8, -13, tempstring);
-		}
+	Sbar_DrawFace_Team(); // woods #teamface
+
+	GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+
+	if (cls.demoplayback && scr_viewsize.value <= 110) // woods #demopercent (Baker Fitzquake Mark V)
+	{
+		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
+		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
+		char* tempstring = va("%i%%", complete_pct_int);
+		int len = strlen(tempstring), i;
+		int x, y;
+		x = 196;
+		y = 154;
+		if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
+			x = 280;
+
+		// Bronze it
+		for (i = 0; i < len; i++)
+			tempstring[i] |= 128;
+
+		Sbar_DrawString(x - len * 8, y, tempstring);
 	}
 
 }
