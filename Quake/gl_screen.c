@@ -1314,7 +1314,7 @@ void SCR_DrawSpeed (void)
 		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
 		float	speed = VectorLength(vel);
 
-	sprintf(st, "%-4.0f", speed);
+	sprintf(st, "%-3.0f", speed);
 	if (scr_viewsize.value <= 110)
 		{
 			if (speed > 400 && !(speed > 600)) // red
