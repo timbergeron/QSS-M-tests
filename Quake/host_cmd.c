@@ -1775,7 +1775,7 @@ static void Host_Color_f(void)
 	{
 		Con_Printf("\n");
 		Con_Printf ("\"%s\" is \"%s %s\"\n", Cmd_Argv(0), CL_PLColours_ToString(CL_PLColours_Parse(cl_topcolor.string)), CL_PLColours_ToString(CL_PLColours_Parse(cl_bottomcolor.string)));
-		Con_Printf ("color <0-13> [0-13]\n");
+		Con_Printf ("color top (0-13) bottom (0-13)\n");
 		Con_Printf("\n");
 		Con_Printf("0 - white         7 - peach\n");
 		Con_Printf("1 - brown         8 - purple\n");
@@ -1796,13 +1796,27 @@ static void Host_Color_f(void)
 		bottom = Cmd_Argv(2);
 	}
 
+	if (Cmd_Argc() == 2) // just x
+		if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
+		{
+			sprintf(top, "%i", t);
+			sprintf(bottom, "%i", b);
+		}
+
 	if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
 	{
 		sprintf(top, "%i", t);
+		bottom = Cmd_Argv(2);
+	}
+	
+	if ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))) // woods for random colors
+	{
+		top = Cmd_Argv(1);
 		sprintf(bottom, "%i", b);
 	}
 
-	if ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
+	if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
+		&& ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n")))) // woods for random colors
 	{
 		sprintf(top, "%i", t);
 		sprintf(bottom, "%i", b);
