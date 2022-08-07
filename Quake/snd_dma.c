@@ -248,7 +248,7 @@ void S_Init (void)
 	Cmd_AddCommand("stopsound", S_StopAllSoundsC);
 	Cmd_AddCommand("soundlist", S_SoundList);
 	Cmd_AddCommand("soundinfo", S_SoundInfo_f);
-	Cmd_AddCommand("snd_restart", S_Restart_f);
+//	Cmd_AddCommand("snd_restart", S_Restart_f);
 	Cmd_AddCommand("mute", Sound_Toggle_Mute_f); // woods #usermute
 
 	i = COM_CheckParm("-sndspeed");

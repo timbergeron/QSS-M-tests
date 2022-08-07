@@ -1759,7 +1759,7 @@ static void M_Extras_AdjustSliders (int dir)
 		break;
 	case EXTRAS_AUDIORATE:
 		Cvar_SetValueQuick (&snd_mixspeed, (snd_mixspeed.value==48000)?44100:48000);
-		Cbuf_AddText("\nsnd_restart\n");
+	//	Cbuf_AddText("\nsnd_restart\n");
 		break;
 	case EXTRAS_ITEMS:	//not a real option
 		break;
