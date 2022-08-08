@@ -1306,6 +1306,9 @@ void Sbar_DrawFrags(void)
 	}
 }
 
+extern cvar_t scr_showfps; // woods #showrecord
+extern cvar_t scr_clock; // woods #showrecord
+
 /*
 ===============
 Sbar_DrawRecord -- woods #showrecord
@@ -1314,21 +1317,50 @@ Sbar_DrawRecord -- woods #showrecord
 
 void Sbar_DrawRecord(void)
 {
-	int y;
+	int x,y;
 
 	y = 0;
+	x = 0;
 
-	if (scr_sbar.value == 2) // woods #sbarstyles
-		return;
+	if (scr_sbar.value == 1)
+	{
+		GL_SetCanvas(CANVAS_SBAR);
 
-	GL_SetCanvas(CANVAS_SBAR);
+		if (scr_viewsize.value <= 100)
+			y = 4;
+		else
+			return;
+		Draw_Fill(315, y, 1, 1, 249, 1);
+	}
 
-	if (scr_viewsize.value <= 100)
-		y = 4;
-	else
-		return;
+	if (scr_sbar.value == 2)
+	{
+		if (scr_viewsize.value >= 110)
+			return;
 
-	Draw_Fill(315, y, 1, 1, 249, 1);
+		GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+
+		x = 316;
+		y = 167;
+		Draw_Fill(x, y, 1, 1, 249, 1);
+	}
+
+	if (scr_sbar.value == 3)
+	{
+		GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+
+		x = 302;
+		y = 158;
+
+		if (scr_showfps.value)
+			y -= 12;
+		if (scr_clock.value)
+			y -= 12;
+		if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
+			y -= 20;
+
+		Draw_Fill(x, y, 1, 1, 249, 1);
+	}
 }
 
 /*
