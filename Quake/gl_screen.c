@@ -1418,9 +1418,12 @@ void SCR_Observing(void)
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
+		if (!strcmp(obs, "off"))
+			return;
+
 		GL_SetCanvas(CANVAS_SBAR2);
 
-		if (cl.modtype == 1) // crx case
+		if ((cl.modtype == 1) || (cl.modtype == 4)) // crx case
 		{
 		//	if ((!strcmp(name, cl_name.string)) && (strcmp(obs, "chase"))) // if my name IS name of who I observing AND not chase (chase doesnt use viewentity)
 		//		return; // don't show for me when playing
