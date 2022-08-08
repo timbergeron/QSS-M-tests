@@ -576,7 +576,10 @@ void Char_Console2(int key) // woods #ezsay add leading space for mode 2
 	int max;
 
 	if (cl_say.value && (cls.state == ca_connected && cl.gametype == GAME_DEATHMATCH))
-		max = MAX_CHAT_SIZE;
+		if ((cl.modtype == 1) || (cl.modtype == 4))
+			max = MAX_CHAT_SIZE_EX;
+		else
+			max = MAX_CHAT_SIZE;
 	else
 		max = MAXCMDLINE;
 	if (key_linepos < max) // woods limit chat to 45 server limit  #chatlimit
@@ -911,6 +914,9 @@ void Char_Console (int key)
 	int max;
 
 	if (cl_say.value && (cls.state == ca_connected && cl.gametype == GAME_DEATHMATCH))
+		if ((cl.modtype == 1) || (cl.modtype == 4))
+			max = MAX_CHAT_SIZE_EX;
+		else
 		max = MAX_CHAT_SIZE;
 	else
 		max = MAXCMDLINE;
@@ -945,7 +951,7 @@ void Char_Console (int key)
 //============================================================================
 
 qboolean	chat_team = false;
-static char	chat_buffer[MAX_CHAT_SIZE]; // woods limit chat to 45 server limit  #chatlimit
+static char	chat_buffer[MAX_CHAT_SIZE_EX]; // woods limit chat to 100 server limit (legacy is 45)  #chatlimit
 static int	chat_bufferlen = 0;
 
 const char *Key_GetChatBuffer (void)

@@ -160,6 +160,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define	MAXCMDLINE	256
 #define	MAX_CHAT_SIZE	45 // woods limit chat to 45 server limit #chatlimit
+#define	MAX_CHAT_SIZE_EX	100 // woods limit chat to 100 server limit #chatlimit
 
 typedef enum {key_game, key_console, key_message, key_menu} keydest_t;
 
