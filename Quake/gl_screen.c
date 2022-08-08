@@ -1122,7 +1122,6 @@ SCR_ShowObsFrags -- added by woods #observerhud
 
 void SCR_ShowObsFrags(void)
 {
-
 	int	i, k, x, y, f;
 	char	num[12];
 	float	scale; //johnfitz
@@ -1133,55 +1132,49 @@ void SCR_ShowObsFrags(void)
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
-
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
 
 		if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value || !strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk"))
-	{ 
-		GL_SetCanvas(CANVAS_BOTTOMLEFT);
-
-		scale = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0); //johnfitz
-
-		//MAX_SCOREBOARDNAME = 32, so total width for this overlay plus sbar is 632, but we can cut off some i guess
-		if (glwidth / scale < 512 || scr_viewsize.value >= 120) //johnfitz -- test should consider scr_sbarscale
-			return;
-
-		// scores
-		Sbar_SortFrags_Obs ();
-
-		if (scr_sbar.value == 3)
-		{
-			x = 20;
-			y = 90; //johnfitz -- start at the right place
-		}
-		else
 		{ 
-			x = 7;
-			y = 150; //johnfitz -- start at the right place
+			GL_SetCanvas(CANVAS_SCORES);
+
+			scale = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0); //johnfitz
+
+			Sbar_SortFrags_Obs ();
+
+			if (scr_sbar.value == 3)
+			{
+				x = 20;
+				y = 190; //johnfitz -- start at the right place
+			}
+			else
+			{ 
+				x = 12;
+				y = 230; //johnfitz -- start at the right place
+			}
+			for (i = 0; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
+			{
+				k = fragsort[i];
+				s = &cl.scores[k];
+				if (!s->name[0])
+					continue;
+
+				// colors
+				Draw_FillPlayer(x, y + 1, 40, 4, s->shirt, 1);
+				Draw_FillPlayer(x, y + 5, 40, 3, s->pants, 1);
+
+				// number
+				f = s->frags;
+				sprintf(num, "%3i", f);
+				Draw_Character(x + 8, y, num[0]);
+				Draw_Character(x + 16, y, num[1]);
+				Draw_Character(x + 24, y, num[2]);
+
+				// name
+				sprintf(shortname, "%.15s", s->name); // woods only show name, not 'ready' or 'afk' -- 15 characters
+				M_PrintWhite(x + 50, y, shortname);
+			}
 		}
-		for (i = 0; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
-		{
-			k = fragsort[i];
-			s = &cl.scores[k];
-			if (!s->name[0])
-				continue;
-
-			// colors
-			Draw_FillPlayer(x, y + 1, 40, 4, s->shirt, 1);
-			Draw_FillPlayer(x, y + 5, 40, 3, s->pants, 1);
-
-			// number
-			f = s->frags;
-			sprintf(num, "%3i", f);
-			Draw_Character(x + 8, y, num[0]);
-			Draw_Character(x + 16, y, num[1]);
-			Draw_Character(x + 24, y, num[2]);
-
-			// name
-			sprintf(shortname, "%.15s", s->name); // woods only show name, not 'ready' or 'afk' -- 15 characters
-			M_PrintWhite(x + 50, y, shortname);
-		}
-	}
 	}
 }
 
