@@ -1632,7 +1632,8 @@ void Key_Event (int key, qboolean down)
 		{
 			Cmd_ExecuteString("inc volume .02\n", src_command);
 			if (!strcmp(mute, "y"))
-				Sound_Toggle_Mute_f();			
+				Sound_Toggle_Mute_f();	
+			Con_Printf("volume: %.2f\n", sfxvolume.value);
 			return;
 		}
 
@@ -1641,7 +1642,8 @@ void Key_Event (int key, qboolean down)
 		{
 			Cmd_ExecuteString("inc volume -.02\n", src_command);
 			if (!strcmp(mute, "y"))
-				Sound_Toggle_Mute_f();			
+				Sound_Toggle_Mute_f();
+			Con_Printf("volume: %.2f\n", sfxvolume.value);
 			return;
 		}
 
