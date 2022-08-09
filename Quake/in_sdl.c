@@ -1370,6 +1370,24 @@ void IN_SendKeyEvents (void)
 			Con_DPrintf("Ignoring SDL_CONTROLLERDEVICEREMAPPED\n");
 			break;
 #endif
+
+		case SDL_DROPFILE:
+			Cbuf_AddText("playdemo ");
+
+			char* s = event.drop.file;
+			int n = strlen(s);
+			char* suffix = s + n;
+
+			while (0 < n && s[--n] != '\\');
+			if (s[n] == '\\') {
+				suffix = s + n + 1;
+				s[n] = '\0';
+			}
+
+			Cbuf_AddText(suffix);
+			Cbuf_AddText("\n");
+			SDL_free(event.drop.file);
+			break;
 				
 		case SDL_QUIT:
 			CL_Disconnect ();
