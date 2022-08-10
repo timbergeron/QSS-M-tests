@@ -53,6 +53,7 @@ extern	qboolean	scr_skipupdate;
 extern	cvar_t		scr_viewsize;
 
 extern	cvar_t		scr_sbaralpha; //johnfitz
+extern	cvar_t		scr_sbaralphaqwammo; // woods #sbarstyles
 extern	cvar_t		scr_sbar; // woods #sbarstyles
 
 void SCR_UpdateWholeScreen (void);

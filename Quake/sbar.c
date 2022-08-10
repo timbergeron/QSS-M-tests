@@ -921,7 +921,10 @@ void Sbar_DrawInventory_QW (void)
 				Sbar_DrawSubPicAlpha(0, 188 - 11 * (4 - i) - 24, rsb_invbar[1], 1 + (i * 48), 0, 44, 11, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
 		}
 		else
-			Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 1);
+			if (!scr_sbaralphaqwammo.value) // woods #sbarstyles
+				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 0);
+			else
+				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 1);
 	}
 
 	// weapons
@@ -1024,15 +1027,19 @@ void Sbar_DrawInventory_QW (void)
 	// ammo counts
 	for (i = 0; i < 4; i++)
 	{
+		int x;
+		x = 0;
+		if (!scr_sbaralphaqwammo.value) // woods #sbarstyles
+			x = 8;
 		val = cl.stats[STAT_SHELLS + i];
 		val = (val < 0) ? 0 : q_min(999, val);//johnfitz -- cap displayed value to 999
 		sprintf(num, "%3i", val);
 		if (num[0] != ' ')
-			Sbar_DrawCharacter(9, 188 - 11 * (4 - i) - 24, 18 + num[0] - '0');
+			Sbar_DrawCharacter(9 + x, 188 - 11 * (4 - i) - 24, 18 + num[0] - '0');
 		if (num[1] != ' ')
-			Sbar_DrawCharacter(17, 188 - 11 * (4 - i) - 24, 18 + num[1] - '0');
+			Sbar_DrawCharacter(17 + x, 188 - 11 * (4 - i) - 24, 18 + num[1] - '0');
 		if (num[2] != ' ')
-			Sbar_DrawCharacter(25, 188 - 11 * (4 - i) - 24, 18 + num[2] - '0');
+			Sbar_DrawCharacter(25 + x, 188 - 11 * (4 - i) - 24, 18 + num[2] - '0');
 	}
 
 	flashon = 0;
