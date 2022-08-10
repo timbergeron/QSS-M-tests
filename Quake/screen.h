@@ -72,7 +72,13 @@ typedef enum {
 	CANVAS_MATCHCLOCK,
 	CANVAS_BOTTOMLEFT,
 	CANVAS_BOTTOMLEFT2, // woods #scrping
-	CANVAS_BOTTOMLEFT3, // woods for QE hud, scr_sbar 3
+	CANVAS_SBARQE, // woods for QE hud, scr_sbar 3
+	CANVAS_IBAR_QWQE, // woods for QE hud, scr_sbar 3
+	CANVAS_BOTTOMLEFTQE, // woods for QE hud, scr_sbar 3
+	CANVAS_BOTTOMLEFTQESMALL, // woods for QE hud, scr_sbar 3
+	CANVAS_BOTTOMLEFTQESCORES, // woods for QE hud, scr_sbar 3
+	CANVAS_BOTTOMRIGHTQE, // woods for QE hud, scr_sbar 3
+	CANVAS_BOTTOMRIGHTQESMALL, // woods for QE hud, scr_sbar 3
 	CANVAS_MOD, // woods #modprint
 	CANVAS_OBSERVER, // woods #observer
 	CANVAS_SCORES, // woods #observerhud

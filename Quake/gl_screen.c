@@ -681,20 +681,26 @@ void SCR_DrawFPS (void)
 		x = 312 - (strlen(st)<<3); // woods added padding
 		if (scr_sbar.value == 3) // woods #qehud
 		{
-			x = 305;
+			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
+			x = 301;
 			if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
-				y = 130;
+			{
+				y = 120;
+				if (scr_viewsize.value >= 110)
+					y += 20;
+			}
 			else
-				y = 150;
+				y = 142;
 		}
 		else
 		{
+			GL_SetCanvas(CANVAS_BOTTOMRIGHT);
 			x = 312;
 			y = 186;
 		}
 		if (scr_clock.value) y -= 12; //make room for clock // woods added padding
-		GL_SetCanvas (CANVAS_BOTTOMRIGHT);
-		Draw_String (x - (strlen(st) << 3), y, st);
+			Draw_String (x - (strlen(st) << 3), y, st);
+
 		scr_tileclear_updates = 0;
 	}
 }
@@ -734,30 +740,32 @@ void SCR_DrawClock (void)
 
 		strftime(str, 12, "%X", &loct);
 	}
-
 	else
 		return;
 
 	//draw it
 
 	if (scr_sbar.value == 3) // woods #qehud
-	{ 
-		x = 305;
+	{
+		GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
+		x = 301;
 		if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
-			y = 130;
+		{
+			y = 120;
+			if (scr_viewsize.value >= 110)
+				y += 20;
+		}
 		else
-			y = 150;
-		
+			y = 142;
 	}
 	else
 	{ 
+		GL_SetCanvas(CANVAS_BOTTOMRIGHT);
 		x = 312;
 		y = 186;
 	}
 
-	GL_SetCanvas (CANVAS_BOTTOMRIGHT);
 	Draw_String(x - (strlen(str) << 3), y, str); // woods added padding
-
 	scr_tileclear_updates = 0;
 }
 
@@ -791,12 +799,12 @@ void SCR_ShowPing(void)
 
 			if (scr_sbar.value == 3) // #qehud
 			{
+				GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
 				if (cl.stats[STAT_ARMOR] < 1)
-					y = 50;
+					y = 140;
 				else
-					y = 24;
-				x = 58;
-				
+					y = 114;
+				x = 61;				
 			}
 			else
 			{
@@ -855,11 +863,12 @@ void SCR_ShowPL(void)
 
 		if (scr_sbar.value == 3) // #qehud
 		{
+			GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
 			x = 18;
 			if (cl.stats[STAT_ARMOR] < 1)
-				y = 39;
+				y = 129;
 			else
-				y = 13;
+				y = 103;
 		}
 		else
 		{
@@ -1130,27 +1139,30 @@ void SCR_ShowObsFrags(void)
 	char buf[15];
 	const char* obs;
 
+	if (cl.intermission)
+		return;
+
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
 
 		if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value || !strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk"))
-		{ 
-			GL_SetCanvas(CANVAS_SCORES);
-
+		{
 			scale = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0); //johnfitz
 
 			Sbar_SortFrags_Obs ();
 
 			if (scr_sbar.value == 3)
 			{
-				x = 20;
-				y = 190; //johnfitz -- start at the right place
+				GL_SetCanvas(CANVAS_BOTTOMLEFTQESCORES);
+				x = 24;
+				y = 170;
 			}
 			else
 			{ 
-				x = 12;
-				y = 230; //johnfitz -- start at the right place
+				GL_SetCanvas(CANVAS_SCORES);
+				x = 10;
+				y = 160;
 			}
 			for (i = 0; i < scoreboardlines; i++, y += -8) //johnfitz -- change y init, test, inc woods (reverse drawing order from bottom to top)
 			{
@@ -1285,7 +1297,7 @@ void SCR_DrawSpeed (void)
 
 	if (scr_sbar.value == 3)
 	{
-		GL_SetCanvas(CANVAS_BOTTOMLEFT3);
+		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 		y = 175;
 		x = 134;
 	}
@@ -1339,19 +1351,18 @@ void SCR_Mute(void)
 
 		if (scr_sbar.value == 3) // #qehud
 		{
-			y = 178;
-
-			GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+			y = 173;
+			x = 184;
+			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 			
-			if (cl.stats[STAT_AMMO] > 99)
-				x = 160;
-			else if (cl.stats[STAT_AMMO] > 9)
-				x = 180;
-			else
-				x = 200;
+
+			if (cl.stats[STAT_AMMO] > 9) // two digits
+				x -= 20;
+			if (cl.stats[STAT_AMMO] > 99) // three digits
+				x -= 32;
 
 			if (cls.demoplayback)
-				x -= 30;
+				x -= 34;
 
 			M_PrintWhite(x, y, "mute");
 		}
@@ -1399,14 +1410,13 @@ void SCR_Observing(void)
 {
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
-		char printtxt[15];
-		char buf[15];
+		char printtxt[25];
 		char buf2[25];
 		char buf3[25];
 		const char* obs;
 		const char* observing;
 		int color;
-		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf2, sizeof(buf));
+		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf2, sizeof(buf2));
 		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color

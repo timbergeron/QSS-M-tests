@@ -905,7 +905,10 @@ void Sbar_DrawInventory_QW (void)
 	int	flashon;
 	int extraguns = 2 * hipnotic;
 
-	GL_SetCanvas(CANVAS_IBAR_QW);
+	if (scr_sbar.value == 3)
+		GL_SetCanvas(CANVAS_IBAR_QWQE);
+	else
+		GL_SetCanvas(CANVAS_IBAR_QW);
 
 	//for qw hud, ammo backgrounds
 	for (i = 0; i < 4; i++)
@@ -1131,7 +1134,7 @@ void Sbar_DrawInventory_QE (void)
 {
 	int	i, x;
 
-	GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+	GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 				
 	// keys
 
@@ -1338,26 +1341,26 @@ void Sbar_DrawRecord(void)
 		if (scr_viewsize.value >= 110)
 			return;
 
-		GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+		GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 
 		x = 316;
-		y = 167;
+		y = 156;
 		Draw_Fill(x, y, 1, 1, 249, 1);
 	}
 
 	if (scr_sbar.value == 3)
 	{
-		GL_SetCanvas(CANVAS_BOTTOMRIGHT);
+		GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 
 		x = 302;
-		y = 158;
+		y = 159;
 
 		if (scr_showfps.value)
-			y -= 12;
+			y -= 11;
 		if (scr_clock.value)
-			y -= 12;
-		if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
-			y -= 20;
+			y -= 11;
+		if (((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4)) && !(scr_viewsize.value >= 110))
+			y -= 19;
 
 		Draw_Fill(x, y, 1, 1, 249, 1);
 	}
@@ -1468,14 +1471,14 @@ void Sbar_DrawFace_Team (void)
 	int color;
 	color = (int)cl_bottomcolor.value;
 
-	if (sb_showscores == true)
+	if ((sb_showscores == true) && !scr_sbar.value == 3)
 		return;
 	
 	if (scr_sbar.value == 3 && cl.teamgame && color != 0)
 		if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
 			(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
 		{
-			GL_SetCanvas(CANVAS_BOTTOMLEFT3);
+			GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 			Draw_Fill(18, 164, 23, 1, (color * 16) + 8, .7); // top
 			Draw_Fill(18, 187, 23, 1, (color * 16) + 8, .7); // bottom
 
@@ -1488,8 +1491,7 @@ void Sbar_DrawFace_Team (void)
 		if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
 			(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
 		{
-			// 	Draw_Fill(111, 24, 25, 1, color, .3); // top
-			//	Draw_Fill(111, 47, 25, 1, color, .3); // bottom
+			GL_SetCanvas(CANVAS_SBAR);
 
 			Draw_Fill(111, 24, 1, 25, (color * 16) + 8, .7); // left
 			Draw_Fill(136, 24, 1, 25, (color * 16) + 8, .7);  // right
@@ -1659,14 +1661,18 @@ void Sbar_Draw (void)
 		if (scr_sbar.value == 2)
 			Sbar_DrawInventory_QW ();
 		if (scr_sbar.value == 3)
+		{
+			GL_SetCanvas(CANVAS_BOTTOMRIGHTQE); //johnfitz
 			Sbar_DrawInventory_QE();
+			Sbar_DrawInventory_QW();
+		}
 		if (cl.maxclients != 1)
 			Sbar_DrawFrags ();
 	}
 
 	if (scr_sbar.value == 3) // qe hud does not use 'traditional sbar' #qehud
 	{
-		GL_SetCanvas(CANVAS_BOTTOMLEFT3); //johnfitz
+		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 
 		// armor
 
@@ -1712,11 +1718,14 @@ void Sbar_Draw (void)
 		// face
 		Sbar_DrawPic(18, 140, Sbar_FacePic());
 
+		if (cl.time <= cl.faceanimtime) // woods for damagehue on sbar face
+			Draw_Fill (18, 163, 24, 25, 24, .2);
+
 		// health
 		Sbar_DrawNum(50, 139, cl.stats[STAT_HEALTH], 3
 			, cl.stats[STAT_HEALTH] <= 25);
 
-		GL_SetCanvas(CANVAS_BOTTOMRIGHT); //johnfitz
+		GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 
 	//	if (cl.stats[STAT_AMMO] > 0)
 			Sbar_DrawSubPicAlpha(280, 140, sb_sbar, 0, 0, 24, 24, 1); // ammo sbar background
@@ -1844,7 +1853,10 @@ void Sbar_Draw (void)
 
 	}
 
-	GL_SetCanvas(CANVAS_SBAR); //johnfitz
+	if (scr_sbar.value == 3)
+		GL_SetCanvas(CANVAS_SBARQE);
+	else
+		GL_SetCanvas(CANVAS_SBAR); //johnfitz
 
 	if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
 	{
@@ -1869,11 +1881,17 @@ void Sbar_Draw (void)
 		char* tempstring = va("%i%%", complete_pct_int);
 		int len = strlen(tempstring), i;
 		int x, y;
-		if (scr_sbar.value == 3)
+		if (scr_sbar.value == 3) // #qehud
 		{
-			GL_SetCanvas(CANVAS_BOTTOMRIGHT);
-			x = 196;
-			y = 154;
+			y = 149;
+			x = 216;
+			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
+
+
+			if (cl.stats[STAT_AMMO] > 9) // two digits
+				x -= 20;
+			if (cl.stats[STAT_AMMO] > 99) // three digits
+				x -= 32;
 		}
 		else
 		{

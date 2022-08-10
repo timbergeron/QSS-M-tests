@@ -1041,10 +1041,40 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, 320, 200, 0, -99999, 99999);
 		glViewport (glx, gly - 100*s, 320*s, 200*s);
 		break;
-	case CANVAS_BOTTOMLEFT3: // woods for QE hud, scr_sbar 3
-		s = (float)glwidth / vid.conwidth; //use console scale
+	case CANVAS_IBAR_QWQE: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_sbarscale.value / 1.4, (float)glwidth / 320.0);
+		glOrtho(0, 44, 188, 0, -99999, 99999);
+		glViewport(glwidth - 65 * s, 117 * s, 44 * s, 188 * s);
+		break;
+	case CANVAS_SBARQE: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_conscale.value, (float)glwidth / 320.0);
+		glOrtho(0, 320, 48, 0, -99999, 99999);
+		glViewport(glx + (glwidth - 320 * s) / 2, gly, 320 * s, 48 * s);
+		break;
+	case CANVAS_BOTTOMLEFTQE: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		glOrtho(0, 320, 200, 0, -99999, 99999);
 		glViewport(glx, gly, 320 * s, 200 * s);
+		break;
+	case CANVAS_BOTTOMLEFTQESCORES: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_sbarscale.value / 1.2, (float)glwidth / 320.0);
+		glOrtho(0, 320, 300, 0, -99999, 99999);
+		glViewport(glx, gly, 320 * s, 300 * s);
+		break;
+	case CANVAS_BOTTOMLEFTQESMALL: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_sbarscale.value/1.2, (float)glwidth / 320.0);
+		glOrtho(0, 320, 200, 0, -99999, 99999);
+		glViewport(glx, gly, 320 * s, 200 * s);
+		break;
+	case CANVAS_BOTTOMRIGHTQE: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		glOrtho(0, 320, 200, 0, -99999, 99999);
+		glViewport(glx + glwidth - 320 * s, gly, 320 * s, 200 * s);
+		break;
+	case CANVAS_BOTTOMRIGHTQESMALL: // woods for QE hud, scr_sbar 3
+		s = CLAMP(1.0, scr_sbarscale.value / 1.2, (float)glwidth / 320.0);
+		glOrtho(0, 320, 200, 0, -99999, 99999);
+		glViewport(glx + glwidth - 320 * s, gly, 320 * s, 200 * s);
 		break;
 	case CANVAS_BOTTOMRIGHT: //used by fps/clock
 		s = (float)glwidth/vid.conwidth; //use console scale
