@@ -740,6 +740,13 @@ void SCR_DrawClock (void)
 
 		strftime(str, 12, "%X", &loct);
 	}
+	else if (scr_clock.value == 4)
+	{
+		time_t systime = time(0);
+		struct tm loct = *localtime(&systime);
+
+		strftime(str, 12, "%m/%d/%Y", &loct);
+	}
 	else
 		return;
 
