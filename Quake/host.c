@@ -913,18 +913,31 @@ static void UpdateWindowTitle(void)
 			return;
 	last = current;
 
+
+
+
 	if (current.map[0])
 	{
 		char title[1024];
+		unsigned char* ch;
+		char ln[128];
+
+		sprintf(ln, cl.levelname);
+		for (ch = ln; *ch; ch++)
+		{
+			*ch = dequake[*ch];
+			if (*ch == 10 || *ch == 13)
+				*ch = ' ';
+		}
 
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected) && !cls.demoplayback) // woods added connected server
-			q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, cl.levelname, current.map);
+			q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, ln, current.map);
 		else if (cls.demoplayback) // woods added demofile
-			q_snprintf(title, sizeof(title), "%s (%s)  |  %s  -  " ENGINE_NAME_AND_VER, cl.levelname, current.map, demoplaying);
+			q_snprintf(title, sizeof(title), "%s (%s)  |  %s  -  " ENGINE_NAME_AND_VER, ln, current.map, demoplaying);
 		else
 			q_snprintf(title, sizeof(title),
 				"%s (%s)  |  skill %d  |  %d/%d kills  |  %d/%d secrets  -  " ENGINE_NAME_AND_VER,
-				cl.levelname, current.map,
+				ln, current.map,
 				current.stats.skill,
 				current.stats.monsters, current.stats.total_monsters,
 				current.stats.secrets, current.stats.total_secrets
