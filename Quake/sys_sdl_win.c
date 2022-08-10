@@ -229,6 +229,84 @@ static void Sys_SetTimerResolution(void)
 	timeBeginPeriod (1);
 }
 
+// woods -- https://github.com/andrei-drexler/ironwail/issues/104 disable CAPSLOCK #disablecaps
+
+static HHOOK key_hook = NULL;
+
+#define HOOKED_KEYS			\
+	HOOK_KEY (CAPSLOCK)		\
+
+
+#define SC_CAPSLOCK			0x3A
+
+enum
+{
+#define HOOK_KEY(k)		HK_##k,
+	HOOKED_KEYS
+#undef HOOK_KEY
+
+	HK_COUNT,
+};
+
+static const SDL_Scancode hk_sdl_scancodes[HK_COUNT] =
+{
+	#define HOOK_KEY(k)		SDL_SCANCODE_##k,
+	HOOKED_KEYS
+	#undef HOOK_KEY
+};
+
+static int GetFilteredKeyIndex(int scancode)
+{
+	switch (scancode)
+	{
+#define HOOK_KEY(k)	case SC_##k: return HK_##k;
+		HOOKED_KEYS
+#undef HOOK_KEY
+	default:
+		return -1;
+	}
+}
+
+LRESULT CALLBACK KeyFilter(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	if (nCode >= 0 && VID_HasMouseOrInputFocus())
+	{
+		PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
+		int scancode = p->scanCode | (p->flags & 1 ? 0xE000 : 0);
+		int key = GetFilteredKeyIndex(p->scanCode);
+		if (key != -1)
+		{
+			// Note: if we intercept a key down message,
+			// we also need to intercept the corresponding key up.
+			static uint32_t pending_mask = 0;
+
+			qboolean force_intercept = (pending_mask >> key) & 1;
+			qboolean down = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
+			qboolean intercept =
+				force_intercept ||
+				(key_dest == key_game || M_KeyBinding())
+				;
+
+			if (intercept)
+			{
+				SDL_Event ev;
+				if (down)
+					pending_mask |= (1 << key);
+				else
+					pending_mask &= ~(1 << key);
+				memset(&ev, 0, sizeof(ev));
+				ev.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+				ev.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+				ev.key.keysym.scancode = hk_sdl_scancodes[key];
+				SDL_PushEvent(&ev);
+				return 1;
+			}
+		}
+	}
+
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
+}
+
 void Sys_Init (void)
 {
 	OSVERSIONINFO	vinfo;
@@ -291,6 +369,14 @@ void Sys_Init (void)
 		hinput = GetStdHandle (STD_INPUT_HANDLE);
 		houtput = GetStdHandle (STD_OUTPUT_HANDLE);
 	}
+
+	else
+	{
+		key_hook = SetWindowsHookExW(WH_KEYBOARD_LL, KeyFilter, GetModuleHandleW(NULL), 0);
+		if (!key_hook)
+			Sys_Printf("Warning: SetWindowsHookExW failed (%d)\n", GetLastError());
+	}
+
 }
 
 void Sys_mkdir (const char *path)
@@ -468,3 +554,11 @@ void Sys_SendKeyEvents (void)
 	IN_SendKeyEvents();
 }
 
+void Sys_RemoveKeyFilter(void)
+{
+	if (key_hook)
+	{
+		UnhookWindowsHookEx(key_hook);
+		key_hook = NULL;
+	}
+}

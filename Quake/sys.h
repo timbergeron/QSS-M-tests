@@ -67,5 +67,9 @@ void Sys_Sleep (unsigned long msecs);
 void Sys_SendKeyEvents (void);
 // Perform Key_Event () callbacks until the input que is empty
 
+#if defined(_WIN32) // woods #disablecaps via ironwail
+void Sys_RemoveKeyFilter(void);
+#endif
+
 #endif	/* _QUAKE_SYS_H */
 

@@ -3455,6 +3455,12 @@ qboolean M_TextEntry (void)
 	}
 }
 
+#if defined(_WIN32) // woods #disablecaps via ironwail
+qboolean M_KeyBinding(void)
+{
+	return key_dest == key_menu && m_state == m_keys && bind_grab;
+}
+#endif
 
 void M_ConfigureNetSubsystem(void)
 {

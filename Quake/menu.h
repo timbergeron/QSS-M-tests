@@ -56,6 +56,9 @@ void M_Init (void);
 void M_Keydown (int key);
 void M_Charinput (int key);
 qboolean M_TextEntry (void);
+#if defined(_WIN32) // woods #disablecaps via ironwail
+qboolean M_KeyBinding(void);
+#endif
 void M_ToggleMenu (int mode);
 void MQC_Shutdown(void);
 
