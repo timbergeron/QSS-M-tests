@@ -7158,7 +7158,7 @@ static struct
 #define PF_NoMenu NULL,0
 {
 //QuakeEx (aka: quake rerelease). These conflict with core extensions so we don't register them by default.
-	{"ex_finaleFinished",PF_ex_finaleFinished,PF_NoCSQC,		0/*79*/,PF_NoMenu,	"DEP float()", "Behaviour is undocumented."},
+	{"ex_finaleFinished",PF_ex_finaleFinished,PF_NoCSQC,		0/*79*/,PF_NoMenu,	"QSSDEP float()", "Behaviour is undocumented."},
 	{"ex_localsound",	PF_ex_localsound,	PF_NoCSQC,			0/*80*/,PF_NoMenu,	"void(entity client, string sample)", "Plays a sound to the specific client at full volume without attenuation nor spacialisation."},
 //	{"ex_draw_point",	PF_Fixme_noext,		PF_NoCSQC,			0/*81*/,PF_NoMenu,	"DEP void(vector point, float colormap, float lifetime, float depthtest)", "Behaviour is undocumented."},
 //	{"ex_draw_line",	PF_Fixme_noext,		PF_NoCSQC,			0/*82*/,PF_NoMenu,	"DEP void(vector start, vector end, float colormap, float lifetime, float depthtest)", "Behaviour is undocumented."},
@@ -7172,10 +7172,10 @@ static struct
 	{"ex_centerprint",	PF_ex_centerprint,	PF_NoCSQC,			0/*90*/,PF_NoMenu,	"void(entity ent, string text, optional string s0, optional string s1, optional string s2, optional string s3, optional string s4, optional string s5)", "Remaster: Sends the strings to the client, which will order according to {#}. Also substitutes localised strings for $NAME strings."},
 	{"ex_bprint",		PF_ex_bprint,		PF_NoCSQC,			0/*91*/,PF_NoMenu,	"void(string s, optional string s0, optional string s1, optional string s2, optional string s3, optional string s4, optional string s5, optional string s6)", "Remaster: Sends the strings to all clients, which will order them according to {#}. Also substitutes localised strings for $NAME strings."},
 	{"ex_sprint",		PF_ex_sprint,		PF_NoCSQC,			0/*92*/,PF_NoMenu,	"void(entity client, string s, optional string s0, optional string s1, optional string s2, optional string s3, optional string s4, optional string s5)", "Remaster: Sends the strings to the client, which will order according to {#}. Also substitutes localised strings for $NAME strings."},
-	{"ex_CheckPlayerEXFlags",PF_ex_CheckPlayerEXFlags,PF_NoCSQC,0,	PF_NoMenu,		"DEP float(entity playerEnt)", "Stub, for now."},
-	{"ex_walkpathtogoal",PF_ex_walkpathtogoal,PF_NoCSQC,		0,	PF_NoMenu,		"DEP float(float movedist, vector goal)", "Stub, for now."},
-	{"ex_bot_movetopoint",PF_ex_bot_movetopoint,PF_NoCSQC,		0,	PF_NoMenu,		"DEP float(entity bot, vector point)", "Stub, for now."},
-	{"ex_bot_followentity",PF_ex_bot_followentity,PF_NoCSQC,	0,	PF_NoMenu,		"DEP float(entity bot, entity goal)", "Stub, for now."},
+	{"ex_CheckPlayerEXFlags",PF_ex_CheckPlayerEXFlags,PF_NoCSQC,0,	PF_NoMenu,		"QSSDEP float(entity playerEnt)", "Stub, for now."},
+	{"ex_walkpathtogoal",PF_ex_walkpathtogoal,PF_NoCSQC,		0,	PF_NoMenu,		"QSSDEP float(float movedist, vector goal)", "Stub, for now."},
+	{"ex_bot_movetopoint",PF_ex_bot_movetopoint,PF_NoCSQC,		0,	PF_NoMenu,		"QSSDEP float(entity bot, vector point)", "Stub, for now."},
+	{"ex_bot_followentity",PF_ex_bot_followentity,PF_NoCSQC,	0,	PF_NoMenu,		"QSSDEP float(entity bot, entity goal)", "Stub, for now."},
 
 
 //End QuakeEx, for now. :(
@@ -8268,7 +8268,7 @@ void PR_DumpPlatform_f(void)
 	}
 	fprintf(f,
 		"#ifndef QSSDEP\n"
-			"#define QSSDEP(reason) __deprecated(reason)\n"
+			"#define QSSDEP __deprecated\n"
 		"#endif\n"
 	);
 
