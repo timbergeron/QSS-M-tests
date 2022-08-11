@@ -1478,7 +1478,7 @@ void Sbar_DrawFace_Team (void)
 	int color;
 	color = (int)cl_bottomcolor.value;
 
-	if ((sb_showscores == true) && !scr_sbar.value == 3)
+	if ((sb_showscores == true) && (scr_sbar.value != 3))
 		return;
 	
 	if (scr_sbar.value == 3 && cl.teamgame && color != 0)
