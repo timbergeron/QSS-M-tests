@@ -6084,8 +6084,8 @@ static void PR_addentity_internal(edict_t *ed)	//adds a csqc entity into the sce
 				e->netstate.colormod[2] *= colormod->vector[2];
 			}
 			e->alpha = alpha?ENTALPHA_ENCODE(alpha->_float):ENTALPHA_DEFAULT;
-			if (scale && scale->_float)
-				e->netstate.scale *= scale->_float;
+			if (scale)
+				e->netstate.scale = ENTSCALE_ENCODE(scale->_float);
 
 			//can't exactly use currentpose/previous pose, as we don't know them.
 			e->lerpflags = LERP_EXPLICIT|LERP_RESETANIM|LERP_RESETMOVE;
@@ -6937,7 +6937,7 @@ static void PF_cl_getrenderentity(void)
 		AngleVectors(tmp, tmp, tmp, G_VECTOR(OFS_RETURN));
 		break;
 	case GE_SCALE:
-		G_FLOAT(OFS_RETURN+0) = cl.entities[entnum].netstate.scale/16.0;
+		G_FLOAT(OFS_RETURN+0) = ENTSCALE_DECODE(cl.entities[entnum].netstate.scale);
 		break;
 	case GE_ALPHA:
 		G_FLOAT(OFS_RETURN+0) = ENTALPHA_DECODE(cl.entities[entnum].alpha);

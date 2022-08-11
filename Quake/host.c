@@ -748,6 +748,7 @@ qmodel_t *CL_ModelForIndex(int index)
 static void CL_LoadCSProgs(void)
 {
 	qboolean fullcsqc = false;
+	int i;
 	PR_ClearProgs(&cl.qcvm);
 	if (pr_checkextension.value && !cl_nocsqc.value)
 	{	//only try to use csqc if qc extensions are enabled.
@@ -774,6 +775,8 @@ static void CL_LoadCSProgs(void)
 			qcvm->edicts = (edict_t *) malloc (qcvm->max_edicts*qcvm->edict_size);
 			qcvm->num_edicts = qcvm->reserved_edicts = 1;
 			memset(qcvm->edicts, 0, qcvm->num_edicts*qcvm->edict_size);
+			for (i = 0; i < qcvm->num_edicts; i++)
+				EDICT_NUM(i)->baseline = nullentitystate;
 
 			//in terms of exploit protection this is kinda pointless as someone can just strip out this check and compile themselves. oh well.
 			if ((*versionedname && qcvm->progshash == csqchash && qcvm->progssize == csqcsize) || cls.demoplayback)

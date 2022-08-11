@@ -1802,7 +1802,7 @@ CL_ParseBaseline
 static void CL_ParseBaseline (entity_t *ent, int version) //johnfitz -- added argument
 {
 	int	i;
-	int bits; //johnfitz
+	int bits, unknownbits;
 
 	if (version == 6)
 	{
@@ -1831,7 +1831,17 @@ static void CL_ParseBaseline (entity_t *ent, int version) //johnfitz -- added ar
 		ent->baseline.angles[i] = MSG_ReadAngle (cl.protocolflags);
 	}
 
-	ent->baseline.alpha = (bits & B_ALPHA) ? MSG_ReadByte() : ENTALPHA_DEFAULT; //johnfitz -- PROTOCOL_FITZQUAKE
+	if (bits & B_ALPHA)
+		ent->baseline.alpha = MSG_ReadByte();
+	if (bits & B_SCALE)	//not actually valid in 666, but reading anyway for servers that don't distinguish properly. The warning will have to suffice.
+		ent->baseline.scale = MSG_ReadByte();
+
+	if (cl.protocol == PROTOCOL_RMQ)
+		unknownbits = ~(B_LARGEMODEL|B_LARGEFRAME|B_ALPHA|B_SCALE);
+	else
+		unknownbits = ~(B_LARGEMODEL|B_LARGEFRAME|B_ALPHA);
+	if (bits & unknownbits)
+		Con_Warning("CL_ParseBaseline: Unknown bits %#x\n", bits & unknownbits);
 }
 
 
