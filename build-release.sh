@@ -11,7 +11,7 @@ MAKEARGS="-j8"
 
 # Make win32
 export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
-export QSS_LDFLAGS=""
+export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
 make -f Makefile.w32 clean
 ./build_cross_win32-sdl2.sh $MAKEARGS
 mv quakespasm.exe QSS-M-w32.exe
@@ -20,7 +20,7 @@ make -f Makefile.w32 clean
 
 # Make win64
 export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
-export QSS_LDFLAGS=""
+export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
 make -f Makefile.w64 clean
 ./build_cross_win64-sdl2.sh $MAKEARGS
 mv quakespasm.exe QSS-M-w64.exe
