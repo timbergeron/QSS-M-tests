@@ -302,7 +302,7 @@ R_CullModelForEntity -- johnfitz -- uses correct bounds based on rotation
 qboolean R_CullModelForEntity (entity_t *e)
 {
 	vec3_t mins, maxs;
-	float scale = e->netstate.scale/16.0;
+	float scale = ENTSCALE_DECODE(e->netstate.scale);
 
 	if (e->angles[0] || e->angles[2]) //pitch or roll
 	{
@@ -335,8 +335,8 @@ void R_RotateForEntity (vec3_t origin, vec3_t angles, unsigned char scale)
 	glRotatef (-angles[0],  0, 1, 0);
 	glRotatef (angles[2],  1, 0, 0);
 
-	if (scale != 16)
-		glScalef (scale/16.0, scale/16.0, scale/16.0);
+	if (scale != ENTSCALE_DEFAULT)
+		glScalef (ENTSCALE_DECODE(scale), ENTSCALE_DECODE(scale), ENTSCALE_DECODE(scale));
 }
 
 /*
