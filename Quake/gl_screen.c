@@ -350,8 +350,6 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	const char* realobs;
 	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf3, sizeof(buf2));
 
-	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap centerprints with scoreboard
-		return;
 	if ((cl.modtype == 1) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods don't get rid of center for active player
 		return;
 	if ((cl.modtype == 1) && (!strcmp(obs, "off") && (strcmp(name, cl_name.string)))) // woods don't get rid of center for active player
@@ -414,6 +412,12 @@ void SCR_CheckDrawCenterString (void)
 	if (key_dest != key_game)
 		return;
 	if (cl.paused) //johnfitz -- don't show centerprint during a pause
+		return;
+
+	if (cl.paused) //johnfitz -- don't show centerprint during a pause
+		return;
+
+	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH)) // woods don't overlap centerprints with scoreboard
 		return;
 
 	SCR_DrawCenterString ();
@@ -866,25 +870,27 @@ void SCR_ShowPL(void)
 
 		pl = atoi(cl.scrpacketloss); // convert string to integer
 
-		GL_SetCanvas(CANVAS_BOTTOMLEFT2);
-
 		int	x, y;
 
 		if (scr_sbar.value == 3) // #qehud
 		{
 			GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
-			x = 18;
+			x = 20;
 			if (cl.stats[STAT_ARMOR] < 1)
 				y = 129;
 			else
 				y = 103;
+			if (!scr_ping.value)
+				y += 10;
 		}
 		else
 		{
+			GL_SetCanvas(CANVAS_BOTTOMLEFT2);
 			x = 6;
 			y = 77;
+			if (!scr_ping.value)
+				y += 10;
 		}
-
 
 		if (cl.expectingpltimes < realtime)
 		{
