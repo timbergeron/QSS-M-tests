@@ -1568,7 +1568,7 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
-#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
+/*#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (down && (key == 'q') && keydown[K_COMMAND])
 	{
 		Host_Quit_f();
@@ -1586,7 +1586,7 @@ void Key_Event (int key, qboolean down)
 	{
 		Host_Quit_f();
 		return;
-	}
+	}*/
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp

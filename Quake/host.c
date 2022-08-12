@@ -913,16 +913,13 @@ static void UpdateWindowTitle(void)
 			return;
 	last = current;
 
-
-
-
 	if (current.map[0])
 	{
 		char title[1024];
 		unsigned char* ch;
 		char ln[128];
 
-		sprintf(ln, cl.levelname);
+		sprintf(ln, cl.levelname); // woods dequake
 		for (ch = ln; *ch; ch++)
 		{
 			*ch = dequake[*ch];

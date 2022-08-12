@@ -3327,6 +3327,7 @@ void CL_ParseServerMessage (void)
 			if (i >= cl.maxclients)
 				Host_Error ("CL_ParseServerMessage: svc_updatename > MAX_SCOREBOARD");
 			q_strlcpy (cl.scores[i].name, MSG_ReadString(), MAX_SCOREBOARDNAME);
+			Info_SetKey(cl.scores[i].userinfo, sizeof(cl.scores[i].userinfo), "name", cl.scores[i].name);
 			break;
 
 		case svc_updatefrags:
@@ -3343,6 +3344,8 @@ void CL_ParseServerMessage (void)
 			if (i >= cl.maxclients)
 				Host_Error ("CL_ParseServerMessage: svc_updatecolors > MAX_SCOREBOARD");
 			CL_NewTranslation (i, MSG_ReadByte());
+			Info_SetKey(cl.scores[i].userinfo, sizeof(cl.scores[i].userinfo), "topcolor", va("%d", cl.scores[i].shirt.basic));
+			Info_SetKey(cl.scores[i].userinfo, sizeof(cl.scores[i].userinfo), "bottomcolor", va("%d", cl.scores[i].pants.basic));
 			break;
 
 		case svc_particle:
