@@ -63,6 +63,7 @@ cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
 cvar_t  cl_afk = {"cl_afk", "1", CVAR_ARCHIVE }; // woods #smartafk
 cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
+cvar_t  cl_rocketlight = {"cl_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
 
 client_static_t	cls;
 client_state_t	cl;
@@ -892,7 +893,10 @@ void CL_RelinkEntities (void)
 				CL_RocketTrail(ent, 0); // woods(ironwail) #pemission
 			dl = CL_AllocDlight (i);
 			VectorCopy (ent->origin, dl->origin);
-			dl->radius = 0;		// woods eliminate rocket light
+			if (!cl_rocketlight.value)
+				dl->radius = 0;		// woods eliminate rocket light #rocketlight
+			else
+				dl->radius = 200;
 			dl->die = cl.time + 0.01;
 		}
 		else if (modelflags & EF_GRENADE)
@@ -1762,6 +1766,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_say); // woods for #ezsay
 	Cvar_RegisterVariable (&cl_afk); // woods #smartafk
 	Cvar_RegisterVariable (&cl_idle); // woods #smartafk
+	Cvar_RegisterVariable (&cl_rocketlight); // woods #rocketlight
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
