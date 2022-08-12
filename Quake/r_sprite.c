@@ -143,10 +143,7 @@ void R_DrawSpriteModel (entity_t *e)
 	if (psprite->type == SPR_ORIENTED)
 		GL_PolygonOffset (OFFSET_DECAL);
 
-	if (e->netstate.scale != 16)
-		scale = e->netstate.scale/16.0;
-	else
-		scale = 1;
+	scale = ENTSCALE_DECODE(e->netstate.scale);
 
 	glColor3f (e->netstate.colormod[0]/32.0,e->netstate.colormod[0]/32.0,e->netstate.colormod[0]/32.0);
 

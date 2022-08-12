@@ -1110,10 +1110,10 @@ void SV_BuildEntityState(edict_t *ent, entity_state_t *state)
 	state->frame = ent->v.frame;
 	state->colormap = ent->v.colormap;
 	state->skin = ent->v.skin;
-	if ((val = GetEdictFieldValue(ent, qcvm->extfields.scale)) && val->_float)
-		state->scale = val->_float*16;
+	if ((val = GetEdictFieldValue(ent, qcvm->extfields.scale)))
+		state->scale = ENTSCALE_ENCODE(val->_float);
 	else
-		state->scale = 16;
+		state->scale = ENTSCALE_DEFAULT;
 	if ((val = GetEdictFieldValue(ent, qcvm->extfields.alpha)))
 		state->alpha = ENTALPHA_ENCODE(val->_float);
 	else
@@ -1325,6 +1325,10 @@ void MSG_WriteStaticOrBaseLine(sizebuf_t *buf, int idx, entity_state_t *state, u
 					bits |= B_LARGEFRAME;
 				if (state->alpha != ENTALPHA_DEFAULT)
 					bits |= B_ALPHA;
+#ifndef ENTSCALE_QS_IS_BROKEN
+				if (state->scale != ENTSCALE_DEFAULT && protocol == PROTOCOL_RMQ)
+					bits |= B_SCALE;
+#endif
 			}
 			if (idx>=0)
 			{
@@ -1357,6 +1361,8 @@ void MSG_WriteStaticOrBaseLine(sizebuf_t *buf, int idx, entity_state_t *state, u
 		}
 		if (bits & B_ALPHA)
 			MSG_WriteByte (buf, state->alpha);
+		if (bits & B_SCALE)
+			MSG_WriteByte (buf, state->scale);
 	}
 }
 
@@ -2399,6 +2405,7 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 	eval_t	*val;
 	int maxsize = msg->maxsize;
 	int effects;
+	int scale = ENTSCALE_DEFAULT;
 
 	//try to avoid sounds getting lost. flickering entities are weird, but missing sounds+particles are just eerie.
 	maxsize -= client->datagram.cursize;
@@ -2514,6 +2521,10 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 			continue;
 		//johnfitz
 
+		val = GetEdictFieldValue(ent, qcvm->extfields.scale);
+		if (val)
+			scale = ENTSCALE_ENCODE(val->_float);
+
 		//spike -- PROTOCOL_VERSION_BJP3
 		if (sv.protocol == PROTOCOL_VERSION_BJP3)
 		{
@@ -2524,11 +2535,11 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 		//johnfitz -- PROTOCOL_FITZQUAKE
 		if (sv.protocol != PROTOCOL_NETQUAKE)
 		{
-
 			if (ent->baseline.alpha != ent->alpha) bits |= U_ALPHA;
 			if (bits & U_FRAME && (int)ent->v.frame & 0xFF00) bits |= U_FRAME2;
 			if (bits & U_MODEL && (int)ent->v.modelindex & 0xFF00) bits |= U_MODEL2;
 			if (ent->sendinterval) bits |= U_LERPFINISH;
+			if (ent->baseline.scale != scale && sv.protocol == PROTOCOL_RMQ) bits |= U_SCALE;
 			if (bits >= 65536) bits |= U_EXTEND1;
 			if (bits >= 16777216) bits |= U_EXTEND2;
 		}
@@ -2615,6 +2626,8 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 			//johnfitz -- PROTOCOL_FITZQUAKE
 			if (bits & U_ALPHA)
 				MSG_WriteByte(msg, ent->alpha);
+			if (bits & U_SCALE)
+				MSG_WriteByte(msg, scale);
 			if (bits & U_FRAME2)
 				MSG_WriteByte(msg, (int)ent->v.frame >> 8);
 			if (bits & U_MODEL2)
@@ -3386,6 +3399,7 @@ void SV_CreateBaseline (void)
 	//
 	// create entity baseline
 	//
+		svent->baseline = nullentitystate;
 		VectorCopy (svent->v.origin, svent->baseline.origin);
 		VectorCopy (svent->v.angles, svent->baseline.angles);
 		svent->baseline.frame = svent->v.frame;
@@ -3407,7 +3421,13 @@ void SV_CreateBaseline (void)
 				svent->baseline.alpha = svent->alpha; //johnfitz -- alpha support
 		}
 
-		//Spike -- baselines are now generated on a per-client basis.
+#ifndef ENTSCALE_QS_IS_BROKEN	//Older versions of QS do NOT support B_SCALE. If we use default baseline values here then we will simply fall back to spamming U_SCALE every time instead.
+		val = GetEdictFieldValue(svent, qcvm->extfields.scale);
+		if (val)
+			svent->baseline.scale = ENTALPHA_ENCODE(val->_float);
+#endif
+
+		//Spike -- baselines are now transmitted on a per-client basis.
 		//FIXME: should merge the above with other edict->entity_state copies (updates, baselines, spawnstatics)
 		//1) this allows per-client extensions.
 		//2) this avoids pre-generating a single signon buffer, splitting it over multiple packets.
