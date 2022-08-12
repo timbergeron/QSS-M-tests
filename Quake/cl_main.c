@@ -64,6 +64,7 @@ cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
 cvar_t  cl_afk = {"cl_afk", "1", CVAR_ARCHIVE }; // woods #smartafk
 cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 cvar_t  cl_rocketlight = {"cl_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
+cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #deadbody
 
 client_static_t	cls;
 client_state_t	cl;
@@ -821,9 +822,9 @@ void CL_RelinkEntities (void)
 			//johnfitz
 		}
 
-		// woods deadbodyfilter default
+		// woods deadbodyfilter default #deadbody
 
-		if ((ent->model->type == mod_alias) && cl.gametype == GAME_DEATHMATCH)
+		if (((ent->model->type == mod_alias) && cl.gametype == GAME_DEATHMATCH) && cl_deadbodyfilter.value)
 			if (ent->frame == 49 || ent->frame == 60 || ent->frame == 69 || ent->frame == 84 || ent->frame == 93 || ent->frame == 102)
 				continue;
 
@@ -1767,6 +1768,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_afk); // woods #smartafk
 	Cvar_RegisterVariable (&cl_idle); // woods #smartafk
 	Cvar_RegisterVariable (&cl_rocketlight); // woods #rocketlight
+	Cvar_RegisterVariable (&cl_deadbodyfilter); // woods #deadbody
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
