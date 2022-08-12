@@ -1464,7 +1464,7 @@ void Sbar_DrawFace (void)
 	Sbar_DrawPic (112, 0, sb_faces[f][anim]);
 
 	if (cl.time <= cl.faceanimtime) // woods for damagehue on sbar face
-	Draw_Fill(112, 24, 24, 25, 25, .2);
+ 	Draw_Fill(112, 24, 24, 25, 25, .2);
 }
 
 /*
@@ -1478,9 +1478,6 @@ void Sbar_DrawFace_Team (void)
 	int color;
 	color = (int)cl_bottomcolor.value;
 
-	if ((sb_showscores == true) && (scr_sbar.value != 3))
-		return;
-	
 	if (scr_sbar.value == 3 && cl.teamgame && color != 0)
 		if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
 			(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
@@ -1492,6 +1489,9 @@ void Sbar_DrawFace_Team (void)
 			Draw_Fill(18, 164, 1, 24, (color * 16) + 8, .7); // left
 			Draw_Fill(41, 164, 1, 24, (color * 16) + 8, .7);  // right
 		}
+
+	if (sb_showscores == true)
+		return;
 
 	if (scr_viewsize.value <= 110 && cl.teamgame && color != 0 && scr_sbar.value != 3)
 	{
