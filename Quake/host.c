@@ -986,7 +986,9 @@ static void CL_LoadCSProgs(void)
 			qcvm->num_edicts = qcvm->reserved_edicts = 1;
 			memset(qcvm->edicts, 0, qcvm->num_edicts*qcvm->edict_size);
 
-			//in terms of exploit protection this is kinda pointless as someone can just strip out this check and compile themselves. oh well.
+			// woods allow per mons request
+
+			/*//in terms of exploit protection this is kinda pointless as someone can just strip out this check and compile themselves. oh well.
 			if ((*versionedname && qcvm->progshash == csqchash && qcvm->progssize == csqcsize) || cls.demoplayback)
 				fullcsqc = true;
 			else
@@ -1008,7 +1010,7 @@ static void CL_LoadCSProgs(void)
 
 				qcvm->extglobals.clientcommandframe = NULL;	//input frames are blocked, so don't bother to connect these either.
 				qcvm->extglobals.servercommandframe = NULL;
-			}
+			}*/
 
 			qcvm->GetModel = PR_CSQC_GetModel;
 			//set a few globals, if they exist
