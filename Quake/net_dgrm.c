@@ -2123,7 +2123,7 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	sock->proquake_angle_hack = true;
 
 	// send the connection request
-	Con_SafePrintf("trying...\n");
+	Con_SafePrintf("trying... on port %i\n", net_hostport);
 	SCR_UpdateScreen ();
 	start_time = net_time;
 
