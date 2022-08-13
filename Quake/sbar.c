@@ -1865,7 +1865,7 @@ void Sbar_Draw (void)
 	else
 		GL_SetCanvas(CANVAS_SBAR); //johnfitz
 
-	if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
+	if (sb_showscores/* || cl.stats[STAT_HEALTH] <= 0*/) // woods mimic qrack not showing scores on death
 	{
 		Sbar_DrawPicAlpha(0, 0, sb_scorebar, scr_sbaralpha.value); //johnfitz -- scr_sbaralpha
 		Sbar_DrawScoreboard();
