@@ -1692,8 +1692,8 @@ void Sbar_Draw (void)
 
 			if (cl.items & IT_INVULNERABILITY)
 			{
-				Sbar_DrawNum(50, 106, 666, 3, 1);
-				Sbar_DrawPic(18, 106, draw_disc);
+				Sbar_DrawNum(50, 116, 666, 3, 1);
+				Sbar_DrawPic(18, 116, draw_disc);
 			}
 			else
 			{
