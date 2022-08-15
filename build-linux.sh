@@ -11,7 +11,7 @@ MAKEARGS="-j8"
 
 # Make Linux64
 export QSS_CFLAGS="-DQSS_REVISION=`git rev-parse HEAD`"
-export QSS_LDFLAGS=""
+export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
 make clean
 make USE_SDL2=1 $MAKEARGS
 mv quakespasm QSS-M-l64
