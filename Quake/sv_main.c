@@ -3424,7 +3424,7 @@ void SV_CreateBaseline (void)
 #ifndef ENTSCALE_QS_IS_BROKEN	//Older versions of QS do NOT support B_SCALE. If we use default baseline values here then we will simply fall back to spamming U_SCALE every time instead.
 		val = GetEdictFieldValue(svent, qcvm->extfields.scale);
 		if (val)
-			svent->baseline.scale = ENTALPHA_ENCODE(val->_float);
+			svent->baseline.scale = ENTSCALE_ENCODE(val->_float);
 #endif
 
 		//Spike -- baselines are now transmitted on a per-client basis.
