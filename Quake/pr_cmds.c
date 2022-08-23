@@ -1896,6 +1896,7 @@ static void PF_cl_sound (void)
 	int		volume;
 	float	attenuation;
 	int entnum;
+	vec3_t origin;
 
 	entity = G_EDICT(OFS_PARM0);
 	channel = G_FLOAT(OFS_PARM1);
@@ -1907,7 +1908,11 @@ static void PF_cl_sound (void)
 	//fullcsqc fixme: if (entity->v->entnum)  
 	entnum *= -1;
 
-	S_StartSound(entnum, channel, S_PrecacheSound(sample), entity->v.origin, volume, attenuation);
+	//fix up origin like the ssqc's would.
+	VectorAdd(entity->v.mins, entity->v.maxs, origin);
+	VectorMA(entity->v.origin, 0.5,origin, origin);
+
+	S_StartSound(entnum, channel, S_PrecacheSound(sample), origin, volume, attenuation);
 }
 static void PF_cl_ambientsound (void)
 {

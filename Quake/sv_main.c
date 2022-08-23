@@ -3683,6 +3683,7 @@ void SV_SpawnServer (const char *server)
 
 // all setup is completed, any further precache statements are errors
 	sv.state = ss_active;
+	qcvm->worldlocked = true;
 
 // run two frames to allow everything to settle
 	host_frametime = 0.1;

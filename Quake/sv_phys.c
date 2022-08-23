@@ -1545,6 +1545,8 @@ void SV_Physics (double frametime)
 	else
 		physics_mode = (qcvm==&cl.qcvm)?0:2;	//csqc doesn't run thinks by default. it was meant to simplify implementations, but we just force fields to match ssqc so its not that large a burden.
 
+	if (frametime < 0)
+		frametime = 0;	//no, just no. stoopid float precision.
 	pr_global_struct->time = qcvm->time;
 	pr_global_struct->frametime = qcvm->frametime = frametime;
 

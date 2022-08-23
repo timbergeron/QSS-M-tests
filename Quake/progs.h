@@ -185,6 +185,7 @@ struct pr_extfuncs_s
 	QCEXTFUNC(CSQC_Parse_Event,			"void()")															\
 	QCEXTFUNC(CSQC_Parse_Damage,		"float(float save, float take, vector dir)")						\
 	QCEXTFUNC(CSQC_UpdateView,			"void(float vwidth, float vheight, float notmenu)")					/*full only: for the full csqc-draws-entire-screen interface*/	\
+	QCEXTFUNC(CSQC_UpdateViewLoading,	"void(float vwidth, float vheight, float notmenu)")					/*full only: for the full csqc-draws-entire-screen interface*/	\
 	QCEXTFUNC(CSQC_Input_Frame,			"void()")															/*full only: input angles stuff.*/	\
 	QCEXTFUNC(CSQC_Parse_CenterPrint,	"float(string msg)")												\
 	QCEXTFUNC(CSQC_Parse_Print,			"void(string printmsg, float printlvl)")							\
@@ -410,6 +411,7 @@ struct qcvm_s
 	int			reserved_edicts;
 	int			max_edicts;
 	edict_t		*edicts;			// can NOT be array indexed, because edict_t is variable sized, but can be used to reference the world ent
+	qboolean	worldlocked;
 	struct qmodel_s	*worldmodel;
 	struct qmodel_s	*(*GetModel)(int modelindex);	//returns the model for the given index, or null.
 

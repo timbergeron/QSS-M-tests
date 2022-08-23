@@ -818,6 +818,7 @@ static void CL_LoadCSProgs(void)
 
 			//set a few worldspawn fields too
 			qcvm->edicts->v.solid = SOLID_BSP;
+			qcvm->edicts->v.movetype = MOVETYPE_PUSH;
 			qcvm->edicts->v.modelindex = 1;
 			qcvm->edicts->v.model = PR_SetEngineString(cl.worldmodel->name);
 			VectorCopy(cl.worldmodel->mins, qcvm->edicts->v.mins);
@@ -836,6 +837,7 @@ static void CL_LoadCSProgs(void)
 				G_FLOAT(OFS_PARM2) = 10000*maj + 100*(min) + QUAKESPASM_VER_PATCH;
 				PR_ExecuteProgram(qcvm->extfuncs.CSQC_Init);
 			}
+			qcvm->worldlocked = true;
 
 			if (fullcsqc)
 			{

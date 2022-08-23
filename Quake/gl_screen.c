@@ -1166,7 +1166,10 @@ void SCR_UpdateScreen (void)
 		G_FLOAT(OFS_PARM0) = glwidth/s;
 		G_FLOAT(OFS_PARM1) = glheight/s;
 		G_FLOAT(OFS_PARM2) = true;
-		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateView);
+		if (cls.signon == SIGNONS||!cl.qcvm.extfuncs.CSQC_UpdateViewLoading)
+			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateView);
+		else
+			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateViewLoading);
 		PR_SwitchQCVM(NULL);
 
 		GL_Set2D ();

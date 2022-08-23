@@ -2386,6 +2386,26 @@ static void PF_sv_te_lightningblood(void)
 	float count = 225;
 	SV_StartParticle (org, dir, color, count);
 }
+static void PF_sv_te_muzzleflash(void)
+{
+	edict_t *ent = G_EDICT(OFS_PARM0);
+	ent->v.effects = (int)ent->v.effects|EF_MUZZLEFLASH;
+}
+static void PF_cl_te_muzzleflash(void)
+{
+	edict_t *ent = G_EDICT(OFS_PARM0);
+	vec3_t		fv, rv, uv;
+
+	dlight_t *dl = CL_AllocDlight (-NUM_FOR_EDICT(ent));
+	VectorCopy (ent->v.origin,  dl->origin);
+	dl->origin[2] += 16;
+	AngleVectors (ent->v.angles, fv, rv, uv);
+
+	VectorMA (dl->origin, 18, fv, dl->origin);
+	dl->radius = 200 + (rand()&31);
+	dl->minlight = 32;
+	dl->die = cl.time + 0.1;
+}
 static void PF_sv_te_spike(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -4847,11 +4867,9 @@ static void PF_cl_pointparticles(void)
 	float *vel = (qcvm->argc < 3)?vec3_origin:G_VECTOR(OFS_PARM2);
 	int count = (qcvm->argc < 4)?1:G_FLOAT(OFS_PARM3);
 
-	if (efnum <= 0)
-		return;
-	if (count < 1)
-		return;
 	efnum = PF_CL_GetParticle(efnum);
+	if (count <= 0)
+		return;
 	PScript_RunParticleEffectState (org, vel, count, efnum, NULL);
 }
 #else
@@ -5992,11 +6010,31 @@ static void PF_cs_getentitytoken(void)
 
 	if (csqcmapentitydata)
 	{
-		csqcmapentitydata = COM_Parse(csqcmapentitydata);
+		csqcmapentitydata = COM_Parse(csqcmapentitydata);	
 		if (!csqcmapentitydata)
 			G_INT(OFS_RETURN) = 0;
 		else
-			G_INT(OFS_RETURN) = PR_MakeTempString(com_token);
+		{
+			//Match the flawed logic inside ED_NewString... mostly, stoopid length limits.
+			char *string = com_token, *tmp = PR_GetTempString(), *new_p = tmp;
+			int i, l = strlen(com_token);
+
+			for (i = 0; i < l && new_p-tmp < STRINGTEMP_LENGTH-1; i++)
+			{
+				if (string[i] == '\\' && i < l-1)
+				{
+					i++;
+					if (string[i] == 'n')
+						*new_p++ = '\n';
+					else
+						*new_p++ = '\\';
+				}
+				else
+					*new_p++ = string[i];
+			}
+			*new_p = 0;
+			G_INT(OFS_RETURN) = PR_SetEngineString(tmp);
+		}
 	}
 	else
 		G_INT(OFS_RETURN) = 0;
@@ -6235,8 +6273,8 @@ static void PF_cs_addlight(void)
 	VectorCopy (org,  dl->origin);
 	dl->radius = radius;
 	dl->minlight = 32;
-	dl->die = 0;
-	dl->decay = 0;
+	dl->die = cl.time+1;
+	dl->decay = -1;	//die at end of frame.
 }
 static struct
 {
@@ -6255,6 +6293,9 @@ static struct
 void V_CalcRefdef (void);
 static void PF_cl_clearscene(void)
 {
+	int i;
+	dlight_t *dl;
+
 	if (cl_numvisedicts + 64 > cl_maxvisedicts)
 	{
 		cl_maxvisedicts = cl_maxvisedicts+64;
@@ -6263,6 +6304,14 @@ static void PF_cl_clearscene(void)
 	cl_numvisedicts = 0;
 
 	num_temp_entities = 0;
+
+	//clear any temp dlights too.
+	dl = cl_dlights;
+	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
+	{
+		if (dl->decay == -1)
+			dl->radius = 0;
+	}
 
 	memset(&viewprops, 0, sizeof(viewprops));
 	viewprops.rect_size[0] = vid.width;
@@ -7270,7 +7319,7 @@ static struct
 //	{"skinforname",		PF_skinforname,		PF_skinforname,		237,	"float(float mdlindex, string skinname)"},		// #237
 //	{"shaderforname",	PF_Fixme,			PF_Fixme,			238,	PF_NoMenu, D("float(string shadername, optional string defaultshader, ...)", "Caches the named shader and returns a handle to it.\nIf the shader could not be loaded from disk (missing file or ruleset_allow_shaders 0), it will be created from the 'defaultshader' string if specified, or a 'skin shader' default will be used.\ndefaultshader if not empty should include the outer {} that you would ordinarily find in a shader.")},
 	{"te_bloodqw",		PF_sv_te_bloodqw,	NULL,				239,	PF_NoMenu, "void(vector org, float count)"},
-//	{"te_muzzleflash",	PF_te_muzzleflash,	PF_clte_muzzleflash,0,		PF_NoMenu, "void(entity ent)"},
+	{"te_muzzleflash",	PF_sv_te_muzzleflash,PF_cl_te_muzzleflash,0,	PF_NoMenu, "void(entity ent)"},
 	{"checkpvs",		PF_checkpvs,		PF_checkpvs,		240,	PF_NoMenu, "float(vector viewpos, entity entity)"},
 //	{"matchclientname",	PF_matchclient,		PF_NoCSQC,			241,	PF_NoMenu, "entity(string match, optional float matchnum)"},
 //	{"sendpacket",		PF_SendPacket,		PF_SendPacket,		242,	PF_NoMenu, "void(string destaddress, string content)"},// (FTE_QC_SENDPACKET)
