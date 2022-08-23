@@ -108,7 +108,8 @@ cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #var
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclockscale = {"scr_matchclockscale", "1",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_showscores = {"scr_showscores", "0",CVAR_ARCHIVE}; // woods #observerhud
-cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet
+cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet scr_obscenterprint
+cvar_t		scr_obscenterprint = {"scr_obscenterprint", "0",CVAR_ARCHIVE}; // woods
 //johnfitz
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
 cvar_t		cl_predict = { "cl_predict", "0", CVAR_NONE }; // 2021 re-release
@@ -339,21 +340,13 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		remaining;
 
 	char buf[15];
-	const char* name;
-	name = Info_GetKey(cl.scores[cl.viewentity - 1].userinfo, "name", buf, sizeof(buf));
-
-	char buf2[15];
-	const char* obs;
-	obs = Info_GetKey(cl.scores[cl.viewentity - 1].userinfo, "observer", buf2, sizeof(buf2));
-
-	char buf3[15];
 	const char* realobs;
-	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf3, sizeof(buf2));
+	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
 
-	if ((cl.modtype == 1) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods don't get rid of center for active player
-		return;
-	if ((cl.modtype == 1) && (!strcmp(obs, "off") && (strcmp(name, cl_name.string)))) // woods don't get rid of center for active player
-		return;
+	if (!scr_obscenterprint.value)
+		if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
+			return;
+
 	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
 	else
@@ -618,6 +611,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_matchclockscale); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_showscores); // woods #observerhud
 	Cvar_RegisterVariable (&scr_shownet); // woods #shownet
+	Cvar_RegisterVariable (&scr_obscenterprint); // woods
 	//johnfitz
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
 	Cvar_RegisterVariable (&cl_predict); // 2021 re-release
@@ -1087,50 +1081,53 @@ void SCR_DrawMatchScores(void)
 
 			// woods #hud_diff display point differential
 
-			for (i = 0; i < l; i++)
+			if (!cl.teamcolor[2]) // only for two colors
 			{
-				k = fragsort[i];
-
-				ts1 = cl.teamscore[0]; // high score
-				ts2 = cl.teamscore[1]; // low score
-				diff = abs(ts1 - ts2); // +/= differential
-
-				tc1 = cl.teamcolor[0]; // top score [color]
-				tc2 = cl.teamcolor[1]; // bottom score [color]
-
-				// lets get YOUR team color from scoreboard
-
-				Sbar_SortFrags();
-				l2 = scoreboardlines;
-
-				for (i = 0; i < l2; i++)
+				for (i = 0; i < l; i++)
 				{
 					k = fragsort[i];
-					s = &cl.scores[k];
-					if (!s->name[0])
+
+					ts1 = cl.teamscore[0]; // high score
+					ts2 = cl.teamscore[1]; // low score
+					diff = abs(ts1 - ts2); // +/= differential
+
+					tc1 = cl.teamcolor[0]; // top score [color]
+					tc2 = cl.teamcolor[1]; // bottom score [color]
+
+					// lets get YOUR team color from scoreboard
+
+					Sbar_SortFrags();
+					l2 = scoreboardlines;
+
+					for (i = 0; i < l2; i++)
+					{
+						k = fragsort[i];
+						s = &cl.scores[k];
+						if (!s->name[0])
+							continue;
+
+						if (fragsort[i] == cl.viewentity - 1) {
+							sprintf(tcolor, "%u", s->pants.basic);
+						}
+					}
+
+					GL_SetCanvas(CANVAS_TOPRIGHT4); // lets do some printing
+
+					if ((ts1 == ts2) || (l < 2)) // don't show ties, l = # of teams
 						continue;
 
-					if (fragsort[i] == cl.viewentity - 1) {
-						sprintf(tcolor, "%u", s->pants.basic);
+					else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
+					{
+						sprintf(num, "+%-i", diff);
+						M_Print(40 - (strlen(num) << 3), y, num);
 					}
+
+					else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
+					{
+						sprintf(num, "-%-i", diff);
+						M_Print(40 - (strlen(num) << 3), y + 20, num);
+					}				
 				}
-
-				GL_SetCanvas(CANVAS_TOPRIGHT4); // lets do some printing
-
-				if ((ts1 == ts2) || (l < 2)) // don't show ties, l = # of teams
-					continue;
-
-				else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
-				{
-					sprintf(num, "+%-i", diff);
-					M_Print(40 - (strlen(num) << 3), y, num);
-				}
-
-				else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
-				{
-					sprintf(num, "-%-i", diff);
-					M_Print(40 - (strlen(num) << 3), y + 20, num);
-				}				
 			}
 		}
 	}
@@ -1436,16 +1433,16 @@ void SCR_Observing(void)
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
-		if (!strcmp(obs, "off"))
+		if (cl.intermission)
+			return;
+
+		if (!strcmp(observing, "off"))
 			return;
 
 		GL_SetCanvas(CANVAS_SBAR2);
 
-		if ((cl.modtype == 1) || (cl.modtype == 4)) // crx case
+		if (cl.modtype == 1 || cl.modtype == 4) // crx case
 		{
-		//	if ((!strcmp(name, cl_name.string)) && (strcmp(obs, "chase"))) // if my name IS name of who I observing AND not chase (chase doesnt use viewentity)
-		//		return; // don't show for me when playing
-
 			if (!strcmp(obs, "chase")) // chase
 			{
 				sprintf(printtxt, "%s", observing); // print who you are observering
