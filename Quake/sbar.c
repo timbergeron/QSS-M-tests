@@ -1476,34 +1476,30 @@ Sbar_DrawFace_Team -- woods to color face in sbar when on a match team #teamface
 void Sbar_DrawFace_Team (void)
 {
 	int color;
-	color = (int)cl_bottomcolor.value;
 
-	if (scr_sbar.value == 3 && cl.teamgame && color != 0)
-		if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
-			(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
+	color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
+	color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
+
+	if (scr_sbar.value == 3)
 		{
 			GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
-			Draw_Fill(18, 164, 23, 1, (color * 16) + 8, .7); // top
-			Draw_Fill(18, 187, 23, 1, (color * 16) + 8, .7); // bottom
+			Draw_Fill(18, 164, 23, 1, color, .7); // top
+			Draw_Fill(18, 187, 23, 1, color, .7); // bottom
 
-			Draw_Fill(18, 164, 1, 24, (color * 16) + 8, .7); // left
-			Draw_Fill(41, 164, 1, 24, (color * 16) + 8, .7);  // right
+			Draw_Fill(18, 164, 1, 24, color, .7); // left
+			Draw_Fill(41, 164, 1, 24, color, .7);  // right
 		}
 
 	if (sb_showscores == true)
 		return;
 
-	if (scr_viewsize.value <= 110 && cl.teamgame && color != 0 && scr_sbar.value != 3)
+	if (scr_viewsize.value <= 110 && scr_sbar.value != 3)
 	{
-		if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
-			(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
 		{
 			GL_SetCanvas(CANVAS_SBAR);
 
-			Draw_Fill(111, 24, 1, 25, (color * 16) + 8, .7); // left
-			Draw_Fill(136, 24, 1, 25, (color * 16) + 8, .7);  // right
-
-
+			Draw_Fill(111, 24, 1, 25, color, .7); // left
+			Draw_Fill(136, 24, 1, 25, color, .7);  // right
 		}
 	}
 }
