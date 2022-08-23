@@ -367,6 +367,7 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 		const char *exts = r_replacemodels.string;
 		char *e;
 		char newname[MAX_QPATH];
+		unsigned int origpathid;
 		buf = NULL;
 		q_strlcpy(newname, mod->name, sizeof(newname));
 		e = (char*)COM_FileGetExtension(newname);
@@ -375,7 +376,15 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 			q_strlcpy(e, com_token, sizeof(newname)-(e-newname));
 			buf = COM_LoadStackFile (newname, stackbuf, sizeof(stackbuf), & mod->path_id);
 			if (buf)
+			{
+				if (COM_FileExists(mod->name, &origpathid))
+					if (origpathid > mod->path_id)
+					{
+						Con_DPrintf("Ignoring %s from lower priority path\n", newname);
+						continue;
+					}
 				break;
+			}
 		}
 		if (!buf)
 			buf = COM_LoadStackFile (mod->name, stackbuf, sizeof(stackbuf), & mod->path_id);
