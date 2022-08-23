@@ -802,6 +802,7 @@ static void CL_LoadCSProgs(void)
 				qcvm->extglobals.servercommandframe = NULL;
 			}
 
+			qcvm->rotatingbmodel = true;	//csqc always assumes this is enabled.
 			qcvm->GetModel = PR_CSQC_GetModel;
 			//set a few globals, if they exist
 			if (qcvm->extglobals.maxclients)

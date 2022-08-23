@@ -7624,8 +7624,8 @@ qboolean PR_CanPrecacheAnyTime(unsigned int prot, unsigned int pext1, unsigned i
 }
 qboolean PR_CanPushRotate(unsigned int prot, unsigned int pext1, unsigned int pext2)
 {
-	qcvm->brokenpushrotate = false;
-	return !qcvm->brokenpushrotate;
+	qcvm->rotatingbmodel = true;
+	return qcvm->rotatingbmodel;
 }
 qboolean PR_Can_EF_Red_Blue(unsigned int prot, unsigned int pext1, unsigned int pext2)
 {
@@ -8067,13 +8067,11 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 	{
 		qcvm->builtins[99] = PF_checkextension;
 
-		qcvm->brokenpushrotate = true;
 		qcvm->brokenbouncemissile = true;
 		qcvm->brokeneffects = true;
 	}
 	if (!pr_checkextension.value && qcvm == &sv.qcvm)
 	{
-		qcvm->brokenpushrotate = true;
 		Con_DPrintf("not enabling qc extensions\n");
 		return;
 	}
