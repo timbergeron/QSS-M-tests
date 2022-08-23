@@ -1848,8 +1848,8 @@ static void Host_Color_f(void)
 	{
 		Cvar_Set ("topcolor", top);
 		Cvar_Set ("bottomcolor", bottom);
-	//	if (cls.state == ca_connected) // is this needed?
-	//		Cmd_ForwardToServer ();
+		if (cls.state == ca_connected)
+			Cmd_ForwardToServer ();
 		return;
 	}
 
