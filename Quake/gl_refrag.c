@@ -169,7 +169,7 @@ R_AddEfrags
 void R_AddEfrags (entity_t *ent)
 {
 	qmodel_t	*entmodel;
-	int			i;
+	float scale;
 
 	if (!ent->model)
 		return;
@@ -179,11 +179,31 @@ void R_AddEfrags (entity_t *ent)
 	r_pefragtopnode = NULL;
 
 	entmodel = ent->model;
+	scale = ENTSCALE_DECODE(ent->netstate.scale);
 
-	for (i=0 ; i<3 ; i++)
+	if (!ent->angles[0] && !ent->angles[1] && !ent->angles[2])
 	{
-		r_emins[i] = ent->origin[i] + entmodel->mins[i];
-		r_emaxs[i] = ent->origin[i] + entmodel->maxs[i];
+		VectorMA(ent->origin, scale, entmodel->mins, r_emins);
+		VectorMA(ent->origin, scale, entmodel->maxs, r_emaxs);
+	}
+	else
+	{
+		int i;
+		float v1,v2;
+		vec3_t max;
+		//q2 method
+		for (i=0 ; i<3 ; i++)
+		{
+			v1 = fabs(entmodel->mins[i]);
+			v2 = fabs(entmodel->maxs[i]);
+			max[i] = q_max(v1,v2);
+		}
+		v1 = sqrt(DotProduct(max,max));
+		for (i=0 ; i<3 ; i++)
+		{
+			r_emins[i] = ent->origin[i] - v1*scale;
+			r_emaxs[i] = ent->origin[i] + v1*scale;
+		}
 	}
 
 	R_SplitEntityOnNode (cl.worldmodel->nodes);
