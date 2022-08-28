@@ -37,6 +37,7 @@ extern cvar_t crosshair; // woods #f_config
 extern cvar_t r_particledesc; // woods #f_config
 extern cvar_t gl_picmip; // woods #f_config
 extern cvar_t scr_showfps; // woods #f_config
+extern cvar_t allow_download; // woods #ftehack
 
 const char *svc_strings[128] =
 {
@@ -3591,8 +3592,16 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svcdp_downloaddata:
-			if (cl.protocol != PROTOCOL_VERSION_DP7 && !cl.protocol_dpdownload)
-				Host_Error ("Received svcdp_downloaddata but extension not active");
+			if (allow_download.value == 2) // woods #ftehack
+			{
+				if (cl.protocol != PROTOCOL_VERSION_DP7 && !cl.protocol_dpdownload && cl.protocol != 666) // woods, allow downloads on qecrx (nq physics, FTE server) -- hack
+					Host_Error("Received svcdp_downloaddata but extension not active");
+			}
+			else
+			{ 
+				if (cl.protocol != PROTOCOL_VERSION_DP7 && !cl.protocol_dpdownload)
+					Host_Error ("Received svcdp_downloaddata but extension not active");
+			}
 			CL_Download_Data();
 			break;
 

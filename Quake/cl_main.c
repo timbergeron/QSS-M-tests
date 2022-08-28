@@ -79,6 +79,8 @@ entity_t		**cl_visedicts;
 extern cvar_t	r_lerpmodels, r_lerpmove; //johnfitz
 extern float	host_netinterval;	//Spike
 
+extern cvar_t	allow_download; // woods #ftehack
+
 void CL_ClearTrailStates(void)
 {
 	int i;
@@ -1084,8 +1086,16 @@ qboolean CL_CheckDownload(const char *filename)
 		return false;	//don't download these...
 	if (cls.download.active)
 		return true;	//block while we're already downloading something
-	if (!cl.protocol_dpdownload)
-		return false;	//can't download anyway
+	if (allow_download.value == 2) // woods #ftehack
+	{ 
+		if (!cl.protocol_dpdownload && cl.protocol != 666) // woods, allow downloads on qecrx (nq physics, FTE server) -- hack
+			return false;	//can't download anyway
+	}
+	else
+	{
+		if (!cl.protocol_dpdownload)
+			return false;	//can't download anyway
+	}
 	if (*cls.download.current && !strcmp(cls.download.current, filename))
 		return false;	//if the previous download failed, don't endlessly retry.
 	if (COM_FileExists(filename, NULL))
