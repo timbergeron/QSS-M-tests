@@ -1543,6 +1543,7 @@ qboolean COM_DownloadNameOkay(const char *filename)
 	if (strncmp(filename, "sound/", 6) && 
 		strncmp(filename, "progs/", 6) && 
 		strncmp(filename, "maps/", 5) &&
+		strncmp(filename, "locs/", 5) && // woods #locdownloads
 		strncmp(filename, "models/", 7))
 		return false;
 	//windows paths are NOT permitted, nor are alternative data streams, nor wildcards, and double quotes are always bad(which allows for spaces)
@@ -1574,6 +1575,7 @@ qboolean COM_DownloadNameOkay(const char *filename)
 		q_strcasecmp(filename, "png") &&
 		//misc stuff
 		q_strcasecmp(filename, "lux") &&
+		q_strcasecmp(filename, "loc") && // woods #locdownloads
 		q_strcasecmp(filename, "lit2") &&
 		q_strcasecmp(filename, "lit"))
 		return false;
@@ -2167,6 +2169,7 @@ static int COM_FindFile (const char *filename, int *handle, FILE **file,
 		&& strcmp(ext, "md5mesh") != 0
 		&& strcmp(ext, "md5anim") != 0
 		&& strcmp(ext, "lit") != 0
+		&& strcmp(ext, "loc") != 0 // woods #locdownloads
 		&& strcmp(ext, "vis") != 0
 		&& strcmp(ext, "ent") != 0)
 		Con_DPrintf ("FindFile: can't find %s\n", filename);
