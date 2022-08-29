@@ -485,7 +485,16 @@ static void Con_Print (const char *txt)
 
 		if ((cl.conflag == 3) && (strcmp(txt, "is ")))  // string before ghost number #ghostcode
 		{
-			memcpy(cl.ghostcode, txt, sizeof(cl.ghostcode)); // copy ghostcode to memory
+			memcpy(ghostcode, txt, sizeof(ghostcode)); // copy ghostcode to memory
+			cl.conflag = 0; // reset flag	
+		}
+
+		if (!strcmp(txt, "Your ghost code is ")) // the string directly before ghost code #ghostcode
+			cl.conflag = 4; // set flag for ghostcode
+
+		if ((cl.conflag == 4) && (strcmp(txt, "Your ghost code is ")))  // string before ghost number #ghostcode
+		{
+			memcpy(ghostcode, txt, sizeof(ghostcode)); // copy ghostcode to memory
 			cl.conflag = 0; // reset flag	
 		}
 

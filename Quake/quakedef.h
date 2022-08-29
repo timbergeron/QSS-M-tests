@@ -389,5 +389,6 @@ double		mpservertime;	// woods #servertime
 int			maptime;		// woods connected map time #maptime
 char		lastmphost[NET_NAMELEN]; // woods - connected server address
 char		demoplaying[MAX_OSPATH]; // woods for window title
+char		ghostcode[4];		// woods for ghost code to memory #ghostcode
 #endif	/* QUAKEDEFS_H */
 
