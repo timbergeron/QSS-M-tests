@@ -2695,6 +2695,9 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 				cl.printplayer = i;
 				return true;
 			}
+
+			return true; // woods to get rid of random ping prints
+
 		}
 		cl.printtype = PRINT_NONE;
 	}
