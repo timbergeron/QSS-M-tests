@@ -982,7 +982,7 @@ void R_SetupAliasLighting (entity_t	*e)
 					VectorMA (lightcolor, add, cl_dlights[i].color, lightcolor);
 			}
 		}
-		/* woods disable below, add min light to all
+		
 		// minimum light value on gun (24)
 		if (e == &cl.viewent)
 		{
@@ -1005,16 +1005,35 @@ void R_SetupAliasLighting (entity_t	*e)
 				lightcolor[1] += add / 3.0f;
 				lightcolor[2] += add / 3.0f;
 			}
-		}*/
+		}
+
 		// woods added minlight for all models to avoid colored lighting blinding
-		if (e->model)
+		if (gl_overbright_models.value == 2)
 		{
-			add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-			if (add > 0.0f)
+			if (e->model)
 			{
-				lightcolor[0] += add / 3.0f;
-				lightcolor[1] += add / 3.0f;
-				lightcolor[2] += add / 3.0f;
+				add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				if (add > 0.0f)
+				{
+					lightcolor[0] += add / 3.0f;
+					lightcolor[1] += add / 3.0f;
+					lightcolor[2] += add / 3.0f;
+				}
+			}
+		}
+
+		// woods added minlight for all models to avoid colored lighting blinding (but keep viewmodel lighting)
+		if (gl_overbright_models.value == 3)
+		{
+			if ((e->model) && (e != &cl.viewent))
+			{
+				add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				if (add > 0.0f)
+				{
+					lightcolor[0] += add / 3.0f;
+					lightcolor[1] += add / 3.0f;
+					lightcolor[2] += add / 3.0f;
+				}
 			}
 		}
 	}
