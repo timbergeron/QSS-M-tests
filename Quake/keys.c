@@ -1176,7 +1176,28 @@ void Key_Bind_f (void)
 
 	if (c < keyarg+1 )
 	{
+		Con_Printf("\n");
 		Con_Printf ("bind <key> [command] : attach a command to a key\n");
+		Con_Printf("\n");
+		Con_Printf("example: bind \"e\" \"+forward\"\n");
+		Con_Printf("\n");
+		Con_Printf("TAB          KP_UPARROW      F5        MOUSE2       SEMICOLON\n");
+		Con_Printf("ENTER        KP_PGUP         F6        MOUSE3       BACKQUOTE\n");
+		Con_Printf("ESCAPE       KP_PLUS         F7        MOUSE4       TILDE\n");
+		Con_Printf("SPACE        KP_LEFTARROW    F8        MOUSE5       LTHUMB\n");
+		Con_Printf("BACKSPACE    KP_5            F9        JOY1         RTHUMB\n");
+		Con_Printf("UPARROW      KP_RIGHTARROW   F10       JOY2         LSHOULDER\n");
+		Con_Printf("DOWNARROW    KP_END          F11       JOY3         RSHOULDER\n");
+		Con_Printf("LEFTARROW    KP_DOWNARROW    F12       JOY4         ABUTTON\n");
+		Con_Printf("RIGHTARROW   KP_PGDN         INS       AUX1         BBUTTON\n");
+		Con_Printf("CAPSLOCK     KP_ENTER        DEL       AUX2         XBUTTON\n");
+		Con_Printf("ALT          KP_INS          PGDN      AUX3         YBUTTON\n");
+		Con_Printf("CTRL         KP_DEL          PGUP      AUX4         LTRIGGER\n");
+		Con_Printf("KP_SLASH     F1              HOME      AUX5         RTRIGGER\n");
+		Con_Printf("KP_STAR      F2              END       PAUSE        \n");
+		Con_Printf("KP_MINUS     F3              COMMAND   MWHEELUP     \n");
+		Con_Printf("KP_HOME      F4              MOUSE1    MWHEELDOWN   \n");
+		Con_Printf("\n");
 		return;
 	}
 
