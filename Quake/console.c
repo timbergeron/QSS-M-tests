@@ -395,6 +395,37 @@ static int dehex(char c)
 		return c-('a'-10);
 	return 0;
 }
+
+/*
+===============
+Ghost_ID_Backup_f // woods #ghost backup the name externally to a text file for possible crash event
+===============
+*/
+void Ghost_ID_Backup_f (void)
+{
+	FILE* f;
+
+	char ghost[MAX_OSPATH];
+	char str[6];
+
+	q_snprintf(ghost, sizeof(ghost), "%s/id1/backups", com_basedir); //  create backups folder if not there
+	Sys_mkdir(ghost);
+
+	sprintf(str, "ghost");
+
+	f = fopen(va("%s/id1/backups/%s.txt", com_basedir, str), "w");
+
+	if (!f)
+	{
+		Con_Printf("Couldn't write backup ghostcode\n");
+		return;
+	}
+
+	fprintf(f, "%.3s", cl.ghostcode);
+
+	fclose(f);
+}
+
 /*
 ================
 Con_Print
@@ -485,7 +516,8 @@ static void Con_Print (const char *txt)
 
 		if ((cl.conflag == 3) && (strcmp(txt, "is ")))  // string before ghost number #ghostcode
 		{
-			memcpy(ghostcode, txt, sizeof(ghostcode)); // copy ghostcode to memory
+			memcpy(cl.ghostcode, txt, sizeof(cl.ghostcode)); // copy ghostcode to memory
+			Ghost_ID_Backup_f ();
 			cl.conflag = 0; // reset flag	
 		}
 
@@ -494,7 +526,8 @@ static void Con_Print (const char *txt)
 
 		if ((cl.conflag == 4) && (strcmp(txt, "Your ghost code is ")))  // string before ghost number #ghostcode
 		{
-			memcpy(ghostcode, txt, sizeof(ghostcode)); // copy ghostcode to memory
+			memcpy(cl.ghostcode, txt, sizeof(cl.ghostcode)); // copy ghostcode to memory
+			Ghost_ID_Backup_f ();
 			cl.conflag = 0; // reset flag	
 		}
 

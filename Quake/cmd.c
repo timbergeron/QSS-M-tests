@@ -507,20 +507,30 @@ cmd_function_t	*cmd_functions;		// possible commands to execute
 //johnfitz
 
 /*
-============
-Ghost_List_f -- woods for ghost code disconnect memory #ghostcode
-============
+===============
+Load_Ghost_ID_f // woods #smartafk load that backup name if AFK in name at startup, and clear it
+===============
 */
-void Ghost_List_f(void)
+void Load_Ghost_ID_f (void)
 {
-	char	ghost[3];
+	char buffer[5];
 
-	sprintf(ghost, "%.2s", cl.ghostcode);
+	FILE* f;
 
-	if (strlen(cl.ghostcode) > 1)
-		Con_Printf("your last ghostcode was %s\n", ghost);
-	else
-		Con_Printf("no memory of ghost code\n");
+	f = fopen(va("%s/id1/backups/ghost.txt", com_basedir), "r");
+
+	if (f == NULL) // lets not load backup
+	{
+		//Con_Printf("no AFK backup to restore from"); //no file means it was deleted normally
+		return;
+	}
+
+	while (fgets(buffer, sizeof(buffer), f) != NULL)
+	{
+		Con_Printf("your last ghostcode was %.3s\n", buffer);
+	}
+
+	fclose(f);
 }
 
 /*
@@ -655,7 +665,7 @@ Cmd_Init
 void Cmd_Init (void)
 {
 	Cmd_AddCommand ("cmdlist", Cmd_List_f); //johnfitz
-	Cmd_AddCommand ("lastid", Ghost_List_f); // woods for ghostcode memory #ghostcode
+	Cmd_AddCommand ("lastid", Load_Ghost_ID_f); // woods for ghostcode memory #ghostcode
 	Cmd_AddCommand ("unalias", Cmd_Unalias_f); //johnfitz
 	Cmd_AddCommand ("unaliasall", Cmd_Unaliasall_f); //johnfitz
 
