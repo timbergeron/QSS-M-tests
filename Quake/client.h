@@ -87,7 +87,7 @@ typedef struct
 } dlight_t;
 
 
-#define	MAX_BEAMS	32 //johnfitz -- was 24
+#define	MAX_BEAMS	128 //johnfitz -- was 24 // woods -- was 32
 typedef struct
 {
 	int		entity;
@@ -420,7 +420,7 @@ extern	cvar_t	cl_say; // woods #ezsay
 extern	cvar_t	cl_afk; // woods #smartafk
 extern  cvar_t	cl_idle;  // woods #damage
 
-#define	MAX_TEMP_ENTITIES			256		//johnfitz -- was 64
+#define	MAX_TEMP_ENTITIES			1024		//johnfitz -- was 64 // woods -- was 256
 
 extern	client_state_t	cl;
 
