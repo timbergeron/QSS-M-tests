@@ -1043,7 +1043,7 @@ static void Host_Reconnect_Sv_f (void)
 	cl.protocol_dpdownload = false;
 	cls.signon = 0;		// need new connection messages
 
-	ct = SDL_GetTicks(); - maptime; // woods #servertime
+	ct = SDL_GetTicks(); // woods #servertime
 }
 
 static void Host_Lightstyle_f (void)
@@ -1698,7 +1698,7 @@ static void Host_Say_Team_f(void)
 
 static void Host_Say_Short(void) // woods chat shortcuts
 {
-	char* text[MAX_CHAT_SIZE_EX];
+	char text[MAX_CHAT_SIZE_EX];
 
 	if (Cmd_Argc() == 1)
 		return;
@@ -1709,7 +1709,7 @@ static void Host_Say_Short(void) // woods chat shortcuts
 
 static void Host_Say_Team_Short(void) // woods chat shortcuts
 {
-	char* text[MAX_CHAT_SIZE_EX];
+	char text[MAX_CHAT_SIZE_EX];
 
 	if (Cmd_Argc() == 1)
 		return;

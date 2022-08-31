@@ -908,7 +908,7 @@ static void UpdateWindowTitle(void)
 	timeleft = 0.125f;
 
 	GetGameSummary(&current);
-	if ((!cls.demoplayback) || !(cl.gametype == GAME_DEATHMATCH) && !(cls.state = ca_connected)) // woods 
+	if (!cls.demoplayback || (cl.gametype != GAME_DEATHMATCH && cls.state != ca_connected)) // woods 
 		if (!strcmp(current.map, last.map) && !memcmp(&current.stats, &last.stats, sizeof(current.stats)))
 			return;
 	last = current;
@@ -927,7 +927,7 @@ static void UpdateWindowTitle(void)
 				*ch = ' ';
 		}
 
-		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected) && !cls.demoplayback) // woods added connected server
+		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected) && !cls.demoplayback) // woods added connected server
 			q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, ln, current.map);
 		else if (cls.demoplayback) // woods added demofile
 			q_snprintf(title, sizeof(title), "%s (%s)  |  %s  -  " ENGINE_NAME_AND_VER, ln, current.map, demoplaying);

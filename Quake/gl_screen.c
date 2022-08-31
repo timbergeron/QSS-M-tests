@@ -1145,7 +1145,6 @@ void SCR_ShowObsFrags(void)
 {
 	int	i, k, x, y, f;
 	char	num[12];
-	float	scale; //johnfitz
 	scoreboard_t* s;
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	char buf[15];
@@ -1160,8 +1159,6 @@ void SCR_ShowObsFrags(void)
 
 		if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value || !strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk"))
 		{
-			scale = CLAMP(1.0, scr_sbarscale.value, (float)glwidth / 320.0); //johnfitz
-
 			Sbar_SortFrags_Obs ();
 
 			if (scr_sbar.value == 3)

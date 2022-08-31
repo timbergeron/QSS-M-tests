@@ -1170,6 +1170,7 @@ void IN_SendKeyEvents (void)
 	int key, color;
 	qboolean down;
 
+	color = 0;
 	const char* afk;
 	char afktype[4];
 	sprintf(afktype, "%s", "AFK");
