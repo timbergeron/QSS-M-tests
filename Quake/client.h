@@ -331,6 +331,7 @@ typedef struct
 	int		sound_count;
 	int		sound_download;
 	char	sound_name[MAX_SOUNDS][MAX_QPATH];
+	int		loc_download; // woods #locdownloads
 	//spike -- end downloads
 
 	qcvm_t	qcvm;	//for csqc.

@@ -1135,6 +1135,24 @@ qboolean CL_CheckDownloads(void)
 		}
 		cl.model_download++;
 	}
+
+	// woods #locdownloads
+
+	if (cl.loc_download == 0)
+	{ 
+		char locname[MAX_QPATH];
+		char locname2[MAX_QPATH];
+		COM_FileBase(cl.model_name[1], locname, sizeof(locname));
+		sprintf(locname2, "locs/%s.loc", locname);
+
+		if (!COM_FileExists(locname2, NULL))
+		{
+			if (CL_CheckDownload(locname2))
+				return false;
+		}
+		cl.loc_download++;
+	}
+
 	for (; cl.model_download < cl.model_count; )
 	{
 		if (*cl.model_name[cl.model_download])
@@ -1148,19 +1166,6 @@ qboolean CL_CheckDownloads(void)
 			}
 		}
 		cl.model_download++;
-	}
-
-	// woods #locdownloads
-
-	char locname[MAX_QPATH];
-	char locname2[MAX_QPATH];
-	COM_FileBase(cl.model_name[1], locname, sizeof(locname));
-	sprintf(locname2, "locs/%s.loc", locname);
-
-	if (!COM_FileExists(locname2, NULL))
-	{
-		if (CL_CheckDownload(locname2))
-			return false;
 	}
 
 	for (; cl.sound_download < cl.sound_count; )
