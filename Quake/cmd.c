@@ -609,7 +609,7 @@ static void Cmd_ListAllContaining(const char* substr)
 
 	for (alias = cmd_alias; alias; alias = alias->next) // woods #addaliases
 	{
-		if (q_strcasestr(alias->name, substr) && alias->name != src_server)
+		if (q_strcasestr(alias->name, substr))
 		{
 			hits++;
 			Con_SafePrintf("   %s (alias)\n", Cmd_TintSubstring(alias->name, substr, tmpbuf, sizeof(tmpbuf)));

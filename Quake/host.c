@@ -919,7 +919,7 @@ static void UpdateWindowTitle(void)
 		unsigned char* ch;
 		char ln[128];
 
-		sprintf(ln, cl.levelname); // woods dequake
+		strcpy(ln, cl.levelname); // woods dequake
 		for (ch = ln; *ch; ch++)
 		{
 			*ch = dequake[*ch];

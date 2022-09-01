@@ -1032,7 +1032,6 @@ void Host_Reconnect_Con_f (void)
 }
 static void Host_Reconnect_Sv_f (void)
 {
-	int ct;
 	if (cls.demoplayback)	// cross-map demo playback fix from Baker
 		return;
 
@@ -1042,8 +1041,6 @@ static void Host_Reconnect_Sv_f (void)
 	SCR_BeginLoadingPlaque ();
 	cl.protocol_dpdownload = false;
 	cls.signon = 0;		// need new connection messages
-
-	ct = SDL_GetTicks(); // woods #servertime
 }
 
 static void Host_Lightstyle_f (void)
@@ -1790,6 +1787,8 @@ Host_Color_f
 static void Host_Color_f(void)
 {
 	const char *top, *bottom;
+	char xt[4];
+	char xb[4];
 	int t = rand() % 13 + 1; // woods for random colors
 	int b = rand() % 13 + 1; // woods for random colors
 
@@ -1821,27 +1820,34 @@ static void Host_Color_f(void)
 	if (Cmd_Argc() == 2) // just x
 		if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
 		{
-			sprintf(top, "%i", t);
-			sprintf(bottom, "%i", b);
+			sprintf(xt, "%i", t);
+			top = xt;
+			sprintf(xb, "%i", b);
+			bottom = xb;
 		}
 
 	if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
 	{
-		sprintf(top, "%i", t);
+		sprintf(xt, "%i", t);
+		top = xt;
 		bottom = Cmd_Argv(2);
 	}
 	
 	if ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))) // woods for random colors
 	{
 		top = Cmd_Argv(1);
-		sprintf(bottom, "%i", b);
+		sprintf(xb, "%i", b);
+		bottom = xb;
 	}
 
 	if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
 		&& ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n")))) // woods for random colors
 	{
-		sprintf(top, "%i", t);
-		sprintf(bottom, "%i", b);
+		sprintf(xt, "%i", t);
+		top = xt;
+		sprintf(xb, "%i", b);
+		bottom = xb;
+	
 	}
 
 	if (cmd_source != src_client)
