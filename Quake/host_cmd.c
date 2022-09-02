@@ -1698,22 +1698,46 @@ static void Host_Say_Team_f(void)
 static void Host_Say_Short(void) // woods chat shortcuts
 {
 	char text[MAX_CHAT_SIZE_EX];
+	const char* p;
+	qboolean	quoted;
+
+	p = Cmd_Args();
+
+	// remove quotes if present
+	quoted = false;
+	if (*p == '\"')
+	{
+		p++;
+		quoted = true;
+	}
 
 	if (Cmd_Argc() == 1)
 		return;
 
-	sprintf(text, "say %s", Cmd_Argv(1));
+	sprintf(text, "say %s", p);
 	Cbuf_AddText(text);
 }
 
 static void Host_Say_Team_Short(void) // woods chat shortcuts
 {
 	char text[MAX_CHAT_SIZE_EX];
+	const char* p;
+	qboolean	quoted;
+
+	p = Cmd_Args();
+
+	// remove quotes if present
+	quoted = false;
+	if (*p == '\"')
+	{
+		p++;
+		quoted = true;
+	}
 
 	if (Cmd_Argc() == 1)
 		return;
 
-	sprintf(text, "say_team %s", Cmd_Argv(1));
+	sprintf(text, "say_team %s", p);
 	Cbuf_AddText(text);
 }
 
