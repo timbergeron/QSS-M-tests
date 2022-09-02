@@ -2696,6 +2696,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 				return true;
 			}
 
+			if (!strstr(printtext, "seconds"))
 				return true; // woods to get rid of random ping prints
 
 		}
