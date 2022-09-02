@@ -198,6 +198,8 @@ void R_Init (void)
 	Cvar_RegisterVariable (&gl_flashblend);
 	Cvar_RegisterVariable (&gl_playermip);
 	Cvar_RegisterVariable (&gl_nocolors);
+	Cvar_RegisterVariable (&gl_enemycolor); // woods #enemycolors
+	Cvar_RegisterVariable (&gl_teamcolor); // woods #enemycolors
 
 	//johnfitz -- new cvars
 	Cvar_RegisterVariable (&r_stereo);
@@ -250,15 +252,46 @@ void R_Init (void)
 
 /*
 ===============
-R_TranslatePlayerSkin -- johnfitz -- rewritten.  also, only handles new colors, not new skins
+R_TranslatePlayerSkin -- johnfitz -- rewritten.  also, only handles new colors, not new skins // woods #enemycolors
 ===============
 */
 void R_TranslatePlayerSkin (int playernum)
 {
+	char enemy[4];
+	char team[4];
+	
+	int ecolor, tcolor;
+
+	ecolor = CLAMP(0,(int)gl_enemycolor.value, 13);
+	tcolor = CLAMP(0, (int)gl_teamcolor.value, 13);
+
+	sprintf(enemy, "%i", ecolor);
+	sprintf(team, "%i", tcolor);
+
 	//FIXME: if gl_nocolors is on, then turned off, the textures may be out of sync with the scoreboard colors.
 	if (!gl_nocolors.value)
 		if (playertextures[playernum])
-			TexMgr_ReloadImage (playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+		{ 
+			if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0) // woods #enemycolors
+			{
+				if (cl.teamcolor[0]) // is this a team game? if so we can use a team skin
+				{
+					if (gl_teamcolor.value >= 0)
+						if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
+							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+					if (gl_enemycolor.value >= 0)
+						if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set TEAM COLOR
+							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
+				}
+				else
+				{
+					if (gl_teamcolor.value >= 0) // ffa, no teams (all enemies)
+							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+				}
+			}
+			else
+				TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+		}
 }
 
 /*
@@ -309,7 +342,33 @@ void R_TranslateNewPlayerSkin (int playernum)
 	}
 
 //now recolor it
-	R_TranslatePlayerSkin (playernum);
+	
+	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0) // woods #enemycolors
+	{ 
+		int i;
+
+		for (i = 0; i < cl.maxclients; ++i)
+			R_TranslatePlayerSkin(i);
+	}
+	else
+		R_TranslatePlayerSkin(playernum);
+
+}
+
+/*
+===============
+Reload_Colors -- woods #enemycolors
+===============
+*/
+void Reload_Colors_f (void)
+{
+	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)
+	{
+		int i;
+
+		for (i = 0; i < cl.maxclients; ++i)
+			R_TranslatePlayerSkin(i);
+	}
 }
 
 /*
