@@ -1690,55 +1690,27 @@ static void Host_Say_f(void)
 	Host_Say(false);
 }
 
+static void Host_Say_f2(void) // woods chat shortcuts
+{
+	const char* p;
+	p = Cmd_Args();
+	char text[MAXCMDLINE];
+	sprintf(text, "say %s", p);
+	Cmd_ExecuteString(text, src_command);
+}
+
 static void Host_Say_Team_f(void)
 {
 	Host_Say(true);
 }
 
-static void Host_Say_Short(void) // woods chat shortcuts
+static void Host_Say_Team_f2(void) // woods chat shortcuts
 {
-	char text[MAX_CHAT_SIZE_EX];
 	const char* p;
-	qboolean	quoted;
-
 	p = Cmd_Args();
-
-	// remove quotes if present
-	quoted = false;
-	if (*p == '\"')
-	{
-		p++;
-		quoted = true;
-	}
-
-	if (Cmd_Argc() == 1)
-		return;
-
-	sprintf(text, "say %s", p);
-	Cbuf_AddText(text);
-}
-
-static void Host_Say_Team_Short(void) // woods chat shortcuts
-{
-	char text[MAX_CHAT_SIZE_EX];
-	const char* p;
-	qboolean	quoted;
-
-	p = Cmd_Args();
-
-	// remove quotes if present
-	quoted = false;
-	if (*p == '\"')
-	{
-		p++;
-		quoted = true;
-	}
-
-	if (Cmd_Argc() == 1)
-		return;
-
+	char text[MAXCMDLINE];
 	sprintf(text, "say_team %s", p);
-	Cbuf_AddText(text);
+	Cmd_ExecuteString(text, src_command);
 }
 
 static void Host_Tell_f(void)
@@ -3196,9 +3168,9 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_ClientCommandQC ("setpos", Host_SetPos_f); //QuakeSpasm
 
 	Cmd_AddCommand_ClientCommandQC ("say", Host_Say_f);
-	Cmd_AddCommand_ClientCommandQC ("s", Host_Say_Short); // woods chat shortcuts
+	Cmd_AddCommand_ClientCommandQC ("s", Host_Say_f2); // woods chat shortcuts
 	Cmd_AddCommand_ClientCommandQC ("say_team", Host_Say_Team_f);
-	Cmd_AddCommand_ClientCommandQC ("st", Host_Say_Team_Short); // woods chat shortcuts
+	Cmd_AddCommand_ClientCommandQC ("st", Host_Say_Team_f2); // woods chat shortcuts
 	Cmd_AddCommand_ClientCommandQC ("tell", Host_Tell_f);
 	Cmd_AddCommand_ClientCommandQC ("color", Host_Color_f);
 	Cmd_AddCommand_ClientCommandQC ("reloadcolors", Reload_Colors_f); // woods #enemycolors
