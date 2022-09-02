@@ -81,8 +81,8 @@ cvar_t	gl_polyblend = {"gl_polyblend","1",CVAR_ARCHIVE};
 cvar_t	gl_flashblend = {"gl_flashblend","0",CVAR_ARCHIVE};
 cvar_t	gl_playermip = {"gl_playermip","0",CVAR_NONE};
 cvar_t	gl_nocolors = {"gl_nocolors","0",CVAR_NONE};
-cvar_t	gl_enemycolor = {"gl_enemycolor","",CVAR_ARCHIVE}; // woods #enemycolors
-cvar_t	gl_teamcolor = { "gl_teamcolor","",CVAR_ARCHIVE}; // woods #enemycolors
+cvar_t	gl_enemycolor = {"gl_enemycolor","-1",CVAR_ARCHIVE}; // woods #enemycolors
+cvar_t	gl_teamcolor = { "gl_teamcolor","-1",CVAR_ARCHIVE}; // woods #enemycolors
 
 //johnfitz -- new cvars
 cvar_t	r_stereo = {"r_stereo","0",CVAR_NONE};
