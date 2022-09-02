@@ -1692,6 +1692,8 @@ void SCR_DrawCrosshair (void)
 		Draw_Fill(-2, -6, 3, 17, x, 1); // vertical (thicker)
 		Draw_Fill(-9, 1, 17, 3, x, 1); //  horizontal (thicker)
 	}
+	if (crosshair.value == 7)
+		Draw_Character(-4, -4, '+'); //0,0 is center of viewport
 }
 
 //=============================================================================
