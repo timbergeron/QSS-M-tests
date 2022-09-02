@@ -2364,7 +2364,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	int color;
 
 #if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
-	if (strstr(string, "Match Starting") && !cls.demoplayback) // try get my attention if match beginning IF on team
+	if ((strstr(string, "Match Starting") || strstr(string, "Match begins")) && !cls.demoplayback) // try get my attention if match beginning IF on team
 	{
 		color = cl.scores[cl.realviewentity - 1].pants.basic;
 		if (color == cl.teamcolor[0] || color == cl.teamcolor[1]) // am I on a team?
@@ -2696,7 +2696,7 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 				return true;
 			}
 
-			return true; // woods to get rid of random ping prints
+				return true; // woods to get rid of random ping prints
 
 		}
 		cl.printtype = PRINT_NONE;
