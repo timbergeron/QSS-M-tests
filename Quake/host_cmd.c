@@ -1789,6 +1789,7 @@ static void Host_Color_f(void)
 	const char *top, *bottom;
 	char xt[4];
 	char xb[4];
+	char combined[14];
 	int t = rand() % 13 + 1; // woods for random colors
 	int b = rand() % 13 + 1; // woods for random colors
 
@@ -1823,31 +1824,33 @@ static void Host_Color_f(void)
 			sprintf(xt, "%i", t);
 			top = xt;
 			sprintf(xb, "%i", b);
-			bottom = xb;
+			bottom = xt;
 		}
 
-	if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
-	{
-		sprintf(xt, "%i", t);
-		top = xt;
-		bottom = Cmd_Argv(2);
-	}
+	if (Cmd_Argc() == 3)
+		{ 
+			if ((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n"))) // woods for random colors
+			{
+				sprintf(xt, "%i", t);
+				top = xt;
+				bottom = Cmd_Argv(2);
+			}
 	
-	if ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))) // woods for random colors
-	{
-		top = Cmd_Argv(1);
-		sprintf(xb, "%i", b);
-		bottom = xb;
-	}
+			if ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))) // woods for random colors
+			{
+				top = Cmd_Argv(1);
+				sprintf(xb, "%i", b);
+				bottom = xb;
+			}
 
-	if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
-		&& ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n")))) // woods for random colors
-	{
-		sprintf(xt, "%i", t);
-		top = xt;
-		sprintf(xb, "%i", b);
-		bottom = xb;
-	
+			if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
+				&& ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n")))) // woods for random colors
+			{
+				sprintf(xt, "%i", t);
+				top = xt;
+				sprintf(xb, "%i", b);
+				bottom = xb;
+			}
 	}
 
 	if (cmd_source != src_client)
@@ -1855,7 +1858,16 @@ static void Host_Color_f(void)
 		Cvar_Set ("topcolor", top);
 		Cvar_Set ("bottomcolor", bottom);
 		if (cls.state == ca_connected)
-			Cmd_ForwardToServer ();
+		{ 
+			if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
+				|| ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))))
+			{
+				sprintf(combined, "color %s %s", top, bottom);
+				Cmd_ExecuteString(combined, src_command);
+			}
+		}
+			else
+				Cmd_ForwardToServer ();
 		return;
 	}
 
