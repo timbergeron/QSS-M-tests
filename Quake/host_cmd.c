@@ -1855,16 +1855,18 @@ static void Host_Color_f(void)
 	{
 		Cvar_Set ("topcolor", top);
 		Cvar_Set ("bottomcolor", bottom);
-		if (cls.state == ca_connected)
-		{ 
-			if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
-				|| ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))))
+
+		if (((!strcmp(Cmd_Argv(1), "x")) || (!strcmp(Cmd_Argv(1), "y")) || (!strcmp(Cmd_Argv(1), "n")))
+			|| ((!strcmp(Cmd_Argv(2), "x")) || (!strcmp(Cmd_Argv(2), "y")) || (!strcmp(Cmd_Argv(2), "n"))))
+		{
+			if (cls.state == ca_connected)
 			{
 				sprintf(combined, "color %s %s", top, bottom);
 				Cmd_ExecuteString(combined, src_command);
 			}
 		}
-			else
+		else
+			if (cls.state == ca_connected)
 				Cmd_ForwardToServer ();
 		return;
 	}

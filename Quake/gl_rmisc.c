@@ -276,16 +276,20 @@ void R_TranslatePlayerSkin (int playernum)
 			{
 				if (cl.teamcolor[0]) // is this a team game? if so we can use a team skin
 				{
+					TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+					
 					if (gl_teamcolor.value >= 0)
+						if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
+							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
+					if (gl_enemycolor.value >= 0)
 						if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
 							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
-					if (gl_enemycolor.value >= 0)
-						if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set TEAM COLOR
-							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
 				}
 				else
 				{
-					if (gl_teamcolor.value >= 0) // ffa, no teams (all enemies)
+					TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+
+					if (gl_enemycolor.value >= 0) // ffa, no teams (all enemies)
 							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
 				}
 			}

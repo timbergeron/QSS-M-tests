@@ -1141,7 +1141,7 @@ qboolean CL_CheckDownloads(void)
 	if (cl.loc_download == 0)
 	{ 
 		char locname[MAX_QPATH];
-		char locname2[MAX_QPATH];
+		char locname2[80];
 		COM_FileBase(cl.model_name[1], locname, sizeof(locname));
 		sprintf(locname2, "locs/%s.loc", locname);
 
