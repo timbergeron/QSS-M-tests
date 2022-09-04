@@ -54,6 +54,7 @@ cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
 cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
 
 cvar_t		con_filter = { "con_filter", "1", CVAR_ARCHIVE }; //johnfitz
+cvar_t		con_notifylist = { "con_notifylist", "", CVAR_ARCHIVE }; // woods #notiy
 
 char		con_lastcenterstring[1024]; //johnfitz
 
@@ -355,6 +356,7 @@ void Con_Init (void)
 	Cvar_RegisterVariable (&con_logcenterprint); //johnfitz
 
 	Cvar_RegisterVariable( &con_filter);
+	Cvar_RegisterVariable (&con_notifylist); // woods #notiy
 
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f);
 	Cmd_AddCommand ("messagemode", Con_MessageMode_f);
@@ -488,13 +490,13 @@ static void Con_Print (const char *txt)
 				Cmd_ExecuteString(com, src_command);
 			}
 			if (!strcmp(txt, "Quad Damage is wearing off\n") && match_time > 33)
-				{
+			{
 					sprintf(com, "say_team next quad at: %02d", seconds_next);
 					Cmd_ExecuteString(com, src_command);
 					Cmd_ExecuteString(com, src_command);
 					Cmd_ExecuteString(com, src_command);
-				}
- 				
+			}
+
 		}
 
 		if (!strcmp(txt, "You receive "))
@@ -595,8 +597,26 @@ static void Con_Print (const char *txt)
 #if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 	if (!VID_HasMouseOrInputFocus() && !cls.demoplayback) // woods flash if my name is mentioned
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
-			if (strstr(txt, afk_name) && !strstr(txt, "AFK")) // !qe name change
+		{ 
+			if (cl_afk.value)
+			{
+				if (strstr(txt, afk_name) && !strstr(txt, "AFK")) // !qe name change
+					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);	
+			}
+		else
+			if (strstr(txt, cl_name.string))
 				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+
+			char notifylist[MAXCMDLINE];
+			sprintf(notifylist, "%s", con_notifylist.string);
+			char* token = strtok(notifylist, " ");
+
+			while (token != NULL) {
+				if (strstr(txt, token))
+					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+				token = strtok(NULL, " ");
+			}
+		}
 #endif
 
 	if (txt[0] == 1)
