@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
-extern cvar_t scr_fov, cl_gun_fovscale;
+extern cvar_t cl_gun_fovscale; // woods #zoom (ironwail)
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
 
@@ -1175,8 +1175,8 @@ void R_DrawAliasModel (entity_t *e)
 	}
 
 	//FIXME: this needs to go. combine with depthrange and explicit viewmodel-only fov into a different projection matrix..
-	if (e == &cl.viewent && scr_fov.value > 90.f && cl_gun_fovscale.value)
-		fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
+	if (e == &cl.viewent && r_refdef.basefov > 90.f && cl_gun_fovscale.value) // woods #zoom (ironwail)
+		fovscale = tan(r_refdef.basefov * (0.5f * M_PI / 180.f)); // woods #zoom (ironwail)
 
 	R_RotateForEntity (lerpdata.origin, lerpdata.angles, e->netstate.scale);
 

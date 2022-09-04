@@ -734,6 +734,8 @@ void CL_RelinkEntities (void)
 		cl.velocity[i] = cl.mvelocity[1][i] +
 			frac * (cl.mvelocity[0][i] - cl.mvelocity[1][i]);
 
+	SCR_UpdateZoom(); // woods #zoom (ironwail)
+
 	if ((cls.demoplayback || (last_angle_time > host_time && !(in_attack.state & 3)))) // woods JPG - check for last_angle_time for smooth chasecam!  #smoothcam
 	{
 	// interpolate the angles

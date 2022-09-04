@@ -140,6 +140,8 @@ typedef struct
 	vec3_t		vieworg;
 	vec3_t		viewangles;
 
+	float		basefov;  // woods #zoom (ironwail)
+
 	float		fov_x, fov_y;
 
 	int			ambientlight;

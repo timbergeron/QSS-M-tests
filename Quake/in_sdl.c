@@ -494,6 +494,7 @@ void IN_Shutdown (void)
 extern cvar_t cl_maxpitch; /* johnfitz -- variable pitch clamping */
 extern cvar_t cl_minpitch; /* johnfitz -- variable pitch clamping */
 
+extern cvar_t scr_fov; // woods #zoom (ironwail)
 
 void IN_MouseMotion(int dx, int dy, int wx, int wy)
 {
@@ -865,9 +866,13 @@ void IN_JoyMove (usercmd_t *cmd)
 void IN_MouseMove(usercmd_t *cmd)
 {
 	float	dmx, dmy;
+	float		sens; // woods #zoom (ironwail)
 
-	dmx = total_dx * sensitivity.value;
-	dmy = total_dy * sensitivity.value;
+	sens = tan(DEG2RAD(r_refdef.basefov) * 0.5f) / tan(DEG2RAD(scr_fov.value) * 0.5f); // woods #zoom (ironwail)
+	sens *= sensitivity.value; // woods #zoom (ironwail)
+
+	dmx = total_dx * sens; // woods #zoom (ironwail)
+	dmy = total_dy * sens; // woods #zoom (ironwail)
 
 	total_dx = 0;
 	total_dy = 0;

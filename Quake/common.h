@@ -111,6 +111,8 @@ GENERIC_TYPES (IMPL_GENERIC_FUNCS, NO_COMMA)
 	 (x) > (_maxval) ? (_maxval) : (x))
 #endif
 
+#define LERP(a, b, t) ((a) + ((b)-(a))*(t)) // woods #zoom (ironwail)
+
 #define countof(x) (sizeof(x)/sizeof((x)[0]))
 
 typedef struct sizebuf_s

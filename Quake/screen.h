@@ -30,6 +30,7 @@ void SCR_LoadPics (void);
 
 void SCR_UpdateScreen (void);
 
+void SCR_UpdateZoom(void); // woods #zoom (ironwail)
 
 void SCR_SizeUp (void);
 void SCR_SizeDown (void);

@@ -117,6 +117,8 @@ cvar_t		cl_predict = { "cl_predict", "0", CVAR_NONE }; // 2021 re-release
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
 cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
+cvar_t		scr_zoomfov = {"zoom_fov","30",CVAR_ARCHIVE};	// 10 - 170 // woods #zoom (ironwail)
+cvar_t		scr_zoomspeed = {"zoom_speed","8",CVAR_ARCHIVE}; // woods #zoom (ironwail)
 cvar_t		scr_conspeed = {"scr_conspeed","500",CVAR_ARCHIVE};
 cvar_t		scr_centertime = {"scr_centertime","2",CVAR_NONE};
 cvar_t		scr_showturtle = {"showturtle","0",CVAR_NONE};
@@ -416,6 +418,65 @@ void SCR_CheckDrawCenterString (void)
 	SCR_DrawCenterString ();
 }
 
+// woods #zoom (ironwail) SCR_ToggleZoom_f, SCR_ZoomDown_f, SCR_ZoomUp_f, SCR_UpdateZoom
+
+/*
+====================
+SCR_ToggleZoom_f
+====================
+*/
+static void SCR_ToggleZoom_f(void)
+{
+	if (cl.zoomdir)
+		cl.zoomdir = -cl.zoomdir;
+	else
+		cl.zoomdir = cl.zoom > 0.5f ? -1.f : 1.f;
+}
+
+/*
+====================
+SCR_ZoomDown_f
+====================
+*/
+static void SCR_ZoomDown_f(void)
+{
+	cl.zoomdir = 1.f;
+}
+
+/*
+====================
+SCR_ZoomUp_f
+====================
+*/
+static void SCR_ZoomUp_f(void)
+{
+	cl.zoomdir = -1.f;
+}
+
+/*
+====================
+SCR_UpdateZoom
+====================
+*/
+void SCR_UpdateZoom(void)
+{
+	float delta = cl.zoomdir * scr_zoomspeed.value * (cl.time - cl.oldtime);
+	if (!delta)
+		return;
+	cl.zoom += delta;
+	if (cl.zoom >= 1.f)
+	{
+		cl.zoom = 1.f;
+		cl.zoomdir = 0.f;
+	}
+	else if (cl.zoom <= 0.f)
+	{
+		cl.zoom = 0.f;
+		cl.zoomdir = 0.f;
+	}
+	vid.recalc_refdef = 1;
+}
+
 //=============================================================================
 
 /*
@@ -474,6 +535,7 @@ Internal use only
 static void SCR_CalcRefdef (void)
 {
 	float		size, scale; //johnfitz -- scale
+	float		zoom; // woods #zoom (ironwail)
 
 // force the status bar to redraw
 	Sbar_Changed ();
@@ -491,6 +553,10 @@ static void SCR_CalcRefdef (void)
 		Cvar_SetQuick (&scr_fov, "10");
 	if (scr_fov.value > 170)
 		Cvar_SetQuick (&scr_fov, "170");
+	if (scr_zoomfov.value < 10) // woods #zoom (ironwail)
+		Cvar_SetQuick(&scr_zoomfov, "10");
+	if (scr_zoomfov.value > 170)
+		Cvar_SetQuick(&scr_zoomfov, "170"); // woods #zoom (ironwail)
 
 	vid.recalc_refdef = 0;
 
@@ -515,8 +581,11 @@ static void SCR_CalcRefdef (void)
 	r_refdef.vrect.y = (glheight - sb_lines - r_refdef.vrect.height)/2;
 	//johnfitz
 
-	r_refdef.fov_x = AdaptFovx(scr_fov.value, vid.width, vid.height);
-	r_refdef.fov_y = CalcFovy (r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height);
+	zoom = cl.zoom;
+	zoom *= zoom * (3.f - 2.f * zoom); // smoothstep // woods #zoom (ironwail)
+	r_refdef.basefov = LERP(scr_fov.value, scr_zoomfov.value, zoom); // woods #zoom (ironwail)
+	r_refdef.fov_x = AdaptFovx(r_refdef.basefov, vid.width, vid.height); // woods #zoom (ironwail)
+	r_refdef.fov_y = CalcFovy (r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height); // woods #zoom (ironwail)
 
 	scr_vrect = r_refdef.vrect;
 }
@@ -616,10 +685,13 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
 	Cvar_RegisterVariable (&cl_predict); // 2021 re-release
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
-	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
+	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef); // woods #zoom (ironwail)
+	Cvar_SetCallback (&scr_zoomfov, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_viewsize, SCR_Callback_refdef);
 	Cvar_RegisterVariable (&scr_fov);
-	Cvar_RegisterVariable (&scr_fov_adapt);
+	Cvar_RegisterVariable (&scr_fov_adapt); // woods #zoom (ironwail)
+	Cvar_RegisterVariable(&scr_zoomfov); // woods #zoom (ironwail)
+	Cvar_RegisterVariable(&scr_zoomspeed);
 	Cvar_RegisterVariable (&scr_viewsize);
 	Cvar_RegisterVariable (&scr_conspeed);
 	Cvar_RegisterVariable (&scr_showturtle);
@@ -632,6 +704,10 @@ void SCR_Init (void)
 	Cmd_AddCommand ("screenshot",SCR_ScreenShot_f);
 	Cmd_AddCommand ("sizeup",SCR_SizeUp_f);
 	Cmd_AddCommand ("sizedown",SCR_SizeDown_f);
+
+	Cmd_AddCommand("togglezoom", SCR_ToggleZoom_f); // woods #zoom (ironwail)
+	Cmd_AddCommand("+zoom", SCR_ZoomDown_f); // woods #zoom (ironwail)
+	Cmd_AddCommand("-zoom", SCR_ZoomUp_f); // woods #zoom (ironwail)
 
 	SCR_LoadPics (); //johnfitz
 

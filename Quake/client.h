@@ -339,6 +339,9 @@ typedef struct
 	size_t	ssqc_to_csqc_max;
 	edict_t **ssqc_to_csqc;		//to find the csqc ent for an ssqc index.
 
+	float		zoom; // woods #zoom (ironwail)
+	float		zoomdir; // woods #zoom (ironwail)
+
 	qboolean	listener_defined;
 	vec3_t		listener_origin;
 	vec3_t		listener_axis[3];
