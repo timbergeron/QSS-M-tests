@@ -605,7 +605,9 @@ static void Con_Print (const char *txt)
 			}
 		else
 			if (strstr(txt, cl_name.string))
+			{ 
 				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+			}
 
 			char notifylist[MAXCMDLINE];
 			sprintf(notifylist, "%s", con_notifylist.string);
