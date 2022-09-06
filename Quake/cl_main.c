@@ -66,6 +66,9 @@ cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 cvar_t  cl_rocketlight = {"cl_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
 cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #deadbody
 
+cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
+cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
+
 client_static_t	cls;
 client_state_t	cl;
 // FIXME: put these on hunk?
@@ -293,7 +296,7 @@ void CL_SignonReply (void)
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		MSG_WriteString (&cls.message, va("color %i %i\n", (int)cl_topcolor.value, (int)cl_bottomcolor.value));
 
-		if (*cl.serverinfo)
+		//if (*cl.serverinfo) // woods, for qe fte compat, fte doesnt send serverinfo in nq emulation?
 			Info_Enumerate(cls.userinfo, CL_SendInitialUserinfo, NULL);
 
 		MSG_WriteByte (&cls.message, clc_stringcmd);
@@ -1799,6 +1802,9 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_idle); // woods #smartafk
 	Cvar_RegisterVariable (&cl_rocketlight); // woods #rocketlight
 	Cvar_RegisterVariable (&cl_deadbodyfilter); // woods #deadbody
+
+	Cvar_RegisterVariable (&w_switch); // woods #autoweapon
+	Cvar_RegisterVariable (&b_switch); // woods #autoweapon
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
