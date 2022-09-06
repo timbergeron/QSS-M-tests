@@ -39,6 +39,8 @@ extern cvar_t gl_picmip; // woods #f_config
 extern cvar_t scr_showfps; // woods #f_config
 extern cvar_t allow_download; // woods #ftehack
 
+void Reload_Colors_f(void);
+
 const char *svc_strings[128] =
 {
 	"svc_bad",
@@ -2373,6 +2375,9 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	}
 #endif
 
+	if (strstr(string, "joined") && strstr(string, cl_name.string)) // woods #enemycolors
+		Reload_Colors_f();
+
 	// check for match time
 	if (!strncmp(string, "Match ends in ", 14))
 	{
@@ -2769,6 +2774,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			char textures[4];
 			char hud[3];
 			char lfps[20];
+			char ecolor[4];
 			
 			if (!strcmp(r_particledesc.string, ""))
 				sprintf(particles, "classic");
@@ -2786,6 +2792,13 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 				sprintf(hud, "%s", "qe");
 			else
 				sprintf(hud, "%s", "nq");
+
+			if (!strcmp(gl_enemycolor.string, ""))
+				sprintf(ecolor, "%s", "off");
+			else if (gl_enemycolor.value >= 0)
+				sprintf(ecolor, "%i", (int)gl_enemycolor.value);
+			else
+				sprintf(ecolor, "%s", "off");
 
 			// for movement key
 			int	i, count;
@@ -2828,7 +2841,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say cross %s, vmodel %s, hud %s, particles %s", crosshair.string, r_drawviewmodel.string, hud, particles));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say textures %s, +forward %s, chatmode %s", textures, key, cl_say.string));
+			MSG_WriteString(&cls.message, va("say textures %s, +forward %s, chat %s, ecolor %s", textures, key, cl_say.string, ecolor));
 			cl.printconfig = realtime + 20;
 		}
 	}

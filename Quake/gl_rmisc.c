@@ -163,6 +163,21 @@ float GL_WaterAlphaForSurface (msurface_t *fa)
 		return map_wateralpha;// > 0 ? map_wateralpha : map_fallbackalpha;
 }
 
+/*
+===============
+Reload_Colors -- woods #enemycolors
+===============
+*/
+void Reload_Colors_f(void)
+{
+	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)
+	{
+		int i;
+
+		for (i = 0; i < cl.maxclients; ++i)
+			R_TranslatePlayerSkin(i);
+	}
+}
 
 /*
 ===============
@@ -199,13 +214,15 @@ void R_Init (void)
 	Cvar_RegisterVariable (&gl_playermip);
 	Cvar_RegisterVariable (&gl_nocolors);
 	Cvar_RegisterVariable (&gl_enemycolor); // woods #enemycolors
+	Cvar_SetCallback(&gl_enemycolor, Reload_Colors_f); // woods #enemycolors
 	Cvar_RegisterVariable (&gl_teamcolor); // woods #enemycolors
+	Cvar_SetCallback(&gl_teamcolor, Reload_Colors_f); // woods #enemycolors
 
 	//johnfitz -- new cvars
 	Cvar_RegisterVariable (&r_stereo);
 	Cvar_RegisterVariable (&r_stereodepth);
 	Cvar_RegisterVariable (&r_clearcolor);
-	Cvar_SetCallback (&r_clearcolor, R_SetClearColor_f);
+	Cvar_SetCallback (&r_clearcolor, Reload_Colors_f);
 	Cvar_RegisterVariable (&r_waterquality);
 	Cvar_RegisterVariable (&r_waterwarp);
 	Cvar_RegisterVariable (&r_drawflat);
@@ -272,29 +289,33 @@ void R_TranslatePlayerSkin (int playernum)
 	if (!gl_nocolors.value)
 		if (playertextures[playernum])
 		{ 
-			if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0) // woods #enemycolors
-			{
-				if (cl.teamcolor[0]) // is this a team game? if so we can use a team skin
-				{
-					TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
-					
-					if (gl_teamcolor.value >= 0)
-						if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
-							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
-					if (gl_enemycolor.value >= 0)
-						if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
-							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
-				}
-				else
-				{
-					TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+				if ((gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0) && (strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, ""))) // woods #enemycolors, do we run it?
+				{ 
+					if (cl.teamcolor[0]) // is this a team game? if so we can use a team color AND an enemy color
+					{
+						if ((!gl_teamcolor.value >= 0 && !gl_enemycolor.value >= 0) ||
+							(strcmp(gl_teamcolor.string, "") && strcmp(gl_enemycolor.string, "")))
+							// only run if one or other is being used, not BOTH
+							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
 
-					if (gl_enemycolor.value >= 0) // ffa, no teams (all enemies)
-							TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+						if (gl_teamcolor.value >= 0 && strcmp(gl_teamcolor.string, ""))
+							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
+								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
+
+						if (gl_enemycolor.value >= 0 && strcmp(gl_enemycolor.string, ""))
+							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
+								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+					}
+					else
+					{
+						TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+
+						if ((gl_enemycolor.value >= 0) && strcmp(gl_enemycolor.string, ""))// ffa, no teams (ALL enemies)
+								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+					}
 				}
-			}
 			else
-				TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+				TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants); // default behavior / colors
 		}
 }
 
@@ -347,32 +368,8 @@ void R_TranslateNewPlayerSkin (int playernum)
 
 //now recolor it
 	
-	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0) // woods #enemycolors
-	{ 
-		int i;
+	R_TranslatePlayerSkin(playernum);
 
-		for (i = 0; i < cl.maxclients; ++i)
-			R_TranslatePlayerSkin(i);
-	}
-	else
-		R_TranslatePlayerSkin(playernum);
-
-}
-
-/*
-===============
-Reload_Colors -- woods #enemycolors
-===============
-*/
-void Reload_Colors_f (void)
-{
-	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)
-	{
-		int i;
-
-		for (i = 0; i < cl.maxclients; ++i)
-			R_TranslatePlayerSkin(i);
-	}
 }
 
 /*
