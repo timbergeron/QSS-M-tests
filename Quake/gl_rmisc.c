@@ -168,7 +168,7 @@ float GL_WaterAlphaForSurface (msurface_t *fa)
 Reload_Colors -- woods #enemycolors
 ===============
 */
-void Reload_Colors_f(void)
+void Reload_Colors_f (cvar_t* var)
 {
 	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)
 	{
@@ -289,12 +289,12 @@ void R_TranslatePlayerSkin (int playernum)
 	if (!gl_nocolors.value)
 		if (playertextures[playernum])
 		{ 
-				if ((gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0) && (strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, ""))) // woods #enemycolors, do we run it?
+				if (((gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)) && (strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, ""))) // woods #enemycolors, do we run it?
 				{ 
 					if (cl.teamcolor[0]) // is this a team game? if so we can use a team color AND an enemy color
 					{
-						if ((!gl_teamcolor.value >= 0 && !gl_enemycolor.value >= 0) ||
-							(strcmp(gl_teamcolor.string, "") && strcmp(gl_enemycolor.string, "")))
+						if (((gl_teamcolor.value < 0 && gl_enemycolor.value < 0)) ||
+							((strcmp(gl_teamcolor.string, "") && strcmp(gl_enemycolor.string, ""))))
 							// only run if one or other is being used, not BOTH
 							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
 
