@@ -3173,7 +3173,7 @@ void CL_ParseServerMessage (void)
 	int			i;
 	const char		*str; //johnfitz
 	int			lastcmd; //johnfitz
-	char*		s;	// woods #pqteam
+	const char*		s;	// woods #pqteam
 //
 // if recording demos, copy the message out
 //
