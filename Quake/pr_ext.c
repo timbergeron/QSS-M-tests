@@ -7942,7 +7942,7 @@ void PF_Fixme (void)
 	PR_RunError ("PF_Fixme: not a builtin...");
 }
 
-static void PF_Fixme_noext (void)
+/*static void PF_Fixme_noext(void) // woods unused
 {
 	//interrogate the vm to try to figure out exactly which builtin they just tried to execute.
 	dstatement_t *st = &qcvm->statements[qcvm->xstatement];
@@ -7956,7 +7956,7 @@ static void PF_Fixme_noext (void)
 			PR_RunError ("unimplemented builtin #%i - %s", binum, funcname);
 	}
 	PR_RunError ("PF_Fixme: not a builtin...");
-}
+}*/
 
 
 //called at map end

@@ -752,7 +752,7 @@ static void Mod_LoadTextures (lump_t *l)
 	int			mark, fwidth, fheight;
 	char		filename[MAX_OSPATH], mapname[MAX_OSPATH];
 	byte		*data;
-	extern byte *hunk_base;
+	//extern byte *hunk_base; //woods unused 
 //johnfitz
 	qboolean malloced;	//spike
 	enum srcformat fmt;	//spike
@@ -1494,11 +1494,11 @@ static void CalcSurfaceExtents (msurface_t *s)
 
 /*
 ================
-Mod_PolyForUnlitSurface -- johnfitz -- creates polys for unlightmapped surfaces (sky and water)
+Mod_PolyForUnlitSurface -- johnfitz -- creates polys for unlightmapped surfaces (sky and water) -- woods unused
 
 TODO: merge this into BuildSurfaceDisplayList?
 ================
-*/
+
 static void Mod_PolyForUnlitSurface (msurface_t *fa)
 {
 	vec3_t		verts[64];
@@ -1537,7 +1537,7 @@ static void Mod_PolyForUnlitSurface (msurface_t *fa)
 		poly->verts[i][3] = DotProduct(vec, fa->texinfo->vecs[0]) * texscale;
 		poly->verts[i][4] = DotProduct(vec, fa->texinfo->vecs[1]) * texscale;
 	}
-}
+}*/
 
 /*
 =================

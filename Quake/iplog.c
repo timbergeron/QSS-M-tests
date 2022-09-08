@@ -283,7 +283,7 @@ IPLog_DumpTree
 */
 void IPLog_DumpTree (iplog_t *root, FILE *f)
 {
-	char address[16];
+	char address[20];
 	char name[16];
 	unsigned char *ch;
 

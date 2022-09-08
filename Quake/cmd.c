@@ -1037,7 +1037,8 @@ Sends the entire command line over to the server
 */
 void Cmd_ForwardToServer (void)
 {
-	char* src, * dst, buff[128];		// JPG - used for say/say_team formatting // woods #pqteam
+	char* dst, buff[128];		// JPG - used for say/say_team formatting // woods #pqteam
+	const char* src; // woods add const
 	int minutes, seconds, match_time;	// JPG - used for %t // woods #pqteam
 	
 	if (cls.state != ca_connected)

@@ -786,7 +786,7 @@ static void Host_Ping_f (void)
 	int		i, j;
 	float		total;
 	client_t	*client;
-	char* n;	// JPG - for ping +N // woods #pqlag
+	const char* n;	// JPG - for ping +N // woods #pqlag (add const)
 
 	// JPG - check for ping +N // woods #pqlag
 	if (Cmd_Argc() == 2)
@@ -2731,7 +2731,7 @@ char unfun[129] =
 ".abcdefghijklmnopqrstuvwxyz[.]..";
 
 // try to find s1 inside of s2
-int unfun_match(char* s1, char* s2)
+int unfun_match(const char* s1, char* s2) // woods add const
 {
 	int i;
 	for (; *s2; s2++)

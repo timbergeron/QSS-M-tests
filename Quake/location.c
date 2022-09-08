@@ -74,7 +74,7 @@ void LOC_SetLoc (vec3_t mins, vec3_t maxs, char *name)
 	q_snprintf (l->name, namelen + 1, name);	
 	Con_DPrintf("Location %s assigned.\n", name);
 	for (ptr = &locations;*ptr;ptr = &(*ptr)->next_loc);
-		*ptr = l;
+	*ptr = l; // woods remove indent
 }
 
 qboolean LOC_LoadLocations (void)
