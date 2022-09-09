@@ -2248,6 +2248,8 @@ static void CL_ParseParticles(int type)
 }
 #endif
 
+qboolean cl_mm2; // woods #con_mm1mute
+
 /* 
 =======================
 CL_ParseProQuakeMessage -- // begin rook / woods #pqteam JPG - added this function for ProQuake messages
@@ -2375,6 +2377,22 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	}
 #endif
 
+	// woods #con_mm1mute (qrack)
+
+	if (string[1] == '(')
+	{
+		cl_mm2 = true;
+	}
+	else
+	{
+		cl_mm2 = false;
+	}
+
+	if (strstr(string, "Match Starting") || strstr(string, "Match begins")) // woods #con_mm1mute + other use
+	{
+		cl.matchinp = 1;
+	}
+
 	if (strstr(string, "joined") && strstr(string, cl_name.string)) // woods #enemycolors
 		Reload_Colors_f();
 
@@ -2420,7 +2438,6 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
 					{
-						cl.matchinp = 1;
 						Cmd_ExecuteString("record\n", src_command);
 					}
 				if (strstr(string, "welcome to CRx"))  // woods differemt cfgs per mod #modcfg

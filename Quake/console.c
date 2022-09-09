@@ -50,11 +50,14 @@ int		con_current;		// where next message will be printed
 int		con_x;				// offset in current line for next print
 char		*con_text = NULL;
 
+extern qboolean cl_mm2; // woods #con_mm1mute
+
 cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
 cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
 
 cvar_t		con_filter = { "con_filter", "1", CVAR_ARCHIVE }; //johnfitz
 cvar_t		con_notifylist = { "con_notifylist", "", CVAR_ARCHIVE }; // woods #notiy
+cvar_t		con_mm1mute = {"con_mm1mute", "1", CVAR_ARCHIVE}; // woods #con_mm1mute
 
 char		con_lastcenterstring[1024]; //johnfitz
 
@@ -357,6 +360,7 @@ void Con_Init (void)
 
 	Cvar_RegisterVariable( &con_filter);
 	Cvar_RegisterVariable (&con_notifylist); // woods #notiy
+	Cvar_RegisterVariable (&con_mm1mute); // woods #con_mm1mute
 
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f);
 	Cmd_AddCommand ("messagemode", Con_MessageMode_f);
@@ -623,8 +627,18 @@ static void Con_Print (const char *txt)
 
 	if (txt[0] == 1)
 	{
-		mask = 128;		// go to colored text
-		S_LocalSound ("misc/talk.wav");	// play talk wav
+		mask = 128;		// go to colored text`
+		
+		int color; 
+		color = cl.scores[cl.realviewentity - 1].pants.basic;
+
+		if ((cl.matchinp == 1 && con_mm1mute.value) && (color == cl.teamcolor[0] || color == cl.teamcolor[1])) // woods #con_mm1mute
+		{ 
+			if (cl_mm2)
+				S_LocalSound("misc/talk.wav");	// play talk wav
+		}
+		else
+			S_LocalSound("misc/talk.wav");	// play talk wav
 		txt++;
 	}
 	else if (txt[0] == 2)
