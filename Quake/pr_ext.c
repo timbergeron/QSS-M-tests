@@ -7681,6 +7681,14 @@ qboolean PR_Can_EF_Red_Blue(unsigned int prot, unsigned int pext1, unsigned int 
 	qcvm->brokeneffects = false;
 	return !qcvm->brokeneffects;
 }
+qboolean PR_Can_EX_EXTENDED_EF(unsigned int prot, unsigned int pext1, unsigned int pext2)
+{
+	return qcvm->brokeneffects;
+}
+qboolean PR_Can_EX_MOVETYPE_GIB(unsigned int prot, unsigned int pext1, unsigned int pext2)
+{
+	return qcvm->brokenbouncemissile;
+}
 qboolean PR_NotQEX(unsigned int prot, unsigned int pext1, unsigned int pext2)
 {	//extensions with builtins in the relevant range are broken by quakeex
 	if (qcvm->brokenbouncemissile)
@@ -7764,6 +7772,9 @@ static struct
 	{"DP_TE_STANDARDEFFECTBUILTINS"},
 	{"EXT_BITSHIFT"},
 	{"EXT_CSQC"},
+	{"EX_EXTENDED_EF",			PR_Can_EX_EXTENDED_EF},
+	{"EX_MOVETYPE_GIB",			PR_Can_EX_MOVETYPE_GIB},
+//	{"EX_PROMPT",				PR_Can_EX_PROMPT},	//clientside psuedo-centerprint menus to make things more game-controller friendly (FTE servers implement this by intercepting movement and generating centerprints).
 	{"FRIK_FILE",				PR_NotQEX},		//lacks the file part, but does have the strings part.
 	{"FTE_CSQC_SERVERBROWSER"},	//callable from csqc too, for feature parity.
 	{"FTE_ENT_SKIN_CONTENTS"},	//SOLID_BSP&&skin==CONTENTS_FOO changes CONTENTS_SOLID to CONTENTS_FOO, allowing you to swim in moving ents without qc hacks, as well as correcting view cshifts etc.
