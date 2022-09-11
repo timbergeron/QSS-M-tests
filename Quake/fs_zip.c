@@ -766,6 +766,7 @@ FILE *FSZIP_Deflate(FILE *src, qofs_t srcsize, qofs_t outsize)
 
 	if (!of)
 	{
+		Con_Printf("FSZIP_Deflate: tmpfile failed, out of handles?\n");
 		fclose(src);
 		return NULL;
 	}
@@ -800,15 +801,20 @@ FILE *FSZIP_Deflate(FILE *src, qofs_t srcsize, qofs_t outsize)
 			inflateEnd(&strm);
 			fclose(src);
 			fclose(of);
-			Con_Printf("Couldn't decompress file\n");
+			Con_Printf("Couldn't decompress file, corrupt?\n");
 			return NULL;
 		}
-		
 	}
 	fwrite(outbuffer, 1, strm.total_out, of);
 	inflateEnd(&strm);
-
 	fclose(src);
+
+	if (strm.total_out != outsize)
+	{
+		Con_Printf("Decompressed %u bytes, expected %u\n", (unsigned int)strm.total_out, (unsigned int)outsize);
+		fclose(of);
+		return NULL;
+	}
 
 	fseek(of, SEEK_SET, 0);
 	return of;

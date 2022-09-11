@@ -3120,10 +3120,11 @@ static void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 				pheader->gltextures[i][0] = TexMgr_LoadImage (loadmodel, filename, fwidth, fheight,
 					fmt, data, filename, 0, TEXPREF_ALPHA|texflags|TEXPREF_MIPMAP );
 
-				//now try to load glow/luma image from the same place
 				if (malloced)
 					free(data);
 				Hunk_FreeToLowMark (mark);
+
+				//now try to load glow/luma image from the same place
 				q_snprintf (filename2, sizeof(filename2), "%s_glow", filename);
 				data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced);
 				if (!data)
@@ -3137,6 +3138,10 @@ static void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 						fmt, data, filename, 0, TEXPREF_ALPHA|texflags|TEXPREF_MIPMAP );
 				else
 					pheader->fbtextures[i][0] = NULL;
+
+				if (malloced)
+					free(data);
+				Hunk_FreeToLowMark (mark);
 			}
 			else
 			{
