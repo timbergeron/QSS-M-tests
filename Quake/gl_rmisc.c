@@ -274,44 +274,54 @@ R_TranslatePlayerSkin -- johnfitz -- rewritten.  also, only handles new colors, 
 */
 void R_TranslatePlayerSkin (int playernum)
 {
-	char enemy[4];
-	char team[4];
+	const char *enemy;
+	const char *team;
 	
-	int ecolor, tcolor;
+	enemy = gl_enemycolor.string;
+	team = gl_teamcolor.string;
 
-	ecolor = CLAMP(0,(int)gl_enemycolor.value, 13);
-	tcolor = CLAMP(0, (int)gl_teamcolor.value, 13);
+	char buf[10];
+	char buf2[10];
+	char buf3[10];
+	char buf4[10];
+	const char* simode;
+	simode = Info_GetKey(cl.serverinfo, "mode", buf, sizeof(buf)); // serverinfo (nqcrx)
 
-	sprintf(enemy, "%i", ecolor);
-	sprintf(team, "%i", tcolor);
+	const char* siplaymode;
+	siplaymode = Info_GetKey(cl.serverinfo, "playmode", buf2, sizeof(buf2)); // serverinfo (nqcrx)
+
+	const char* uimode;
+	uimode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf3, sizeof(buf3)); // userinfo (qecrx)
+
+	const char* uiplaymode;
+	uiplaymode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "playmode", buf4, sizeof(buf4)); // userinfo (qecrx)
 
 	//FIXME: if gl_nocolors is on, then turned off, the textures may be out of sync with the scoreboard colors.
 	if (!gl_nocolors.value)
 		if (playertextures[playernum])
 		{ 
-				if (((gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)) && (strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, ""))) // woods #enemycolors, do we run it?
+				if (strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, "")) // woods #enemycolors, do we run it?
 				{ 
-					if (cl.teamcolor[0]) // is this a team game? if so we can use a team color AND an enemy color
+					// is this a team game? if so we can use a team color AND an enemy color
+					if (cl.teamcolor[0] || (!strcmp(simode, "ctf") && !strcmp(siplaymode, "public")) || (!strcmp(uimode, "ctf") && !strcmp(uiplaymode, "public")))
 					{
-						if (((gl_teamcolor.value < 0 && gl_enemycolor.value < 0)) ||
-							((strcmp(gl_teamcolor.string, "") && strcmp(gl_enemycolor.string, ""))))
-							// only run if one or other is being used, not BOTH
+						if (!strcmp(gl_teamcolor.string, "") || !strcmp(gl_enemycolor.string, "")) // only run if one or other is being used, not BOTH
 							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
 
-						if (gl_teamcolor.value >= 0 && strcmp(gl_teamcolor.string, ""))
+						if (strcmp(gl_teamcolor.string, ""))
 							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
 								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
 
-						if (gl_enemycolor.value >= 0 && strcmp(gl_enemycolor.string, ""))
+						if (strcmp(gl_enemycolor.string, ""))
 							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
 								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
 					}
 					else
 					{
-						TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
-
-						if ((gl_enemycolor.value >= 0) && strcmp(gl_enemycolor.string, ""))// ffa, no teams (ALL enemies)
+						if (strcmp(gl_enemycolor.string, "")) // ffa, no teams (ALL enemies)
 								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+						else
+							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
 					}
 				}
 			else

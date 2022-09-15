@@ -2791,7 +2791,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			char textures[4];
 			char hud[3];
 			char lfps[20];
-			char ecolor[4];
+			char ecolor[10];
 			
 			if (!strcmp(r_particledesc.string, ""))
 				sprintf(particles, "classic");
@@ -2812,10 +2812,8 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 
 			if (!strcmp(gl_enemycolor.string, ""))
 				sprintf(ecolor, "%s", "off");
-			else if (gl_enemycolor.value >= 0)
-				sprintf(ecolor, "%i", (int)gl_enemycolor.value);
 			else
-				sprintf(ecolor, "%s", "off");
+				sprintf(ecolor, "%.8s", gl_enemycolor.string);
 
 			// for movement key
 			int	i, count;
