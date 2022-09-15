@@ -2388,7 +2388,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 		cl_mm2 = false;
 	}
 
-	if (strstr(string, "Match Starting") || strstr(string, "Match begins")) // woods #con_mm1mute + other use
+	if (!strncmp(string, "The match has begun!", 20)) // woods #con_mm1mute + other use
 	{
 		cl.matchinp = 1;
 	}
