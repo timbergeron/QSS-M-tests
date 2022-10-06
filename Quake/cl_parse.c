@@ -1516,7 +1516,35 @@ static void CL_ParseServerInfo (void)
 			Host_Error ("Server sent too many model precaches");
 		}
 		q_strlcpy (cl.model_name[cl.model_count], str, MAX_QPATH);
+
 		Mod_TouchModel (str);
+
+		if (!strcmp(str, "progs/flag.mdl")) // find the precache number #alternateflags
+			ogflagprecache = cl.model_count;
+	}
+
+	if (COM_FileExists("progs/ctfmodel.mdl", NULL)) // woods -> does client have alternate flag model? Quake Mission Pack 2: Dissolution of Eternity (Rogue) -- official #alternateflags
+	{ 
+		const char* ss = "progs/ctfmodel.mdl";
+		q_strlcpy(cl.model_name[cl.model_count++], ss, MAX_QPATH);
+		swapflagprecache = cl.model_count-1;
+		Mod_TouchModel(ss);
+	}
+
+	if (COM_FileExists("progs/flag2.mdl", NULL)) // woods -> does client have alternate flag model #alternateflags
+	{
+		const char* ss2 = "progs/flag2.mdl";
+		q_strlcpy(cl.model_name[cl.model_count++], ss2, MAX_QPATH);
+		swapflagprecache2 = cl.model_count - 1;
+		Mod_TouchModel(ss2);
+	}
+
+	if (COM_FileExists("progs/flag3.mdl", NULL)) // woods -> does client have alternate flag model 2 #alternateflags
+	{
+		const char* ss3 = "progs/flag3.mdl";
+		q_strlcpy(cl.model_name[cl.model_count++], ss3, MAX_QPATH);
+		swapflagprecache3 = cl.model_count - 1;
+		Mod_TouchModel(ss3);
 	}
 
 	//johnfitz -- check for excessive models

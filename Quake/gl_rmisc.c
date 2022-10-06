@@ -427,6 +427,8 @@ static void R_ParseWorldspawn (void)
 	map_telealpha = (cl.worldmodel->contentstransparent&SURF_DRAWTELE)?r_telealpha.value:1;
 	map_slimealpha = (cl.worldmodel->contentstransparent&SURF_DRAWSLIME)?r_slimealpha.value:1;
 
+	map_ctf_flag_style = 1; // flag style default #alternateflags
+
 	data = COM_Parse(cl.worldmodel->entities);
 	if (!data)
 		return; // error
@@ -461,6 +463,9 @@ static void R_ParseWorldspawn (void)
 
 		if (!strcmp("slimealpha", key))
 			map_slimealpha = atof(value);
+
+		if (!strcmp("ctfstyle", key)) // woods lets set whgat flag style we use [ 1 - default, 2 - rogue, 3 - alternate option1, 4 - alternate option2 ] #alternateflags
+			map_ctf_flag_style = atof(value);
 	}
 }
 

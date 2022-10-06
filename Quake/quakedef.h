@@ -389,5 +389,8 @@ double		mpservertime;	// woods #servertime
 int			maptime;		// woods connected map time #maptime
 char		lastmphost[NET_NAMELEN]; // woods - connected server address
 char		demoplaying[MAX_OSPATH]; // woods for window title
+
+int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
+
 #endif	/* QUAKEDEFS_H */
 

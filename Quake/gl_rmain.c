@@ -115,6 +115,8 @@ cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
 
+int	map_ctf_flag_style; // woods #alternateflags
+
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
 
 cvar_t	r_scale = {"r_scale", "1", CVAR_ARCHIVE};
@@ -681,6 +683,40 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		switch (currententity->model->type)
 		{
 			case mod_alias:
+
+				if (swapflagprecache && map_ctf_flag_style == 2) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+				{
+					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
+					{
+						currententity->syncbase = 0;
+						currententity->model->flags = MOD_NOLERP;
+						currententity->model = cl.model_precache[swapflagprecache]; // roque
+			
+					}
+				}
+
+				if (swapflagprecache2 && map_ctf_flag_style == 3) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+				{
+					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
+					{
+						currententity->syncbase = 0;
+						currententity->model->flags = MOD_NOLERP;
+						currententity->model = cl.model_precache[swapflagprecache2]; // alt1 (flag2.mdl)
+
+					}
+				}
+
+				if (swapflagprecache3 && map_ctf_flag_style == 4) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+				{
+					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
+					{
+						currententity->syncbase = 0;
+						currententity->model->flags = MOD_NOLERP;
+						currententity->model = cl.model_precache[swapflagprecache3]; // alt2 (flag3.mdl)
+
+					}
+				}
+
 				R_DrawAliasModel (currententity);
 				break;
 			case mod_brush:

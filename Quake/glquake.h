@@ -361,6 +361,8 @@ typedef struct glsl_attrib_binding_s {
 extern float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha; //ericw
 extern float	map_fallbackalpha; //spike -- because we might want r_wateralpha to apply to teleporters while water itself wasn't watervised
 
+extern int	map_ctf_flag_style; // woods #alternateflags
+
 //johnfitz -- fog functions called from outside gl_fog.c
 void Fog_ParseServerMessage (void);
 float *Fog_GetColor (void);
