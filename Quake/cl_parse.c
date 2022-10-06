@@ -2396,12 +2396,14 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	int color;
 
 #if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
-	if ((strstr(string, "Match Starting") || strstr(string, "Match begins")) && !cls.demoplayback) // try get my attention if match beginning IF on team
+	if ((strstr(string, "Match Starting") || strstr(string, "Match begins")) && !cls.demoplayback && cl.teamgame) // try get my attention if match beginning IF on team
 	{
 		color = cl.scores[cl.realviewentity - 1].pants.basic;
-		if (color == cl.teamcolor[0] || color == cl.teamcolor[1]) // am I on a team?
+		if (color != 0) // am I on a team?
+		{
 			if (!VID_HasMouseOrInputFocus())
 				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+		}
 	}
 #endif
 
