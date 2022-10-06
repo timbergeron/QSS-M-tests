@@ -633,7 +633,7 @@ static void Con_Print (const char *txt)
 		int color; 
 		color = cl.scores[cl.realviewentity - 1].pants.basic;
 
-		if ((cl.matchinp == 1 && con_mm1mute.value) && (color == cl.teamcolor[0] || color == cl.teamcolor[1])) // woods #con_mm1mute
+		if (cl.matchinp == 1 && con_mm1mute.value && cl.teamgame && color != 0) // woods #con_mm1mute
 		{ 
 			if (cl_mm2)
 				S_LocalSound("misc/talk.wav");	// play talk wav
