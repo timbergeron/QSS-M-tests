@@ -305,23 +305,36 @@ void R_TranslatePlayerSkin (int playernum)
 					// is this a team game? if so we can use a team color AND an enemy color
 					if (cl.teamcolor[0] || (!strcmp(simode, "ctf") && !strcmp(siplaymode, "public")) || (!strcmp(uimode, "ctf") && !strcmp(uiplaymode, "public")))
 					{
-						if (!strcmp(gl_teamcolor.string, "") || !strcmp(gl_enemycolor.string, "")) // only run if one or other is being used, not BOTH
-							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
-
-						if (strcmp(gl_teamcolor.string, ""))
+						if (strcmp(gl_teamcolor.string, "") && !strcmp(gl_enemycolor.string, "")) // team color active, enemy blank
+						{
 							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
 								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
+							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic)
+								TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+						}
 
-						if (strcmp(gl_enemycolor.string, ""))
+						if (strcmp(gl_enemycolor.string, "") && !strcmp(gl_teamcolor.string, "")) // enemy color active, team blank
+						{
 							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
 								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic)
+								TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+						}
+
+						if (strcmp(gl_enemycolor.string, "") && strcmp(gl_teamcolor.string, "")) // both enemy and team active
+						{
+							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
+								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
+							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
+								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
+						}
 					}
 					else
 					{
 						if (strcmp(gl_enemycolor.string, "")) // ffa, no teams (ALL enemies)
 								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
 						else
-							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
+							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants); // default behavior / colors
 					}
 				}
 			else
