@@ -451,7 +451,7 @@ static cvar_t r_part_rain = {"r_part_rain", "1"};
 static cvar_t r_bloodstains = {"r_bloodstains", "1"};
 #endif
 static cvar_t r_decal_noperpendicular = {"r_decal_noperpendicular", "1"};
-cvar_t r_particledesc = {"r_particledesc", "classic"};
+cvar_t r_particledesc = {"r_particledesc", "classic", CVAR_ARCHIVE};
 static cvar_t r_part_rain_quantity = {"r_part_rain_quantity", "1"};
 static cvar_t r_particle_tracelimit = {"r_particle_tracelimit", "0x7fffffff"};
 static cvar_t r_part_sparks = {"r_part_sparks", "1"};
