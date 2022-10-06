@@ -604,12 +604,12 @@ static void Con_Print (const char *txt)
 		{ 
 			if (cl_afk.value)
 			{
-				if (strstr(txt, afk_name) && !strstr(txt, "AFK")) // !qe name change
+				if (strstr(txt, afk_name) && !strstr(txt, "AFK") && strstr(txt, ": ")) // !qe name change
 					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);	
 			}
 			else
 			{ 
-				if (strstr(txt, cl_name.string))
+				if (strstr(txt, cl_name.string) && strstr(txt, ": "))
 					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
 			}
 
@@ -617,11 +617,12 @@ static void Con_Print (const char *txt)
 			sprintf(notifylist, "%s", con_notifylist.string);
 			char* token = strtok(notifylist, " ");
 
-			while (token != NULL) {
-				if (strstr(txt, token))
-					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
-				token = strtok(NULL, " ");
-			}
+			if (strstr(txt, ": "))
+					while (token != NULL) {
+					if (strstr(txt, token))
+						SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+					token = strtok(NULL, " ");
+					}
 		}
 #endif
 
