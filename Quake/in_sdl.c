@@ -1221,8 +1221,7 @@ void IN_SendKeyEvents (void)
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 
 						if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
-							if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
-								(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
+							if (color != 0)
 									Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 				}
 			}
@@ -1254,8 +1253,7 @@ void IN_SendKeyEvents (void)
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 						if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods #smartafk
-							if ((color == cl.teamcolor[0] || color == cl.teamcolor[1]) || // am I on a team?
-								(color * 17 == cl.teamcolor[0] || color * 17 == cl.teamcolor[1]))  // legacy mods use multiple of 17
+							if (color != 0)
 									Cmd_ExecuteString("say_team alt-tabbed", src_command);
 				}
 			}
