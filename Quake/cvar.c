@@ -164,6 +164,35 @@ void Cvar_Toggle_f (void)
 	}
 }
 
+int cmdtoggle; // woods #cmdtoggle
+
+/*
+============
+Cmd_Toggle_f -- woods #cmdtoggle
+============
+*/
+void Cmd_Toggle_f(void)
+{
+	if ((Cmd_Argc() < 3) || (Cmd_Argc() > 3))
+	{
+		Con_Printf("\n");
+		Con_Printf("%s <command1> <command2>\n", Cmd_Argv(0));
+		Con_Printf("\n");
+		return;
+	}
+
+	if (cmdtoggle == 0)
+	{ 
+		cmdtoggle = 1;
+		Cbuf_AddText(Cmd_Argv(1));
+	}
+	else
+	{ 
+		cmdtoggle = 0;
+		Cbuf_AddText(Cmd_Argv(2));
+	}
+}
+
 /*
 ============
 Cvar_Cycle_f -- johnfitz
@@ -268,6 +297,7 @@ void Cvar_Init (void)
 {
 	Cmd_AddCommand ("cvarlist", Cvar_List_f);
 	Cmd_AddCommand ("toggle", Cvar_Toggle_f);
+	Cmd_AddCommand ("cmdtoggle", Cmd_Toggle_f); // woods #cmdtoggle
 	Cmd_AddCommand ("cycle", Cvar_Cycle_f);
 	Cmd_AddCommand ("inc", Cvar_Inc_f);
 	Cmd_AddCommand ("reset", Cvar_Reset_f);
