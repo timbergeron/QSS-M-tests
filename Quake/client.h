@@ -477,6 +477,7 @@ void CL_InitInput (void);
 void CL_AccumulateCmd (void);
 void CL_SendCmd (void);
 void CL_SendMove (const usercmd_t *cmd);
+void CL_SendMove2 (const usercmd_t* cmd); // woods #pqlag
 void CL_SendLagMove (void); // JPG - synthetic lag // woods #pqlag
 int  CL_ReadFromServer (void);
 void CL_AdjustAngles (void);

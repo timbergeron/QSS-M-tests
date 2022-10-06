@@ -94,6 +94,8 @@ cvar_t	horde = {"horde","0",CVAR_NONE}; // for the 2021 rerelease
 devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
 
+extern cvar_t	pq_lag; // woods
+
 /*
 ================
 Max_Edicts_f -- johnfitz
@@ -1086,8 +1088,11 @@ void _Host_Frame (double time)
 	if (!Host_FilterTime (time))
 	{
 		// JPG - if we're not doing a frame, still check for lagged moves to send // woods #pqlag
-		if (!sv.active && (cl.movemessages > 2))
-			CL_SendLagMove ();
+		if (pq_lag.value)
+		{ 
+			if (!sv.active && (cl.movemessages > 2))
+				CL_SendLagMove ();
+		}
 		return;			// don't run too fast, or packets will flood out
 	}
 

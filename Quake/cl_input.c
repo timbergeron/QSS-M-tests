@@ -485,7 +485,7 @@ CL_SendLagMove
 */
 void CL_SendLagMove(void)
 {
-	if (cls.demoplayback || (cls.state != ca_connected) || (cls.signon != SIGNONS))
+	if (cls.demoplayback || (cls.state != ca_connected) /* || (cls.signon != SIGNONS)*/)
 		return;
 
 	while ((lag_tail < lag_head) && (lag_sendtime[lag_tail & 31] <= realtime))
@@ -507,10 +507,142 @@ void CL_SendLagMove(void)
 
 /*
 ==============
-CL_SendMove - woods modified for #pqlag
+CL_SendMove
 ==============
 */
-void CL_SendMove (const usercmd_t *cmd)
+void CL_SendMove(const usercmd_t* cmd)
+{
+	unsigned int	i;
+	sizebuf_t		buf;
+	byte			data[1024];
+
+	buf.maxsize = sizeof(data);
+	buf.cursize = 0;
+	buf.data = data;
+
+	for (i = 0; i < cl.ackframes_count; i++)
+	{
+		MSG_WriteByte(&buf, clcdp_ackframe);
+		MSG_WriteLong(&buf, cl.ackframes[i]);
+	}
+	cl.ackframes_count = 0;
+
+	if (cmd)
+	{
+		int dump = buf.cursize;
+		unsigned int bits = cmd->buttons;
+
+		//
+		// send the movement message
+		//
+		MSG_WriteByte(&buf, clc_move);
+
+		if (cl.protocol == PROTOCOL_VERSION_DP7)
+		{
+			if (0)
+			{
+				MSG_WriteLong(&buf, 0);
+				MSG_WriteFloat(&buf, cl.mtime[0]);	// so server can get ping times
+			}
+			else
+			{
+				MSG_WriteLong(&buf, cl.movemessages);
+				MSG_WriteFloat(&buf, cmd->servertime);	// for input timing
+			}
+		}
+		else if (cl.protocol_pext2 & PEXT2_PREDINFO)
+		{
+			MSG_WriteShort(&buf, cl.movemessages & 0xffff);	//server will ack this once it has been applied to the player's entity state
+			MSG_WriteFloat(&buf, cmd->servertime);	// so server can get cmd timing (pings will be calculated by entframe acks).
+		}
+		else
+			MSG_WriteFloat(&buf, cl.mtime[0]);	// so server can get ping times
+
+		for (i = 0; i < 3; i++)
+			//johnfitz -- 16-bit angles for PROTOCOL_FITZQUAKE
+			//spike -- nq+bjp3 use 8bit angles. all other supported protocols use 16bit ones.
+			//spike -- proquake servers bump client->server angles up to at least 16bit. this is safe because it only happens when both client+server advertise it, and because it never actually gets recorded into demos anyway.
+			//spike -- predinfo also always means 16bit angles, even if for some reason the server doesn't advertise proquake (like dp).
+			if ((cl.protocol == PROTOCOL_NETQUAKE || cl.protocol == PROTOCOL_VERSION_BJP3) && !NET_QSocketGetProQuakeAngleHack(cls.netcon) && !(cl.protocol_pext2 & PEXT2_PREDINFO))
+				MSG_WriteAngle(&buf, cl.viewangles[i], cl.protocolflags);
+			else
+				MSG_WriteAngle16(&buf, cl.viewangles[i], cl.protocolflags);
+		//johnfitz
+
+		MSG_WriteShort(&buf, cmd->forwardmove);
+		MSG_WriteShort(&buf, cmd->sidemove);
+		MSG_WriteShort(&buf, cmd->upmove);
+
+		if (cl.protocol_pext2 & PEXT2_PRYDONCURSOR)
+		{
+			if (cmd->weapon)
+				bits |= (1u << 30);
+			if (cmd->cursor_screen[0] || cmd->cursor_screen[1] ||
+				cmd->cursor_start[0] || cmd->cursor_start[1] || cmd->cursor_start[2] ||
+				cmd->cursor_impact[0] || cmd->cursor_impact[1] || cmd->cursor_impact[2] ||
+				cmd->cursor_entitynumber)
+				bits |= (1u << 31);
+			MSG_WriteLong(&buf, bits);
+		}
+		else if (cl.protocol == PROTOCOL_VERSION_DP7)
+		{
+			MSG_WriteLong(&buf, bits);
+			bits |= (1u << 31);
+		}
+		else
+			MSG_WriteByte(&buf, bits);
+		MSG_WriteByte(&buf, cmd->impulse);
+		if (bits & (1u << 30))
+			MSG_WriteLong(&buf, cmd->weapon);
+		if (bits & (1u << 31))
+		{
+			MSG_WriteShort(&buf, cmd->cursor_screen[0] * 32767);
+			MSG_WriteShort(&buf, cmd->cursor_screen[1] * 32767);
+			MSG_WriteFloat(&buf, cmd->cursor_start[0]);	//start (view pos)
+			MSG_WriteFloat(&buf, cmd->cursor_start[1]);
+			MSG_WriteFloat(&buf, cmd->cursor_start[2]);
+			MSG_WriteFloat(&buf, cmd->cursor_impact[0]);	//impact
+			MSG_WriteFloat(&buf, cmd->cursor_impact[1]);
+			MSG_WriteFloat(&buf, cmd->cursor_impact[2]);
+			MSG_WriteEntity(&buf, cmd->cursor_entitynumber, cl.protocol_pext2);
+		}
+		in_impulse = 0;
+
+		cl.movecmds[cl.movemessages & MOVECMDS_MASK] = *cmd;
+
+		//
+		// allways dump the first two message, because it may contain leftover inputs
+		// from the last level
+		//
+		if (++cl.movemessages <= 2)
+			buf.cursize = dump;
+		else
+			S_Voip_Transmit(clcfte_voicechat, &buf);/*Spike: Add voice data*/
+	}
+	else
+		S_Voip_Transmit(clcfte_voicechat, NULL);/*Spike: Add voice data (with cl_voip_test anyway)*/
+
+	//fixme: nops if we're still connecting, or something.
+
+	//
+	// deliver the message
+	//
+	if (cls.demoplayback || !buf.cursize)
+		return;
+
+	if (NET_SendUnreliableMessage(cls.netcon, &buf) == -1)
+	{
+		Con_Printf("CL_SendMove: lost server connection\n");
+		CL_Disconnect();
+	}
+}
+
+/*
+==============
+CL_SendMove2 - woods modified for #pqlag
+==============
+*/
+void CL_SendMove2 (const usercmd_t *cmd)
 {
 	unsigned int	i;
 	sizebuf_t* buf;	// JPG - turned into a pointer (made corresponding changes below) 

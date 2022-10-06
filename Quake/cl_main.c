@@ -83,6 +83,7 @@ extern cvar_t	r_lerpmodels, r_lerpmove; //johnfitz
 extern float	host_netinterval;	//Spike
 
 extern cvar_t	allow_download; // woods #ftehack
+extern cvar_t	pq_lag; // woods
 
 void CL_ClearTrailStates(void)
 {
@@ -348,8 +349,6 @@ void CL_SignonReply (void)
 		if (!strcmp(val, "dm"))
 			Cbuf_AddText("exec dm.cfg\n");
 
-		char buf4[10];
-		val = Info_GetKey(cl.serverinfo, "mode", buf4, sizeof(buf4));
 		if (!strcmp(val, "ctf"))
 			Cbuf_AddText("exec ctf.cfg\n");
 
@@ -1426,9 +1425,19 @@ void CL_SendCmd (void)
 	}
 
 	if (cls.signon == SIGNONS)
-		CL_SendMove (&cmd);	// send the unreliable message
+	{
+		if (pq_lag.value) // woods #pqlag
+			CL_SendMove2(&cmd);	// send the unreliable message
+		else
+			CL_SendMove(&cmd);	// send the unreliable message
+	}
 	else
-		CL_SendMove (NULL);
+	{
+		if (pq_lag.value) // woods #pqlag
+			CL_SendMove2(NULL);
+		else
+			CL_SendMove(NULL);
+	}
 	memset(&cl.pendingcmd, 0, sizeof(cl.pendingcmd));
 	cl.pendingcmd.servertime = cmd.servertime;
 
