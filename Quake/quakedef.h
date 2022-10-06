@@ -52,12 +52,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 	// combined version string like "2020-10-20-beta1"
 	#define	ENGINE_NAME_AND_VER	"QSS " QS_STRINGIFY(QSS_DATE) QUAKESPASM_VER_SUFFIX
 #else
-	#define ENGINE_NAME_AND_VER "QSS-M (1.4.8)" " " QUAKESPASM_VER_STRING
+	#define ENGINE_NAME_AND_VER "QSS-M (1.4.9)" " " QUAKESPASM_VER_STRING
 #endif
 
 //define	PARANOID			// speed sapping error checking
 
-#define	GAMENAME	"id1"		// directory to look in by default
+#define	GAMENAME	"id1"		// directory to look in by defaultS
 
 #define PSET_SCRIPT		//enable the scriptable particle system (poorly ported from FTE)
 #define PSET_SCRIPT_EFFECTINFO	//scripted particle system can load dp's effects
