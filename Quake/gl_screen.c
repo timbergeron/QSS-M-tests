@@ -1025,6 +1025,13 @@ void SCR_DrawMatchClock(void)
 				strncpy(mtimelimit, str + position + 10, 3);
 				tl = atoi(mtimelimit);
 			}
+			else if (cl.modtype == 4) // qecrx server check, if so parse userinfo for timelimit
+			{
+				char buf[10];
+				const char* uimt;
+				uimt = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "matchtime", buf, sizeof(buf)); // userinfo (qecrx)
+				tl = atoi(uimt);
+			}
 			else
 				tl = 0; // if no timelimit available, set clock to 0:00
 
