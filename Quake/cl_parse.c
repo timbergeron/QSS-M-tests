@@ -2395,7 +2395,6 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
 	int color;
 
-#if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 	if ((strstr(string, "Match Starting") || strstr(string, "Match begins")) && !cls.demoplayback && cl.teamgame) // try get my attention if match beginning IF on team
 	{
 		color = cl.scores[cl.realviewentity - 1].pants.basic;
@@ -2405,7 +2404,6 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
 		}
 	}
-#endif
 
 	// woods #con_mm1mute (qrack)
 
