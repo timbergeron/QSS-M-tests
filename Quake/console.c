@@ -598,6 +598,9 @@ static void Con_Print (const char *txt)
 	}
 	// end woods for eliminating messages confilter+
 
+	if (strstr(txt, "server does not have file locs/") || strstr(txt, "Download locs/")) // woods #locdownloads try to download; don't spam console its missing (kilomile)
+		return;
+
 #if defined(_WIN32) || defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 	if (!VID_HasMouseOrInputFocus() && !cls.demoplayback) // woods flash if my name is mentioned
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
