@@ -2423,9 +2423,6 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 		cl.matchinp = 1;
 	}
 
-	if (strstr(string, "joined") && strstr(string, cl_name.string)) // woods #enemycolors
-		Reload_Colors_f();
-
 	// check for match time
 	if (!strncmp(string, "Match ends in ", 14))
 	{
