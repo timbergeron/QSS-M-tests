@@ -438,6 +438,10 @@ void Sys_Printf (const char *fmt, ...)
 	q_vsnprintf (text, sizeof(text), fmt, argptr);
 	va_end (argptr);
 
+	unsigned char* ch;
+	for (ch = text; *ch; ch++)
+		*ch = dequake[*ch];
+
 	if (isDedicated)
 	{
 		if (*text == 1 || *text == 2)

@@ -414,10 +414,17 @@ void Sys_Error (const char *error, ...)
 void Sys_Printf (const char *fmt, ...)
 {
 	va_list argptr;
+	char text[1024];
 
 	va_start(argptr, fmt);
-	vprintf(fmt, argptr);
+	q_vsnprintf (text, sizeof (text), fmt, argptr);
 	va_end(argptr);
+
+	unsigned char* ch;
+	for (ch = text; *ch; ch++)
+		*ch = dequake[*ch];
+
+	printf ("%s", text);
 }
 
 void Sys_Quit (void)
