@@ -300,7 +300,7 @@ void R_TranslatePlayerSkin (int playernum)
 	if (!gl_nocolors.value)
 		if (playertextures[playernum])
 		{ 
-				if (strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, "")) // woods #enemycolors, do we run it?
+				if ((strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, "")) && !cls.demoplayback) // woods #enemycolors, do we run it?
 				{ 
 					// is this a team game? if so we can use a team color AND an enemy color
 					if (cl.teamcolor[0] || (!strcmp(simode, "ctf") && !strcmp(siplaymode, "public")) || (!strcmp(uimode, "ctf") && !strcmp(uiplaymode, "public")))
