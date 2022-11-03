@@ -619,7 +619,7 @@ static void Con_Print (const char *txt)
 
 			if (strstr(txt, ": "))
 					while (token != NULL) {
-					if (strstr(txt, token))
+					if (strstr(txt, token) && !strstr(txt, "AFK"))
 						SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
 					token = strtok(NULL, " ");
 					}
