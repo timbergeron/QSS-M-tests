@@ -1142,7 +1142,7 @@ qboolean CL_CheckDownloads(void)
 
 	// woods #locdownloads
 
-	if (cl.loc_download == 0)
+	if (cl.loc_download == 0 && !cls.demoplayback)
 	{ 
 		char locname[MAX_QPATH];
 		char locname2[80];
