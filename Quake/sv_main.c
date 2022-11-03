@@ -2302,6 +2302,7 @@ crosses a waterline.
 static int	fatbytes;
 static byte	*fatpvs;
 static int	fatpvs_capacity;
+static qboolean fatpvs_any;
 
 void SV_AddToFatPVS (vec3_t org, mnode_t *node, qmodel_t *worldmodel) //johnfitz -- added worldmodel as a parameter
 {
@@ -2317,9 +2318,10 @@ void SV_AddToFatPVS (vec3_t org, mnode_t *node, qmodel_t *worldmodel) //johnfitz
 		{
 			if (node->contents != CONTENTS_SOLID)
 			{
+				fatpvs_any = true;
 				pvs = Mod_LeafPVS ( (mleaf_t *)node, worldmodel); //johnfitz -- worldmodel as a parameter
-				for (i=0 ; i<fatbytes ; i++)
-					fatpvs[i] |= pvs[i];
+				for (i = 0; i < fatbytes - 3; i += 4)
+					*(uint32_t*)&fatpvs[i] |= *(uint32_t*)&pvs[i];
 			}
 			return;
 		}
@@ -2348,7 +2350,7 @@ given point.
 */
 byte *SV_FatPVS (vec3_t org, qmodel_t *worldmodel) //johnfitz -- added worldmodel as a parameter
 {
-	fatbytes = (worldmodel->numleafs+7)>>3; // ericw -- was +31, assumed to be a bug/typo
+	fatbytes = (worldmodel->numleafs + 31) / 8;
 	if (fatpvs == NULL || fatbytes > fatpvs_capacity)
 	{
 		fatpvs_capacity = fatbytes;
@@ -2358,7 +2360,10 @@ byte *SV_FatPVS (vec3_t org, qmodel_t *worldmodel) //johnfitz -- added worldmode
 	}
 	
 	Q_memset (fatpvs, 0, fatbytes);
+	fatpvs_any = false;
 	SV_AddToFatPVS (org, worldmodel->nodes, worldmodel); //johnfitz -- worldmodel as a parameter
+	if (fatpvs_any == false)
+		memset(fatpvs, 0xff, fatbytes);
 	return fatpvs;
 }
 
