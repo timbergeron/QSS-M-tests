@@ -1912,7 +1912,7 @@ void Key_Event (int key, qboolean down)
 			}
 		}
 		else if (key >= 200)
-			Con_Printf ("%s is unbound, hit F4 to set.\n", Key_KeynumToString(key));
+			//Con_Printf ("%s is unbound, hit F4 to set.\n", Key_KeynumToString(key)); // woods, unecessary print spam
 		return;
 	}
 
