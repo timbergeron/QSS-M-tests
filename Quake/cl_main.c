@@ -1545,7 +1545,7 @@ void CL_Entdump_f(void)
 	}
 
 	COM_WriteFile(entfilename, cl.worldmodel->entities, entlen);
-	Con_Printf("saved %s.ent to id1\n", cl.mapname);
+	Con_Printf("saved %s.ent to game directory\n", cl.mapname);
 }
 
 static void CL_ServerExtension_FullServerinfo_f(void)
