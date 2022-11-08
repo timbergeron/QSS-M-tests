@@ -2487,7 +2487,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				}
 				if ((strstr(string, "νατγθ μεξητθ") || (strstr(string, "match length"))))  // woods vote match length auto vote yes
 				{
-					Cbuf_AddText("yes\n");
+					Cbuf_AddText("impulse 115\n");
 				}
 				if (!strncmp(string, "ΓμαξÒιξη", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
