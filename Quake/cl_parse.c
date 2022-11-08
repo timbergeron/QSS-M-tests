@@ -41,6 +41,8 @@ extern cvar_t allow_download; // woods #ftehack
 
 void Reload_Colors_f(void);
 
+extern cvar_t gl_overbright_models; // woods for f_config
+
 const char *svc_strings[128] =
 {
 	"svc_bad",
@@ -2877,7 +2879,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 				sprintf(lfps, "fpsmax %s", host_maxfps.string);
 			
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say fov %s, sens %s, tlighting %s, %s", scr_fov.string, sensitivity.string, cl_truelightning.string, lfps));
+			MSG_WriteString(&cls.message, va("say fov %s, sens %s, fshaft %s, fbmodels %s, %s", scr_fov.string, sensitivity.string, cl_truelightning.string, gl_overbright_models.string, lfps));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say cross %s, vmodel %s, hud %s, particles %s", crosshair.string, r_drawviewmodel.string, hud, particles));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
