@@ -639,7 +639,7 @@ static void Con_Print (const char *txt)
 			color = cl.scores[cl.realviewentity - 1].pants.basic;
 
 		if (cl.matchinp == 1 && con_mm1mute.value && cl.teamgame && color != 0 
-			&& cl.match_pause_time == 0 && !strstr(txt, cl_name.string)) // woods #con_mm1mute -- not paused, no if me, if colored
+			&& cl.match_pause_time == 0 && !strstr(txt, cl_name.string) && (cl.seconds || cl.minutes)) // woods #con_mm1mute -- not paused, no if me, if colored
 		{ 
 			if (cl_mm2)
 				S_LocalSound("misc/talk.wav");	// play talk wav
