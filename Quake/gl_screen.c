@@ -1890,10 +1890,17 @@ void SCR_ScreenShot_f (void)
 {
 	byte	*buffer;
 	char	ext[4];
-	char	imagename[28];  //johnfitz -- was [80] // woods #screenshots was 16
+	char	imagename[MAX_OSPATH];  //johnfitz -- was [80] // woods #screenshots was 16
 	char	checkname[MAX_OSPATH];
 	int	i, quality;
 	qboolean	ok;
+
+	// woods added time for demo output // woods #screenshots
+	char str[24];
+	time_t systime = time(0);
+	struct tm loct = *localtime(&systime);
+
+	strftime(str, 24, "%m-%d-%Y-%H%M%S", &loct); // time and date support
 
 	q_snprintf(checkname, sizeof(checkname), "%s/screenshots", com_gamedir); // woods #screenshots
 	Sys_mkdir(checkname); //  woods create screenshots if not there #screenshots
@@ -1925,6 +1932,7 @@ void SCR_ScreenShot_f (void)
 		return;
 	}
 	
+	/*
 // find a file name to save it to
 	for (i=0; i<10000; i++)
 	{
@@ -1937,7 +1945,10 @@ void SCR_ScreenShot_f (void)
 	{
 		Con_Printf ("SCR_ScreenShot_f: Couldn't find an unused filename\n");
 		return;
-	}
+	}*/
+
+	q_snprintf(imagename, sizeof(imagename), "screenshots/%s_%s.%s", cl.mapname, str, ext);	// woods #screenshots time and date support
+	q_snprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
 
 //get data
 	if (!(buffer = (byte *) malloc(glwidth*glheight*3)))
