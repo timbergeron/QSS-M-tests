@@ -135,7 +135,7 @@ void Con_ToggleConsole_f (void)
 		key_dest = key_console;
 	}
 
-	if ((key_linepos == 1) && (cl_say.value == 2)) // woods #ezsay add leading space for mode 2
+	if ((key_linepos == 1) && (cl_say.value == 2 || cl_say.value == 3)) // woods #ezsay add leading space for mode 2
 		Char_Console2(32);
 
 	SCR_EndLoadingPlaque ();

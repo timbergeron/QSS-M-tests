@@ -644,7 +644,7 @@ void Key_Console (int key)
 	switch (key)
 	{
 	case K_ENTER:
-		if (cls.state == ca_connected && !CheckForCommand() && cl_say.value) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
+		if (cls.state == ca_connected && !CheckForCommand() && (cl_say.value == 1 || cl_say.value == 2 || (cl_say.value == 3 && key_lines[edit_line][1] == ' '))) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
 		{
 			if (keydown[K_CTRL])
 				Cbuf_AddText("say_team ");
@@ -668,7 +668,7 @@ void Key_Console (int key)
 		key_linepos = 1;
 		if (cls.state == ca_disconnected)
 			SCR_UpdateScreen (); // force an update, because the command may take some time
-		if (cl_say.value == 2) // woods #ezsay add leading space for mode 2
+		if (cl_say.value == 2 || cl_say.value == 3) // woods #ezsay add leading space for mode 2
 			Char_Console2(32);
 		return;
 
