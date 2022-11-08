@@ -376,6 +376,75 @@ void Host_InitLocal (void)
 	Host_InitDeQuake ();	// JPG 1.05 - initialize dequake array // for #iplog woods
 }
 
+/************************* PRINTING FUNCTIONS from ezquake *************************/ // woods #configprint
+
+#define CONFIG_WIDTH 100
+
+static void Config_PrintBorder(FILE* f)
+{
+	char buf[CONFIG_WIDTH + 1] = { 0 };
+
+	if (!buf[0]) {
+		memset(buf, '/', CONFIG_WIDTH);
+		buf[CONFIG_WIDTH] = 0;
+	}
+	fprintf(f, "%s\n", buf);
+}
+
+static void Config_PrintLine(FILE* f, char* title, int width)
+{
+	char buf[CONFIG_WIDTH + 1] = { 0 };
+	int title_len, i;
+
+	width = bound(1, width, CONFIG_WIDTH << 3);
+
+	for (i = 0; i < width; i++)
+		buf[i] = buf[CONFIG_WIDTH - 1 - i] = '/';
+	memset(buf + width, ' ', CONFIG_WIDTH - 2 * width);
+	if (strlen(title) > CONFIG_WIDTH - (2 * width + 4))
+		title = "Config_PrintLine : TITLE TOO BIG";
+	title_len = strlen(title);
+	memcpy(buf + width + ((CONFIG_WIDTH - title_len - 2 * width) >> 1), title, title_len);
+	buf[CONFIG_WIDTH] = 0;
+	fprintf(f, "%s\n", buf);
+}
+
+static void Config_PrintHeading(FILE* f, char* title)
+{
+	fprintf(f, "\n");
+	Config_PrintBorder(f);
+	Config_PrintLine(f, "", 2);
+	Config_PrintLine(f, title, 2);
+	Config_PrintLine(f, "", 2);
+	Config_PrintBorder(f);
+	fprintf(f, "\n");
+}
+
+static void Config_PrintPreamble(FILE* f)
+{
+	extern cvar_t cl_name;
+	char* newlines = "\n";
+
+	// woods added time
+	char str[24];
+	time_t systime = time(0);
+	struct tm loct = *localtime(&systime);
+	strftime(str, 24, "%m-%d-%Y-%H:%M", &loct);
+
+	Config_PrintBorder(f);
+	Config_PrintBorder(f);
+	Config_PrintLine(f, "", 3);
+	Config_PrintLine(f, "", 3);
+	Config_PrintLine(f, "Q S S M   C O N F I G U R A T I O N", 3);
+	Config_PrintLine(f, "https://qssm.quakeone.com", 3);
+	Config_PrintLine(f, "", 3);
+	Config_PrintLine(f, "", 3);
+	Config_PrintBorder(f);
+	Config_PrintBorder(f);
+	fprintf(f, "\n// %s's config (%s)\n", cl_name.string, str);
+	fprintf(f, "// "ENGINE_NAME_AND_VER"\n");
+
+}
 
 /*
 ===============
@@ -401,9 +470,14 @@ void Host_WriteConfiguration (void)
 
 		//VID_SyncCvars (); //johnfitz -- write actual current mode to config file, in case cvars were messed with
 
+		Config_PrintPreamble(f);
+
+		Config_PrintHeading(f, "K E Y   B I N D I N G S"); // woods #configprint
 		Key_WriteBindings (f);
+		Config_PrintHeading(f, "V A R I A B L E S"); // woods #configprint
 		Cvar_WriteVariables (f);
 
+		Config_PrintHeading(f, "M I S C E L L A N E O U S"); // woods #configprint
 		//johnfitz -- extra commands to preserve state
 		fprintf (f, "vid_restart\n");
 		if (in_mlook.state & 1) fprintf (f, "+mlook\n");
@@ -460,9 +534,14 @@ void Host_BackupConfiguration(void)
 
 		//VID_SyncCvars (); //johnfitz -- write actual current mode to config file, in case cvars were messed with
 
+		Config_PrintPreamble(f);
+
+		Config_PrintHeading(f, "K E Y   B I N D I N G S"); // woods #configprint
 		Key_WriteBindings(f);
+		Config_PrintHeading(f, "V A R I A B L E S"); // woods #configprint
 		Cvar_WriteVariables(f);
 
+		Config_PrintHeading(f, "M I S C E L L A N E O U S"); // woods #configprint
 		//johnfitz -- extra commands to preserve state
 		fprintf(f, "vid_restart\n");
 		if (in_mlook.state & 1) fprintf(f, "+mlook\n");

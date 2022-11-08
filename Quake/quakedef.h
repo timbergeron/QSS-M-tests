@@ -392,5 +392,8 @@ char		demoplaying[MAX_OSPATH]; // woods for window title
 
 int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
 
+#define bound(a,b,c) ((a) >= (c) ? (a) : \
+					(b) < (a) ? (a) : (b) > (c) ? (c) : (b)) // woods #configprint
+
 #endif	/* QUAKEDEFS_H */
 
