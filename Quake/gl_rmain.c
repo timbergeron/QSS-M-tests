@@ -106,7 +106,7 @@ cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,p
 extern cvar_t	r_vfog;
 //johnfitz
 
-cvar_t	gl_zfix = {"gl_zfix", "0", CVAR_NONE}; // QuakeSpasm z-fighting fix
+cvar_t	gl_zfix = {"gl_zfix", "0", CVAR_ARCHIVE}; // QuakeSpasm z-fighting fix
 
 cvar_t	r_lavaalpha = {"r_lavaalpha","0",CVAR_ARCHIVE};
 cvar_t	r_telealpha = {"r_telealpha","0",CVAR_ARCHIVE};
