@@ -222,7 +222,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_stereo);
 	Cvar_RegisterVariable (&r_stereodepth);
 	Cvar_RegisterVariable (&r_clearcolor);
-	Cvar_SetCallback (&r_clearcolor, Reload_Colors_f);
+	Cvar_SetCallback (&r_clearcolor, R_SetClearColor_f);
 	Cvar_RegisterVariable (&r_waterquality);
 	Cvar_RegisterVariable (&r_waterwarp);
 	Cvar_RegisterVariable (&r_drawflat);
