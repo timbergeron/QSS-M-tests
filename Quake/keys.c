@@ -1911,7 +1911,7 @@ void Key_Event (int key, qboolean down)
 				Cbuf_AddText ("\n");
 			}
 		}
-		else if (key >= 200)
+		//else if (key >= 200)
 			//Con_Printf ("%s is unbound, hit F4 to set.\n", Key_KeynumToString(key)); // woods, unecessary print spam
 		return;
 	}
