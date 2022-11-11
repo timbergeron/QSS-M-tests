@@ -190,6 +190,22 @@ char* Q_strrev(char* s)
 	return s;
 }
 
+// woods string remove
+
+char* strremove(char* str, char* sub) {
+	char* p, * q, * r;
+	if (*sub && (q = r = strstr(str, sub)) != NULL) {
+		size_t len = strlen(sub);
+		while ((r = strstr(p = r + len, sub)) != NULL) {
+			while (p < r)
+				*q++ = *p++;
+		}
+		while ((*q++ = *p++) != '\0')
+			continue;
+	}
+	return str;
+}
+
 int q_strcasecmp(const char * s1, const char * s2)
 {
 	const char * p1 = s1;

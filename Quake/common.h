@@ -240,6 +240,7 @@ extern int q_snprintf (char *str, size_t size, const char *format, ...) FUNC_PRI
 extern int q_vsnprintf(char *str, size_t size, const char *format, va_list args) FUNC_PRINTF(3,0);
 
 extern char* Q_strrev (char* s); // woods
+extern char* strremove(char* str, char* sub); // woods
 
 #define strcasecmp brokeninmsvc
 #define stricmp brokenportability

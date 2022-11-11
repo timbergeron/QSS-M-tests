@@ -1743,7 +1743,8 @@ static void Host_Tell_f(void)
 		p++;
 		quoted = true;
 	}
-	q_snprintf (text, sizeof(text), "%s: %s", host_client->name, p);
+
+	q_snprintf (text, sizeof(text), "\x1[%s]:%s", host_client->name, strremove(p, Cmd_Argv(1))); // woods use strremove to get rid of name, "\x1" to play sound, [ ] for DM notation
 
 // check length & truncate if necessary
 	j = (int) strlen(text);
