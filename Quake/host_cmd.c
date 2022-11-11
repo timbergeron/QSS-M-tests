@@ -2847,6 +2847,56 @@ void Host_Identify_f(void)
 	}
 }
 
+// woods JPG - proquake #sayrandom
+int num_rand[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+int next_rand[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+char msg_rand[10][128][128];
+char msg_order[10][128];
+char cmd_rand[10][10] =
+{
+	"say_rand0",
+	"say_rand1",
+	"say_rand2",
+	"say_rand3",
+	"say_rand4",
+	"say_rand5",
+	"say_rand6",
+	"say_rand7",
+	"say_rand8",
+	"say_rand9"
+};
+
+void Host_Say_Rand_f(void) // woods JPG - proquake #sayrandom
+{
+	int i, j, k, t;
+
+	if (sscanf(Cmd_Argv(0), "say_rand%d", &k))
+	{
+		if (num_rand[k] && cls.state == ca_connected)
+		{
+			if (!next_rand[k])
+			{
+				for (i = 0; i < num_rand[k]; i++)
+					msg_order[k][i] = i;
+				for (i = 0; i < num_rand[k] - 1; i++)
+				{
+					j = (rand() % (num_rand[k] - i)) + i;
+					t = msg_order[k][j];
+					msg_order[k][j] = msg_order[k][i];
+					msg_order[k][i] = t;
+				}
+			}
+
+			MSG_WriteByte(&cls.message, clc_stringcmd);
+			SZ_Print(&cls.message, "say ");
+			SZ_Print(&cls.message, msg_rand[k][msg_order[k][next_rand[k]]]);
+			if (++next_rand[k] == num_rand[k])
+				next_rand[k] = 0;
+		}
+	}
+}
+
+
 //=============================================================================
 //download stuff
 
@@ -3215,5 +3265,28 @@ void Host_InitCommands (void)
 	Cmd_AddCommand("identify", Host_Identify_f);	// JPG 1.05 - player IP logging // woods #iplog
 	Cmd_AddCommand("ipdump", IPLog_Dump);			// JPG 1.05 - player IP logging // woods #iplog
 	Cmd_AddCommand("ipmerge", IPLog_Import);		// JPG 3.00 - import an IP data file // woods #iplog
+
+	// woods JPG - proquake #sayrandom
+	int i;
+	FILE* f;
+	for (i = 0; i < 10; i++)
+	{
+		f = fopen(va("%s/msgrand%d.txt", com_gamedir, i), "r");
+		if (f)
+		{
+			Cmd_AddCommand(cmd_rand[i], Host_Say_Rand_f);
+			num_rand[i] = 0;
+			while (fgets(msg_rand[i][num_rand[i]], 128, f))
+			{
+				char* ch = strchr(msg_rand[i][num_rand[i]], '\n');
+				if (ch)
+					*ch = 0;
+				if (msg_rand[i][num_rand[i]][0])
+					num_rand[i]++;
+			}
+			fclose(f);
+		}
+	}
+
 }
 
