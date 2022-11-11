@@ -128,7 +128,7 @@ void Con_ToggleConsole_f (void)
 		if (cls.state == ca_connected)
 			key_dest = key_game;
 		else
-			M_ToggleMenu(1);
+			M_ToggleMenu(0); // woods, was 1, better ui not to go to menu (kilomile) 
 	}
 	else
 	{
