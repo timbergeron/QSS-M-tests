@@ -2439,13 +2439,17 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	{	
 		if (!strcmp(string, "Match paused\n"))
 			//TODO:R00k add a pause for demo if recording...
+		{
 			cl.match_pause_time = cl.time;
+			cl.matchinp = 0;
+		}
 		else
 		{
 			if (!strcmp(string, "Match unpaused\n"))
 			{
 				cl.last_match_time += (cl.time - cl.match_pause_time);
 				cl.match_pause_time = 0;
+				cl.matchinp = 1;
 			}
 			else
 			{
