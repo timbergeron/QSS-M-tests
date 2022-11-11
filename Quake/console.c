@@ -609,7 +609,7 @@ static void Con_Print (const char *txt)
 		{ 
 			if (cl_afk.value)
 			{
-				if (strstr(txt, afk_name) && !strstr(txt, "AFK") && strstr(txt, ": ")) // !qe name change
+				if (strstr(txt, afk_name) && !strstr(txt, "AFK") && !strstr(txt, "alt-tabbed") && strstr(txt, ": ")) // !qe name change
 					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);	
 			}
 			else
@@ -624,7 +624,8 @@ static void Con_Print (const char *txt)
 
 			if (strstr(txt, ": "))
 					while (token != NULL) {
-						if (strstr(txt, token) && !strstr(txt, "AFK"))
+						if (strstr(txt, token) && (strlen(strstr(txt, token)) == (strlen(token) + 1)) && // strlen to match entire word (tim not time)
+							!strstr(txt, "AFK") && !strstr(txt, "alt-tabbed"))
 						SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
 					token = strtok(NULL, " ");
 					}
