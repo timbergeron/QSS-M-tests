@@ -1840,6 +1840,8 @@ void SCR_SetUpToDrawConsole (void)
 
 	if (clearconsole++ < vid.numpages)
 		Sbar_Changed ();
+	else
+		con_notifylines_ = 0; // woods from proquake 493 #notifylines
 
 	if (!con_forcedup && scr_con_current)
 		scr_tileclear_updates = 0; //johnfitz

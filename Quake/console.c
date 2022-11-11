@@ -65,11 +65,12 @@ char		con_lastcenterstring[1024]; //johnfitz
 void (*con_redirect_flush)(const char *buffer);	//call this to flush the redirection buffer (for rcon)
 char con_redirect_buffer[8192];
 
-#define	NUM_CON_TIMES 4
+#define	NUM_CON_TIMES 30 // woods from proquake 493 #notifylines
 float		con_times[NUM_CON_TIMES];	// realtime time the line was generated
 						// for transparent notify lines
 
 int			con_vislines;
+int			con_notifylines_; // woods from proquake 493 #notifylines
 
 qboolean	con_debuglog = false;
 
@@ -623,7 +624,7 @@ static void Con_Print (const char *txt)
 
 			if (strstr(txt, ": "))
 					while (token != NULL) {
-					if (strstr(txt, token) && !strstr(txt, "AFK"))
+						if (strstr(txt, token) && !strstr(txt, "AFK"))
 						SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
 					token = strtok(NULL, " ");
 					}
@@ -1473,11 +1474,12 @@ void Con_DrawNotify (void)
 	int	i, x, v;
 	const char	*text;
 	float	time;
+	int		maxlines = CLAMP (0, con_notifylines.value, NUM_CON_TIMES); // woods from proquake 493 #notifylines
 
 	GL_SetCanvas (CANVAS_CONSOLE); //johnfitz
 	v = vid.conheight; //johnfitz
 
-	for (i = con_current-con_notifylines.value+1; i <= con_current; i++) // woods #notifylines
+	for (i = con_current - maxlines + 1; i <= con_current; i++) // woods from proquake 493 #notifylines
 	{
 		if (i < 0)
 			continue;
@@ -1531,6 +1533,8 @@ void Con_DrawNotify (void)
 
 		scr_tileclear_updates = 0; //johnfitz
 	}
+	if (v > con_notifylines_) // woods from proquake 493 #notifylines
+		con_notifylines_ = v;
 }
 
 /*
