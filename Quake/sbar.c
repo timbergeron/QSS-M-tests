@@ -28,7 +28,7 @@ int		sb_updates;		// if >= vid.numpages, no update needed
 
 extern int	maptime; // woods connected map time #maptime
 extern double  mpservertime;	// woods #servertime
-extern mute[2];			// woods for mute to memory #usermute
+extern char mute[2];			// woods for mute to memory #usermute
 int	fragsort[MAX_SCOREBOARD]; // woods #scrping
 int	scoreboardlines; // woods #scrping
 

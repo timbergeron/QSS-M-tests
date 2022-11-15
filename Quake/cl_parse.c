@@ -46,8 +46,8 @@ extern cvar_t gl_overbright_models; // woods for f_config
 int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
 
 extern int	maptime; // woods connected map time #maptime
-extern videosetg[50];	// woods #q_sysinfo (qrack)
-char videoc[40];		// woods #q_sysinfo (qrack)
+extern char videosetg[50];	// woods #q_sysinfo (qrack)
+extern char videoc[40];		// woods #q_sysinfo (qrack)
 
 const char *svc_strings[128] =
 {
