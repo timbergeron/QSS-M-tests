@@ -37,7 +37,7 @@ void Reload_Colors_f(void); // woods #enemycolors
 int	current_skill;
 
 double		mpservertime;	// woods #servertime
-extern		afk_name[16]; // woods #smartafk
+extern		char afk_name[16]; // woods #smartafk
 
 /*
 ==================

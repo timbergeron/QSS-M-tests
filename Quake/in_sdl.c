@@ -36,7 +36,7 @@ char	afk_name[16]; // woods #smartafk
 char	normalname[20]; // woods #smartafk
 char	normalname2[32]; // woods #smartafk
 
-extern	mute[2]; // woods for mute to memory #usermute
+extern	char mute[2]; // woods for mute to memory #usermute
 
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through
