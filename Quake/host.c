@@ -425,7 +425,6 @@ static void Config_PrintHeading(FILE* f, char* title)
 static void Config_PrintPreamble(FILE* f)
 {
 	extern cvar_t cl_name;
-	char* newlines = "\n";
 
 	// woods added time
 	char str[24];

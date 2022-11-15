@@ -1747,7 +1747,7 @@ static void Host_Tell_f(void)
 		quoted = true;
 	}
 
-	q_snprintf (text, sizeof(text), "\x1[%s]:%s", host_client->name, strremove(p, Cmd_Argv(1))); // woods use strremove to get rid of name, "\x1" to play sound, [ ] for DM notation
+	q_snprintf (text, sizeof(text), "\x1[%s]:%s", host_client->name, strremove((char*)p, (char*)Cmd_Argv(1))); // woods use strremove to get rid of name, "\x1" to play sound, [ ] for DM notation
 
 // check length & truncate if necessary
 	j = (int) strlen(text);
@@ -2854,7 +2854,7 @@ void Host_Identify_f(void)
 int num_rand[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 int next_rand[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 char msg_rand[10][128][128];
-char msg_order[10][128];
+unsigned char msg_order[10][128];
 char cmd_rand[10][10] =
 {
 	"say_rand0",

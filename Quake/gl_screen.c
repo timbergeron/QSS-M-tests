@@ -1899,7 +1899,7 @@ void SCR_ScreenShot_f (void)
 	char	ext[4];
 	char	imagename[MAX_OSPATH];  //johnfitz -- was [80] // woods #screenshots was 16
 	char	checkname[MAX_OSPATH];
-	int	i, quality;
+	int	quality;
 	qboolean	ok;
 
 	// woods added time for demo output // woods #screenshots
