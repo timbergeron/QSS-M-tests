@@ -51,6 +51,7 @@ int		con_x;				// offset in current line for next print
 char		*con_text = NULL;
 
 extern qboolean cl_mm2; // woods #con_mm1mute
+extern afk_name[16]; // woods #smartafk
 
 cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
 cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz

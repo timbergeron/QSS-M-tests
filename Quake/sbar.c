@@ -26,6 +26,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern	qboolean premul_hud;
 int		sb_updates;		// if >= vid.numpages, no update needed
 
+extern int	maptime; // woods connected map time #maptime
+extern double  mpservertime;	// woods #servertime
+extern mute[2];			// woods for mute to memory #usermute
+int	fragsort[MAX_SCOREBOARD]; // woods #scrping
+int	scoreboardlines; // woods #scrping
+
 #define STAT_MINUS		10	// num frame for '-' stats digit
 
 qpic_t		*sb_nums[2][11];
@@ -47,7 +53,7 @@ qpic_t		*sb_face_quad;
 qpic_t		*sb_face_invuln;
 qpic_t		*sb_face_invis_invuln;
 
-// qboolean	sb_showscores; woods moved for broader access
+qboolean	sb_showscores;
 
 int		sb_lines;			// scan lines to draw
 

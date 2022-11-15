@@ -85,6 +85,9 @@ extern float	host_netinterval;	//Spike
 extern cvar_t	allow_download; // woods #ftehack
 extern cvar_t	pq_lag; // woods
 
+char			lastmphost[NET_NAMELEN]; // woods - connected server address
+int				maptime;		// woods connected map time #maptime
+
 void CL_ClearTrailStates(void)
 {
 	int i;

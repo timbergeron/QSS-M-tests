@@ -32,8 +32,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
+char	afk_name[16]; // woods #smartafk
 char	normalname[20]; // woods #smartafk
 char	normalname2[32]; // woods #smartafk
+
+extern	mute[2]; // woods for mute to memory #usermute
 
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through

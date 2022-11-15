@@ -76,6 +76,11 @@ console is:
 int			glx, gly, glwidth, glheight;
 
 int ct; // woods connected map time #maptime
+extern int	maptime; // woods connected map time #maptime
+extern qboolean	sb_showscores; // woods
+extern int	fragsort[MAX_SCOREBOARD]; // woods #scrping
+extern int	scoreboardlines; // woods #scrping
+char mute[2]; // woods for mute to memory #usermute
 
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display

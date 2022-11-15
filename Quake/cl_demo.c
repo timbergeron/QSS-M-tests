@@ -34,6 +34,8 @@ framepos_t* dem_framepos = NULL;
 qboolean	start_of_demo = false;
 qboolean	bumper_on = false;
 
+char		demoplaying[MAX_OSPATH]; // woods for window title
+
 /*
 ==============================================================================
 

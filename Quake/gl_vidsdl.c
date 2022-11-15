@@ -69,6 +69,9 @@ static const char *gl_extensions;
 
 qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
 
+char	videosetg[50];	// woods #q_sysinfo (qrack)
+char	videoc[40];		// woods #q_sysinfo (qrack)
+
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
 

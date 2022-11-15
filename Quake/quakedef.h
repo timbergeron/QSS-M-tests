@@ -377,21 +377,6 @@ extern qboolean		isDedicated;
 
 extern int		minimum_memory;
 
-int		scoreboardlines; // woods #scrping -- moved here for gl_screen.c and sbar.c
-int		fragsort[MAX_SCOREBOARD]; // woods #scrping -- moved here for gl_screen.c and sbar.c
-
-char		mute[2];			// woods for mute to memory #usermute
-qboolean	sb_showscores; // woods moved for broader access
-char		videoc[40];		// woods #q_sysinfo (qrack)
-char		videosetg[50];	// woods #q_sysinfo (qrack)
-char		afk_name[16]; // woods #smartafk
-double		mpservertime;	// woods #servertime
-int			maptime;		// woods connected map time #maptime
-char		lastmphost[NET_NAMELEN]; // woods - connected server address
-char		demoplaying[MAX_OSPATH]; // woods for window title
-
-int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
-
 #define bound(a,b,c) ((a) >= (c) ? (a) : \
 					(b) < (a) ? (a) : (b) > (c) ? (c) : (b)) // woods #configprint
 

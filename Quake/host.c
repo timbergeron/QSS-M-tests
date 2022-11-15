@@ -95,6 +95,8 @@ devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
 
 extern cvar_t	pq_lag; // woods
+extern 	lastmphost[NET_NAMELEN]; // woods - connected server address
+extern	demoplaying[MAX_OSPATH]; // woods for window title
 
 /*
 ================

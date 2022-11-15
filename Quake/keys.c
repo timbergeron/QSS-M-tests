@@ -50,6 +50,7 @@ qboolean	Cmd_Exists2(const char* cmd_name); // woods #ezsay
 void Sound_Toggle_Mute_f (void); // woods #usermute
 void SCR_Mute_Switch (void); // woods #usermute
 void Con_Copy_f (void); // woods #concopy
+extern	mute[2];			// woods for mute to memory #usermute
 
 void VID_Minimize (void); // woods for mac command-tab
 
