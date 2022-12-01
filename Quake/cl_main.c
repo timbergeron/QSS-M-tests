@@ -69,6 +69,8 @@ cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #
 cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
 cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
 
+cvar_t  cl_ambient = {"cl_ambient", "0", CVAR_ARCHIVE}; // woods #stopsound
+
 client_static_t	cls;
 client_state_t	cl;
 // FIXME: put these on hunk?
@@ -317,7 +319,7 @@ void CL_SignonReply (void)
 	case 4:
 		SCR_EndLoadingPlaque ();		// allow normal screen updates
 
-		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) // woods for no background sounds
+		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected && !cl_ambient.value) // woods for no background sounds #stopsound
 			Cmd_ExecuteString("stopsound\n", src_command);
 		if ((cl_autodemo.value == 1) && (!cls.demoplayback) && (!cls.demorecording))   // woods for #autodemo
 			Cmd_ExecuteString("record\n", src_command);
@@ -1817,6 +1819,8 @@ void CL_Init (void)
 
 	Cvar_RegisterVariable (&w_switch); // woods #autoweapon
 	Cvar_RegisterVariable (&b_switch); // woods #autoweapon
+
+	Cvar_RegisterVariable (&cl_ambient); // woods #stopsound
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
