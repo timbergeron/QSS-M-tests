@@ -54,6 +54,9 @@ void Host_Quit_f (void)
 	CL_Disconnect ();
 	Host_ShutdownServer(false);
 
+	if (!cl_afk.value) // if I disable it, lets delete it
+		remove(va("%s/id1/backups/name.txt", com_basedir));
+
 	Sys_Quit ();
 }
 
