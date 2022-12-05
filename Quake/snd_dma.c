@@ -49,6 +49,8 @@ void S_StopAllSounds (qboolean clear);
 static void S_StopAllSoundsC (void);
 void Sound_Toggle_Mute_f (void); // woods
 
+void S_SetUnderwaterIntensity(float intensity); // woods #waterfx (ironwail)
+
 // =======================================================================
 // Internal sound data & structures
 // =======================================================================
@@ -94,6 +96,8 @@ cvar_t		loadas8bit = {"loadas8bit", "0", CVAR_NONE};
 
 cvar_t		sndspeed = {"sndspeed", "11025", CVAR_NONE};
 cvar_t		snd_mixspeed = {"snd_mixspeed", "44100", CVAR_ARCHIVE};
+
+cvar_t		snd_waterfx = {"snd_waterfx", "1", CVAR_ARCHIVE}; // woods #waterfx (ironwail)
 
 #if defined(_WIN32)
 #define SND_FILTERQUALITY_DEFAULT "5"
@@ -234,6 +238,7 @@ void S_Init (void)
 	Cvar_RegisterVariable(&sndspeed);
 	Cvar_RegisterVariable(&snd_mixspeed);
 	Cvar_RegisterVariable(&snd_filterquality);
+	Cvar_RegisterVariable(&snd_waterfx); // woods #waterfx (ironwail)
 
 	S_Voip_Init();
 
@@ -694,6 +699,24 @@ void S_StaticSound (sfx_t *sfx, vec3_t origin, float vol, float attenuation)
 
 /*
 ===================
+S_UnderwaterIntensityForContents // woods #waterfx (ironwail)
+===================
+*/
+static float S_UnderwaterIntensityForContents(int contents)
+{
+	switch (contents)
+	{
+	case CONTENTS_WATER:
+	case CONTENTS_SLIME:
+	case CONTENTS_LAVA:
+		return 1.f;
+	default:
+		return 0.f;
+	}
+}
+
+/*
+===================
 S_UpdateAmbientSounds
 ===================
 */
@@ -706,12 +729,17 @@ static void S_UpdateAmbientSounds (void)
 
 // no ambients when disconnected
 	if (cls.state != ca_connected || cls.signon != SIGNONS)
+	{
+		S_SetUnderwaterIntensity(0.f); // woods #waterfx (ironwail)
 		return;
+	}
+		
 // calc ambient sound levels
 	if (!cl.worldmodel || cl.worldmodel->needload)
 		return;
 
 	l = Mod_PointInLeaf (listener_origin, cl.worldmodel);
+	S_SetUnderwaterIntensity(l ? S_UnderwaterIntensityForContents(l->contents) : 0.f); // woods #waterfx (ironwail)
 	if (!l || !ambient_level.value)
 	{
 		for (ambient_channel = 0; ambient_channel < NUM_AMBIENTS; ambient_channel++)
