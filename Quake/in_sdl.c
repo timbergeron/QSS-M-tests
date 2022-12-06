@@ -1218,8 +1218,8 @@ void IN_SendKeyEvents (void)
 						Cvar_Set("name", afk_name);
 
 					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
-						if ((cl.modtype == 1) && (!strcmp(afk, "yes"))) // woods if afk is NO
-							Cmd_ExecuteString("impulse 57", src_command); // afk
+						if (cl.modtype == 1 || cl.modtype == 4)
+							Cmd_ExecuteString("afkoff", src_command); // afk
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 
@@ -1246,8 +1246,8 @@ void IN_SendKeyEvents (void)
 					}
 					
 					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
-						if ((cl.modtype == 1) && (strcmp(afk, "yes"))) // woods if afk is NO
-							Cmd_ExecuteString("impulse 57", src_command); // afk
+						if (cl.modtype == 1 || cl.modtype == 4) // woods if afk is NO
+							Cmd_ExecuteString("afkon", src_command); // afk
 
 						
 						
