@@ -189,12 +189,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	unsigned int flags = 0;
 
 	if ((strstr(str, "паусед")) || (strstr(str, "PAUSED"))) // #showpaused
-	{
-		paused = 1;
 		return;
-	}
-	else
-		paused = 0;
 
 // ===============================
 // woods for center print filter  -> this is #flagstatus
@@ -1671,7 +1666,7 @@ void SCR_DrawPause2(void)
 	GL_SetCanvas(CANVAS_MENU2); //johnfitz
 
 	pic = Draw_CachePic("gfx/pause.lmp");
-	if (paused == 1)
+	if (cl.match_pause_time > 0)
 	Draw_Pic((320 - pic->width) / 2, (240 - 48 - pic->height) / 2, pic); //johnfitz -- stretched menus
 
 	scr_tileclear_updates = 0; //johnfitz

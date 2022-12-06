@@ -2462,6 +2462,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if (!strcmp(string, "The match is over\n"))
 				{
 					cl.matchinp = 0;
+					cl.match_pause_time = 0;
 					cl.minutes = 255;					
 					if ((cl_autodemo.value == 2) && (cls.demorecording)) // woods #autodemo
 						Cmd_ExecuteString("stop\n", src_command);
