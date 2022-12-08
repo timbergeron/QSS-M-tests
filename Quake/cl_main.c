@@ -1690,6 +1690,7 @@ void SV_UpdateInfo(int edict, const char *keyname, const char *value)
 	const char *pre;
 	client_t *cl;
 	client_t *infoplayer = NULL;
+	char prestr[64];
 
 	if (!edict)
 	{
@@ -1701,7 +1702,7 @@ void SV_UpdateInfo(int edict, const char *keyname, const char *value)
 		}
 		info = svs.serverinfo;
 		infosize = sizeof(svs.serverinfo);
-		pre = "//svi ";
+		pre = "//svi";
 	}
 	else if (edict <= svs.maxclients)
 	{
@@ -1709,7 +1710,8 @@ void SV_UpdateInfo(int edict, const char *keyname, const char *value)
 		infoplayer = &svs.clients[edict];
 		info = infoplayer->userinfo;
 		infosize = sizeof(infoplayer->userinfo);
-		pre = va("//ui %i", edict);
+		q_snprintf(prestr, sizeof(prestr), "//ui %i", edict);
+		pre = prestr;
 	}
 	else
 		return;
