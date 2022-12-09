@@ -486,10 +486,12 @@ void IN_Init (void)
 
 	IN_UpdateGrabs();
 	IN_StartupJoystick();
+	Sys_ActivateKeyFilter(true);
 }
 
 void IN_Shutdown (void)
 {
+	Sys_ActivateKeyFilter(false);
 	IN_UpdateGrabs();
 	IN_ShutdownJoystick();
 }
@@ -1206,6 +1208,7 @@ void IN_SendKeyEvents (void)
 
 			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 			{
+				Sys_ActivateKeyFilter(true);
 				//S_UnblockSound();
 				if (!strcmp(mute, "y")) // woods #usermute
 					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
@@ -1231,6 +1234,7 @@ void IN_SendKeyEvents (void)
 
 			else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
 			{
+				Sys_ActivateKeyFilter(false);
 				//S_BlockSound();
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 

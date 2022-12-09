@@ -558,11 +558,20 @@ void Sys_SendKeyEvents (void)
 	IN_SendKeyEvents();
 }
 
-void Sys_RemoveKeyFilter(void)
+void Sys_ActivateKeyFilter (qboolean active)
 {
+	if (isDedicated || !!active == (key_hook != NULL))
+		return;
+
 	if (key_hook)
 	{
 		UnhookWindowsHookEx(key_hook);
 		key_hook = NULL;
+	}
+	else
+	{
+		key_hook = SetWindowsHookExW(WH_KEYBOARD_LL, KeyFilter, GetModuleHandleW(NULL), 0);
+		if (!key_hook)
+			Sys_Printf("Warning: SetWindowsHookExW failed (%lu)\n", GetLastError());
 	}
 }
