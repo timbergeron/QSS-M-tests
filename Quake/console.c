@@ -1686,7 +1686,7 @@ void LOG_Init (quakeparms_t *parms)
 
 //	unlink (logfilename);
 
-	log_fd = open (logfilename, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+	log_fd = open (logfilename, O_WRONLY | O_CREAT | O_APPEND, 0666); // woods append, not overwite log
 	if (log_fd == -1)
 	{
 		fprintf (stderr, "Error: Unable to create log file %s\n", logfilename);
@@ -1694,7 +1694,7 @@ void LOG_Init (quakeparms_t *parms)
 	}
 
 	con_debuglog = true;
-	Con_DebugLog (va("LOG started on: %s \n", session));
+	Con_DebugLog (va("\nLOG started on: %s \n", session)); // woods add a line
 
 }
 
