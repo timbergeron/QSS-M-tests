@@ -486,12 +486,16 @@ void IN_Init (void)
 
 	IN_UpdateGrabs();
 	IN_StartupJoystick();
+#if defined(_WIN32) // woods #disablecaps via ironwail
 	Sys_ActivateKeyFilter(true);
+#endif
 }
 
 void IN_Shutdown (void)
 {
+#if defined(_WIN32) // woods #disablecaps via ironwail
 	Sys_ActivateKeyFilter(false);
+#endif
 	IN_UpdateGrabs();
 	IN_ShutdownJoystick();
 }
@@ -1208,7 +1212,9 @@ void IN_SendKeyEvents (void)
 
 			if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 			{
+#if defined(_WIN32) // woods #disablecaps via ironwail
 				Sys_ActivateKeyFilter(true);
+#endif
 				//S_UnblockSound();
 				if (!strcmp(mute, "y")) // woods #usermute
 					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
@@ -1234,7 +1240,9 @@ void IN_SendKeyEvents (void)
 
 			else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
 			{
+#if defined(_WIN32) // woods #disablecaps via ironwail
 				Sys_ActivateKeyFilter(false);
+#endif
 				//S_BlockSound();
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 

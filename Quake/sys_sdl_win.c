@@ -231,6 +231,7 @@ static void Sys_SetTimerResolution(void)
 
 // woods -- https://github.com/andrei-drexler/ironwail/issues/104 disable CAPSLOCK #disablecaps
 
+#if defined(_WIN32) // woods #disablecaps via ironwail
 static HHOOK key_hook = NULL;
 
 #define HOOKED_KEYS			\
@@ -306,6 +307,7 @@ LRESULT CALLBACK KeyFilter(int nCode, WPARAM wParam, LPARAM lParam)
 
 	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
+#endif
 
 void Sys_Init (void)
 {
@@ -558,6 +560,7 @@ void Sys_SendKeyEvents (void)
 	IN_SendKeyEvents();
 }
 
+#if defined(_WIN32) // woods #disablecaps via ironwail
 void Sys_ActivateKeyFilter (qboolean active)
 {
 	if (isDedicated || !!active == (key_hook != NULL))
@@ -575,3 +578,4 @@ void Sys_ActivateKeyFilter (qboolean active)
 			Sys_Printf("Warning: SetWindowsHookExW failed (%lu)\n", GetLastError());
 	}
 }
+#endif
