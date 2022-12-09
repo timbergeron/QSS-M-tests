@@ -766,8 +766,7 @@ static void PL_f(void)  // woods for pl display #scrpl
 
 	if (Cmd_Argc() == 1)
 	{
-		if (cl.packetloss != NULL)
-			z = atoi(cl.packetloss);
+		z = atoi(cl.packetloss);
 
 		y = droppedDatagrams;
 		x = y - z;
