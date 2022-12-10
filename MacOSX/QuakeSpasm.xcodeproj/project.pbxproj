@@ -979,8 +979,8 @@
 					codecs/include,
 					"vcpkg/installed/x64-osx-10.9/include",
 					"vcpkg/installed/x64-osx-10.9/include/opus",
-					"vcpkg/installed/arm64-osx/include",
-					"vcpkg/installed/arm64-osx/include/opus",
+					"vcpkg/installed/arm64-osx-11.0/include",
+					"vcpkg/installed/arm64-osx-11.0/include/opus",
 					"$(HEADER_SEARCH_PATHS)",
 				);
 				INFOPLIST_FILE = Info.plist;
@@ -991,7 +991,7 @@
 					"$(SRCROOT)/codecs/lib",
 					"$(PROJECT_DIR)/libs_universal",
 					"$(PROJECT_DIR)/vcpkg/installed/x64-osx-10.9/lib",
-					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx/lib",
+					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx-11.0/lib",
 				);
 				PRODUCT_NAME = "QSS-M";
 				"SDKROOT[arch=arm64]" = macosx;
@@ -1029,8 +1029,8 @@
 					codecs/include,
 					"vcpkg/installed/x64-osx-10.9/include",
 					"vcpkg/installed/x64-osx-10.9/include/opus",
-					"vcpkg/installed/arm64-osx/include",
-					"vcpkg/installed/arm64-osx/include/opus",
+					"vcpkg/installed/arm64-osx-11.0/include",
+					"vcpkg/installed/arm64-osx-11.0/include/opus",
 					"$(HEADER_SEARCH_PATHS)",
 				);
 				INFOPLIST_FILE = Info.plist;
@@ -1041,7 +1041,7 @@
 					"$(SRCROOT)/codecs/lib",
 					"$(PROJECT_DIR)/libs_universal",
 					"$(PROJECT_DIR)/vcpkg/installed/x64-osx-10.9/lib",
-					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx/lib",
+					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx-11.0/lib",
 				);
 				OTHER_CFLAGS = "";
 				"OTHER_CFLAGS[arch=i386]" = (
@@ -1084,8 +1084,8 @@
 					codecs/include,
 					"vcpkg/installed/x64-osx-10.9/include",
 					"vcpkg/installed/x64-osx-10.9/include/opus",
-					"vcpkg/installed/arm64-osx/include",
-					"vcpkg/installed/arm64-osx/include/opus",
+					"vcpkg/installed/arm64-osx-11.0/include",
+					"vcpkg/installed/arm64-osx-11.0/include/opus",
 					"$(HEADER_SEARCH_PATHS)",
 				);
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
@@ -1134,8 +1134,8 @@
 					codecs/include,
 					"vcpkg/installed/x64-osx-10.9/include",
 					"vcpkg/installed/x64-osx-10.9/include/opus",
-					"vcpkg/installed/arm64-osx/include",
-					"vcpkg/installed/arm64-osx/include/opus",
+					"vcpkg/installed/arm64-osx-11.0/include",
+					"vcpkg/installed/arm64-osx-11.0/include/opus",
 					"$(HEADER_SEARCH_PATHS)",
 				);
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
