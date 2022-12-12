@@ -1,3 +1,4 @@
+# Windows 
 /Windows/VisualStudio/.vs/
 /Windows/VisualStudio/Build-quakespasm-sdl2/
 /Windows/VisualStudio/history.txt
@@ -5,3 +6,6 @@
 /Windows/VisualStudio/id1/
 /Windows/VisualStudio/Backup/
 Windows/VisualStudio/UpgradeLog.htm
+
+# macOS
+.DS_Store

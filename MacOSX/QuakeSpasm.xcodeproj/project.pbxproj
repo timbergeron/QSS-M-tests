@@ -91,17 +91,11 @@
 		664D98DA19CF6B78000D395C /* strlcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = 48A7C1FB14AA34940011B754 /* strlcpy.c */; };
 		664D98DB19CF6B78000D395C /* snd_opus.c in Sources */ = {isa = PBXBuildFile; fileRef = 4885A84A179740A0000EC703 /* snd_opus.c */; };
 		664D98DC19CF6B78000D395C /* snd_flac.c in Sources */ = {isa = PBXBuildFile; fileRef = 482812FF179C3F13004E1D61 /* snd_flac.c */; };
-		664D98DE19CF6B78000D395C /* libFLAC.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 482812FC179C3EF4004E1D61 /* libFLAC.dylib */; };
-		664D98E119CF6B78000D395C /* libmad.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 48E2EC7915FB507A00B8D476 /* libmad.dylib */; };
 		664D98E519CF6B78000D395C /* libmikmod.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = F5F5DE80017CB4370103A810 /* libmikmod.dylib */; };
 		664D98E619CF6B78000D395C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 488EF23614B83A370021DD41 /* IOKit.framework */; };
 		664D98E919CF6B78000D395C /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		664D98EA19CF6B78000D395C /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F3C0009D093BD00EBEB88 /* OpenGL.framework */; };
-		664D98EE19CF6B78000D395C /* libFLAC.dylib in Copy Libraries */ = {isa = PBXBuildFile; fileRef = 482812FC179C3EF4004E1D61 /* libFLAC.dylib */; };
-		664D98F119CF6B78000D395C /* libmad.dylib in Copy Libraries */ = {isa = PBXBuildFile; fileRef = 48E2EC7915FB507A00B8D476 /* libmad.dylib */; };
-		664D98F519CF6B78000D395C /* libmikmod.dylib in Copy Libraries */ = {isa = PBXBuildFile; fileRef = F5F5DE80017CB4370103A810 /* libmikmod.dylib */; };
-		664D990619CF6E16000D395C /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
-		664D990719CF6E33000D395C /* SDL2.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
+		664D98F519CF6B78000D395C /* libmikmod.dylib in Copy Libraries */ = {isa = PBXBuildFile; fileRef = F5F5DE80017CB4370103A810 /* libmikmod.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		668A0110277D0BD6009D9427 /* pr_ext.c in Sources */ = {isa = PBXBuildFile; fileRef = 668A010E277D0BD6009D9427 /* pr_ext.c */; };
 		668A0113277D0BE8009D9427 /* mdfour.c in Sources */ = {isa = PBXBuildFile; fileRef = 668A0111277D0BE8009D9427 /* mdfour.c */; };
 		668A0116277D0BFB009D9427 /* fs_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 668A0114277D0BFB009D9427 /* fs_zip.c */; };
@@ -113,44 +107,32 @@
 		66991C091DBAB4A600C373C0 /* Quakespasm-Music.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C031DBAB47000C373C0 /* Quakespasm-Music.txt */; };
 		66991C0A1DBAB4A600C373C0 /* Quakespasm.html in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C041DBAB47000C373C0 /* Quakespasm.html */; };
 		66991C0B1DBAB4A600C373C0 /* Quakespasm.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C051DBAB47000C373C0 /* Quakespasm.txt */; };
-		932AE8F82944103F0062F917 /* libogg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F6294410200062F917 /* libogg.a */; };
 		932AE8F92944103F0062F917 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F3294410200062F917 /* libopus.a */; };
-		932AE8FA2944103F0062F917 /* libopusfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F12944101F0062F917 /* libopusfile.a */; };
-		932AE8FB2944103F0062F917 /* libvorbis.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F4294410200062F917 /* libvorbis.a */; };
-		932AE8FC294410400062F917 /* libvorbisenc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F2294410200062F917 /* libvorbisenc.a */; };
-		932AE8FD294410400062F917 /* libvorbisfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F5294410200062F917 /* libvorbisfile.a */; };
-		932AE8FE294410400062F917 /* libz.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F7294410200062F917 /* libz.a */; };
+		93B34FA22946BA0300FB5B72 /* libmad.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA02946BA0300FB5B72 /* libmad.a */; };
+		93B34FA32946BA0300FB5B72 /* libFLAC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA12946BA0300FB5B72 /* libFLAC.a */; };
 		93C700632944122600FDFB9D /* libvorbis.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C7005C2944122500FDFB9D /* libvorbis.a */; };
 		93C700642944122600FDFB9D /* libvorbisenc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C7005D2944122500FDFB9D /* libvorbisenc.a */; };
-		93C700652944122600FDFB9D /* libvorbisfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C7005E2944122500FDFB9D /* libvorbisfile.a */; };
 		93C700662944122600FDFB9D /* libopusfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C7005F2944122600FDFB9D /* libopusfile.a */; };
 		93C700672944122600FDFB9D /* libz.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C700602944122600FDFB9D /* libz.a */; };
 		93C700682944122600FDFB9D /* libogg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C700612944122600FDFB9D /* libogg.a */; };
-		93C700692944122600FDFB9D /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C700622944122600FDFB9D /* libopus.a */; };
+		93F78A142946BC0200800F54 /* libvorbisfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F5294410200062F917 /* libvorbisfile.a */; };
+		93F78A192946BC6000800F54 /* libmpg123.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A152946BC6000800F54 /* libmpg123.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		93F78A1A2946BC6000800F54 /* libFLAC.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A162946BC6000800F54 /* libFLAC.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		93F78A1B2946BC6000800F54 /* libxmp.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A172946BC6000800F54 /* libxmp.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		93F78A1C2946BC6000800F54 /* libmad.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A182946BC6000800F54 /* libmad.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		93F78A1D2946BD5B00800F54 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
+		93F78A1E2946BD5B00800F54 /* SDL2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FD07DF942782B4E3005CB9D9 /* iplog.c in Sources */ = {isa = PBXBuildFile; fileRef = FD07DF932782B4E3005CB9D9 /* iplog.c */; };
 		FD07DF972782B50C005CB9D9 /* location.c in Sources */ = {isa = PBXBuildFile; fileRef = FD07DF962782B50C005CB9D9 /* location.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		664D98EB19CF6B78000D395C /* Copy Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				664D990719CF6E33000D395C /* SDL2.framework in Copy Frameworks */,
-			);
-			name = "Copy Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		664D98ED19CF6B78000D395C /* Copy Libraries */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 6;
 			files = (
-				664D98EE19CF6B78000D395C /* libFLAC.dylib in Copy Libraries */,
-				664D98F119CF6B78000D395C /* libmad.dylib in Copy Libraries */,
 				664D98F519CF6B78000D395C /* libmikmod.dylib in Copy Libraries */,
 			);
 			name = "Copy Libraries";
@@ -169,6 +151,17 @@
 				66991C0A1DBAB4A600C373C0 /* Quakespasm.html in CopyFiles */,
 				66991C0B1DBAB4A600C373C0 /* Quakespasm.txt in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		93F78A1F2946BD5B00800F54 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				93F78A1E2946BD5B00800F54 /* SDL2.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -198,7 +191,6 @@
 		4818B0B412D5BA1A006DD66E /* snd_wave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = snd_wave.c; path = ../Quake/snd_wave.c; sourceTree = SOURCE_ROOT; };
 		4818B0B512D5BA1A006DD66E /* snd_wave.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = snd_wave.h; path = ../Quake/snd_wave.h; sourceTree = SOURCE_ROOT; };
 		48243B130D33F01A00C29F8F /* main_sdl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main_sdl.c; path = ../Quake/main_sdl.c; sourceTree = SOURCE_ROOT; };
-		482812FC179C3EF4004E1D61 /* libFLAC.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libFLAC.dylib; path = codecs/lib/libFLAC.dylib; sourceTree = "<group>"; };
 		482812FF179C3F13004E1D61 /* snd_flac.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = snd_flac.c; path = ../Quake/snd_flac.c; sourceTree = "<group>"; };
 		48281300179C3F13004E1D61 /* snd_flac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = snd_flac.h; path = ../Quake/snd_flac.h; sourceTree = "<group>"; };
 		483A77E60D2EE97700CB2E4C /* cmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cmd.h; path = ../Quake/cmd.h; sourceTree = SOURCE_ROOT; };
@@ -320,7 +312,6 @@
 		48B9E7BF0D340EA80001CACF /* SDLApplication.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SDLApplication.m; sourceTree = "<group>"; };
 		48C85E390D3AD10E00797678 /* QuakeArgument.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QuakeArgument.h; sourceTree = "<group>"; };
 		48C85E3A0D3AD10E00797678 /* QuakeArgument.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QuakeArgument.m; sourceTree = "<group>"; };
-		48E2EC7915FB507A00B8D476 /* libmad.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmad.dylib; path = codecs/lib/libmad.dylib; sourceTree = "<group>"; };
 		48FE58590D3A82C8006BB491 /* QuakeArguments.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QuakeArguments.h; sourceTree = "<group>"; };
 		48FE585A0D3A82C8006BB491 /* QuakeArguments.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = QuakeArguments.m; sourceTree = "<group>"; };
 		631F459F26EA4AF60054208C /* snd_mpg123.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = snd_mpg123.c; path = ../Quake/snd_mpg123.c; sourceTree = SOURCE_ROOT; };
@@ -362,6 +353,8 @@
 		932AE8F5294410200062F917 /* libvorbisfile.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbisfile.a; path = libs_universal/libvorbisfile.a; sourceTree = "<group>"; };
 		932AE8F6294410200062F917 /* libogg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libogg.a; path = libs_universal/libogg.a; sourceTree = "<group>"; };
 		932AE8F7294410200062F917 /* libz.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libz.a; path = libs_universal/libz.a; sourceTree = "<group>"; };
+		93B34FA02946BA0300FB5B72 /* libmad.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmad.a; path = libs_universal/libmad.a; sourceTree = "<group>"; };
+		93B34FA12946BA0300FB5B72 /* libFLAC.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libFLAC.a; path = libs_universal/libFLAC.a; sourceTree = "<group>"; };
 		93C7005C2944122500FDFB9D /* libvorbis.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbis.a; path = libs_universal/libvorbis.a; sourceTree = "<group>"; };
 		93C7005D2944122500FDFB9D /* libvorbisenc.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbisenc.a; path = libs_universal/libvorbisenc.a; sourceTree = "<group>"; };
 		93C7005E2944122500FDFB9D /* libvorbisfile.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbisfile.a; path = libs_universal/libvorbisfile.a; sourceTree = "<group>"; };
@@ -369,6 +362,10 @@
 		93C700602944122600FDFB9D /* libz.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libz.a; path = libs_universal/libz.a; sourceTree = "<group>"; };
 		93C700612944122600FDFB9D /* libogg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libogg.a; path = libs_universal/libogg.a; sourceTree = "<group>"; };
 		93C700622944122600FDFB9D /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopus.a; path = libs_universal/libopus.a; sourceTree = "<group>"; };
+		93F78A152946BC6000800F54 /* libmpg123.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmpg123.dylib; path = codecs/lib/libmpg123.dylib; sourceTree = "<group>"; };
+		93F78A162946BC6000800F54 /* libFLAC.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libFLAC.dylib; path = codecs/lib/libFLAC.dylib; sourceTree = "<group>"; };
+		93F78A172946BC6000800F54 /* libxmp.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxmp.dylib; path = codecs/lib/libxmp.dylib; sourceTree = "<group>"; };
+		93F78A182946BC6000800F54 /* libmad.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmad.dylib; path = codecs/lib/libmad.dylib; sourceTree = "<group>"; };
 		B021C20714A5FF7E003F18D6 /* cfgfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cfgfile.c; path = ../Quake/cfgfile.c; sourceTree = SOURCE_ROOT; };
 		B021C20814A5FF7E003F18D6 /* cfgfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cfgfile.h; path = ../Quake/cfgfile.h; sourceTree = SOURCE_ROOT; };
 		F5F5DE80017CB4370103A810 /* libmikmod.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmikmod.dylib; path = codecs/lib/libmikmod.dylib; sourceTree = "<group>"; };
@@ -383,27 +380,24 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				932AE8FA2944103F0062F917 /* libopusfile.a in Frameworks */,
-				664D98DE19CF6B78000D395C /* libFLAC.dylib in Frameworks */,
+				93F78A192946BC6000800F54 /* libmpg123.dylib in Frameworks */,
+				93F78A1A2946BC6000800F54 /* libFLAC.dylib in Frameworks */,
+				93F78A1B2946BC6000800F54 /* libxmp.dylib in Frameworks */,
+				93F78A1C2946BC6000800F54 /* libmad.dylib in Frameworks */,
+				664D98E519CF6B78000D395C /* libmikmod.dylib in Frameworks */,
+				932AE8F92944103F0062F917 /* libopus.a in Frameworks */,
 				93C700662944122600FDFB9D /* libopusfile.a in Frameworks */,
 				93C700682944122600FDFB9D /* libogg.a in Frameworks */,
-				664D98E119CF6B78000D395C /* libmad.dylib in Frameworks */,
+				93B34FA32946BA0300FB5B72 /* libFLAC.a in Frameworks */,
+				93F78A1D2946BD5B00800F54 /* SDL2.framework in Frameworks */,
 				93C700672944122600FDFB9D /* libz.a in Frameworks */,
-				932AE8F92944103F0062F917 /* libopus.a in Frameworks */,
-				664D98E519CF6B78000D395C /* libmikmod.dylib in Frameworks */,
-				93C700692944122600FDFB9D /* libopus.a in Frameworks */,
-				932AE8F82944103F0062F917 /* libogg.a in Frameworks */,
+				93B34FA22946BA0300FB5B72 /* libmad.a in Frameworks */,
 				93C700632944122600FDFB9D /* libvorbis.a in Frameworks */,
+				93C700642944122600FDFB9D /* libvorbisenc.a in Frameworks */,
+				93F78A142946BC0200800F54 /* libvorbisfile.a in Frameworks */,
 				664D98E619CF6B78000D395C /* IOKit.framework in Frameworks */,
-				932AE8FD294410400062F917 /* libvorbisfile.a in Frameworks */,
 				664D98E919CF6B78000D395C /* Cocoa.framework in Frameworks */,
 				664D98EA19CF6B78000D395C /* OpenGL.framework in Frameworks */,
-				932AE8FB2944103F0062F917 /* libvorbis.a in Frameworks */,
-				664D990619CF6E16000D395C /* SDL2.framework in Frameworks */,
-				932AE8FE294410400062F917 /* libz.a in Frameworks */,
-				932AE8FC294410400062F917 /* libvorbisenc.a in Frameworks */,
-				93C700652944122600FDFB9D /* libvorbisfile.a in Frameworks */,
-				93C700642944122600FDFB9D /* libvorbisenc.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -442,9 +436,9 @@
 		29B97314FDCFA39411CA2CEA /* QuakeSpasm */ = {
 			isa = PBXGroup;
 			children = (
-				482812FC179C3EF4004E1D61 /* libFLAC.dylib */,
-				48E2EC7915FB507A00B8D476 /* libmad.dylib */,
 				F5F5DE80017CB4370103A810 /* libmikmod.dylib */,
+				93B34FA12946BA0300FB5B72 /* libFLAC.a */,
+				93B34FA02946BA0300FB5B72 /* libmad.a */,
 				93C700612944122600FDFB9D /* libogg.a */,
 				93C700622944122600FDFB9D /* libopus.a */,
 				93C7005F2944122600FDFB9D /* libopusfile.a */,
@@ -480,6 +474,10 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				93F78A162946BC6000800F54 /* libFLAC.dylib */,
+				93F78A182946BC6000800F54 /* libmad.dylib */,
+				93F78A152946BC6000800F54 /* libmpg123.dylib */,
+				93F78A172946BC6000800F54 /* libxmp.dylib */,
 				932AE8F6294410200062F917 /* libogg.a */,
 				932AE8F3294410200062F917 /* libopus.a */,
 				932AE8F12944101F0062F917 /* libopusfile.a */,
@@ -776,9 +774,9 @@
 				664D988919CF6B78000D395C /* Resources */,
 				664D988D19CF6B78000D395C /* Sources */,
 				664D98DD19CF6B78000D395C /* Frameworks */,
-				664D98EB19CF6B78000D395C /* Copy Frameworks */,
 				664D98ED19CF6B78000D395C /* Copy Libraries */,
 				66991C001DBAB3F500C373C0 /* CopyFiles */,
+				93F78A1F2946BD5B00800F54 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -956,6 +954,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(PROJECT_DIR)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)\"";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -992,6 +991,7 @@
 					"$(PROJECT_DIR)/libs_universal",
 					"$(PROJECT_DIR)/vcpkg/installed/x64-osx-10.9/lib",
 					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx-11.0/lib",
+					"$(PROJECT_DIR)/codecs/lib",
 				);
 				PRODUCT_NAME = "QSS-M";
 				"SDKROOT[arch=arm64]" = macosx;
@@ -1008,6 +1008,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(PROJECT_DIR)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)\"";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -1042,6 +1043,7 @@
 					"$(PROJECT_DIR)/libs_universal",
 					"$(PROJECT_DIR)/vcpkg/installed/x64-osx-10.9/lib",
 					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx-11.0/lib",
+					"$(PROJECT_DIR)/codecs/lib",
 				);
 				OTHER_CFLAGS = "";
 				"OTHER_CFLAGS[arch=i386]" = (
@@ -1068,6 +1070,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				ENABLE_HARDENED_RUNTIME = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)",
 					"$(FRAMEWORK_SEARCH_PATHS)",
@@ -1110,6 +1113,7 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				DEPLOYMENT_POSTPROCESSING = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SRCROOT)",
 					"$(FRAMEWORK_SEARCH_PATHS)",
