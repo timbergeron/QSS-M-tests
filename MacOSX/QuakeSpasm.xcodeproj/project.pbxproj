@@ -96,8 +96,6 @@
 		664D98E919CF6B78000D395C /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		664D98EA19CF6B78000D395C /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 002F3C0009D093BD00EBEB88 /* OpenGL.framework */; };
 		664D98F519CF6B78000D395C /* libmikmod.dylib in Copy Libraries */ = {isa = PBXBuildFile; fileRef = F5F5DE80017CB4370103A810 /* libmikmod.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		664D990619CF6E16000D395C /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
-		664D990719CF6E33000D395C /* SDL2.framework in Copy Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
 		668A0110277D0BD6009D9427 /* pr_ext.c in Sources */ = {isa = PBXBuildFile; fileRef = 668A010E277D0BD6009D9427 /* pr_ext.c */; };
 		668A0113277D0BE8009D9427 /* mdfour.c in Sources */ = {isa = PBXBuildFile; fileRef = 668A0111277D0BE8009D9427 /* mdfour.c */; };
 		668A0116277D0BFB009D9427 /* fs_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 668A0114277D0BFB009D9427 /* fs_zip.c */; };
@@ -122,22 +120,13 @@
 		93F78A1A2946BC6000800F54 /* libFLAC.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A162946BC6000800F54 /* libFLAC.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		93F78A1B2946BC6000800F54 /* libxmp.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A172946BC6000800F54 /* libxmp.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		93F78A1C2946BC6000800F54 /* libmad.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A182946BC6000800F54 /* libmad.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
+		93F78A1D2946BD5B00800F54 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
+		93F78A1E2946BD5B00800F54 /* SDL2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FD07DF942782B4E3005CB9D9 /* iplog.c in Sources */ = {isa = PBXBuildFile; fileRef = FD07DF932782B4E3005CB9D9 /* iplog.c */; };
 		FD07DF972782B50C005CB9D9 /* location.c in Sources */ = {isa = PBXBuildFile; fileRef = FD07DF962782B50C005CB9D9 /* location.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		664D98EB19CF6B78000D395C /* Copy Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				664D990719CF6E33000D395C /* SDL2.framework in Copy Frameworks */,
-			);
-			name = "Copy Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		664D98ED19CF6B78000D395C /* Copy Libraries */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -162,6 +151,17 @@
 				66991C0A1DBAB4A600C373C0 /* Quakespasm.html in CopyFiles */,
 				66991C0B1DBAB4A600C373C0 /* Quakespasm.txt in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		93F78A1F2946BD5B00800F54 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				93F78A1E2946BD5B00800F54 /* SDL2.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -389,6 +389,7 @@
 				93C700662944122600FDFB9D /* libopusfile.a in Frameworks */,
 				93C700682944122600FDFB9D /* libogg.a in Frameworks */,
 				93B34FA32946BA0300FB5B72 /* libFLAC.a in Frameworks */,
+				93F78A1D2946BD5B00800F54 /* SDL2.framework in Frameworks */,
 				93C700672944122600FDFB9D /* libz.a in Frameworks */,
 				93B34FA22946BA0300FB5B72 /* libmad.a in Frameworks */,
 				93C700632944122600FDFB9D /* libvorbis.a in Frameworks */,
@@ -397,7 +398,6 @@
 				664D98E619CF6B78000D395C /* IOKit.framework in Frameworks */,
 				664D98E919CF6B78000D395C /* Cocoa.framework in Frameworks */,
 				664D98EA19CF6B78000D395C /* OpenGL.framework in Frameworks */,
-				664D990619CF6E16000D395C /* SDL2.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -774,9 +774,9 @@
 				664D988919CF6B78000D395C /* Resources */,
 				664D988D19CF6B78000D395C /* Sources */,
 				664D98DD19CF6B78000D395C /* Frameworks */,
-				664D98EB19CF6B78000D395C /* Copy Frameworks */,
 				664D98ED19CF6B78000D395C /* Copy Libraries */,
 				66991C001DBAB3F500C373C0 /* CopyFiles */,
+				93F78A1F2946BD5B00800F54 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -954,6 +954,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(PROJECT_DIR)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)\"";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1007,6 +1008,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(PROJECT_DIR)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)\"";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
