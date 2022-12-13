@@ -690,7 +690,7 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
 					{
 						currententity->syncbase = 0;
-						currententity->model->flags = MOD_NOLERP;
+						currententity->model->flags = MOD_NOLERP | MOD_NOSHADOW;
 						currententity->model = cl.model_precache[swapflagprecache]; // roque
 			
 					}
@@ -701,7 +701,7 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
 					{
 						currententity->syncbase = 0;
-						currententity->model->flags = MOD_NOLERP;
+						currententity->model->flags = MOD_NOLERP | MOD_NOSHADOW;
 						currententity->model = cl.model_precache[swapflagprecache2]; // alt1 (flag2.mdl)
 
 					}
@@ -712,7 +712,7 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
 					{
 						currententity->syncbase = 0;
-						currententity->model->flags = MOD_NOLERP;
+						currententity->model->flags = MOD_NOLERP | MOD_NOSHADOW;
 						currententity->model = cl.model_precache[swapflagprecache3]; // alt2 (flag3.mdl)
 
 					}
