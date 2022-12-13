@@ -138,12 +138,12 @@ int main(int argc, char *argv[])
 	while (1)
 	{
 		/* If we have no input focus at all, sleep a bit */
-		if (!VID_HasMouseOrInputFocus() || cl.paused)
+		if (!listening && !VID_HasMouseOrInputFocus() || cl.paused) // woods #listens
 		{
 			SDL_Delay(16);
 		}
 		/* If we're minimised, sleep a bit more */
-		if (VID_IsMinimized())
+		if (!listening && VID_IsMinimized()) // woods #listens
 		{
 			scr_skipupdate = 1;
 			SDL_Delay(32);

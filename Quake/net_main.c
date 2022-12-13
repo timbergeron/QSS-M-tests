@@ -40,7 +40,7 @@ char		my_ipx_address[NET_NAMELEN];
 char		my_ipv4_address[NET_NAMELEN];
 char		my_ipv6_address[NET_NAMELEN];
 
-static qboolean	listening = false;
+qboolean	listening = false; // woods #listens
 
 qboolean	slistInProgress = false;
 qboolean	slistSilent = false;

@@ -44,6 +44,7 @@ extern cvar_t		hostname;
 extern	double		net_time;
 extern	sizebuf_t	net_message;
 extern	int		net_activeconnections;
+extern qboolean	 listening; // woods #listens
 
 typedef char qhostaddr_t[NET_NAMELEN];
 
