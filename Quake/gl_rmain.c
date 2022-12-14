@@ -83,6 +83,8 @@ cvar_t	gl_playermip = {"gl_playermip","0",CVAR_NONE};
 cvar_t	gl_nocolors = {"gl_nocolors","0",CVAR_NONE};
 cvar_t	gl_enemycolor = {"gl_enemycolor","",CVAR_ARCHIVE}; // woods #enemycolors
 cvar_t	gl_teamcolor = { "gl_teamcolor","",CVAR_ARCHIVE}; // woods #enemycolors
+cvar_t	gl_laserpoint = {"gl_laserpoint","0", CVAR_ARCHIVE }; // woods #laser
+cvar_t	gl_laserpoint_alpha = { "gl_laserpoint_alpha","0", CVAR_ARCHIVE }; // woods #laser
 
 //johnfitz -- new cvars
 cvar_t	r_stereo = {"r_stereo","0",CVAR_NONE};
@@ -121,6 +123,9 @@ extern int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
 
 cvar_t	r_scale = {"r_scale", "1", CVAR_ARCHIVE};
+
+void LaserSight(void);
+
 
 //==============================================================================
 //
@@ -1050,6 +1055,9 @@ void R_RenderScene (void)
 	}
 
 	Fog_DisableGFog (); //johnfitz
+
+	if (gl_laserpoint.value)
+		LaserSight (); // woods #laser
 
 	R_DrawViewModel (); //johnfitz -- moved here from R_RenderView
 

@@ -217,6 +217,8 @@ void R_Init (void)
 	Cvar_SetCallback(&gl_enemycolor, Reload_Colors_f); // woods #enemycolors
 	Cvar_RegisterVariable (&gl_teamcolor); // woods #enemycolors
 	Cvar_SetCallback(&gl_teamcolor, Reload_Colors_f); // woods #enemycolors
+	Cvar_RegisterVariable (&gl_laserpoint); // woods #laser
+	Cvar_RegisterVariable (&gl_laserpoint_alpha); // woods #laser
 
 	//johnfitz -- new cvars
 	Cvar_RegisterVariable (&r_stereo);

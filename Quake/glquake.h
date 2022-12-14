@@ -181,6 +181,8 @@ extern	cvar_t	gl_flashblend;
 extern	cvar_t	gl_nocolors;
 extern	cvar_t	gl_enemycolor; // woods #enemycolors
 extern	cvar_t	gl_teamcolor; // woods #enemycolors
+extern	cvar_t	gl_laserpoint; // woods #laser
+extern	cvar_t	gl_laserpoint_alpha; // woods #laser
 
 extern	cvar_t	gl_playermip;
 

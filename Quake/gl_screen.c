@@ -1779,6 +1779,69 @@ void SCR_DrawCrosshair (void)
 		Draw_Character(-4, -4, '+'); //0,0 is center of viewport
 }
 
+/*
+================
+LaserSight - port from quakespasm-shalrathy / qrack --  woods #laser
+================
+*/
+void LaserSight (void)
+{
+	char buf[15];
+	const char* obs;
+	obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+
+	if (!strcmp(obs, "fly") || cl.stats[STAT_HEALTH] <= 0 || noclip_anglehack) // not in server flyme, noclip, or dead
+		return;
+	
+	vec3_t	start, forward, right, up, crosshair, wall;
+	float point1[3];
+
+	// copy origin to start, offset it correctly
+
+	AngleVectors(r_refdef.viewangles, forward, right, up);
+	VectorCopy(cl.viewent.origin, start);
+	start[2] += 16;//QuakeC uses + '0 0 16' for gun aim.
+
+	// find the spot the player is looking at
+	VectorMA(start, 4096, forward, crosshair);
+	TraceLine(cl.viewent.origin, crosshair, wall);
+
+	glDisable(GL_DEPTH_TEST);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	GL_PolygonOffset(OFFSET_SHOWTRIS);
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+
+	// set point 1 to players position
+	point1[0] = cl.entities[cl.viewentity].origin[0];
+	point1[1] = cl.entities[cl.viewentity].origin[1];
+	point1[2] = cl.entities[cl.viewentity].origin[2];
+
+	wall[2] += -8.5; // adjust for relative crosshair
+
+	// draw green line
+	glColor4f(0.0, 1.0, 0.0, gl_laserpoint_alpha.value);
+	glBegin(GL_LINES);
+	if (gl_laserpoint.value == 2)
+		glVertex3f(crosshair[0], crosshair[1], crosshair[2]);
+	else
+		glVertex3f(wall[0], wall[1], wall[2]);
+	glVertex3f(point1[0], point1[1], point1[2]);
+	glEnd();
+
+	glColor4f(1, 1, 1, 1);
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_CULL_FACE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	GL_PolygonOffset(OFFSET_NONE);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+
+	if (gl_laserpoint.value == 1)
+		PScript_RunParticleEffectTypeString(wall, NULL, 1, "laserpoint"); // particle cfg "r_part laserpoint" for dot on wall
+}
+
 //=============================================================================
 
 
