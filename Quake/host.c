@@ -1175,14 +1175,16 @@ void _Host_Frame (double time)
 		}
 		return;			// don't run too fast, or packets will flood out
 	}
+	if (!isDedicated) // woods  -- don't call the input functions in dedicated servers (vkquake)
+	{ 
+		// get new key events
+		Key_UpdateForDest ();
+		IN_UpdateInputMode ();
+		Sys_SendKeyEvents ();
 
-// get new key events
-	Key_UpdateForDest ();
-	IN_UpdateInputMode ();
-	Sys_SendKeyEvents ();
-
-// allow mice or other external controllers to add commands
-	IN_Commands ();
+		// allow mice or other external controllers to add commands
+		IN_Commands ();
+	}
 
 //check the stdin for commands (dedicated servers)
 	Host_GetConsoleCommands ();
