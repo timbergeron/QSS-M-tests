@@ -232,7 +232,7 @@ void	Host_FindMaxClients (void)
 			svs.maxclients = Q_atoi (com_argv[i+1]);
 		}
 		else
-			svs.maxclients = 8;
+			svs.maxclients = 16;
 	}
 	else
 		cls.state = ca_disconnected;
