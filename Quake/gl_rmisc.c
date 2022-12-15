@@ -47,6 +47,9 @@ extern cvar_t r_noshadow_list;
 //johnfitz
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 
+extern cvar_t trace_any; // woods #tracers
+extern cvar_t trace_any_contains; // woods #tracers
+
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
 
@@ -219,6 +222,8 @@ void R_Init (void)
 	Cvar_SetCallback(&gl_teamcolor, Reload_Colors_f); // woods #enemycolors
 	Cvar_RegisterVariable (&gl_laserpoint); // woods #laser
 	Cvar_RegisterVariable (&gl_laserpoint_alpha); // woods #laser
+	Cvar_RegisterVariable (&trace_any); // woods #tracers
+	Cvar_RegisterVariable (&trace_any_contains); // woods #tracers
 
 	//johnfitz -- new cvars
 	Cvar_RegisterVariable (&r_stereo);

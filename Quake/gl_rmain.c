@@ -114,6 +114,9 @@ cvar_t	r_lavaalpha = {"r_lavaalpha","0",CVAR_ARCHIVE};
 cvar_t	r_telealpha = {"r_telealpha","0",CVAR_ARCHIVE};
 cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 
+cvar_t	trace_any = {"trace_any","0",CVAR_NONE}; // woods #tracers
+cvar_t	trace_any_contains = {"trace_any_contains","item_artifact_super_damage",CVAR_NONE}; // woods #tracers
+
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
 
@@ -1018,6 +1021,100 @@ void R_DrawShadows (void)
 
 /*
 ================
+Item Tracers -- quakespasm-shalrathy #tracers
+================
+*/
+
+int doShowTracer(int value, int distsquared) {
+	if (value == 0) return 0;
+	else if (value == 1) return 1;
+	else return distsquared <= value * value;
+}
+
+void GetEdictCenter(edict_t* ed, vec3_t pos) {
+	float* mins = GetEdictFieldValue(ed, ED_FindFieldOffset("mins"))->vector;
+	float* size = GetEdictFieldValue(ed, ED_FindFieldOffset("size"))->vector;
+	pos[0] = mins[0] + size[0] / 2;
+	pos[1] = mins[1] + size[1] / 2;
+	pos[2] = mins[2] + size[2] / 2;
+	pos[0] += ed->v.origin[0];
+	pos[1] += ed->v.origin[1];
+	pos[2] += ed->v.origin[2];
+}
+
+void R_DrawTracers(void)
+{
+	if (!trace_any.value) {
+		return;
+	}
+
+	glDisable(GL_DEPTH_TEST);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	GL_PolygonOffset(OFFSET_SHOWTRIS);
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_CULL_FACE);
+
+	vec3_t forward, right, up;
+	AngleVectors(r_refdef.viewangles, forward, right, up);
+	float org[3];
+	org[0] = cl.entities[cl.viewentity].origin[0];
+	org[1] = cl.entities[cl.viewentity].origin[1];
+	org[2] = cl.entities[cl.viewentity].origin[2];
+
+	org[0] += forward[0] * 100;
+	org[1] += forward[1] * 100;
+	org[2] += forward[2] * 100;
+
+	int i;
+	edict_t* ed;
+
+	qcvm_t* oldvm;	//in case we ever draw a scene from within csqc.
+	oldvm = qcvm;
+	PR_SwitchQCVM(NULL);
+	PR_SwitchQCVM(&sv.qcvm);
+	for (i = 0, ed = NEXT_EDICT(qcvm->edicts); i < qcvm->num_edicts; i++, ed = NEXT_EDICT(ed))
+	{
+		if (ed->free) continue;
+
+		float pos[3];
+		GetEdictCenter(ed, pos);
+
+		float distsquared = (org[0] - pos[0]) * (org[0] - pos[0])
+			+ (org[1] - pos[1]) * (org[1] - pos[1])
+			+ (org[2] - pos[2]) * (org[2] - pos[2]);
+
+		const char* classname = PR_GetString(ed->v.classname);
+		char do_trace = 0;
+	
+		if (q_strcasestr(classname, trace_any_contains.string)) {
+			if (doShowTracer(trace_any.value > 0, distsquared)) {
+				do_trace = 1;
+				glEnable(GL_BLEND);
+				glColor4f(1, 1, 1, trace_any.value);
+			}
+		}
+
+		if (do_trace) {
+			glBegin(GL_LINES);
+			glVertex3f(pos[0], pos[1], pos[2]);
+			glVertex3f(org[0], org[1], org[2]);
+			glEnd();
+		}
+	}
+	PR_SwitchQCVM(NULL);
+	PR_SwitchQCVM(oldvm);
+
+	glColor4f(1, 1, 1, 1);
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_CULL_FACE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	GL_PolygonOffset(OFFSET_NONE);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+}
+
+/*
+================
 R_RenderScene
 ================
 */
@@ -1064,6 +1161,8 @@ void R_RenderScene (void)
 	R_ShowTris (); //johnfitz
 
 	R_ShowBoundingBoxes (); //johnfitz
+
+	R_DrawTracers(); // woods #tracers
 }
 
 static GLuint r_scaleview_texture;
