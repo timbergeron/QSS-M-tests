@@ -658,6 +658,45 @@ void Cmd_Apropos_f(void)
 }
 
 /*
+====================
+Cmd_PrintTxt_f -- Prints a text file into the console -- woods from joequake #printtxt
+====================
+*/
+void Cmd_PrintTxt_f(void)
+{
+	char	name[MAX_FILELENGTH], buf[256] = { 0 };
+	FILE* f;
+
+	if (cmd_source != src_command)
+		return;
+
+	if (Cmd_Argc() != 2)
+	{
+		Con_Printf("printtxt <txtfile> : prints a text file\n");
+		return;
+	}
+
+	Q_strncpy(name, Cmd_Argv(1), sizeof(name));
+	Q_strncpy(buf, va("%s/%s", com_gamedir, name), sizeof(buf));
+
+	if (!(f = fopen(buf, "rt")))
+	{
+		Con_Printf("ERROR: couldn't open %s\n", name);
+		return;
+	}
+
+	Con_Printf("\n");
+	while (fgets(buf, 256, f))
+	{
+		Con_Printf("%s", buf);
+		memset(buf, 0, sizeof(buf));
+	}
+
+	Con_Printf("\n");
+	fclose(f);
+}
+
+/*
 ============
 Cmd_Init
 ============
@@ -680,6 +719,7 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("find", Cmd_Apropos_f);
 
 	Cmd_AddCommand("__cfgmarker", Cmd_CfgMarker_f); // woods - Skip apropos text for unknown commands executed from config (ironwail)
+	Cmd_AddCommand("printtxt", Cmd_PrintTxt_f);
 
 	Cvar_RegisterVariable (&cl_nopext);
 	Cvar_RegisterVariable (&cmd_warncmd);
