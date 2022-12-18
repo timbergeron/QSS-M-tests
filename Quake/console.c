@@ -632,6 +632,13 @@ static void Con_Print (const char *txt)
 					}
 		}
 
+	if (strstr(txt, "dm [")) // woods #tell+
+	{
+		S_LocalSound("misc/talk.wav");
+		if (!VID_HasMouseOrInputFocus())
+			SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+	}
+
 	if (txt[0] == 1)
 	{
 		mask = 128;		// go to colored text`

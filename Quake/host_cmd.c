@@ -1722,14 +1722,62 @@ static void Host_Say_Team_f2(void) // woods chat shortcuts
 	Cmd_ExecuteString(text, src_command);
 }
 
-static void Host_Tell_f(void)
+static void Host_Tell_f(void) // modified by woods to accept wildcards, status #s like proquake identify #tell+
 {
-	int		j;
+	int		i, j;
 	client_t	*client;
 	client_t	*save;
 	const char	*p;
 	char		text[MAXCMDLINE], *p2;
 	qboolean	quoted;
+	char name[16];
+
+	q_strlcpy(name, Cmd_Argv(1), sizeof(name)); // set name to the name of player telling
+	i = Q_atoi(Cmd_Argv(1)) - 1; // set i to the NUMBER of player telling
+
+	if (i == -1)
+	{
+		if (sv.active)
+		{
+			for (i = 0; i < svs.maxclients; i++)
+			{
+				if (svs.clients[i].active && unfun_match(Cmd_Argv(1), svs.clients[i].name))
+					break;
+			}
+		}
+		else
+		{
+			for (i = 0; i < cl.maxclients; i++)
+			{
+				if (unfun_match(Cmd_Argv(1), cl.scores[i].name))
+					break;
+			}
+		}
+	}
+
+	if (sv.active)
+	{
+		if (i < 0 || i >= svs.maxclients || !svs.clients[i].active)
+		{
+			Con_Printf("No such player\n");
+			return;
+		}
+		strncpy(name, svs.clients[i].name, 15);
+		name[15] = 0;
+	}
+	else
+	{
+		if (i < 0 || i >= cl.maxclients || !cl.scores[i].name[0])
+		{
+ 			Con_Printf("No such player\n");
+			return;
+		}
+		else
+		{
+			strncpy(name, cl.scores[i].name, 15); // copy scoreboard number player to name
+			name[15] = 0;
+		}
+	}
 
 	if (cmd_source != src_client)
 	{
@@ -1741,6 +1789,8 @@ static void Host_Tell_f(void)
 		return;
 
 	p = Cmd_Args();
+	p = strremove((char*)p, (char*)Cmd_Argv(1)); // the msg only -- use strremove to get rid of name
+	
 // remove quotes if present
 	quoted = false;
 	if (*p == '\"')
@@ -1749,7 +1799,7 @@ static void Host_Tell_f(void)
 		quoted = true;
 	}
 
-	q_snprintf (text, sizeof(text), "\x1[%s]:%s", host_client->name, strremove((char*)p, (char*)Cmd_Argv(1))); // woods use strremove to get rid of name, "\x1" to play sound, [ ] for DM notation
+	q_snprintf (text, sizeof(text), "dm [%s]:%s", host_client->name,p);
 
 // check length & truncate if necessary
 	j = (int) strlen(text);
@@ -1778,7 +1828,7 @@ static void Host_Tell_f(void)
 	{
 		if (!client->active || !client->spawned)
 			continue;
-		if (q_strcasecmp(client->name, Cmd_Argv(1)))
+		if (q_strcasecmp(client->name, name))
 			continue;
 		host_client = client;
 		SV_ClientPrintf("%s", text);
