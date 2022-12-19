@@ -2540,7 +2540,7 @@ void M_Menu_GameOptions_f (void)
 	if (maxplayers == 0)
 		maxplayers = svs.maxclients;
 	if (maxplayers < 2)
-		maxplayers = 4;
+		maxplayers = 16;
 }
 
 
@@ -2683,6 +2683,7 @@ void M_NetStart_Change (int dir)
 	case 1:
 		maxplayers += dir;
 		if (maxplayers > svs.maxclientslimit)
+			maxplayers = svs.maxclientslimit;
 		if (maxplayers < 2)
 			maxplayers = 2;
 		break;

@@ -248,7 +248,7 @@ void	Host_FindMaxClients (void)
 			svs.maxclients = 16;
 	}
 	if (svs.maxclients < 1)
-		svs.maxclients = 8;
+		svs.maxclients = 16;
 	else if (svs.maxclients > MAX_SCOREBOARD)
 		svs.maxclients = MAX_SCOREBOARD;
 
