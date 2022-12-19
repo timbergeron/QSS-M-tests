@@ -1823,6 +1823,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&b_switch); // woods #autoweapon
 
 	Cvar_RegisterVariable (&cl_ambient); // woods #stopsound
+	Cvar_RegisterVariable (&cl_smartspawn); // woods #spawntrainer
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);

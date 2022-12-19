@@ -423,6 +423,7 @@ extern	cvar_t	gl_lightning_alpha; // woods transparent lightning #lightalpha
 extern	cvar_t	cl_say; // woods #ezsay
 extern	cvar_t	cl_afk; // woods #smartafk
 extern  cvar_t	cl_idle;  // woods #damage
+extern  cvar_t	cl_smartspawn; // woods #spawntrainer
 
 #define	MAX_TEMP_ENTITIES			1024		//johnfitz -- was 64 // woods -- was 256
 
