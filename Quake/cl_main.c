@@ -70,6 +70,7 @@ cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #au
 cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
 
 cvar_t  cl_ambient = {"cl_ambient", "1", CVAR_ARCHIVE}; // woods #stopsound
+cvar_t  r_coloredpowerupglow = {"r_coloredpowerupglow", "1", CVAR_ARCHIVE}; // woods
 
 client_static_t	cls;
 client_state_t	cl;
@@ -854,7 +855,7 @@ void CL_RelinkEntities (void)
 			dl->radius = 216;// +(rand() & 31); // woods no light flicker
 			dl->die = cl.time + 0.1; //R00k was .001
 
-			if (ent->effects & (EF_RED|EF_BLUE|EF_GREEN))
+			if (((ent->effects & (EF_RED|EF_BLUE|EF_GREEN)) && r_coloredpowerupglow.value)) // woods
 			{
 				dl->color[0] = !!(ent->effects&EF_RED);
 				dl->color[1] = !!(ent->effects&EF_GREEN);
@@ -1824,6 +1825,7 @@ void CL_Init (void)
 
 	Cvar_RegisterVariable (&cl_ambient); // woods #stopsound
 	Cvar_RegisterVariable (&cl_smartspawn); // woods #spawntrainer
+	Cvar_RegisterVariable (&r_coloredpowerupglow); // woods
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);

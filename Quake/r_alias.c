@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
 extern cvar_t cl_gun_fovscale; // woods #zoom (ironwail)
+extern cvar_t r_coloredpowerupglow; // woods
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
 
@@ -1054,7 +1055,7 @@ void R_SetupAliasLighting (entity_t	*e)
 
 	// begin woods add hue to gun model with powerups
 
-	if (cl.gametype == GAME_DEATHMATCH)
+	if ((cl.gametype == GAME_DEATHMATCH) && r_coloredpowerupglow.value)
 	{
 		if (cl.items & IT_QUAD)
 			if (e == &cl.viewent)
