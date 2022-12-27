@@ -2471,7 +2471,8 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					if (Sys_FileTime(checkname) == -1)
 						return;	// file doesn't exist
 					else
-						Cbuf_AddText("exec end.cfg\n");
+						if (VID_HasMouseOrInputFocus())
+							Cbuf_AddText("exec end.cfg\n");
 				}
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
