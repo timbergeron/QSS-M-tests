@@ -2923,6 +2923,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			const char* sound = SDL_GetAudioDeviceName(0, SDL_FALSE); // woods #q_sysinfo (qrack)
 			const int sdlRam = SDL_GetSystemRAM(); // woods #q_sysinfo (qrack)
 			const int num_cpus = SDL_GetCPUCount(); // woods #q_sysinfo (qrack)
+			const int dpi_num = VID_GetCurrentDPI(); // woods #q_sysinfo
 
 #if defined(_WIN32) // use windows registry to get some more detailed info that SDL2 can't, adapted from ezquake
 			char* SYSINFO_processor_description = NULL;
@@ -3145,7 +3146,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say Video: %s", videoc));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say %s", videosetg));
+			MSG_WriteString(&cls.message, va("say %s %d ppi", videosetg, dpi_num));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say Audio: %s", sound));
 		

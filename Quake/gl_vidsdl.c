@@ -405,6 +405,20 @@ static int VID_GetCurrentBPP (void)
 
 /*
 ====================
+VID_GetCurrentDPI -- woods #q_sysinfo
+====================
+*/
+int VID_GetCurrentDPI(void)
+{
+	float dpicount = 0.0f;
+	int current_display;
+	current_display = SDL_GetWindowDisplayIndex(draw_context);
+	SDL_GetDisplayDPI(current_display, NULL, NULL, &dpicount);
+	return (dpicount);
+}
+
+/*
+====================
 VID_GetFullscreen
  
 returns true if we are in regular fullscreen or "desktop fullscren"
