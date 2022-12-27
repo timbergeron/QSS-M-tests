@@ -64,6 +64,7 @@ cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
 cvar_t  cl_afk = {"cl_afk", "1", CVAR_ARCHIVE }; // woods #smartafk
 cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 cvar_t  cl_rocketlight = {"cl_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
+cvar_t  cl_muzzleflash = {"cl_muzzleflash", "0", CVAR_ARCHIVE}; // woods #muzzleflash
 cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #deadbody
 
 cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
@@ -809,7 +810,7 @@ void CL_RelinkEntities (void)
 		if (ent->effects & EF_BRIGHTFIELD)
 			R_EntityParticles (ent);
 
-		if (ent->effects & EF_MUZZLEFLASH)
+		if ((ent->effects & EF_MUZZLEFLASH) && cl_muzzleflash.value) // woods #muzzleflash
 		{
 			vec3_t		fv, rv, uv;
 
@@ -819,7 +820,7 @@ void CL_RelinkEntities (void)
 			AngleVectors (ent->angles, fv, rv, uv);
 
 			VectorMA (dl->origin, 18, fv, dl->origin);
-			dl->radius = 0; // woods get rid of flash on shooting
+			dl->radius = 200 + (rand() & 31);
 			dl->minlight = 32;
 			dl->die = cl.time + 0.1;
 
@@ -1818,6 +1819,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_afk); // woods #smartafk
 	Cvar_RegisterVariable (&cl_idle); // woods #smartafk
 	Cvar_RegisterVariable (&cl_rocketlight); // woods #rocketlight
+	Cvar_RegisterVariable (&cl_muzzleflash); // woods #muzzleflash
 	Cvar_RegisterVariable (&cl_deadbodyfilter); // woods #deadbody
 
 	Cvar_RegisterVariable (&w_switch); // woods #autoweapon
