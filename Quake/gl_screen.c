@@ -1236,6 +1236,9 @@ void SCR_ShowObsFrags(void)
 	if (cl.intermission)
 		return;
 
+	if (scr_viewsize.value == 120)
+		return;
+
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
