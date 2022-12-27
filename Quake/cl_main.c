@@ -356,7 +356,7 @@ void CL_SignonReply (void)
 		if (!strcmp(val, "dm"))
 			Cbuf_AddText("exec dm.cfg\n");
 
-		if (!strcmp(val, "ctf"))
+		if (!q_strcasecmp(val, "ctf"))
 			Cbuf_AddText("exec ctf.cfg\n");
 
 		break;
