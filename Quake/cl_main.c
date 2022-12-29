@@ -256,8 +256,13 @@ void CL_EstablishConnection (const char *host)
 	CL_Disconnect ();
 
 	cls.netcon = NET_Connect (host);
-	if (!cls.netcon)
-		Host_Error ("CL_Connect: connect failed");
+	if (!cls.netcon) // woods -  Baker 3.60 - Rook's Qrack port 26000 notification on failure
+	{
+		Con_Printf("\nsyntax: connect server:port (port is optional)\n");//r00k added
+		if (net_hostport != 26000)
+			Con_Printf("\nTry using port 26000\n");//r00k added
+		Host_Error("connect failed");
+	}
 	Con_DPrintf ("CL_EstablishConnection: connected to %s\n", host);
 
 	cls.demonum = -1;			// not in the demo loop now
