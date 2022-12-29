@@ -420,6 +420,33 @@ void Cmd_Alias_f (void)
 
 /*
 ===============
+Cmd_Viewalias_f -- woods - https://github.com/viciious/tochris #viewalias
+===============
+*/
+void Cmd_Viewalias_f(void)
+{
+	cmdalias_t* alias;
+	char* name;
+
+	if (Cmd_Argc() < 2)
+	{
+		Con_Printf("viewalias <aliasname> : view body of alias\n");
+		return;
+	}
+
+	// Check aliases
+	for (alias = cmd_alias, name = Cmd_Argv(1); alias; alias = alias->next)
+		if (!strcmp(name, alias->name))
+			break;
+
+	if (alias)
+		Con_Printf("\n%s : %s\n", name, alias->value);
+	else
+		Con_Printf("No such alias: %s\n", name);
+}
+
+/*
+===============
 Cmd_Unalias_f -- johnfitz
 ===============
 */
@@ -720,6 +747,7 @@ void Cmd_Init (void)
 
 	Cmd_AddCommand("__cfgmarker", Cmd_CfgMarker_f); // woods - Skip apropos text for unknown commands executed from config (ironwail)
 	Cmd_AddCommand("printtxt", Cmd_PrintTxt_f);
+	Cmd_AddCommand("viewalias", Cmd_Viewalias_f); // woods #viewalias
 
 	Cvar_RegisterVariable (&cl_nopext);
 	Cvar_RegisterVariable (&cmd_warncmd);
