@@ -447,12 +447,12 @@ static void Config_PrintPreamble(FILE* f)
 
 /*
 ===============
-Host_WriteConfiguration
+Host_WriteConfigurationToFile - woods - ironwail #writecfg
 
-Writes key bindings and archived cvars to config.cfg
+Writes key bindings and archived cvars to specified file
 ===============
 */
-void Host_WriteConfiguration (void)
+void Host_WriteConfigurationToFile (const char* name)
 {
 	FILE	*f;
 
@@ -460,10 +460,10 @@ void Host_WriteConfiguration (void)
 // config.cfg cvars
 	if (host_initialized && !isDedicated && !host_parms->errstate)
 	{
-		f = fopen (va("%s/config.cfg", com_gamedir), "w");
+		f = fopen (va("%s/%s", com_gamedir, name), "w");
 		if (!f)
 		{
-			Con_Printf ("Couldn't write config.cfg.\n");
+			Con_Printf ("Couldn't write %s.\n", name);
 			return;
 		}
 
@@ -483,18 +483,31 @@ void Host_WriteConfiguration (void)
 		//johnfitz
 
 		fclose (f);
+
+		Con_Printf("Wrote %s.\n", name);
 	}
 }
 
 /*
 ===============
-Host_SaveConfiguration // woods #cfgsave
+Host_WriteConfiguration  - woods - ironwail #writecfg
+
+Writes key bindings and archived cvars to engine config file
 ===============
 */
-void Host_SaveConfiguration(void)
+void Host_WriteConfiguration(void)
 {
-	Host_WriteConfiguration();
-	Con_Printf("settings saved to config.cfg\n");
+	Host_WriteConfigurationToFile("config.cfg");
+}
+
+/*
+=======================
+Host_WriteConfig_f  - woods - ironwail #writecfg
+======================
+*/
+void Host_WriteConfig_f(void)
+{
+	Host_WriteConfigurationToFile(Cmd_Argc() >= 2 ? Cmd_Argv(1) : "config.cfg");
 }
 
 /*

@@ -59,6 +59,7 @@ static qboolean		com_modified;	// set true if using non-id files
 qboolean		fitzmode;
 
 static void COM_Path_f (void);
+void Host_WriteConfig_f (void); // woods #writecfg
 
 // if a packfile directory differs from this, it is assumed to be hacked
 #define PAK0_COUNT		339	/* id1/pak0.pak - v1.0x */
@@ -3191,7 +3192,7 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 	Cmd_AddCommand ("game", COM_Game_f); //johnfitz
 	Cmd_AddCommand ("gamedir", COM_Game_f); //Spike -- alternative name for it, consistent with quakeworld and a few other engines
 	Cmd_AddCommand ("open", COM_Dir_Open_f); // woods #openfolder
-	Cmd_AddCommand ("cfg_save", Host_SaveConfiguration); // woods #cfgsave
+	Cmd_AddCommand ("writeconfig", Host_WriteConfig_f); // woods #writecfg
 
 	i = COM_CheckParm ("-basedir");
 	if (i && i < com_argc-1)
