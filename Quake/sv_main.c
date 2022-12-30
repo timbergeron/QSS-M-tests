@@ -3632,9 +3632,18 @@ void SV_SpawnServer (const char *server)
 	qcvm->worldmodel = Mod_ForName (sv.modelname, false);
 	if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush)
 	{
-		Con_Printf ("Couldn't spawn server %s\n", sv.modelname);
-		sv.active = false;
-		return;
+		// woods -- Default to start map when map can't be found. (manquake/proquake 3.99b: R00k) #mapchangeprotect
+		strcpy(sv.name, "start"); // just use start, instead of cvar
+		q_snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.name);
+		qcvm->worldmodel = Mod_ForName(sv.modelname, false);
+		Con_Printf("using start.bsp instead to avoid error\n", server);
+		
+		if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush)
+		{
+			Con_Printf ("Couldn't spawn server %s\n", sv.modelname);
+			sv.active = false;
+			return;
+		}
 	}
 	sv.models[1] = qcvm->worldmodel;
 	qcvm->GetModel = SV_ModelForIndex;

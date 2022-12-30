@@ -969,11 +969,11 @@ static void Host_Changelevel_f (void)
 		return;
 	}
 
-	//johnfitz -- check for client having map before anything else
+	/*//johnfitz -- check for client having map before anything else // woods disable this for SV_SpawnServer protection (added) #mapchangeprotect
 	q_snprintf (level, sizeof(level), "maps/%s.bsp", Cmd_Argv(1));
 	if (!COM_FileExists(level, NULL))
 		Host_Error ("cannot find map %s", level);
-	//johnfitz
+	//johnfitz*/
 
 	key_dest = key_game;	// remove console or menu
 	if (cls.state != ca_dedicated)
