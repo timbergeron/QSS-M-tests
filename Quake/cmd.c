@@ -735,6 +735,48 @@ void Cmd_History_f(void)
 
 /*
 ============
+Alias_List_f -- woods #aliaslist
+============
+*/
+void Alias_List_f(void)
+{
+	cmdalias_t* alias;
+	const char* partial;
+	int		len, count;
+
+	if (Cmd_Argc() > 1)
+	{
+		partial = Cmd_Argv(1);
+		len = Q_strlen(partial);
+	}
+	else
+	{
+		partial = NULL;
+		len = 0;
+	}
+
+	count = 0;
+	for (alias = cmd_alias; alias; alias = alias->next)
+	{
+		if (partial && Q_strncmp(partial, alias->name, len))
+		{
+			continue;
+		}
+		Con_SafePrintf("   %s\n", alias->name);
+		count++;
+	}
+
+
+	Con_SafePrintf("%i aliases", count);
+	if (partial)
+	{
+		Con_SafePrintf(" beginning with \"%s\"", partial);
+	}
+	Con_SafePrintf("\n");
+}
+
+/*
+============
 Cmd_Init
 ============
 */
@@ -758,6 +800,7 @@ void Cmd_Init (void)
 	Cmd_AddCommand("__cfgmarker", Cmd_CfgMarker_f); // woods - Skip apropos text for unknown commands executed from config (ironwail)
 	Cmd_AddCommand("printtxt", Cmd_PrintTxt_f);
 	Cmd_AddCommand("viewalias", Cmd_Viewalias_f); // woods #viewalias
+	Cmd_AddCommand("aliaslist", Alias_List_f); // woods #aliaslist
 	Cmd_AddCommand("history", Cmd_History_f); // woods #history
 
 	Cvar_RegisterVariable (&cl_nopext);
