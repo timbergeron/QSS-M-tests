@@ -699,12 +699,12 @@ void Cmd_PrintTxt_f(void)
 
 	if (Cmd_Argc() != 2)
 	{
-		Con_Printf("printtxt <txtfile> : prints a text file\n");
+		Con_Printf("\nprinttxt <txtfile> : prints a text file located in quake folder\n\nexample: printtxt id1/config.cfg or printtxt history.txt\n\n");
 		return;
 	}
 
 	Q_strncpy(name, Cmd_Argv(1), sizeof(name));
-	Q_strncpy(buf, va("%s/%s", com_gamedir, name), sizeof(buf));
+	Q_strncpy(buf, va("%s/%s", com_basedir, name), sizeof(buf));
 
 	if (!(f = fopen(buf, "rt")))
 	{
@@ -721,6 +721,16 @@ void Cmd_PrintTxt_f(void)
 
 	Con_Printf("\n");
 	fclose(f);
+}
+
+/*
+====================
+Cmd_History_f -- woods #history
+====================
+*/
+void Cmd_History_f(void)
+{
+	Cmd_ExecuteString("printtxt history.txt\n", src_command);
 }
 
 /*
@@ -748,6 +758,7 @@ void Cmd_Init (void)
 	Cmd_AddCommand("__cfgmarker", Cmd_CfgMarker_f); // woods - Skip apropos text for unknown commands executed from config (ironwail)
 	Cmd_AddCommand("printtxt", Cmd_PrintTxt_f);
 	Cmd_AddCommand("viewalias", Cmd_Viewalias_f); // woods #viewalias
+	Cmd_AddCommand("history", Cmd_History_f); // woods #history
 
 	Cvar_RegisterVariable (&cl_nopext);
 	Cvar_RegisterVariable (&cmd_warncmd);
