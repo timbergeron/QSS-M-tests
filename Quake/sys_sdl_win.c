@@ -236,9 +236,12 @@ static HHOOK key_hook = NULL;
 
 #define HOOKED_KEYS			\
 	HOOK_KEY (CAPSLOCK)		\
+	HOOK_KEY (APPLICATION)	\
+
 
 
 #define SC_CAPSLOCK			0x3A
+#define SC_APPLICATION		0xE05B // windows key
 
 enum
 {
