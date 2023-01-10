@@ -35,6 +35,7 @@ void M_Menu_Main_f (void);
 		void M_Menu_Save_f (void);
 	void M_Menu_MultiPlayer_f (void);
 		void M_Menu_Setup_f (void);
+	void M_Menu_NameMaker_f(void); // woods #namemaker
 		void M_Menu_Net_f (void);
 		void M_Menu_LanConfig_f (void);
 		void M_Menu_GameOptions_f (void);
@@ -53,6 +54,7 @@ void M_Main_Draw (void);
 		void M_Save_Draw (void);
 	void M_MultiPlayer_Draw (void);
 		void M_Setup_Draw (void);
+void M_NameMaker_Draw(void); // woods #namemaker
 		void M_Net_Draw (void);
 		void M_LanConfig_Draw (void);
 		void M_GameOptions_Draw (void);
@@ -80,6 +82,7 @@ void M_Main_Key (int key);
 		void M_Video_Key (int key);
 	void M_Help_Key (int key);
 	void M_Quit_Key (int key);
+	void M_NameMaker_Key(int key); // woods #namemaker
 
 qboolean	m_entersound;		// play after drawing a frame, so caching
 								// won't disrupt the sound
@@ -663,8 +666,12 @@ void M_MultiPlayer_Key (int key)
 //=============================================================================
 /* SETUP MENU */
 
-static int		setup_cursor = 4;
-static int		setup_cursor_table[] = {40, 56, 80, 104, 140};
+static int		setup_cursor = 5; // woods 4 to 5 #namemaker
+static int		setup_cursor_table[] = {40, 56, 80, 104, 128, 152}; // woods add value, change position #namemaker
+
+char	namemaker_name[16]; // woods #namemaker
+qboolean namemaker_shortcut = false; // woods #namemaker
+qboolean from_namemaker = false; // woods #namemaker
 
 static char	setup_hostname[16];
 static char	setup_myname[16];
@@ -686,14 +693,16 @@ void M_AdjustColour(plcolour_t *tr, int dir)
 	}
 }
 
-#define	NUM_SETUP_CMDS	5
-
+#define	NUM_SETUP_CMDS	6 // woods 5 to 6 #namemaker
 void M_Menu_Setup_f (void)
 {
 	key_dest = key_menu;
 	m_state = m_setup;
 	m_entersound = true;
-	Q_strcpy(setup_myname, cl_name.string);
+	if (from_namemaker) // woods #namemaker
+		from_namemaker = !from_namemaker;
+	else
+		Q_strcpy(setup_myname, cl_name.string);
 	Q_strcpy(setup_hostname, hostname.string);
 	setup_top = setup_oldtop = CL_PLColours_Parse(cl_topcolor.string);
 	setup_bottom = setup_oldbottom = CL_PLColours_Parse(cl_bottomcolor.string);
@@ -716,13 +725,15 @@ void M_Setup_Draw (void)
 
 	M_Print (64, 56, "Your name");
 	M_DrawTextBox (160, 48, 16, 1);
-	M_Print (168, 56, setup_myname);
+	M_PrintWhite (168, 56, setup_myname); // woods change to white #namemaker
 
-	M_Print (64, 80, "Shirt color");
-	M_Print (64, 104, "Pants color");
+	M_Print(64, 80, "Name Maker"); // woods #namemaker
 
-	M_DrawTextBox (64, 140-8, 14, 1);
-	M_Print (72, 140, "Accept Changes");
+	M_Print (64, 104, "Shirt color"); // woods 80 to 104 #namemaker
+	M_Print (64, 128, "Pants color"); // woods 104 to 128 #namemaker
+
+	M_DrawTextBox (64, 152-8, 14, 1);  // woods 140 to 152 #namemaker
+	M_Print (72, 152, "Accept Changes");
 
 	p = Draw_CachePic ("gfx/bigbox.lmp");
 	M_DrawTransPic (160, 64, p);
@@ -745,6 +756,8 @@ void M_Setup_Draw (void)
 
 void M_Setup_Key (int k)
 {
+	int	l; // woods #namemaker
+
 	switch (k)
 	{
 	case K_ESCAPE:
@@ -770,19 +783,19 @@ void M_Setup_Key (int k)
 		if (setup_cursor < 2)
 			return;
 		S_LocalSound ("misc/menu3.wav");
-		if (setup_cursor == 2)
+		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 			M_AdjustColour(&setup_top, -1);
-		if (setup_cursor == 3)
+		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 			M_AdjustColour(&setup_bottom, -1);
 		break;
 	case K_RIGHTARROW:
 		if (setup_cursor < 2)
 			return;
-forward:
+	forward:
 		S_LocalSound ("misc/menu3.wav");
-		if (setup_cursor == 2)
+		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 			M_AdjustColour(&setup_top, +1);
-		if (setup_cursor == 3)
+		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 			M_AdjustColour(&setup_bottom, +1);
 		break;
 
@@ -792,8 +805,15 @@ forward:
 		if (setup_cursor == 0 || setup_cursor == 1)
 			return;
 
-		if (setup_cursor == 2 || setup_cursor == 3)
+		if (setup_cursor == 3 || setup_cursor == 4) // inc 1 both woods #namemaker
 			goto forward;
+
+		if (setup_cursor == 2) // woods #namemaker
+		{
+			m_entersound = true;
+			M_Menu_NameMaker_f();
+			break;
+		}
 
 		// setup_cursor == 4 (OK)
 		if (Q_strcmp(cl_name.string, setup_myname) != 0)
@@ -817,6 +837,32 @@ forward:
 		{
 			if (strlen(setup_myname))
 				setup_myname[strlen(setup_myname)-1] = 0;
+		}
+		break;
+
+	default: // woods #namemaker
+		if (k < 32 || k > 127)
+			break;
+
+		Key_Extra (&k);
+
+		if (setup_cursor == 0)
+		{
+			l = strlen(setup_hostname);
+			if (l < 15)
+			{
+				setup_hostname[l] = k;
+				setup_hostname[l + 1] = 0;
+			}
+		}
+		else if (setup_cursor == 2)
+		{
+			l = strlen(setup_myname);
+			if (l < 15)
+			{
+				setup_myname[l] = k;
+				setup_myname[l + 1] = 0;
+			}
 		}
 		break;
 	}
@@ -852,6 +898,180 @@ void M_Setup_Char (int k)
 qboolean M_Setup_TextEntry (void)
 {
 	return (setup_cursor == 0 || setup_cursor == 1);
+}
+
+
+//=============================================================================
+/* NAME MAKER MENU */ // woods #namemaker from joequake, qrack
+//=============================================================================
+int	namemaker_cursor_x, namemaker_cursor_y;
+#define	NAMEMAKER_TABLE_SIZE	16
+//extern int key_special_dest;
+
+void M_Menu_NameMaker_f (void)
+{
+	key_dest = key_menu;
+	//key_special_dest = 1;
+	m_state = m_namemaker;
+	m_entersound = true;
+	q_strlcpy(namemaker_name, setup_myname, sizeof(namemaker_name));
+}
+
+void M_Shortcut_NameMaker_f (void)
+{
+	// Baker: our little shortcut into the name maker
+	namemaker_shortcut = true;
+	q_strlcpy(setup_myname, cl_name.string, sizeof(setup_myname));//R00k
+	namemaker_cursor_x = 0;
+	namemaker_cursor_y = 0;
+	M_Menu_NameMaker_f();
+}
+
+void M_NameMaker_Draw (void)
+{
+	int	x, y;
+
+	M_Print(48, 16, "Your name");
+	M_DrawTextBox(120, 8, 16, 1);
+	M_PrintWhite(128, 16, namemaker_name);
+
+	for (y = 0; y < NAMEMAKER_TABLE_SIZE; y++)
+		for (x = 0; x < NAMEMAKER_TABLE_SIZE; x++)
+			M_DrawCharacter(32 + (16 * x), 40 + (8 * y), NAMEMAKER_TABLE_SIZE * y + x);
+
+	if (namemaker_cursor_y == NAMEMAKER_TABLE_SIZE)
+		M_DrawCharacter(128, 184, 12 + ((int)(realtime * 4) & 1));
+	else
+		M_DrawCharacter(24 + 16 * namemaker_cursor_x, 40 + 8 * namemaker_cursor_y, 12 + ((int)(realtime * 4) & 1));
+
+	//	M_DrawTextBox (136, 176, 2, 1);
+	M_Print(56, 184, "press");
+	M_PrintWhite(103, 184, "ESC");
+	M_Print(133, 184, "to save changes");
+}
+
+void M_NameMaker_Key (int k)
+{
+	int	l;
+
+	switch (k)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+		//key_special_dest = false;
+
+		if (namemaker_shortcut)
+		{// Allow quick exit for namemaker command
+			key_dest = key_game;
+			m_state = m_none;
+
+			//Save the name
+			if (strcmp(namemaker_name, cl_name.string))
+			{
+				Cbuf_AddText(va("name \"%s\"\n", namemaker_name));
+				Con_Printf("name changed to %s\n", namemaker_name);
+			}
+			namemaker_shortcut = false;
+			from_namemaker = false;
+		}
+		else
+		{
+			from_namemaker = true;
+			q_strlcpy(setup_myname, namemaker_name, sizeof(setup_myname));//R00k
+			M_Menu_Setup_f();
+		}
+
+		break;
+
+	case K_UPARROW:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_y--;
+		if (namemaker_cursor_y < 0)
+			namemaker_cursor_y = NAMEMAKER_TABLE_SIZE - 1;
+		break;
+
+	case K_DOWNARROW:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_y++;
+		if (namemaker_cursor_y > NAMEMAKER_TABLE_SIZE - 1)
+			namemaker_cursor_y = 0;
+		break;
+
+	case K_PGUP:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_y = 0;
+		break;
+
+	case K_PGDN:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_y = NAMEMAKER_TABLE_SIZE - 1;
+		break;
+
+	case K_LEFTARROW:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_x--;
+		if (namemaker_cursor_x < 0)
+			namemaker_cursor_x = NAMEMAKER_TABLE_SIZE - 1;
+		break;
+
+	case K_RIGHTARROW:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_x++;
+		if (namemaker_cursor_x >= NAMEMAKER_TABLE_SIZE - 1)
+			namemaker_cursor_x = 0;
+		break;
+
+	case K_HOME:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_x = 0;
+		break;
+
+	case K_END:
+		S_LocalSound("misc/menu1.wav");
+		namemaker_cursor_x = NAMEMAKER_TABLE_SIZE - 1;
+		break;
+
+	case K_BACKSPACE:
+		if ((l = strlen(namemaker_name)))
+			namemaker_name[l - 1] = 0;
+		break;
+
+	// If we reached this point, we are simulating ENTER
+
+	case K_SPACE:
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+		if (namemaker_cursor_y == NAMEMAKER_TABLE_SIZE)
+		{
+			q_strlcpy(setup_myname, namemaker_name, sizeof(setup_myname));
+			M_Menu_Setup_f();
+		}
+		else
+		{
+			l = strlen(namemaker_name);
+			if (l < 15)
+			{
+				namemaker_name[l] = NAMEMAKER_TABLE_SIZE * namemaker_cursor_y + namemaker_cursor_x;
+				namemaker_name[l + 1] = 0;
+			}
+		}
+		break;
+
+	default:
+		if (k < 32 || k > 127)
+			break;
+
+		Key_Extra (&k);
+
+		l = strlen(namemaker_name);
+		if (l < 15)
+		{
+			namemaker_name[l] = k;
+			namemaker_name[l + 1] = 0;
+		}
+		break;
+	}
 }
 
 //=============================================================================
@@ -3153,6 +3373,7 @@ void M_Init (void)
 	Cmd_AddCommand ("togglemenu", M_ToggleMenu_f);
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
+	Cmd_AddCommand ("namemaker", M_Shortcut_NameMaker_f); // woods #namemaker
 
 	if (!MQC_Init())
 		MQC_Shutdown();
@@ -3249,6 +3470,10 @@ void M_Draw (void)
 		M_Setup_Draw ();
 		break;
 
+	case m_namemaker: // woods #namemaker
+		M_NameMaker_Draw();
+		break;
+
 	case m_net:
 		M_Net_Draw ();
 		break;
@@ -3342,6 +3567,10 @@ void M_Keydown (int key)
 
 	case m_setup:
 		M_Setup_Key (key);
+		return;
+
+	case m_namemaker: // woods #namemaker
+		M_NameMaker_Key(key);
 		return;
 
 	case m_net:

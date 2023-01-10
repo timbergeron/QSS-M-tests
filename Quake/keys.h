@@ -203,6 +203,7 @@ int Key_GetChatMsgLen (void);
 
 void History_Init (void);
 void History_Shutdown (void);
+void Key_Extra (int* key); // woods #namemaker
 
 #endif	/* _QUAKE_KEYS_H */
 

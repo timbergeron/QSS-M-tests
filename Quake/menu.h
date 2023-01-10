@@ -41,7 +41,8 @@ enum m_state_e {
 	m_lanconfig,
 	m_gameoptions,
 	m_search,
-	m_slist
+	m_slist,
+	m_namemaker // woods #namemaker
 };
 
 extern enum m_state_e m_state;

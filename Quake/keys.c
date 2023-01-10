@@ -525,6 +525,43 @@ qboolean CheckForCommand(void)  // woods added for don't have to type "say " eve
 	return (Cvar_FindVar(command) || Cmd_Exists2(command) || Cmd_AliasExists(command));
 }
 
+void Key_Extra (int* key) // woods #namemaker
+{
+	if (keydown[K_CTRL])
+	{
+		if (*key >= '0' && *key <= '9')
+		{
+			*key = *key - '0' + 0x12;	// yellow number
+		}
+		else
+		{
+			switch (*key)
+			{
+			case '[': *key = 0x10; break;
+			case ']': *key = 0x11; break;
+			case 'g': *key = 0x86; break;
+			case 'r': *key = 0x87; break;
+			case 'y': *key = 0x88; break;
+			case 'b': *key = 0x89; break;
+			case '(': *key = 0x80; break;
+			case '=': *key = 0x81; break;
+			case ')': *key = 0x82; break;
+			case 'a': *key = 0x83; break;
+			case '<': *key = 0x1d; break;
+			case '-': *key = 0x1e; break;
+			case '>': *key = 0x1f; break;
+			case ',': *key = 0x1c; break;
+			case '.': *key = 0x9c; break;
+			case 'B': *key = 0x8b; break;
+			case 'C': *key = 0x8d; break;
+			}
+		}
+	}
+
+	if (keydown[K_ALT])
+		*key |= 0x80;		// red char
+}
+
 static void PasteToConsole (void)
 {
 	char *cbd, *p, *workline;
