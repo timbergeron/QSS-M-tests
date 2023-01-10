@@ -72,6 +72,7 @@ cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #au
 
 cvar_t  cl_ambient = {"cl_ambient", "1", CVAR_ARCHIVE}; // woods #stopsound
 cvar_t  r_coloredpowerupglow = {"r_coloredpowerupglow", "1", CVAR_ARCHIVE}; // woods
+cvar_t  cl_bobbing = {"cl_bobbing", "0", CVAR_ARCHIVE}; // woods (joequake #weaponbob)
 
 client_static_t	cls;
 client_state_t	cl;
@@ -810,7 +811,11 @@ void CL_RelinkEntities (void)
 
 // rotate binary objects locally
 		if (modelflags & EF_ROTATE)
+		{ 
 			ent->angles[1] = bobjrotate;
+			if (cl_bobbing.value) // woods (joequake #weaponbob)
+				ent->origin[2] += sin(bobjrotate / 90 * M_PI) * 5 + 5;
+		}
 
 		if (ent->effects & EF_BRIGHTFIELD)
 			R_EntityParticles (ent);
@@ -1833,6 +1838,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_ambient); // woods #stopsound
 	Cvar_RegisterVariable (&cl_smartspawn); // woods #spawntrainer
 	Cvar_RegisterVariable (&r_coloredpowerupglow); // woods
+	Cvar_RegisterVariable (&cl_bobbing); // woods (joequake #weaponbob)
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
