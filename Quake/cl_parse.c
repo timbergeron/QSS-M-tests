@@ -3408,7 +3408,7 @@ void CL_ParseServerMessage (void)
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
 			if (i >= cl.maxclients)
-				Host_Error ("CL_ParseServerMessage: svc_updatename > MAX_SCOREBOARD");
+				Host_Error ("CL_ParseServerMessage: svc_updatename (%u) > MAX_SCOREBOARD (%u)", i, cl.maxclients); // woods - temporary? fix for connection issue
 			q_strlcpy (cl.scores[i].name, MSG_ReadString(), MAX_SCOREBOARDNAME);
 			Info_SetKey(cl.scores[i].userinfo, sizeof(cl.scores[i].userinfo), "name", cl.scores[i].name);
 			break;
