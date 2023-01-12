@@ -1071,6 +1071,9 @@ void CL_Download_Begin_f(void)
 	COM_CreatePath(cls.download.temp);
 	cls.download.file = fopen(cls.download.temp, "wb+");	//+ so we can read the data back to validate it
 
+	if ((double)cls.download.size > 5 * 1024 * 1024) // woods anything over 5mb suggest alternative download
+	Con_Printf("\nwarning: large file size items usually have additional assets, recommended download outside of QSSM\n\n");
+
 	MSG_WriteByte (&cls.message, clc_stringcmd);
 	MSG_WriteString (&cls.message, "sv_startdownload\n");
 }
@@ -1090,7 +1093,7 @@ void CL_Download_Data(void)
 	fseek(cls.download.file, start, SEEK_SET);
 	fwrite(data, 1, size, cls.download.file);
 
-	Con_SafePrintf("Downloading %s: %g%%\r", cls.download.current, 100*(start+size) / (double)cls.download.size);
+	Con_SafePrintf("Downloading %s (%.2f MB): %g%%\r", cls.download.current, (double)cls.download.size / (1024 * 1024), 100 * (start + size) / (double)cls.download.size); // woods add file size info
 
 	//should maybe use unreliables, but whatever, shouldn't matter too much, it'll still complete
 	MSG_WriteByte(&cls.message, clcdp_ackdownloaddata);
