@@ -272,6 +272,9 @@ void CL_EstablishConnection (const char *host)
 	MSG_WriteByte (&cls.message, clc_nop);	// NAT Fix from ProQuake
 
 	q_strlcpy(lastmphost, host, sizeof(lastmphost)); // woods - connected server address
+
+	Write_Log (host, SERVERLIST); // woods write server to log #serverlist
+	ServerList_Rebuild(); // woods rebuild tab list live for connect +tab #serverlist
 }
 
 void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)

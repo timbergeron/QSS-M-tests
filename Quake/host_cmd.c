@@ -293,6 +293,52 @@ void Modlist_Init (void)
 #endif
 
 //==============================================================================
+// woods -- server list management #serverlist
+//==============================================================================
+
+filelist_item_t* serverlist;
+
+static void ServerList_Clear(void)
+{
+	FileList_Clear(&serverlist);
+}
+
+void ServerList_Rebuild(void)
+{
+	ServerList_Clear();
+	ServerList_Init();
+}
+
+static void Serverlist_Add(const char* name)
+{
+	FileList_Add(name, &serverlist);
+}
+
+void ServerList_Init(void)
+{
+	int i;
+	FILE* file = fopen(va("%s/backups/%s", com_gamedir, SERVERLIST), "r");
+	
+	if (file == NULL) {
+		return;
+	}
+
+	char buffer[256];
+	while (fgets(buffer, sizeof(buffer), file) != NULL) {
+
+		for (i = 0;; i++) {
+			if (buffer[i] == '\n') {
+				buffer[i] = '\0';
+				break;
+			}
+		}
+
+		FileList_Add(buffer, &serverlist);
+	}
+	fclose(file);
+}
+
+//==============================================================================
 //ericw -- demo list management
 //==============================================================================
 

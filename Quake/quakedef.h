@@ -220,6 +220,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define	SOUND_CHANNELS		8
 
+#define	SERVERLIST	"servers.txt"	// woods for server history + tab complete #serverlist
+
 typedef struct
 {
 	const char *basedir;
@@ -330,6 +332,7 @@ typedef struct filelist_item_s
 extern filelist_item_t	*modlist;
 extern filelist_item_t	*extralevels;
 extern filelist_item_t	*demolist;
+extern filelist_item_t  *serverlist; // woods #serverlist
 
 void Host_ClearMemory (void);
 void Host_ServerFrame (void);
@@ -359,9 +362,11 @@ void Host_DownloadAck(client_t *client);
 void ExtraMaps_Init (void);
 void Modlist_Init (void);
 void DemoList_Init (void);
+void ServerList_Init(void); // woods #serverlist
 
 void ExtraMaps_NewGame (void);
 void DemoList_Rebuild (void);
+void ServerList_Rebuild (void); // woods #serverlist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage

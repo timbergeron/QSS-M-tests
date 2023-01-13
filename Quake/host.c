@@ -1401,6 +1401,7 @@ void Host_Init (void)
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
 		DemoList_Init (); //ericw
+		ServerList_Init(); // woods #serverlist
 		VID_Init ();
 		IN_Init ();
 		TexMgr_Init (); //johnfitz

@@ -3953,3 +3953,48 @@ int COM_Seconds(int seconds)
 {
 	return seconds % 60;
 }
+
+/*
+================
+Write_Log -- woods -- write an arg to a log  // woods #serverlist
+================
+*/
+void Write_Log (char* log_message, char* filename)
+{
+	char line[256];
+	int found = 0, i;
+	char fname[MAX_OSPATH];
+
+	q_snprintf(fname, sizeof(fname), "%s/backups/%s", com_gamedir, filename);
+
+	// Open the log file in read mode
+	FILE* log_file = fopen(fname, "rn");
+
+	// Check if the file exists
+	if (log_file) {
+		// Iterate through each line of the file
+		while (fgets(line, sizeof(line), log_file)) {
+			// Check if the log message already exists in the file
+
+			for (i = 0;; i++) {
+				if (line[i] == '\n') {
+					line[i] = '\0';
+					break;
+				}
+			}
+
+			if (strcmp(line, log_message) == 0) {
+				found = 1;
+				break;
+			}
+		}
+		fclose(log_file);
+	}
+
+	// If the log message does not already exist in the file, write it
+	if (!found) {
+		log_file = fopen(fname, "a");
+		fprintf(log_file, "%s\n", log_message);
+		fclose(log_file);
+	}
+}

@@ -1201,7 +1201,8 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "game ", &modlist },
 	{ "record ", &demolist },
 	{ "playdemo ", &demolist },
-	{ "timedemo ", &demolist }
+	{ "timedemo ", &demolist },
+	{ "connect ", &serverlist } // woods #serverlist
 };
 
 static const int num_arg_completion_types =
