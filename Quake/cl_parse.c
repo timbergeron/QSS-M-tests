@@ -2471,7 +2471,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					if (Sys_FileTime(checkname) == -1)
 						return;	// file doesn't exist
 					else
-						if (VID_HasMouseOrInputFocus())
+						if (VID_HasMouseOrInputFocus() && !cls.demoplayback)
 							Cbuf_AddText("exec end.cfg\n");
 				}
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
