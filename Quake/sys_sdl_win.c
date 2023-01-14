@@ -485,6 +485,27 @@ double Sys_DoubleTime (void)
 #endif
 }
 
+#if defined(_WIN32)
+void Sys_Image_BGRA_To_Clipboard(byte* bmbits, int width, int height, int size) // woods #screenshotcopy
+{
+
+	HBITMAP hBitmap = CreateBitmap(width, height, 1, 32 /* bits per pixel is 32 */, bmbits);
+
+	OpenClipboard(NULL);
+
+	if (!EmptyClipboard())
+	{
+		CloseClipboard();
+		return;
+	}
+
+	if ((SetClipboardData(CF_BITMAP, hBitmap)) == NULL)
+		Sys_Error("SetClipboardData failed");
+
+	CloseClipboard();
+}
+#endif
+
 const char *Sys_ConsoleInput (void)
 {
 	static char	con_text[256];

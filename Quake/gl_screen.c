@@ -1941,6 +1941,56 @@ SCREEN SHOTS
 ==============================================================================
 */
 
+//======================================================
+// woods #screenshotcopy from fitzquake markvr9
+//======================================================
+
+#if defined(_WIN32)
+static void FlipBuffer(byte* buffer, const int columns, const int rows, const int BytesPerPixel)	// Flip the image because of GL's up = positive-y
+{
+	int		bufsize = columns * BytesPerPixel; // bufsize=widthBytes;
+
+	byte* tb1 = malloc(bufsize);
+	byte* tb2 = malloc(bufsize);
+	int		i, offset1, offset2;
+
+	for (i = 0; i < (rows + 1) / 2;i++)
+	{
+		offset1 = i * bufsize;
+		offset2 = ((rows - 1) - i) * bufsize;
+
+		memcpy(tb1, buffer + offset1, bufsize);
+		memcpy(tb2, buffer + offset2, bufsize);
+		memcpy(buffer + offset1, tb2, bufsize);
+		memcpy(buffer + offset2, tb1, bufsize);
+	}
+
+	free(tb1);
+	free(tb2);
+	return;
+}
+
+void SCR_ScreenShot_Clipboard_f(void)
+{
+	int		buffersize = glwidth * glheight * 4; // 4 bytes per pixel
+	byte* buffer = malloc(buffersize);
+	int		i;
+
+	//get data
+	glReadPixels(glx, gly, glwidth, glheight, GL_BGRA_EXT, GL_UNSIGNED_BYTE, buffer);
+
+	// We are upside down flip it
+	FlipBuffer(buffer, glwidth, glheight, 4 /* bytes per pixel */);
+
+	// FIXME: No gamma correction of screenshots in Fitz?
+	Sys_Image_BGRA_To_Clipboard(buffer, glwidth, glheight, buffersize);
+
+	//Con_Printf("\nscreenshot copied to clipboard\n");
+
+	free(buffer);
+}
+#endif
+
 static void SCR_ScreenShot_Usage (void)
 {
 	Con_Printf ("usage: screenshot <format> <quality>\n");
@@ -2045,6 +2095,10 @@ void SCR_ScreenShot_f (void)
 	}
 	else
 		Con_Printf ("SCR_ScreenShot_f: Couldn't create %s\n", imagename);
+
+#if defined(_WIN32)
+	SCR_ScreenShot_Clipboard_f();	// woods #screenshotcopy
+#endif
 
 	free (buffer);
 }
