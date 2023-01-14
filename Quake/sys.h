@@ -69,9 +69,11 @@ void Sys_SendKeyEvents (void);
 
 #if defined(_WIN32) // woods #disablecaps via ironwail
 void Sys_ActivateKeyFilter (qboolean active);
-#endif
 
+
+#if defined(_WIN32)
 void Sys_Image_BGRA_To_Clipboard(byte* bmbits, int width, int height, int size); // woods #screenshotcopy
+#endif
 
 #endif	/* _QUAKE_SYS_H */
 
