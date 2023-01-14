@@ -71,5 +71,7 @@ void Sys_SendKeyEvents (void);
 void Sys_ActivateKeyFilter (qboolean active);
 #endif
 
+void Sys_Image_BGRA_To_Clipboard(byte* bmbits, int width, int height, int size); // woods #screenshotcopy
+
 #endif	/* _QUAKE_SYS_H */
 
