@@ -1974,7 +1974,6 @@ void SCR_ScreenShot_Clipboard_f(void)
 {
 	int		buffersize = glwidth * glheight * 4; // 4 bytes per pixel
 	byte* buffer = malloc(buffersize);
-	int		i;
 
 	//get data
 	glReadPixels(glx, gly, glwidth, glheight, GL_BGRA_EXT, GL_UNSIGNED_BYTE, buffer);

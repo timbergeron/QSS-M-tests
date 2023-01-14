@@ -40,6 +40,7 @@ extern cvar_t scr_showfps; // woods #f_config
 extern cvar_t allow_download; // woods #ftehack
 
 void Reload_Colors_f(void);
+int VID_GetCurrentDPI(void);
 
 extern cvar_t gl_overbright_models; // woods for f_config
 

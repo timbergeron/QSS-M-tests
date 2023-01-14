@@ -309,11 +309,6 @@ void ServerList_Rebuild(void)
 	ServerList_Init();
 }
 
-static void Serverlist_Add(const char* name)
-{
-	FileList_Add(name, &serverlist);
-}
-
 void ServerList_Init(void)
 {
 	int i;
@@ -1777,6 +1772,8 @@ static void Host_Tell_f(void) // modified by woods to accept wildcards, status #
 	char		text[MAXCMDLINE], *p2;
 	qboolean	quoted;
 	char name[16];
+
+	int unfun_match(const char* s1, char* s2);
 
 	q_strlcpy(name, Cmd_Argv(1), sizeof(name)); // set name to the name of player telling
 	i = Q_atoi(Cmd_Argv(1)) - 1; // set i to the NUMBER of player telling

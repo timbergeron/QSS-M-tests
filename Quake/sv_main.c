@@ -3636,7 +3636,7 @@ void SV_SpawnServer (const char *server)
 		strcpy(sv.name, "start"); // just use start, instead of cvar
 		q_snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.name);
 		qcvm->worldmodel = Mod_ForName(sv.modelname, false);
-		Con_Printf("using start.bsp instead to avoid error\n", server);
+		Con_Printf("using start.bsp instead to avoid error\n");
 		
 		if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush)
 		{

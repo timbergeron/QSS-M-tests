@@ -435,11 +435,13 @@ void CL_FinishMove(usercmd_t *cmd)
 	bits = 0;
 
 	if (in_attack.state & 3)
+	{ 
 		if ((cl.stats[STAT_HEALTH] <= 0) && cl_smartspawn.value) // woods adapted from https://github.com/dusty-qw/unezquake #spawntrainer
 			bits = 0;
 		else
 			bits |= 1;
 		in_attack.state &= ~2;
+	}
 
 	if (in_jump.state & 3)
 		bits |= 2;

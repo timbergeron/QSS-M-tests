@@ -3959,7 +3959,7 @@ int COM_Seconds(int seconds)
 Write_Log -- woods -- write an arg to a log  // woods #serverlist
 ================
 */
-void Write_Log (char* log_message, char* filename)
+void Write_Log (const char* log_message, char* filename)
 {
 	char line[256];
 	int found = 0, i;

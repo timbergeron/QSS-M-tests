@@ -1185,13 +1185,13 @@ void IN_SendKeyEvents (void)
 	qboolean down;
 
 	color = 0;
-	const char* afk;
+	
 	char afktype[4];
 	sprintf(afktype, "%s", "AFK");
-	afk = NULL;
-
+	
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
+		const char* afk;
 		char buf[15];
 		afk = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "afk", buf, sizeof(buf)); // use realview so eyecam doesnt give wrong value
 

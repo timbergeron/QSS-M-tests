@@ -1971,7 +1971,7 @@ void Sbar_DeathmatchOverlay (void)
 	int w, w2; // woods for dynamic scoreboard
 	int	xofs, yofs; // woods #scoreboard
 	char	num[12];
-	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
+	//char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	scoreboard_t	*s;
 	int ct = (SDL_GetTicks() - maptime)/1000; // woods connected map time #maptime
 

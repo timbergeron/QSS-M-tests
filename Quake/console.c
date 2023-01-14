@@ -643,7 +643,7 @@ static void Con_Print (const char *txt)
 	{
 		mask = 128;		// go to colored text`
 		
-		int color;
+		int color = 0;
 
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 			color = cl.scores[cl.realviewentity - 1].pants.basic;
