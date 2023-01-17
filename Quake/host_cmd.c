@@ -1108,6 +1108,8 @@ static void Host_Lightstyle_f (void)
 	CL_UpdateLightstyle(atoi(Cmd_Argv(1)), Cmd_Argv(2));
 }
 
+char	lastcattempt[NET_NAMELEN]; // woods verbose connection info
+
 /*
 =====================
 Host_Connect_f
@@ -1126,6 +1128,8 @@ static void Host_Connect_f (void)
 		CL_Disconnect ();
 	}
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
+	strcpy(lastcattempt, Cmd_Argv(1)); // woods verbose connection info
+	
 	CL_EstablishConnection (name);
 	Host_Reconnect_Sv_f ();
 

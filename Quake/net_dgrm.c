@@ -2093,6 +2093,7 @@ qboolean Datagram_SearchForHosts (qboolean xmit)
 	return ret;
 }
 
+extern char	lastcattempt[NET_NAMELEN]; // woods verbose connection info
 
 static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 {
@@ -2122,7 +2123,7 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	sock->proquake_angle_hack = true;
 
 	// send the connection request
-	Con_SafePrintf("trying... on port %i\n", net_hostport);
+	Con_SafePrintf("connecting to %s\n", lastcattempt); // woods verbose connection info
 	SCR_UpdateScreen ();
 	start_time = net_time;
 
