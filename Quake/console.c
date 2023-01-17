@@ -207,6 +207,10 @@ static void Con_Dump_f (void)
 		for (x = 0; buffer[x]; x++)
 			buffer[x] &= 0x7f;
 
+		unsigned char* ch; // woods dequake
+		for (ch = buffer; *ch; ch++)
+		*ch = dequake[*ch];
+
 		fprintf (f, "%s\n", buffer);
 	}
 
@@ -864,10 +868,6 @@ void Con_Printf (const char *fmt, ...)
 // also echo to debugging console
 	Sys_Printf ("%s", msg);
 
-// log all messages to file
-	if (con_debuglog)
-		Con_DebugLog(msg);
-
 	if (!con_initialized)
 		return;
 
@@ -876,6 +876,16 @@ void Con_Printf (const char *fmt, ...)
 
 // write it to the scrollable buffer
 	Con_Print (msg);
+
+	// log all messages to file
+	if (con_debuglog)
+	{
+		unsigned char* ch; // woods dequake
+		for (ch = msg; *ch; ch++)
+			*ch = dequake[*ch];
+
+		Con_DebugLog(msg);
+	}
 
 // update the screen if the console is displayed
 	if (cls.signon != SIGNONS && !scr_disabled_for_loading && !qcvm)
