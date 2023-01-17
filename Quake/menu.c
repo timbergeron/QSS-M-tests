@@ -598,10 +598,11 @@ void M_Menu_MultiPlayer_f (void)
 	IN_UpdateGrabs();
 }
 
+extern char	lastmphost[NET_NAMELEN]; // woods - connected server address
 
 void M_MultiPlayer_Draw (void)
 {
-	int		f;
+	int		f, i; // woods
 	qpic_t	*p;
 
 	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
@@ -610,8 +611,21 @@ void M_MultiPlayer_Draw (void)
 	M_DrawTransPic (72, 32, Draw_CachePic ("gfx/mp_menu.lmp") );
 
 	f = (int)(realtime * 10)%6;
+	i = 24;
+	if (strlen(lastmphost) > i)
+		i = (strlen(lastmphost));
 
 	M_DrawTransPic (54, 32 + m_multiplayer_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
+
+	
+	if (cl.maxclients > 1 && cls.state == ca_connected) // woods, give some extra info in mp menu
+	{
+		f = (320 - 26 * 8) / 2;
+		M_DrawTextBox(f, 96, i, 2);
+		f += 8;
+		M_Print(f, 104, "currently connected to:");
+		M_PrintWhite(f, 112, lastmphost);
+	}
 
 	if (ipxAvailable || ipv4Available || ipv6Available)
 		return;
