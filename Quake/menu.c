@@ -2298,11 +2298,11 @@ qboolean M_Quit_TextEntry (void)
 }
 
 
-void M_Quit_Draw (void) //johnfitz -- modified for new quit message
+void M_Quit_Draw (void) //johnfitz -- modified for new quit message -- woods modified for match quit warning #matchquit
 {
-	char	msg1[] = ENGINE_NAME_AND_VER;
-	char	msg2[] = "by Ozkan Sezer,Eric Wasylishen,others"; /* msg2/msg3 are [38] at most */
-	char	msg3[] = "Press y to quit";
+	char	msg1[] = "you are currently a match participant";
+	char	msg2[] = "quiting will disrupt the match"; /* msg2/msg3 are [38] at most */
+	char	msg3[] = "press y to quit";
 	int		boxlen;
 
 	if (wasInMenus)
@@ -3499,7 +3499,7 @@ void M_Draw (void)
 		break;
 
 	case m_quit:
-		if (!fitzmode)
+		if (/*!fitzmode || */!cl.matchinp) // woods #matchquit
 		{ /* QuakeSpasm customization: */
 			/* Quit now! S.A. */
 			key_dest = key_console;
