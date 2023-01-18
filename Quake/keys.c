@@ -72,6 +72,7 @@ keyname_t keynames[] =
 	{"LEFTARROW", K_LEFTARROW},
 	{"RIGHTARROW", K_RIGHTARROW},
 	{"CAPSLOCK", K_CAPSLOCK}, // woods #capslock
+	{"PRINTSCREEN", K_PRINTSCREEN}, // woods #printscreen
 
 	{"ALT", K_ALT},
 	{"CTRL", K_CTRL},
@@ -243,7 +244,7 @@ int Key_NativeToQC(int code)
 	case K_KP_PLUS:			return 171;
 	case K_KP_ENTER:		return 172;
 //	case K_KP_EQUALS:		return 173;
-//	case K_PRINTSCREEN:		return 174;
+	case K_PRINTSCREEN:		return 174; // woods #printscreen
 
 	case K_MOUSE1:			return 512;
 	case K_MOUSE2:			return 513;
@@ -394,7 +395,7 @@ int Key_QCToNative(int code)
 	case 171:		return K_KP_PLUS;
 	case 172:		return K_KP_ENTER;
 //	case 173:		return K_KP_EQUALS;
-//	case 174:		return K_PRINTSCREEN;
+	case 174:		return K_PRINTSCREEN; // woods #printscreen
 
 	case 512:		return K_MOUSE1;
 	case 513:		return K_MOUSE2;
@@ -1232,7 +1233,7 @@ void Key_Bind_f (void)
 		Con_Printf("ALT          KP_INS          PGDN      AUX3         YBUTTON\n");
 		Con_Printf("CTRL         KP_DEL          PGUP      AUX4         LTRIGGER\n");
 		Con_Printf("KP_SLASH     F1              HOME      AUX5         RTRIGGER\n");
-		Con_Printf("KP_STAR      F2              END       PAUSE        \n");
+		Con_Printf("KP_STAR      F2              END       PAUSE        PRINTSCREEN\n");
 		Con_Printf("KP_MINUS     F3              COMMAND   MWHEELUP     \n");
 		Con_Printf("KP_HOME      F4              MOUSE1    MWHEELDOWN   \n");
 		Con_Printf("\n");
@@ -1467,6 +1468,7 @@ void Key_Init (void)
 	consolekeys[K_MWHEELUP] = true;
 	consolekeys[K_MWHEELDOWN] = true;
 	consolekeys[K_CAPSLOCK] = true; // woods #capslock
+	consolekeys[K_PRINTSCREEN] = true; // woods #printscreen
 
 //
 // initialize menubound[]
@@ -1594,6 +1596,7 @@ void Key_Event (int key, qboolean down)
 {
 	char	*kb;
 	char	cmd[1024];
+	qboolean wasdown;  // woods #printscreen
 
 	if (key < 0 || key >= MAX_KEYS)
 		return;
@@ -1732,6 +1735,7 @@ void Key_Event (int key, qboolean down)
 	else if (!keydown[key])
 		return; // ignore stray key up events
 
+	wasdown = keydown[key]; // woods #printscreen
 	keydown[key] = down;
 
 	if (key_inputgrab.active)
@@ -1777,6 +1781,15 @@ void Key_Event (int key, qboolean down)
 			Sys_Error ("Bad key_dest");
 		}
 
+		return;
+	}
+
+	// if Print Screen isn't bound, take a screenshot // woods #printscreen (ironwail 1734367)
+
+	if (key == K_PRINTSCREEN && !keybindings[key_bindmap[0]][key])
+	{
+		if (down && !wasdown)
+			Cbuf_AddText("screenshot\n");
 		return;
 	}
 

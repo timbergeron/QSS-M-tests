@@ -967,6 +967,7 @@ static inline int IN_SDL_KeysymToQuakeKey(SDLKey sym)
 
 	case SDLK_BACKSPACE: return K_BACKSPACE;
 	case SDLK_CAPSLOCK: return K_CAPSLOCK; // woods #capslock
+	case SDLK_PRINTSCREEN: return K_PRINTSCREEN; // woods #printscreen
 	case SDLK_UP: return K_UPARROW;
 	case SDLK_DOWN: return K_DOWNARROW;
 	case SDLK_LEFT: return K_LEFTARROW;
@@ -1094,6 +1095,7 @@ static inline int IN_SDL2_ScancodeToQuakeKey(SDL_Scancode scancode)
 
 	case SDL_SCANCODE_BACKSPACE: return K_BACKSPACE;
 	case SDL_SCANCODE_CAPSLOCK: return K_CAPSLOCK; // woods #capslock
+	case SDL_SCANCODE_PRINTSCREEN: return K_PRINTSCREEN; // woods #printscreen
 	case SDL_SCANCODE_UP: return K_UPARROW;
 	case SDL_SCANCODE_DOWN: return K_DOWNARROW;
 	case SDL_SCANCODE_LEFT: return K_LEFTARROW;
