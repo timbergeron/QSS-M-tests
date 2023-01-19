@@ -45,6 +45,8 @@ static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
 
 void Sound_Toggle_Mute_On_f(void); // woods #mute -- adapted from Fitzquake Mark V
 void Sound_Toggle_Mute_Off_f(void); // woods #mute -- adapted from Fitzquake Mark V
+void BGM_Pause(void); // woods #mute - music
+void BGM_Resume(void); // woods #mute - music
 
 void Host_Name_Backup_f(void); // woods #smartafk
 void Host_Name_Load_Backup_f(void); // woods #smartafk
@@ -1185,9 +1187,9 @@ void IN_SendKeyEvents (void)
 	SDL_Event event;
 	int key, color;
 	qboolean down;
-
-	color = 0;
 	
+	color = 0;
+
 	char afktype[4];
 	sprintf(afktype, "%s", "AFK");
 	
@@ -1218,6 +1220,7 @@ void IN_SendKeyEvents (void)
 				Sys_ActivateKeyFilter(true);
 #endif
 				//S_UnblockSound();
+				BGM_Resume(); // woods #usermute  - music
 				if (!strcmp(mute, "y")) // woods #usermute
 					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 				else
@@ -1246,6 +1249,7 @@ void IN_SendKeyEvents (void)
 				Sys_ActivateKeyFilter(false);
 #endif
 				//S_BlockSound();
+				BGM_Pause(); // woods #usermute - music
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 
 				if (cl_afk.value) // woods #smartafk
