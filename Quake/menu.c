@@ -1750,37 +1750,44 @@ void M_Keys_Draw (void)
 // search for known bindings
 	for (i = keys_first; i < keys_first+keys_shown; i++)
 	{
+		qboolean active = (i == keys_cursor && bind_grab); // woods #invert color of selected (ironwail)
+		void (*print_fn) (int cx, int cy, const char* text) = // woods #invert color of selected (ironwail)
+			active ? M_PrintWhite : M_Print;
+		
 		y = 48 + 8*(i-keys_first);
 
 		if (!strcmp(bindnames[i].cmd, "-"))
 		{
-			M_PrintWhite ((320-strlen(bindnames[i].desc)*8)/2, y, bindnames[i].desc);
+			print_fn ((320-strlen(bindnames[i].desc)*8)/2, y, bindnames[i].desc); // woods #invert color of selected (ironwail)
 			continue;
 		}
 
-		M_Print (16, y, bindnames[i].desc);
+		print_fn (16, y, bindnames[i].desc); // woods #invert (ironwail)
 
 		M_FindKeysForCommand (bindnames[i].cmd, keys);
 
+		if (i == bind_grab && keys[2] != -1) // woods #invert (ironwail)
+			keys[0] = -1;
+
 		if (keys[0] == -1)
 		{
-			M_Print (140, y, "???");
+			print_fn (140, y, "???"); // woods #invert (ironwail)
 		}
 		else
 		{
 			name = Key_KeynumToString (keys[0]);
-			M_Print (140, y, name);
+			print_fn (140, y, name); // woods #invert color of selected (ironwail)
 			x = strlen(name) * 8;
 			if (keys[1] != -1)
 			{
 				name = Key_KeynumToString (keys[1]);
-				M_Print (140 + x + 8, y, "or");
-				M_Print (140 + x + 32, y, name);
+				print_fn (140 + x + 8, y, "or"); // woods #invert (ironwail)
+				print_fn (140 + x + 32, y, name); // woods #invert (ironwail)
 				x = x + 32 + strlen(name) * 8;
 				if (keys[2] != -1)
 				{
-					M_Print (140 + x + 8, y, "or");
-					M_Print (140 + x + 32, y, Key_KeynumToString (keys[2]));
+					print_fn (140 + x + 8, y, "or"); // woods #invert (ironwail)
+					print_fn (140 + x + 32, y, Key_KeynumToString (keys[2])); // woods #invert (ironwail)
 				}
 			}
 		}
