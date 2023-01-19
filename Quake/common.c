@@ -1549,6 +1549,29 @@ void COM_AddExtension (char *path, const char *extension, size_t len)
 }
 
 /*
+================
+COM_TintSubstring -- // woods (ironwail)
+================
+*/
+char* COM_TintSubstring(const char* in, const char* substr, char* out, size_t outsize)
+{
+	int l;
+	char* m = out;
+	q_strlcpy(out, in, outsize);
+	if (*substr)
+	{
+		while ((m = q_strcasestr(m, substr)))
+		{
+			for (l = 0; substr[l]; l++)
+				if (m[l] > ' ')
+					m[l] |= 0x80;
+			m += l;
+		}
+	}
+	return out;
+}
+
+/*
 spike -- this function simply says whether a filename is acceptable for downloading (used by both client+server)
 */
 qboolean COM_DownloadNameOkay(const char *filename)

@@ -312,19 +312,43 @@ static void TexMgr_Imagelist_f (void)
 {
 	float mb;
 	float texels = 0;
-	gltexture_t	*glt;
+	int count = 0;
+	const char* filter = NULL; // woods add filter (ironwail)
+	gltexture_t	*glt; // woods add filter (ironwail)
+
+	if (Cmd_Argc() >= 2)
+		filter = Cmd_Argv(1);
 
 	for (glt = active_gltextures; glt; glt = glt->next)
 	{
-		Con_SafePrintf ("   %4i x%4i %s\n", glt->width, glt->height, glt->name);
+		char buf[MAX_QPATH]; // woods add filter (ironwail)
+
+		if (filter) // woods add filter (ironwail)
+		{
+			if (!q_strcasestr(glt->name, filter))
+				continue;
+			COM_TintSubstring(glt->name, filter, buf, sizeof(buf));
+		}
+		else
+		{
+			q_strlcpy(buf, glt->name, sizeof(buf));
+		}
+
+		Con_SafePrintf ("   %4i x%4i %s\n", glt->width, glt->height, buf); // woods add filter (ironwail)
 		if (glt->flags & TEXPREF_MIPMAP)
 			texels += glt->width * glt->height * 4.0f / 3.0f;
 		else
 			texels += (glt->width * glt->height);
+		count++;
 	}
 
 	mb = texels * (Cvar_VariableValue("vid_bpp") / 8.0f) / 0x100000;
-	Con_Printf ("%i textures %i pixels %1.1f megabytes\n", numgltextures, (int)texels, mb);
+	if (filter)
+		Con_Printf("%i/%i textures containing '%s': %.1lf mpixels %1.1lf megabytes\n", // woods add filter (ironwail)
+			count, numgltextures, filter, texels * 1e-6, mb);
+	else
+		Con_Printf("%i textures %.1lf mpixels %1.1lf megabytes\n",
+			numgltextures, texels * 1e-6, mb);
 }
 
 /*
@@ -335,9 +359,14 @@ TexMgr_Imagedump_f -- dump all current textures to TGA files
 static void TexMgr_Imagedump_f (void)
 {
 	char tganame[MAX_OSPATH], tempname[MAX_OSPATH], dirname[MAX_OSPATH];
+	const char* filter = NULL; // woods add filter (ironwail)
+	int count = 0; // woods add filter (ironwail)
 	gltexture_t	*glt;
 	byte *buffer;
 	char *c;
+
+	if (Cmd_Argc() >= 2) // woods add filter (ironwail)
+		filter = Cmd_Argv(1); // woods add filter (ironwail)
 
 	//create directory
 	q_snprintf(dirname, sizeof(dirname), "%s/imagedump", com_gamedir);
@@ -346,6 +375,10 @@ static void TexMgr_Imagedump_f (void)
 	//loop through textures
 	for (glt = active_gltextures; glt; glt = glt->next)
 	{
+		
+		if (filter && !q_strcasestr(glt->name, filter)) // woods add filter (ironwail)
+			continue; // woods add filter (ironwail)
+		
 		q_strlcpy (tempname, glt->name, sizeof(tempname));
 		while ( (c = strchr(tempname, ':')) ) *c = '_';
 		while ( (c = strchr(tempname, '/')) ) *c = '_';
@@ -368,9 +401,13 @@ static void TexMgr_Imagedump_f (void)
 			Image_WriteTGA (tganame, buffer, glt->width, glt->height, 24, true);
 		}
 		free (buffer);
+		count++; // woods add filter (ironwail)
 	}
 
-	Con_Printf ("dumped %i textures to %s\n", numgltextures, dirname);
+	if (filter) // woods add filter (ironwail)
+		Con_Printf("dumped %i textures containing '%s' to %s\n", count, filter, dirname);
+	else
+		Con_Printf("dumped %i textures to %s\n", count, dirname);
 }
 
 /*
