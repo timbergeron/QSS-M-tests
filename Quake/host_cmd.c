@@ -1113,6 +1113,72 @@ static void Host_Lightstyle_f (void)
 }
 
 char	lastcattempt[NET_NAMELEN]; // woods verbose connection info
+extern char	lastmphost[NET_NAMELEN]; // woods - connected server address // woods #connectlast (Qrack)
+
+/*
+===============
+Log_Last_Server_f // woods #connectlast (Qrack)
+===============
+*/
+void Log_Last_Server_f(void)
+{
+	FILE* f;
+
+	char server[MAX_OSPATH];
+
+	q_snprintf(server, sizeof(server), "%s/id1/backups", com_basedir); //  create backups folder if not there
+	Sys_mkdir(server);
+
+
+	f = fopen(va("%s/id1/backups/%s.txt", com_basedir, "lastserver"), "w");
+
+	if (!f)
+	{
+		Con_Printf("Couldn't write backup last server\n");
+		return;
+	}
+
+	fprintf(f, "%s", lastmphost);
+
+	fclose(f);
+}
+
+/*
+===============
+Host_ConnectToLastServer_f // woods #connectlast (Qrack)
+===============
+*/
+void Host_ConnectToLastServer_f (void) // woods #connectlast (Qrack)
+{
+	FILE* f;
+	char name[NET_NAMELEN];
+
+	f = fopen(va("%s/id1/backups/%s.txt", com_basedir, "lastserver"), "r+");
+
+	if (f == NULL)
+	{
+		Con_Printf("No server connection history.\n");
+		return;
+	}
+		
+	fgets(name, NET_NAMELEN, f);
+
+
+	if (!sv.active)
+	{
+	retry:
+		if (cls.state == ca_disconnected)
+			CL_EstablishConnection(name);
+		else
+		{
+			CL_Disconnect();
+			if (cls.state == ca_disconnected)//if a server crash; can create an endless loop error here CLIENTS	arent disconnected just in limbo. :(
+				goto retry;
+		}
+	}
+
+	fclose(f);
+}
 
 /*
 =====================
@@ -1131,13 +1197,19 @@ static void Host_Connect_f (void)
 		CL_StopPlayback ();
 		CL_Disconnect ();
 	}
-	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
-	strcpy(lastcattempt, Cmd_Argv(1)); // woods verbose connection info
-	
-	CL_EstablishConnection (name);
-	Host_Reconnect_Sv_f ();
 
-	mpservertime = SDL_GetTicks(); // woods #servertime
+	if (!q_strcasecmp(Cmd_Argv(1), "last")) // woods #connectlast (Qrack)
+		Host_ConnectToLastServer_f();
+	else
+	{ 
+		q_strlcpy (name, Cmd_Argv(1), sizeof(name));
+		strcpy(lastcattempt, Cmd_Argv(1)); // woods verbose connection info
+	
+		CL_EstablishConnection (name);
+		Host_Reconnect_Sv_f ();
+
+		mpservertime = SDL_GetTicks(); // woods #servertime
+	}
 }
 
 

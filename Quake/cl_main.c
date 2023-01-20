@@ -93,6 +93,8 @@ extern cvar_t	pq_lag; // woods
 char			lastmphost[NET_NAMELEN]; // woods - connected server address
 int				maptime;		// woods connected map time #maptime
 
+void Log_Last_Server_f(void); // woods #connectlast (Qrack) -- write last server to file memory
+
 void CL_ClearTrailStates(void)
 {
 	int i;
@@ -273,6 +275,7 @@ void CL_EstablishConnection (const char *host)
 
 	q_strlcpy(lastmphost, host, sizeof(lastmphost)); // woods - connected server address
 
+	Log_Last_Server_f(); // woods #connectlast (Qrack) -- write last server to file memory
 	Write_Log (host, SERVERLIST); // woods write server to log #serverlist
 	ServerList_Rebuild(); // woods rebuild tab list live for connect +tab #serverlist
 }
