@@ -1129,6 +1129,8 @@ void Log_Last_Server_f(void)
 	q_snprintf(server, sizeof(server), "%s/id1/backups", com_basedir); //  create backups folder if not there
 	Sys_mkdir(server);
 
+	if (!q_strcasecmp(lastmphost, "local"))
+		return;
 
 	f = fopen(va("%s/id1/backups/%s.txt", com_basedir, "lastserver"), "w");
 
@@ -1163,19 +1165,17 @@ void Host_ConnectToLastServer_f (void) // woods #connectlast (Qrack)
 		
 	fgets(name, NET_NAMELEN, f);
 
-
-	if (!sv.active)
-	{
-	retry:
-		if (cls.state == ca_disconnected)
-			CL_EstablishConnection(name);
-		else
 		{
-			CL_Disconnect();
-			if (cls.state == ca_disconnected)//if a server crash; can create an endless loop error here CLIENTS	arent disconnected just in limbo. :(
-				goto retry;
+		retry:
+			if (cls.state == ca_disconnected)
+				Cbuf_AddText(va("connect %s\n", name));
+			else
+			{
+				CL_Disconnect();
+				if (cls.state == ca_disconnected)//if a server crash; can create an endless loop error here CLIENTS	arent disconnected just in limbo. :(
+					goto retry;
+			}
 		}
-	}
 
 	fclose(f);
 }
