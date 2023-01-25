@@ -1630,6 +1630,22 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts #stopdownload
+	if (cls.download.active && (key_dest = key_console))
+		if (down && (key == 'c') && keydown[K_CTRL])
+	{
+		Cbuf_AddText("stopdownload\n");
+		return;
+	}
+#endif
+
+	if (cls.download.active && (key_dest = key_console))
+		if (down && (key == 'c') && keydown[K_CTRL]) // woods #shortcuts #stopdownload
+	{
+		Cbuf_AddText("stopdownload\n");
+		return;
+	}
+
 /*#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (down && (key == 'q') && keydown[K_COMMAND])
 	{
