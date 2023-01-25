@@ -1631,7 +1631,7 @@ void Key_Event (int key, qboolean down)
 	}
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts #stopdownload
-	if (cls.download.active && (key_dest = key_console))
+	if (cls.download.active && (key_dest == key_console))
 		if (down && (key == 'c') && keydown[K_CTRL])
 	{
 		Cbuf_AddText("stopdownload\n");
@@ -1639,7 +1639,7 @@ void Key_Event (int key, qboolean down)
 	}
 #endif
 
-	if (cls.download.active && (key_dest = key_console))
+	if (cls.download.active && (key_dest == key_console))
 		if (down && (key == 'c') && keydown[K_CTRL]) // woods #shortcuts #stopdownload
 	{
 		Cbuf_AddText("stopdownload\n");
