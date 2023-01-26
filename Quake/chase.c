@@ -41,6 +41,8 @@ void Chase_Init (void)
 	Cvar_RegisterVariable (&chase_active);
 }
 
+extern int SV_HullPointContents(hull_t* hull, int num, vec3_t p); // woods(Qrack) #betterchase
+
 qboolean SV_RecursiveHullCheck2(hull_t* hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, trace_t* trace) // woods (Qrack) #betterchase
 {
 	mclipnode_t* node; //johnfitz -- was dclipnode_t
