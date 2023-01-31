@@ -346,6 +346,144 @@ void ServerList_Init(void)
 }
 
 //==============================================================================
+// woods -- exec list management (adapted from demolist) #execlist
+//			search in id1, configs, aliases, names folders
+//==============================================================================
+
+filelist_item_t* execlist;
+
+// TODO: Factor out to a general-purpose file searching function
+void ExecList_Init(void)
+{
+#ifdef _WIN32
+	WIN32_FIND_DATA	fdat;
+	HANDLE		fhnd;
+#else
+	DIR* dir_p;
+	struct dirent* dir_t;
+#endif
+	char		filestring[MAX_OSPATH];
+	char		cfgname[32];
+	char		cfgnamedir[32];
+	searchpath_t* search;
+
+	for (search = com_searchpaths; search; search = search->next)
+	{
+#ifdef _WIN32
+		q_snprintf(filestring, sizeof(filestring), "%s/*.cfg", search->filename); // search gamedir
+		fhnd = FindFirstFile(filestring, &fdat);
+
+		do
+		{
+			strcpy(cfgname, fdat.cFileName);
+			FileList_Add(cfgname, &execlist);
+		} while (FindNextFile(fhnd, &fdat));
+		FindClose(fhnd);
+
+		q_snprintf(filestring, sizeof(filestring), "%s/aliases/*.cfg", search->filename); // search aliases folder
+		fhnd = FindFirstFile(filestring, &fdat);
+
+		do
+		{
+			strcpy(cfgname, fdat.cFileName);
+			sprintf(cfgnamedir, "aliases/%s", cfgname);
+			FileList_Add(cfgnamedir, &execlist);
+		} while (FindNextFile(fhnd, &fdat));
+		FindClose(fhnd);
+
+		q_snprintf(filestring, sizeof(filestring), "%s/names/*.cfg", search->filename); // search names folder
+		fhnd = FindFirstFile(filestring, &fdat);
+
+		do
+		{
+			strcpy(cfgname, fdat.cFileName);
+			sprintf(cfgnamedir, "names/%s", cfgname);
+			FileList_Add(cfgnamedir, &execlist);
+		} while (FindNextFile(fhnd, &fdat));
+		FindClose(fhnd);
+
+		q_snprintf(filestring, sizeof(filestring), "%s/configs/*.cfg", search->filename); // search configs folder
+		fhnd = FindFirstFile(filestring, &fdat);
+		if (fhnd == INVALID_HANDLE_VALUE)
+			continue;
+		do
+		{
+			strcpy(cfgname, fdat.cFileName);
+			sprintf(cfgnamedir, "configs/%s", cfgname);
+			FileList_Add(cfgnamedir, &execlist);
+		} while (FindNextFile(fhnd, &fdat));
+		FindClose(fhnd);
+#else
+		q_snprintf(filestring, sizeof(filestring), "%s/", search->filename); // search gamedir
+		dir_p = opendir(filestring);
+		if (dir_p == NULL)
+			continue;
+
+		while ((dir_t = readdir(dir_p)) != NULL)
+		{
+			if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "cfg") != 0)
+				continue;
+
+			strcpy(cfgname, dir_t->d_name);
+			FileList_Add(cfgname, &execlist);
+		}
+		closedir(dir_p);
+
+
+		q_snprintf(filestring, sizeof(filestring), "%s/aliases/", search->filename); // search aliases folder
+		dir_p = opendir(filestring);
+		if (dir_p == NULL)
+			continue;
+
+		while ((dir_t = readdir(dir_p)) != NULL)
+		{
+			if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "cfg") != 0)
+				continue;
+
+			strcpy(cfgname, dir_t->d_name);
+			sprintf(cfgnamedir, "aliases/%s", cfgname);
+			FileList_Add(cfgnamedir, &execlist);
+		}
+		closedir(dir_p);
+
+
+		q_snprintf(filestring, sizeof(filestring), "%s/names/", search->filename); // search names folder
+		dir_p = opendir(filestring);
+		if (dir_p == NULL)
+			continue;
+
+		while ((dir_t = readdir(dir_p)) != NULL)
+		{
+			if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "cfg") != 0)
+				continue;
+
+			strcpy(cfgname, dir_t->d_name);
+			sprintf(cfgnamedir, "names/%s", cfgname);
+			FileList_Add(cfgnamedir, &execlist);
+		}
+		closedir(dir_p);
+
+
+		q_snprintf(filestring, sizeof(filestring), "%s/configs", search->filename); // search configs folder
+		dir_p = opendir(filestring);
+		if (dir_p == NULL)
+			continue;
+
+		while ((dir_t = readdir(dir_p)) != NULL)
+		{
+			if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "cfg") != 0)
+				continue;
+
+			strcpy(cfgname, dir_t->d_name);
+			sprintf(cfgnamedir, "configs/%s", cfgname);
+			FileList_Add(cfgnamedir, &execlist);
+		}
+		closedir(dir_p);
+#endif
+	}
+}
+
+//==============================================================================
 //ericw -- demo list management
 //==============================================================================
 

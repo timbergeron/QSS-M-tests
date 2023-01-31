@@ -332,6 +332,7 @@ typedef struct filelist_item_s
 extern filelist_item_t	*modlist;
 extern filelist_item_t	*extralevels;
 extern filelist_item_t	*demolist;
+extern filelist_item_t	*execlist; // woods #execlist
 extern filelist_item_t  *serverlist; // woods #serverlist
 
 void Host_ClearMemory (void);
@@ -362,10 +363,10 @@ void Host_DownloadAck(client_t *client);
 void ExtraMaps_Init (void);
 void Modlist_Init (void);
 void DemoList_Init (void);
+void ExecList_Init(void);
 void ServerList_Init(void); // woods #serverlist
 
 void ExtraMaps_NewGame (void);
-void DemoList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha

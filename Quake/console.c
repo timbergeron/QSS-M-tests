@@ -1223,6 +1223,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "record ", &demolist },
 	{ "playdemo ", &demolist },
 	{ "timedemo ", &demolist },
+	{ "exec ", &execlist }, // woods #execlist
 	{ "connect ", &serverlist } // woods #serverlist
 };
 

@@ -97,7 +97,6 @@ overflowtimes_t dev_overflows; //this stores the last time overflow messages wer
 extern cvar_t	pq_lag; // woods
 extern char	lastmphost[NET_NAMELEN]; // woods - connected server address
 extern char demoplaying[MAX_OSPATH]; // woods for window title
-
 /*
 ================
 Max_Edicts_f -- johnfitz
@@ -1401,6 +1400,7 @@ void Host_Init (void)
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
 		DemoList_Init (); //ericw
+		ExecList_Init(); // woods #execlist
 		ServerList_Init(); // woods #serverlist
 		VID_Init ();
 		IN_Init ();
