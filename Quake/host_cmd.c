@@ -138,14 +138,14 @@ void ExtraMaps_Init (void)
 #endif
 	char		filestring[MAX_OSPATH];
 	char		mapname[32];
-	char		ignorepakdir[32];
+	//char		ignorepakdir[32]; // woods, no lets search in paks
 	searchpath_t	*search;
 	pack_t		*pak;
 	int		i;
 
 	// we don't want to list the maps in id1 pakfiles,
 	// because these are not "add-on" levels
-	q_snprintf (ignorepakdir, sizeof(ignorepakdir), "/%s/", GAMENAME);
+	//q_snprintf (ignorepakdir, sizeof(ignorepakdir), "/%s/", GAMENAME); // woods, no lets search in paks
 
 	for (search = com_searchpaths; search; search = search->next)
 	{
@@ -179,8 +179,8 @@ void ExtraMaps_Init (void)
 		}
 		else //pakfile
 		{
-			if (!strstr(search->pack->filename, ignorepakdir))
-			{ //don't list standard id maps
+			//if (!strstr(search->pack->filename, ignorepakdir)) // woods, no lets search in paks
+			//{ //don't list standard id maps
 				for (i = 0, pak = search->pack; i < pak->numfiles; i++)
 				{
 					if (!strcmp(COM_FileGetExtension(pak->files[i].name), "bsp"))
@@ -192,7 +192,7 @@ void ExtraMaps_Init (void)
 						}
 					}
 				}
-			}
+			//}
 		}
 	}
 }
