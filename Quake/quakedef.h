@@ -367,6 +367,7 @@ void ExecList_Init(void);
 void ServerList_Init(void); // woods #serverlist
 
 void ExtraMaps_NewGame (void);
+void DemoList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
