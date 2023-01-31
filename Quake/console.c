@@ -512,6 +512,10 @@ static void Con_Print (const char *txt)
 
 		}
 
+		if (cl.modtype == 4)
+			if (strstr(txt, "{&c")) // woods supress the ezquake spam
+				return;
+
 		if (!strcmp(txt, "You receive "))
 
 			cl.conflag = 2;  // flag beginnings
