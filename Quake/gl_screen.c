@@ -1516,6 +1516,9 @@ void SCR_Observing(void)
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
+		if (scr_viewsize.value > 110)
+			return;
+		
 		if (cl.intermission)
 			return;
 
