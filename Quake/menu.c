@@ -3520,7 +3520,7 @@ void M_Draw (void)
 		break;
 
 	case m_quit:
-		if (/*!fitzmode || */!cl.matchinp) // woods #matchquit
+		if (/*!fitzmode || */(cl.matchinp + cl.notobserver != 2)) // woods #matchquit
 		{ /* QuakeSpasm customization: */
 			/* Quit now! S.A. */
 			key_dest = key_console;

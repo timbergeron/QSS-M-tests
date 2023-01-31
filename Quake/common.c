@@ -171,6 +171,42 @@ void InsertLinkAfter (link_t *l, link_t *after)
 ============================================================================
 */
 
+// woods strstr case in-sensitive (written by chatGPT)
+
+char* Q_strcasestr(const char* haystack, const char* needle)
+{
+	size_t haystack_len = strlen(haystack);
+	size_t needle_len = strlen(needle);
+	char* haystack_lower = (char*)malloc(haystack_len + 1);
+	char* needle_lower = (char*)malloc(needle_len + 1);
+
+	if (!haystack_lower || !needle_lower) {
+		free(haystack_lower);
+		free(needle_lower);
+		return NULL;
+	}
+
+	for (size_t i = 0; i < haystack_len; i++) {
+		haystack_lower[i] = tolower(haystack[i]);
+	}
+	haystack_lower[haystack_len] = '\0';
+
+	for (size_t i = 0; i < needle_len; i++) {
+		needle_lower[i] = tolower(needle[i]);
+	}
+	needle_lower[needle_len] = '\0';
+
+	char* result = strstr(haystack_lower, needle_lower);
+	if (result) {
+		result = (char*)haystack + (result - haystack_lower);
+	}
+
+	free(haystack_lower);
+	free(needle_lower);
+
+	return result;
+}
+
 // woods string reverse
 
 #define SWAP(T, a, b) \

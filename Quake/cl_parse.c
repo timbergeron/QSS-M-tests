@@ -2402,12 +2402,33 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
 	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
-	int color;
+	int color = 0;
+	const char* observer = "null";
+	const char* observing = "null";
+
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+	{// am I colored up?
+		color = cl.scores[cl.realviewentity - 1].pants.basic;
+
+		char buf[10];
+		char buf2[10];
+		observer = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf)); // userinfo
+		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf2, sizeof(buf2)); // userinfo
+	}
+
+	if (!q_strcasecmp(observer, "off") && !q_strcasecmp(observing, "off")) // use info keys to detect
+		cl.notobserver = 1;
+	else
+		cl.notobserver = 0;
+
+	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.match_pause_time == 0) // is there a match in progress?
+		cl.matchinp = 1;
+	else
+		cl.matchinp = 0;
 
 	if ((strstr(string, "Match Starting") || strstr(string, "Match begins")) && !cls.demoplayback && cl.teamgame) // try get my attention if match beginning IF on team
 	{
-		color = cl.scores[cl.realviewentity - 1].pants.basic;
-		if (color != 0) // am I on a team?
+		if (cl.notobserver) // am I on a team?
 		{
 			if (!VID_HasMouseOrInputFocus())
 				SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);

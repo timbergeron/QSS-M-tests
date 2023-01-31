@@ -1185,14 +1185,12 @@ static void IN_DebugKeyEvent(SDL_Event *event)
 void IN_SendKeyEvents (void)
 {
 	SDL_Event event;
-	int key, color;
+	int key;
 	qboolean down;
-	
-	color = 0;
 
 	char afktype[4];
 	sprintf(afktype, "%s", "AFK");
-	
+
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
 		const char* afk;
@@ -1201,8 +1199,6 @@ void IN_SendKeyEvents (void)
 
 		if (cl.modtype == 1)
 			sprintf(afktype, "%s", "ÁÆË");
-
-		color = cl.scores[cl.realviewentity - 1].pants.basic;
 	}
 
 	IN_UpdateGrabs();
@@ -1225,7 +1221,7 @@ void IN_SendKeyEvents (void)
 					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 				else
 					Sound_Toggle_Mute_Off_f();
-			
+
 				if (cl_afk.value) // woods #smartafk
 				{
 					if (strlen(afk_name) > 1) // intiate only if a AFK event has occured
@@ -1236,9 +1232,7 @@ void IN_SendKeyEvents (void)
 							Cmd_ExecuteString("afkoff", src_command); // afk
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
-
-						if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected))
-							if (color != 0)
+					if (cl.notobserver && cl.matchinp)
 									Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 				}
 			}
@@ -1251,7 +1245,7 @@ void IN_SendKeyEvents (void)
 				//S_BlockSound();
 				BGM_Pause(); // woods #usermute - music
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
-
+				
 				if (cl_afk.value) // woods #smartafk
 				{
 					if (!strstr(cl_name.string, afktype)) // initiate AFK-in-name if AFK not already in the name
@@ -1273,8 +1267,7 @@ void IN_SendKeyEvents (void)
 						//&& (strcmp(name, cl_name.string)))) // woods don't get rid of center for active player
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
-						if (cl.teamgame && !strcmp(cl.observer, "n") && (cl.seconds > 0) && (cl.minutes > 0) && (cl.minutes < 30) && (cl.gametype == GAME_DEATHMATCH) && (cls.state = ca_connected)) // woods #smartafk
-							if (color != 0)
+							if (cl.notobserver && cl.matchinp)
 									Cmd_ExecuteString("say_team alt-tabbed", src_command);
 				}
 			}
@@ -1425,4 +1418,3 @@ void IN_SendKeyEvents (void)
 		}
 	}
 }
-

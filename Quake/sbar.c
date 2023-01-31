@@ -1983,9 +1983,6 @@ void Sbar_DeathmatchOverlay (void)
 		cl.last_status_time = cl.time;
 	}
 
-	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.match_pause_time == 0)
-		cl.matchinp = 1;
-
 	GL_SetCanvas (CANVAS_SCOREBOARD); //johnfitz  // woods #scoreboard
 
 	/*if (cl.matchinp && cl.modtype != 4) // woods -- match running 0 for CRCTF, 255 for CDMOD
@@ -2052,8 +2049,8 @@ void Sbar_DeathmatchOverlay (void)
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
 			Draw_Fill ( x, y, 320-x*2, 8, ((k+1)==cl.viewentity)?75:73, 1);
 
-		Draw_FillPlayer ( x, y, 40, 4, s->shirt, 1); //johnfitz -- stretched overlays
-		Draw_FillPlayer ( x, y+4, 40, 4, s->pants, 1); //johnfitz -- stretched overlays
+			Draw_FillPlayer ( x, y, 40, 4, s->shirt, 1); //johnfitz -- stretched overlays
+			Draw_FillPlayer ( x, y+4, 40, 4, s->pants, 1); //johnfitz -- stretched overlays
 
 	// draw number
 		f = s->frags;

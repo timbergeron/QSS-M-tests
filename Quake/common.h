@@ -241,6 +241,7 @@ extern int q_vsnprintf(char *str, size_t size, const char *format, va_list args)
 
 extern char* Q_strrev (char* s); // woods
 extern char* strremove(char* str, char* sub); // woods
+extern char* Q_strcasestr(const char* haystack, const char* needle); // woods
 void Write_Log (const char* log_message, char* filename); // woods #serverlist
 
 #define strcasecmp brokeninmsvc

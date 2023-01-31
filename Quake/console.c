@@ -43,6 +43,7 @@ float		con_cursorspeed = 4;
 int		con_buffersize; //johnfitz -- user can now override default
 
 qboolean 	con_forcedup;		// because no entities to refresh
+qboolean 	matchstats = false;	// woods
 
 int		con_totallines;		// total lines in console scrollback
 int		con_backscroll;		// lines up from bottom to display
@@ -609,31 +610,46 @@ static void Con_Print (const char *txt)
 	if (strstr(txt, "server does not have file locs/") || strstr(txt, "Download locs/")) // woods #locdownloads try to download; don't spam console its missing (kilomile)
 		return;
 
-	if (!VID_HasMouseOrInputFocus() && !cls.demoplayback) // woods flash if my name is mentioned
+	if (!VID_HasMouseOrInputFocus() && !cls.demoplayback) // woods flash if my name is mentioned #flash
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 		{ 
-			if (cl_afk.value)
-			{
-				if (strstr(txt, afk_name) && !strstr(txt, "AFK") && !strstr(txt, "alt-tabbed") && strstr(txt, ": ")) // !qe name change
-					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);	
-			}
-			else
+			char namewithcolon[16]; // me talking while away needs to be avoided (f_ prints, alt tabbed, etc)
+
+			sprintf(namewithcolon, "%s: ", cl_name.string); // "woods: "
+
+			if (strstr(txt, "στατιστιγσ") || strstr(txt, "match starting") || strstr(txt, "End of match"))
+				matchstats = true;
+			if (strstr(txt, "The match is over"))
+				matchstats = false;
+
+			if (strstr(txt, ": ")) // detect if a say command from another person (not perfect)
 			{ 
-				if (strstr(txt, cl_name.string) && strstr(txt, ": "))
-					SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
-			}
-
-			char notifylist[MAXCMDLINE];
-			sprintf(notifylist, "%s", con_notifylist.string);
-			char* token = strtok(notifylist, " ");
-
-			if (strstr(txt, ": "))
-					while (token != NULL) {
-						if (strstr(txt, token) && (strlen(strstr(txt, token)) == (strlen(token) + 1)) && // strlen to match entire word (tim not time)
-							!strstr(txt, "AFK") && !strstr(txt, "alt-tabbed"))
-						SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
-					token = strtok(NULL, " ");
+				
+				if (!strstr(txt, namewithcolon) && !matchstats && !strstr(txt, "alt-tabbed")) // not me typing away or in a match end auto print -> "woods): "
+				{ 
+					if (cl_afk.value)
+					{
+						if (Q_strcasestr(txt, afk_name)) // has my name minus AFK (afk_name is only created if cl_afk 1)
+							SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);	
 					}
+					else
+					{ 
+						if (Q_strcasestr(txt, cl_name.string)) // has my name
+							SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+					}
+
+					char notifylist[MAXCMDLINE];
+					sprintf(notifylist, "%s", con_notifylist.string);
+					char* token = strtok(notifylist, " ");
+
+					if (strstr(txt, ": "))
+							while (token != NULL) {
+								if (Q_strcasestr(txt, token) && (strlen(strstr(txt, token)) == (strlen(token) + 1)))
+								SDL_FlashWindow((SDL_Window*)VID_GetWindow(), SDL_FLASH_BRIEFLY);
+							token = strtok(NULL, " ");
+							}
+				}
+			}
 		}
 
 	if (strstr(txt, "dm [")) // woods #tell+
@@ -646,13 +662,8 @@ static void Con_Print (const char *txt)
 	if (txt[0] == 1)
 	{
 		mask = 128;		// go to colored text`
-		
-		int color = 0;
 
-		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
-			color = cl.scores[cl.realviewentity - 1].pants.basic;
-
-		if (cl.matchinp == 1 && con_mm1mute.value && cl.teamgame && color != 0 
+		if (cl.matchinp == 1 && con_mm1mute.value && cl.teamgame && cl.notobserver
 			&& cl.match_pause_time == 0 && !strstr(txt, cl_name.string) && (cl.seconds || cl.minutes)) // woods #con_mm1mute -- not paused, no if me, if colored
 		{ 
 			if (cl_mm2)
