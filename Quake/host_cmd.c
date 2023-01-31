@@ -1318,6 +1318,43 @@ void Host_ConnectToLastServer_f (void) // woods #connectlast (Qrack)
 	fclose(f);
 }
 
+qboolean Valid_IP(const char* ip_str) // woods #connectfilter
+{
+	int count = 0;
+	for (int i = 0; i < strlen(ip_str); i++)
+		if (ip_str[i] == '.')
+			count++;
+
+	if (count != 3) // three periods
+		return false;
+
+	int num1, num2, num3, num4;
+	if (sscanf(ip_str, "%d.%d.%d.%d", &num1, &num2, &num3, &num4) != 4) // four numbers
+		return false;
+
+	if (num1 < 1 || num1 > 255 || num2 < 1 || num2 > 255 || num3 < 1 || num3 > 255 || num4 < 1 || num4 > 255)  // 1-255 numbers
+		return false;
+
+	return true;
+}
+
+
+qboolean Valid_Domain(const char* domain_str) // woods #connectfilter
+{
+	int count = 0;
+	for (int i = 0; i < strlen(domain_str); i++)  // count the periods
+	{
+		if (domain_str[i] == '.') {
+			count++;
+		}
+	}
+
+	if (count != 1 && count != 2)  // 1 or 2 for substring
+		return false;
+
+	return true;
+}
+
 /*
 =====================
 Host_Connect_f
@@ -1328,6 +1365,7 @@ User command to connect to server
 static void Host_Connect_f (void)
 {
 	char	name[MAX_QPATH];
+	q_strlcpy(name, Cmd_Argv(1), sizeof(name));
 
 	cls.demonum = -1;		// stop demo loop in case this fails
 	if (cls.demoplayback)
@@ -1339,14 +1377,21 @@ static void Host_Connect_f (void)
 	if (!q_strcasecmp(Cmd_Argv(1), "last")) // woods #connectlast (Qrack)
 		Host_ConnectToLastServer_f();
 	else
-	{ 
-		q_strlcpy (name, Cmd_Argv(1), sizeof(name));
-		strcpy(lastcattempt, Cmd_Argv(1)); // woods verbose connection info
-	
-		CL_EstablishConnection (name);
-		Host_Reconnect_Sv_f ();
+	{
+		if (((Valid_Domain(name)) || (Valid_IP(name))) || !q_strcasecmp(name, "local")) // woods #connectfilter -- avoid client lockup if possible
+		{
+			strcpy(lastcattempt, name); // woods verbose connection info
+			CL_EstablishConnection(name);
+			Host_Reconnect_Sv_f();
 
-		mpservertime = SDL_GetTicks(); // woods #servertime
+			mpservertime = SDL_GetTicks(); // woods #servertime
+		}
+		else
+		{
+			Con_Printf("\naddress is not a valid ip or domain name\n");
+			Con_Printf("using a different port may help\n\n");
+			return;
+		}
 	}
 }
 
