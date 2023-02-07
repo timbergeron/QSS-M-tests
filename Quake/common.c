@@ -171,6 +171,15 @@ void InsertLinkAfter (link_t *l, link_t *after)
 ============================================================================
 */
 
+char* Q_strnset(char* str, int c, size_t n) // woods
+{
+	size_t i;
+	for (i = 0; i < n && str[i]; i++) {
+		str[i] = c;
+	}
+	return str;
+}
+
 // woods strstr case in-sensitive (written by chatGPT)
 
 char* Q_strcasestr(const char* haystack, const char* needle)

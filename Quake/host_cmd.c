@@ -2046,7 +2046,7 @@ static void Host_Like_f(void) // woods #like
 		return;
 	}
 
-	sprintf(text, "say ^mlikes^m%s", strnset(cl.lastchat, ' ', 1));
+	sprintf(text, "say ^mlikes^m%s", Q_strnset(cl.lastchat, ' ', 1));
 	Cmd_ExecuteString(text, src_command);
 }
 
