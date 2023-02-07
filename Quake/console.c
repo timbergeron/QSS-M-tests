@@ -858,6 +858,10 @@ void Con_DebugLog(const char *msg)
 	if (log_fd == -1)
 		return;
 
+	unsigned char* ch; // woods dequake
+	for (ch = msg; *ch; ch++)
+		*ch = dequake[*ch];
+
 	write(log_fd, msg, strlen(msg));
 }
 
@@ -886,6 +890,10 @@ void Con_Printf (const char *fmt, ...)
 // also echo to debugging console
 	Sys_Printf ("%s", msg);
 
+	// log all messages to file
+	if (con_debuglog)
+		Con_DebugLog(msg);
+
 	if (!con_initialized)
 		return;
 
@@ -894,16 +902,6 @@ void Con_Printf (const char *fmt, ...)
 
 // write it to the scrollable buffer
 	Con_Print (msg);
-
-	// log all messages to file
-	if (con_debuglog)
-	{
-		unsigned char* ch; // woods dequake
-		for (ch = msg; *ch; ch++)
-			*ch = dequake[*ch];
-
-		Con_DebugLog(msg);
-	}
 
 // update the screen if the console is displayed
 	if (cls.signon != SIGNONS && !scr_disabled_for_loading && !qcvm)
