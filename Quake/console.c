@@ -516,6 +516,9 @@ static void Con_Print (const char *txt)
 			if (strstr(txt, "{&c")) // woods supress the ezquake spam
 				return;
 
+		if (strstr(txt, ": ")) // woods #like
+			strcpy(cl.lastchat, txt);
+
 		if (!strcmp(txt, "You receive "))
 
 			cl.conflag = 2;  // flag beginnings

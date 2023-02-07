@@ -374,6 +374,7 @@ typedef struct
 	int			realviewentity;		// woods #hud_diff
 	int			matchinp;
 	int			notobserver;		// woods tool for detecting match participation
+	char		lastchat[256];		// woods #like
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 
 } client_state_t;

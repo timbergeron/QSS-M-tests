@@ -2034,6 +2034,22 @@ static void Host_Say_Team_f2(void) // woods chat shortcuts
 	Cmd_ExecuteString(text, src_command);
 }
 
+extern char lastchat[MAXCMDLINE]; // woods #like
+
+static void Host_Like_f(void) // woods #like
+{
+	char text[MAXCMDLINE];
+
+	if ((cl.lastchat[0] == '\0') || cls.state == ca_disconnected)
+	{
+		Con_Printf("\nnothing to like\n\n");
+		return;
+	}
+
+	sprintf(text, "say ^mlikes^m%s", strnset(cl.lastchat, ' ', 1));
+	Cmd_ExecuteString(text, src_command);
+}
+
 static void Host_Tell_f(void) // modified by woods to accept wildcards, status #s like proquake identify #tell+
 {
 	int		i, j;
@@ -3604,6 +3620,7 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_ClientCommandQC ("s", Host_Say_f2); // woods chat shortcuts
 	Cmd_AddCommand_ClientCommandQC ("say_team", Host_Say_Team_f);
 	Cmd_AddCommand_ClientCommandQC ("st", Host_Say_Team_f2); // woods chat shortcuts
+	Cmd_AddCommand_ClientCommandQC ("like", Host_Like_f); // woods #like
 	Cmd_AddCommand_ClientCommandQC ("tell", Host_Tell_f);
 	Cmd_AddCommand_ClientCommandQC ("color", Host_Color_f);
 	Cmd_AddCommand_ClientCommandQC ("reloadcolors", Reload_Colors_f); // woods #enemycolors
