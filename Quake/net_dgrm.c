@@ -558,9 +558,11 @@ int	Datagram_GetMessage (qsocket_t *sock)
 
 		if (sfunc.AddrCompare(&readaddr, &sock->addr) != 0)
 		{
-			Con_Printf("Stray/Forged packet received\n");
-			Con_Printf("Expected: %s\n", sfunc.AddrToString(&sock->addr, false));
-			Con_Printf("Received: %s\n", sfunc.AddrToString(&readaddr, false));
+ /* woods  (R00k)
+			Con_DPrintf("Stray/Forged packet received\n");
+			Con_DPrintf("Expected: %s\n", sfunc.AddrToString(&sock->addr, false));
+			Con_DPrintf("Received: %s\n", sfunc.AddrToString(&readaddr, false));
+#endif*/
 			continue;
 		}
 
