@@ -1222,14 +1222,14 @@ void IN_SendKeyEvents (void)
 				else
 					Sound_Toggle_Mute_Off_f();
 
+				if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+					if (cl.modtype == 1 || cl.modtype == 4)
+						Cmd_ExecuteString("cmd afkoff", src_command); // afk
+
 				if (cl_afk.value) // woods #smartafk
 				{
 					if (strlen(afk_name) > 1) // intiate only if a AFK event has occured
 						Cvar_Set("name", afk_name);
-
-					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
-						if (cl.modtype == 1 || cl.modtype == 4)
-							Cmd_ExecuteString("afkoff", src_command); // afk
 
 					// be polite during matches (only) and let teammates know you have alt-tabbed
 					if (cl.notobserver && cl.matchinp)
@@ -1246,6 +1246,10 @@ void IN_SendKeyEvents (void)
 				BGM_Pause(); // woods #usermute - music
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 				
+				if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+					if (cl.modtype == 1 || cl.modtype == 4) // woods if afk is NO
+						Cmd_ExecuteString("cmd afkon", src_command); // afk
+
 				if (cl_afk.value) // woods #smartafk
 				{
 					if (!strstr(cl_name.string, afktype)) // initiate AFK-in-name if AFK not already in the name
@@ -1257,9 +1261,6 @@ void IN_SendKeyEvents (void)
 						Host_Name_Backup_f(); // back up the full name incase of crash
 					}
 					
-					if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
-						if (cl.modtype == 1 || cl.modtype == 4) // woods if afk is NO
-							Cmd_ExecuteString("afkon", src_command); // afk
 
 						
 						
