@@ -175,6 +175,7 @@ int			scr_erase_center;
 unsigned int scr_centerprint_flags;
 
 int paused = 0; // woods #showpaused
+qboolean	countdown; // #clearcrxcountdown
 
 /*
 ==============
@@ -187,6 +188,13 @@ for a few moments
 void SCR_CenterPrint (const char *str) //update centerprint data
 {
 	unsigned int flags = 0;
+
+	countdown = false; // woods #clearcrxcountdown
+
+	if (strstr(str, "ãïõîôäï÷îº")) // woods #clearcrxcountdown (countdown)
+		countdown = true;
+	else
+		countdown = false;
 
 	if ((strstr(str, "ĞÁÕÓÅÄ")) || (strstr(str, "PAUSED"))) // #showpaused
 		return;
@@ -1065,6 +1073,9 @@ void SCR_DrawMatchClock(void)
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 		}
 
+		if (countdown == true) // woods #clearcrxcountdown
+			return;
+
 		if (scr_matchclock.value) // woods #varmatchclock draw variable clock where players wants based on their x, y cvar
 		{
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
@@ -1708,6 +1719,9 @@ void SCR_DrawCrosshair (void)
 	int x,hue;
 
 	hue = 0;
+
+	if (countdown == true) // woods #clearcrxcountdown
+		return;
 
 	/*if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 		return;
