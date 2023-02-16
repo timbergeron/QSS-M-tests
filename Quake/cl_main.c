@@ -1136,7 +1136,8 @@ qboolean CL_CheckDownload(const char *filename)
 	cls.download.active = true;
 	q_strlcpy(cls.download.current, filename, sizeof(cls.download.current));
 	q_snprintf (cls.download.temp, sizeof(cls.download.temp), "%s/%s.tmp", com_gamedir, filename);
-	Con_Printf("Downloading %s...\r", filename);
+	if (!strstr(filename, ".loc")) // woods, don't show attempt
+		Con_Printf("Downloading %s...\r", filename);
 	MSG_WriteByte (&cls.message, clc_stringcmd);
 	MSG_WriteString (&cls.message, va("download \"%s\"\n", filename));
 	return true;
