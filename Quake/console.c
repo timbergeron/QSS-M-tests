@@ -862,10 +862,6 @@ void Con_DebugLog(const char *msg)
 	if (log_fd == -1)
 		return;
 
-	unsigned char* ch; // woods dequake
-	for (ch = msg; *ch; ch++)
-		*ch = dequake[*ch];
-
 	write(log_fd, msg, strlen(msg));
 }
 
@@ -882,11 +878,16 @@ void Con_Printf (const char *fmt, ...)
 {
 	va_list		argptr;
 	char		msg[MAXPRINTMSG];
+	char		demsg[MAXPRINTMSG]; // woods dequake
 	static qboolean	inupdate;
 
 	va_start (argptr, fmt);
 	q_vsnprintf (msg, sizeof(msg), fmt, argptr);
 	va_end (argptr);
+
+	va_start(argptr, fmt); // woods dequake
+	q_vsnprintf(demsg, sizeof(demsg), fmt, argptr);
+	va_end(argptr);
 
 	if (con_redirect_flush)
 		q_strlcat(con_redirect_buffer, msg, sizeof(con_redirect_buffer));
@@ -894,9 +895,13 @@ void Con_Printf (const char *fmt, ...)
 // also echo to debugging console
 	Sys_Printf ("%s", msg);
 
+	unsigned char* ch; // woods dequake
+	for (ch = demsg; *ch; ch++)
+		*ch = dequake[*ch];
+
 	// log all messages to file
 	if (con_debuglog)
-		Con_DebugLog(msg);
+		Con_DebugLog(demsg); // woods dequake
 
 	if (!con_initialized)
 		return;
@@ -1733,7 +1738,7 @@ void LOG_Init (quakeparms_t *parms)
 	}
 
 	con_debuglog = true;
-	Con_DebugLog (va("\nLOG started on: %s \n", session)); // woods add a line
+	Con_DebugLog (va("\nLOG started on: %s \n\n", session)); // woods add a line
 
 }
 
