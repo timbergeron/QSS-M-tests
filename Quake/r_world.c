@@ -1124,24 +1124,37 @@ void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 		goto fullbrights;
 	}
 
-	if (r_lightmap_cheatsafe)
-	{
-		if (!gl_overbright.value)
+	if (strcmp(model, "maps/b_batt0.bsp") && // woods, show textures for bmodels #textureless
+		strcmp(model, "maps/b_batt1.bsp") &&
+		strcmp(model, "maps/b_bh10.bsp") &&
+		strcmp(model, "maps/b_bh100.bsp") &&
+		strcmp(model, "maps/b_bh25.bsp") &&
+		strcmp(model, "maps/b_explob.bsp") &&
+		strcmp(model, "maps/b_nail0.bsp") &&
+		strcmp(model, "maps/b_nail1.bsp") &&
+		strcmp(model, "maps/b_rock0.bsp") &&
+		strcmp(model, "maps/b_rock1.bsp") &&
+		strcmp(model, "maps/b_shell0.bsp") &&
+		strcmp(model, "maps/b_shell1.bsp"))
+
+		if (r_lightmap_cheatsafe)
 		{
-			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			glColor3f(0.5, 0.5, 0.5);
+			if (!gl_overbright.value)
+			{
+				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+				glColor3f(0.5, 0.5, 0.5);
+			}
+			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // woods #textureless make white, more grey and less white
+			glColor3f(0.4, 0.4, 0.4); // woods #textureless make white, more grey
+			R_DrawLightmapChains ();
+			if (!gl_overbright.value)
+			{
+				glColor3f(1,1,1);
+				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+			}
+			//R_DrawTextureChains_White (model, chain); // woods #textureless to keep sky and water
+			return;
 		}
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // woods #textureless make white, more grey and less white
-		glColor3f(0.4, 0.4, 0.4); // woods #textureless make white, more grey
-		R_DrawLightmapChains ();
-		if (!gl_overbright.value)
-		{
-			glColor3f(1,1,1);
-			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-		}
-		//R_DrawTextureChains_White (model, chain); // woods #textureless to keep sky and water
-		return;
-	}
 
 	R_BeginTransparentDrawing (entalpha);
 
