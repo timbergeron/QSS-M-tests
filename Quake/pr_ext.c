@@ -4207,7 +4207,7 @@ static void PF_infokey_internal(qboolean returnfloat)
 			r = Info_GetKey(cl->userinfo, key, buf, sizeof(buf));
 			if (!*r)
 				r = NULL;
-			r = NULL;
+			//r = NULL; // R00k, woods bug fix
 		}
 	}
 	else r = NULL;
