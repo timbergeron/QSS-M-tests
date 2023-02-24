@@ -176,6 +176,7 @@ unsigned int scr_centerprint_flags;
 
 int paused = 0; // woods #showpaused
 qboolean	countdown; // #clearcrxcountdown
+qboolean	cameras; // woods #crxcamera
 
 /*
 ==============
@@ -190,6 +191,10 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	unsigned int flags = 0;
 
 	countdown = false; // woods #clearcrxcountdown
+	cameras = false; // woods #crxcamera
+
+	if (strstr(str, "eyecam") || strstr(str, "chasecam")) // woods #crxcamera
+		cameras = true;
 
 	if (strstr(str, "ãïõîôäï÷îº")) // woods #clearcrxcountdown (countdown)
 		countdown = true;
@@ -354,8 +359,9 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
 
 	if (!scr_obscenterprint.value)
-		if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
-			return;
+		if (!cameras) // woods #crxcamera -- don't wipe if selecting camera via mouse menu
+			if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
+				return;
 
 	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
