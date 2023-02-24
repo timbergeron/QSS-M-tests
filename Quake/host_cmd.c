@@ -38,6 +38,7 @@ int	current_skill;
 
 double		mpservertime;	// woods #servertime
 extern		char afk_name[16]; // woods #smartafk
+extern cvar_t	allow_download_pakmaps; // woods #pakdl
 
 /*
 ==================
@@ -3311,7 +3312,7 @@ static void Host_Download_f(void)
 		host_client->download.started = false;
 		host_client->download.sendpos = 0;
 		host_client->download.ackpos = 0;
-		
+
 		fsize = -1;
 		if (!COM_DownloadNameOkay(fname))
 			SV_ClientPrintf("refusing download of %s - restricted filename\n", fname);
@@ -3320,7 +3321,7 @@ static void Host_Download_f(void)
 			fsize = COM_FOpenFile(fname, &host_client->download.file, NULL);
 			if (!host_client->download.file)
 				SV_ClientPrintf("server does not have file %s\n", fname);
-			else if (file_from_pak)
+			else if ((file_from_pak && !allow_download_pakmaps.value) || (q_strncasecmp(fname, "maps/", 5))) // woods download maps, but not contents #pakdl
 			{
 				SV_ClientPrintf("refusing download of %s from inside pak\n", fname);
 				fclose(host_client->download.file);
@@ -3339,6 +3340,8 @@ static void Host_Download_f(void)
 		{
 			host_client->download.startpos = ftell(host_client->download.file);
 			Con_Printf("downloading %s to %s\n", fname, host_client->name);
+			if (file_from_pak) // woods #pakdl
+				SV_ClientPrintf("^mwarning:^m this map is inside a pak, it may have other assets\n");
 			MSG_WriteByte (&host_client->message, svc_stufftext);
 			MSG_WriteString (&host_client->message, va("\ncl_downloadbegin %u \"%s\"\n", host_client->download.size, fname));
 			q_strlcpy(host_client->download.name, fname, sizeof(host_client->download.name));
@@ -3498,8 +3501,8 @@ void Host_Setinfo_f(void)
 		}
 		else
 		{
-			if (*key == '*')
-				return;	//users may not change * keys (beyond initial connection anyway).
+				if (*key == '*')
+					return;	//users may not change * keys (beyond initial connection anyway).
 			SV_UpdateInfo((host_client - svs.clients)+1, key, val);
 		}
 	}
