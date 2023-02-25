@@ -283,8 +283,13 @@ void CL_EstablishConnection (const char *host)
 
 void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)
 {
-	if (*key == '*')
-		return;	//servers don't like that sort of userinfo key
+	//if (*key == '*')
+	//	return;	//servers don't like that sort of userinfo key
+
+	char* ver; // woods, allow initial only #*ver
+	ver = va("%s", ENGINE_NAME_AND_VER); // woods, allow initial only #*ver
+	Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*ver", ver); // woods, allow initial only #*ver
+
 	if (!strcmp(key, "name"))
 		return;	//already unconditionally sent earlier.
 	MSG_WriteByte (&cls.message, clc_stringcmd);
