@@ -177,6 +177,7 @@ unsigned int scr_centerprint_flags;
 int paused = 0; // woods #showpaused
 qboolean	countdown; // #clearcrxcountdown
 qboolean	cameras; // woods #crxcamera
+qboolean	qeintermission; // woods #qeintermission
 
 /*
 ==============
@@ -192,9 +193,13 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 
 	countdown = false; // woods #clearcrxcountdown
 	cameras = false; // woods #crxcamera
+	qeintermission = false; // woods #qeintermission
 
 	if (strstr(str, "eyecam") || strstr(str, "chasecam")) // woods #crxcamera
 		cameras = true;
+
+	if (strstr(str, "÷ÔÙÂ") || strstr(str, "‘ƒÕ") || (strstr(str, "Õ·Ù„Ë") && strstr(str, "”ıÌÌ·Ú˘"))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
+		qeintermission = true;
 
 	if (strstr(str, "„ÔıÓÙ‰Ô˜Ó∫")) // woods #clearcrxcountdown (countdown)
 		countdown = true;
@@ -1082,6 +1087,9 @@ void SCR_DrawMatchClock(void)
 		if (countdown == true) // woods #clearcrxcountdown
 			return;
 
+		if (qeintermission) // woods #qeintermission
+			return;
+
 		if (scr_matchclock.value) // woods #varmatchclock draw variable clock where players wants based on their x, y cvar
 		{
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
@@ -1727,6 +1735,9 @@ void SCR_DrawCrosshair (void)
 	hue = 0;
 
 	if (countdown == true) // woods #clearcrxcountdown
+		return;
+
+	if (qeintermission) // woods #qeintermission
 		return;
 
 	/*if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
