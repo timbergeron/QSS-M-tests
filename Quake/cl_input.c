@@ -62,10 +62,33 @@ int			in_impulse;
 // JPG 1.05 - translate +jump to +moveup under water
 //extern cvar_t	pq_moveup;
 
+static float In_Water(int contents) // woods #detectwater
+{
+	switch (contents)
+	{
+	case CONTENTS_WATER:
+	case CONTENTS_SLIME:
+	case CONTENTS_LAVA:
+		cl.inwater = true;
+		return;
+	default:
+		cl.inwater = false;
+		return;
+	}
+}
+
 void KeyDown (kbutton_t *b)
 {
 	int		k;
 	const char	*c;
+
+	mleaf_t* l; // woods #detectwater
+
+	if (cl.worldmodel) // woods #detectwater
+	{
+		l = Mod_PointInLeaf(listener_origin, cl.worldmodel);
+		In_Water(l->contents);
+	}
 
 	c = Cmd_Argv(1);
 	if (c[0])
