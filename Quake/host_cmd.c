@@ -39,6 +39,8 @@ int	current_skill;
 double		mpservertime;	// woods #servertime
 extern		char afk_name[16]; // woods #smartafk
 
+cvar_t sv_adminnick = {"sv_adminnick", "server admin", CVAR_ARCHIVE}; // woods (darkpaces) #adminnick
+
 /*
 ==================
 Host_Quit_f
@@ -1999,7 +2001,12 @@ static void Host_Say(qboolean teamonly)
 			q_snprintf(text, sizeof(text), "\001%s: %s", save->name, p);
 	}
 	else
-		q_snprintf (text, sizeof(text), "\001<%s> %s", hostname.string, p);
+	{
+		if (sv_adminnick.string[0] != '\0') // woods (darkpaces) #adminnick
+			q_snprintf(text, sizeof(text), "\001%s: %s", sv_adminnick.string, p);
+		else
+			q_snprintf(text, sizeof(text), "\001<%s> %s", hostname.string, p);
+	}
 
 // check length & truncate if necessary
 	j = (int) strlen(text);
