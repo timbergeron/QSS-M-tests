@@ -296,6 +296,38 @@ void Modlist_Init (void)
 }
 #endif
 
+
+//==============================================================================
+// woods -- bind/unbind list management #bindlist (ironwail port)
+//==============================================================================
+
+filelist_item_t* bindlist;
+filelist_item_t* unbindlist;
+
+void BindList_Init (void)
+{
+	int i;
+	
+	for (i = 0; i < MAX_KEYS; i++)
+	{
+		const char* buffer = Key_KeynumToString(i);
+		if (strcmp(buffer, "<UNKNOWN KEYNUM>") != 0)
+			FileList_Add(buffer, &bindlist);
+	}
+}
+
+void UnBindList_Init (void)
+{
+	int i;
+
+	for (i = 0; i < MAX_KEYS; i++)
+	{
+		const char* buffer = Key_KeynumToString(i);
+		if (strcmp(buffer, "<UNKNOWN KEYNUM>") != 0)
+			FileList_Add(buffer, &unbindlist);
+	}
+}
+
 //==============================================================================
 // woods -- server list management #serverlist
 //==============================================================================

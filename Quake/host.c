@@ -1402,6 +1402,8 @@ void Host_Init (void)
 		DemoList_Init (); //ericw
 		ExecList_Init(); // woods #execlist
 		ServerList_Init(); // woods #serverlist
+		BindList_Init (); // woods #bindlist
+		UnBindList_Init (); // woods #bindlist
 		VID_Init ();
 		IN_Init ();
 		TexMgr_Init (); //johnfitz
