@@ -122,8 +122,8 @@ void Con_ToggleConsole_f (void)
 {
 	if (key_dest == key_console/* || (key_dest == key_game && con_forcedup)*/)
 	{
-		key_lines[edit_line][1] = 0;	// clear any typing
-		key_linepos = 1;
+		//key_lines[edit_line][1] = 0;	// clear any typing -- woods con_clear_input_on_toggle from Qrack (R00k)
+		//key_linepos = 1; // woods con_clear_input_on_toggle from Qrack (R00k)
 		con_backscroll = 0; //johnfitz -- toggleconsole should return you to the bottom of the scrollback
 		history_line = edit_line; //johnfitz -- it should also return you to the bottom of the command history
 
