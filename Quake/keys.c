@@ -526,6 +526,22 @@ qboolean CheckForCommand(void)  // woods added for don't have to type "say " eve
 	return (Cvar_FindVar(command) || Cmd_Exists2(command) || Cmd_AliasExists(command));
 }
 
+static void AdjustConsoleHeight(int delta) // woods (Qrack) by joe, from ZQuake
+{
+	extern	cvar_t	scr_consize;
+	int		height;
+
+	if (!cl.worldmodel || cls.signon != SIGNONS)
+		return;
+	height = (scr_consize.value * vid.height + delta + 5) / 10;
+	height *= 10;
+	if (delta < 0 && height < 30)
+		height = 30;
+	if (delta > 0 && height > vid.height - 10)
+		height = vid.height - 10;
+	Cvar_SetValue("scr_consize", (float)height / vid.height);
+}
+
 void Key_Extra (int* key) // woods #namemaker
 {
 	if (keydown[K_CTRL])
@@ -873,6 +889,16 @@ void Key_Console (int key)
 		return;
 
 	case K_UPARROW:
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods (qrack)
+		if (keydown[K_COMMAND])
+#else
+		if (keydown[K_CTRL])
+#endif
+		{
+			AdjustConsoleHeight(-10);
+			return;
+		}
+
 		if (history_line == edit_line)
 			Q_strcpy(current, workline);
 
@@ -895,6 +921,16 @@ void Key_Console (int key)
 		return;
 
 	case K_DOWNARROW:
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods (qrack)
+		if (keydown[K_COMMAND])
+#else
+		if (keydown[K_CTRL])
+#endif
+		{
+			AdjustConsoleHeight(10);
+			return;
+		}
+
 		if (history_line == edit_line)
 			return;
 
