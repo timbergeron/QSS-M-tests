@@ -79,6 +79,7 @@ qboolean	con_debuglog = false;
 qboolean	con_initialized;
 
 void Char_Console2(int key); // woods #ezsay add leading space for mode 2
+void Key_Console(int key); // woods con_clear_input_on_toggle
 
 /*
 ================
@@ -124,6 +125,9 @@ void Con_ToggleConsole_f (void)
 	{
 		//key_lines[edit_line][1] = 0;	// clear any typing -- woods con_clear_input_on_toggle from Qrack (R00k)
 		//key_linepos = 1; // woods con_clear_input_on_toggle from Qrack (R00k)
+
+		Key_Console(K_BACKSPACE); // woods con_clear_input_on_toggle
+
 		con_backscroll = 0; //johnfitz -- toggleconsole should return you to the bottom of the scrollback
 		history_line = edit_line; //johnfitz -- it should also return you to the bottom of the command history
 
