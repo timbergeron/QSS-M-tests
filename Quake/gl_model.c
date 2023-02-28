@@ -802,10 +802,10 @@ static void Mod_LoadTextures (lump_t *l)
 
 		mipend = m->dataofs[i];
 
-		if (!tx->name[0])
+		if (!tx->name[0]) // woods
 		{
 			q_snprintf(tx->name, sizeof(tx->name), "unnamed%d", i);
-			Con_Warning ("Warning: unnamed texture in %s, renaming to %s\n", loadmodel->name, tx->name);
+			Con_DPrintf ("unnamed texture in %s, renaming to %s\n", loadmodel->name, tx->name);
 		}
 
 		//johnfitz -- lots of changes
