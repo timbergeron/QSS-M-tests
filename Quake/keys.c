@@ -663,6 +663,43 @@ void Word_Delete (void) // woods from ezquake
 	strcpy(key_lines[edit_line] + key_linepos, key_lines[edit_line] + key_linepos + len);
 }
 
+static qboolean Key_IsWordSeparator(char c) // woods (ironwail)
+{
+	switch (c)
+	{
+	case ' ':
+	case '\t':
+	case ';':
+		return true;
+	default:
+		return false;
+	}
+}
+
+static int Key_FindWordBoundary(int dir) // woods (ironwail)
+{
+	char* workline = key_lines[edit_line];
+	int		len = (int)strlen(workline);
+	int		pos = key_linepos;
+
+	if (dir < 0)
+	{
+		while (pos > 1 && Key_IsWordSeparator(workline[pos - 1]))
+			pos--;
+		while (pos > 1 && !Key_IsWordSeparator(workline[pos - 1]))
+			pos--;
+	}
+	else
+	{
+		while (pos < len && !Key_IsWordSeparator(workline[pos]))
+			pos++;
+		while (pos < len && Key_IsWordSeparator(workline[pos]))
+			pos++;
+	}
+
+	return pos;
+}
+
 /*
 ====================
 Key_Console -- johnfitz -- heavy revision
@@ -795,18 +832,18 @@ void Key_Console (int key)
 		return;
 
 	case K_LEFTARROW:
-		if (key_linepos > 1)
+		if (key_linepos > 1) // woods (ironwail) support for ctrl+left/right per word
 		{
-			key_linepos--;
-			key_blinktime = realtime;
-		}
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
-		if (keydown[K_COMMAND])
-			key_linepos = 1;
-		return;
+			if (keydown[K_COMMAND])
+#elif !defined(PLATFORM_OSX) || !defined(PLATFORM_MAC)
+			if (keydown[K_CTRL])
 #endif
-		if (keydown[K_CTRL])
-			key_linepos = 1;
+				key_linepos = Key_FindWordBoundary(-1);
+			else
+				key_linepos--;
+			}
+		key_blinktime = realtime;
 		return;
 
 	case K_RIGHTARROW:
@@ -823,16 +860,16 @@ void Key_Console (int key)
 		}
 		else
 		{
-			key_linepos++;
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+			if (keydown[K_COMMAND]) // woods (ironwail)
+#elif !defined(PLATFORM_OSX) || !defined(PLATFORM_MAC)
+			if (keydown[K_CTRL])
+#endif
+				key_linepos = Key_FindWordBoundary(1);
+			else
+				key_linepos++;
 			key_blinktime = realtime;
 		}
-#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
-		if (keydown[K_COMMAND])
-			key_linepos = strlen(workline);
-		return;
-#endif
-		if (keydown[K_CTRL])
-			key_linepos = strlen(workline);
 		return;
 
 	case K_UPARROW:
