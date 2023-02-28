@@ -62,7 +62,7 @@ int			in_impulse;
 // JPG 1.05 - translate +jump to +moveup under water
 //extern cvar_t	pq_moveup;
 
-static float In_Water(int contents) // woods #detectwater
+static void In_Water(int contents) // woods #detectwater
 {
 	switch (contents)
 	{
