@@ -97,6 +97,9 @@ overflowtimes_t dev_overflows; //this stores the last time overflow messages wer
 extern cvar_t	pq_lag; // woods
 extern char	lastmphost[NET_NAMELEN]; // woods - connected server address
 extern char demoplaying[MAX_OSPATH]; // woods for window title
+
+void SV_Next_Map_f(void); // woods #maprotation
+
 /*
 ================
 Max_Edicts_f -- johnfitz
@@ -328,6 +331,7 @@ Host_InitLocal
 void Host_InitLocal (void)
 {
 	Cmd_AddCommand ("version", Host_Version_f);
+	Cmd_AddCommand ("svnextmap", SV_Next_Map_f); // woods #maprotation
 
 	Host_InitCommands ();
 

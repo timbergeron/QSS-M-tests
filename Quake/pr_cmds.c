@@ -25,7 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#define	STRINGTEMP_BUFFERS		16
 //#define	STRINGTEMP_LENGTH		1024
 static	char	pr_string_temp[STRINGTEMP_BUFFERS][STRINGTEMP_LENGTH];
-static	byte	pr_string_tempindex = 0;
+static	byte	pr_string_tempindex = 0;\
+
+cvar_t sv_map_rotation = {"sv_map_rotation", "dm2 dm3 dm4 dm6 e1m2 end", CVAR_NONE}; // woods #maprotation
 
 char *PR_GetTempString (void)
 {
@@ -1755,6 +1757,63 @@ static void PF_sv_setspawnparms (void)
 
 /*
 ==============
+SV_Find_Next_Map_f -- woods to find next map in sv_map_rotation cvar #maprotation
+==============
+*/
+const char* SV_Find_Next_Map_f (const char* level_list)
+{
+	static int index = 0;
+	static char level_name[16];
+	int start = index;
+	int len = strlen(level_list);
+	int i;
+
+	// find the end of the current level name
+	while (level_list[index] != ' ' && level_list[index] != '\0') {
+		index++;
+	}
+
+	// copy the current level name into level_name
+	for (i = start; i < index; i++) {
+		level_name[i - start] = level_list[i];
+	}
+	level_name[index - start] = '\0';
+
+	// move to the next level name
+	if (level_list[index] == ' ') {
+		index++;
+	}
+	else {
+		index = 0;
+	}
+
+	// if we've reached the end of the list, start over
+	if (index >= len) {
+		index = 0;
+	}
+
+	return level_name;
+}
+
+/*
+==============
+SV_Next_Map_f -- take the server to the next level in the rotation #maprotation
+==============
+*/
+void SV_Next_Map_f (void)
+{
+	char* next;
+
+	if (sv_map_rotation.string[0] == '\0')\
+		return;
+
+	next = SV_Find_Next_Map_f(sv_map_rotation.string);
+
+	Cbuf_AddText(va("changelevel %s\n", next));
+}
+
+/*
+==============
 PF_changelevel
 ==============
 */
@@ -1766,6 +1825,12 @@ static void PF_sv_changelevel (void)
 	if (svs.changelevel_issued)
 		return;
 	svs.changelevel_issued = true;
+
+	if (sv_map_rotation.string[0] != '\0') // woods #maprotation
+	{
+		SV_Next_Map_f();
+		return;
+	}
 
 	s = G_STRING(OFS_PARM0);
 	Cbuf_AddText (va("changelevel %s\n",s));

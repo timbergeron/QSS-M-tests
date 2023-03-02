@@ -1487,6 +1487,7 @@ void SV_Init (void)
 	extern	cvar_t	sv_sound_watersplash;	//spike - making these changable is handy...
 	extern	cvar_t	sv_sound_land;			//spike - and also mutable...
 	extern	cvar_t	sv_adminnick;			// woods (darkpaces) #adminnick
+	extern	cvar_t	sv_map_rotation;		// woods #maprotation
 
 
 	Cvar_RegisterVariable (&sv_maxvelocity);
@@ -1513,6 +1514,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_sound_land); //spike
 
 	Cvar_RegisterVariable (&sv_adminnick); // woods (darkpaces) #adminnick
+	Cvar_RegisterVariable (&sv_map_rotation); // woods #maprotation
 
 	if (isDedicated)
 		sv_public.string = "1";
