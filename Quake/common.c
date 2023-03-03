@@ -57,6 +57,7 @@ cvar_t	allow_download = {"allow_download", "2"}; /*set to 0 to block file downlo
 static qboolean		com_modified;	// set true if using non-id files
 
 qboolean		fitzmode;
+qboolean		pak0; // woods #pak0only
 
 static void COM_Path_f (void);
 void Host_WriteConfig_f (void); // woods #writecfg
@@ -1808,7 +1809,7 @@ static void COM_CheckRegistered (void)
 	{
 		Cvar_SetROM ("registered", "0");
 		Con_Printf ("Playing shareware version.\n");
-		if (com_modified)
+		if (com_modified && !pak0) // woods #pak0only
 			Sys_Error ("You must have the registered version to use modified games.\n\n"
 				   "Basedir is: %s\n\n"
 				   "Check that this has an " GAMENAME " subdirectory containing pak0.pak and pak1.pak, "
@@ -2561,6 +2562,8 @@ static pack_t *COM_LoadPackFile (const char *packfile)
 			CRC_ProcessByte (&crc, ((byte *)info)[i]);
 		if (crc != PAK0_CRC_V106 && crc != PAK0_CRC_V101 && crc != PAK0_CRC_V100)
 			com_modified = true;
+		else // woods #pak0only
+			pak0 = true;
 	}
 
 	// parse the directory

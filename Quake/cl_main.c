@@ -347,6 +347,9 @@ void CL_SignonReply (void)
 		key_dest = key_game; // woods exit console on server connect
 		maptime = SDL_GetTicks(); // woods connected map time #maptime
 
+		if (registered.value == 0) // woods #pak0only
+			Con_Printf("\n^mWarning:^m emulating shareware mode, install pak1.pak assets to enable all client features\n\n");
+
 		qeintermission = false; // woods #qeintermission
 
 		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
