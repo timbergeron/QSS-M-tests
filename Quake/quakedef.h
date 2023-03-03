@@ -52,7 +52,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 	// combined version string like "2020-10-20-beta1"
 	#define	ENGINE_NAME_AND_VER	"QSS " QS_STRINGIFY(QSS_DATE) QUAKESPASM_VER_SUFFIX
 #else
-	#define ENGINE_NAME_AND_VER "QSS-M (1.5.3)" " " QUAKESPASM_VER_STRING
+	#define ENGINE_NAME_AND_VER "QSS-M (1.5.4)" " " QUAKESPASM_VER_STRING
 #endif
 
 //define	PARANOID			// speed sapping error checking
