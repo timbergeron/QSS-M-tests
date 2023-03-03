@@ -61,7 +61,7 @@ cvar_t	cl_demospeed = { "cl_demospeed", "1", CVAR_NONE }; // woods #demotools
 
 cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
-cvar_t  cl_afk = {"cl_afk", "1", CVAR_ARCHIVE }; // woods #smartafk
+cvar_t  cl_afk = {"cl_afk", "0", CVAR_ARCHIVE }; // woods #smartafk
 cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 cvar_t  cl_rocketlight = {"cl_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
 cvar_t  cl_muzzleflash = {"cl_muzzleflash", "0", CVAR_ARCHIVE}; // woods #muzzleflash
