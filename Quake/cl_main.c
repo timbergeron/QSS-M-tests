@@ -69,6 +69,7 @@ cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #
 
 cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
 cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
+cvar_t  f_status = {"f_status", "on", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #flagstatus
 
 cvar_t  cl_ambient = {"cl_ambient", "1", CVAR_ARCHIVE}; // woods #stopsound
 cvar_t  r_coloredpowerupglow = {"r_coloredpowerupglow", "1", CVAR_ARCHIVE}; // woods
@@ -1853,6 +1854,7 @@ void CL_Init (void)
 
 	Cvar_RegisterVariable (&w_switch); // woods #autoweapon
 	Cvar_RegisterVariable (&b_switch); // woods #autoweapon
+	Cvar_RegisterVariable (&f_status); // woods #flagstatus
 
 	Cvar_RegisterVariable (&cl_ambient); // woods #stopsound
 	Cvar_RegisterVariable (&cl_smartspawn); // woods #spawntrainer

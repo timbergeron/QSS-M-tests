@@ -213,41 +213,48 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 // woods for center print filter  -> this is #flagstatus
 // ===============================
 
-// begin woods for flagstatus parsing --  ‚ = blue abandoned, Ú = red abandoned, r = taken, b = taken
+ // begin woods for flagstatus parsing --  ‚ = blue abandoned, Ú = red abandoned, r = taken, b = taken
 
-	strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
+	const char* blueflag;
+	char buf[10];
+	blueflag = Info_GetKey(cl.serverinfo, "blue flag", buf, sizeof(buf));
 
-	if (!strpbrk(str, "ÄÅÅÅ")) // cdmod MOD print
-	{
-		// RED
+	if (blueflag[0] == '\0') // we only use this if the server does NOT have a infokey for flag status
+	{ 
+		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
-		if (strstr(str, "rû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red taken
-			strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
+		if (!strpbrk(str, "ÄÅÅÅ")) // cdmod MOD print
+		{
+			// RED
 
-		if (strstr(str, "Úû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red abandoned
-			strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
+			if (strstr(str, "rû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red taken
+				strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
 
-	// BLUE
+			if (strstr(str, "Úû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red abandoned
+				strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
 
-		if (strstr(str, "bü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue taken
-			strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
+		// BLUE
 
-		if (strstr(str, "‚ü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue abandoned
-			strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
+			if (strstr(str, "bü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue taken
+				strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
 
-	// RED & BLUE
+			if (strstr(str, "‚ü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue abandoned
+				strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
 
-		if ((strstr(str, "bü")) && (strstr(str, "rû"))) //  blue & red taken
-			strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
+		// RED & BLUE
 
-		if ((strstr(str, "‚ü")) && (strstr(str, "Úû"))) // blue & red abandoned
-			strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
+			if ((strstr(str, "bü")) && (strstr(str, "rû"))) //  blue & red taken
+				strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
 
-		if ((strstr(str, "‚ü")) && (strstr(str, "rû"))) // blue abandoned, red taken
-			strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
+			if ((strstr(str, "‚ü")) && (strstr(str, "Úû"))) // blue & red abandoned
+				strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
 
-		if ((strstr(str, "bü")) && (strstr(str, "Úû"))) // red abandoned, blue taken
-			strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
+			if ((strstr(str, "‚ü")) && (strstr(str, "rû"))) // blue abandoned, red taken
+				strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
+
+			if ((strstr(str, "bü")) && (strstr(str, "Úû"))) // red abandoned, blue taken
+				strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
+		}
 	}
 
 	// end woods for flagstatus parsing
@@ -1320,6 +1327,52 @@ void SCR_ShowFlagStatus(void)
 {
 	float z;
 	int x, y, xx, yy;
+
+	// woods lets get some info from server infokeys
+
+	const char* redflag;
+	char buf[10];
+	redflag = Info_GetKey(cl.serverinfo, "red flag", buf, sizeof(buf));
+
+	const char* blueflag;
+	char buf2[10];
+	blueflag = Info_GetKey(cl.serverinfo, "blue flag", buf2, sizeof(buf2));
+
+	if (blueflag[0] != '\0') // is there a key on the server (newer version of crx)
+	{
+		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
+
+		// RED
+
+		if (!strcmp(redflag, "carried"))
+			strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus)); // red taken
+
+		if (!strcmp(redflag, "dropped"))
+			strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus)); // red abandoned
+
+		// BLUE
+
+		if (!strcmp(blueflag, "carried"))
+			strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus)); // blue abandoned
+
+		if (!strcmp(blueflag, "dropped"))
+			strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus)); // blue abandoned
+
+		// RED & BLUE
+
+		if (!strcmp(blueflag, "carried") && !strcmp(redflag, "carried")) // blue & red taken
+			strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
+
+		if (!strcmp(blueflag, "dropped") && !strcmp(redflag, "dropped")) // blue & red abandoned
+			strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
+
+		if (!strcmp(blueflag, "dropped") && !strcmp(redflag, "carried")) // blue abandoned, red taken
+			strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
+
+		if (!strcmp(blueflag, "carried") && !strcmp(redflag, "dropped")) // red abandoned, blue taken
+			strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
+	}
+
 	GL_SetCanvas(CANVAS_TOPRIGHT3);
 
 	z = 0.20; // abandoned not at base flag (alpha)
