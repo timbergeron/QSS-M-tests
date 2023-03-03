@@ -1044,12 +1044,10 @@ void SCR_DrawMatchClock(void)
 		{
 			if (cl.modtype == 1) // nq crx server check, if so parse serverinfo for timelimit
 			{
-				char mtimelimit[10];
-				char* str = cl.serverinfo;
-				char* position_ptr = strstr(str, "timelimit\\");
-				int position = (position_ptr - str);
-				strncpy(mtimelimit, str + position + 10, 3);
-				tl = atoi(mtimelimit);
+				char buf[10];
+				const char* simt;
+				simt = Info_GetKey(cl.serverinfo, "matchtime", buf, sizeof(buf));
+				tl = atoi(simt);
 			}
 			else if (cl.modtype == 4) // qecrx server check, if so parse userinfo for timelimit
 			{
