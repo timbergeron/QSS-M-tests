@@ -178,6 +178,7 @@ int paused = 0; // woods #showpaused
 qboolean	countdown; // #clearcrxcountdown
 qboolean	cameras; // woods #crxcamera
 qboolean	qeintermission; // woods #qeintermission
+qboolean draw; // woods #crxcamera #qeintermission
 
 /*
 ==============
@@ -198,8 +199,14 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	if (strstr(str, "eyecam") || strstr(str, "chasecam")) // woods #crxcamera
 		cameras = true;
 
-	if (strstr(str, "Öïôå") || strstr(str, "ÔÄÍ") || (strstr(str, "Íáôãè") && strstr(str, "Óõííáòù"))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
-		qeintermission = true;
+	
+	if (cl.modtype == 4) // woods #qeintermission
+	{ 
+		if (strstr(str, "Öïôå") || strstr(str, "ÔÄÍ") || (strstr(str, "Íáôãè") && strstr(str, "Óõííáòù"))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
+			qeintermission = true;
+		else
+			qeintermission = false;
+	}
 
 	if (strstr(str, "ãïõîôäï÷îº")) // woods #clearcrxcountdown (countdown)
 		countdown = true;
@@ -423,6 +430,8 @@ void SCR_DrawCenterString (void) //actually do the drawing
 
 void SCR_CheckDrawCenterString (void)
 {
+	draw = false; // woods #crxcamera #qeintermission
+	
 	if (scr_center_lines > scr_erase_lines)
 		scr_erase_lines = scr_center_lines;
 
@@ -440,6 +449,8 @@ void SCR_CheckDrawCenterString (void)
 
 	if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH)) // woods don't overlap centerprints with scoreboard
 		return;
+
+	draw = true; // woods #crxcamera #qeintermission
 
 	SCR_DrawCenterString ();
 }
@@ -1089,10 +1100,10 @@ void SCR_DrawMatchClock(void)
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 		}
 
-		if (countdown == true) // woods #clearcrxcountdown
+		if (countdown && draw) // woods #clearcrxcountdown
 			return;
 
-		if (qeintermission) // woods #qeintermission
+		if (qeintermission && draw) // woods #qeintermission
 			return;
 
 		if (scr_matchclock.value) // woods #varmatchclock draw variable clock where players wants based on their x, y cvar
@@ -1785,10 +1796,10 @@ void SCR_DrawCrosshair (void)
 
 	hue = 0;
 
-	if (countdown == true) // woods #clearcrxcountdown
+	if (countdown && draw) // woods #clearcrxcountdown
 		return;
 
-	if (qeintermission) // woods #qeintermission
+	if (qeintermission && draw) // woods #qeintermission
 		return;
 
 	/*if (sb_showscores == true && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
