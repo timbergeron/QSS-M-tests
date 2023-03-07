@@ -1366,7 +1366,7 @@ qboolean Valid_IP(const char* ip_str) // woods #connectfilter
 	if (sscanf(ip_str, "%d.%d.%d.%d", &num1, &num2, &num3, &num4) != 4) // four numbers
 		return false;
 
-	if (num1 < 1 || num1 > 255 || num2 < 1 || num2 > 255 || num3 < 1 || num3 > 255 || num4 < 1 || num4 > 255)  // 1-255 numbers
+	if (num1 < 0 || num1 > 255 || num2 < 0 || num2 > 255 || num3 < 0 || num3 > 255 || num4 < 0 || num4 > 255)  // 0-255 numbers
 		return false;
 
 	return true;
