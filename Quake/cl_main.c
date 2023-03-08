@@ -845,27 +845,50 @@ void CL_RelinkEntities (void)
 			if (PScript_RunParticleEffectTypeString(oldorg, ent, frametime, "EF_BRIGHTFIELD"))
 				R_EntityParticles (ent); // R_EntityParticles aka Classic_BrightField
 
-		if ((ent->effects & EF_MUZZLEFLASH) && cl_muzzleflash.value) // woods #muzzleflash
+		if (ent->effects & EF_MUZZLEFLASH)
 		{
-			vec3_t		fv, rv, uv;
+			if (cl_muzzleflash.value) // woods #muzzleflash
+			{ 
+				vec3_t		fv, rv, uv;
 
-			dl = CL_AllocDlight (i);
-			VectorCopy (ent->origin,  dl->origin);
-			dl->origin[2] += 16;
-			AngleVectors (ent->angles, fv, rv, uv);
+				dl = CL_AllocDlight (i);
+				VectorCopy (ent->origin,  dl->origin);
+				dl->origin[2] += 16;
+				AngleVectors (ent->angles, fv, rv, uv);
 
-			VectorMA (dl->origin, 18, fv, dl->origin);
-			dl->radius = 200 + (rand() & 31);
-			dl->minlight = 32;
-			dl->die = cl.time + 0.1;
+				VectorMA (dl->origin, 18, fv, dl->origin);
+				dl->radius = 200 + (rand() & 31);
+				dl->minlight = 32;
+				dl->die = cl.time + 0.1;
+			}
 
 			//johnfitz -- assume muzzle flash accompanied by muzzle flare, which looks bad when lerped
-			if (r_lerpmodels.value != 2)
+			if (r_lerpmodels.value < 2) // woods #lerp3
 			{
 				if (ent == &cl.entities[cl.viewentity])
 					cl.viewent.lerpflags |= LERP_RESETANIM|LERP_RESETANIM2; //no lerping for two frames
 				else
 					ent->lerpflags |= LERP_RESETANIM|LERP_RESETANIM2; //no lerping for two frames
+			}
+
+			if (r_lerpmodels.value == 3) // woods #lerp3 adjusted lerping for smoother non overlapped frames
+			{
+				if (cl.viewent.model)
+
+					// allow lerpmodels 2 on these, but we're gonna skip frame 1
+					if (strcmp(cl.viewent.model->name, "progs/v_shot2.mdl") // ssg
+						&& strcmp(cl.viewent.model->name, "progs/v_nail2.mdl")  // sng
+						&& strcmp(cl.viewent.model->name, "progs/v_rock2.mdl")  // rl
+						&& strcmp(cl.viewent.model->name, "progs/v_light.mdl")) // lg
+					{
+						if (ent == &cl.entities[cl.viewentity])
+							cl.viewent.lerpflags |= LERP_RESETANIM | LERP_RESETANIM2; //no lerping for two frames
+						else
+							ent->lerpflags |= LERP_RESETANIM | LERP_RESETANIM2; //no lerping for two frames
+					}
+
+				if (cl.viewent.frame < 1)
+					cl.viewent.lerpflags |= LERP_RESETANIM;
 			}
 			//johnfitz
 		}

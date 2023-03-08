@@ -828,7 +828,7 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata
 		}
 
 		//set up values
-		if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value != 2))
+		if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value < 2)) // woods lerp 3 for smooth sng etc, change != to < 2 #lerp3
 		{
 			if (e->lerpflags & LERP_FINISH && numposes == 1)
 				lerpdata->blend = CLAMP (0.0f, (float)(cl.time - e->lerp.state.lerpstart) / (e->lerpfinish - e->lerp.state.lerpstart), 1.0f);
