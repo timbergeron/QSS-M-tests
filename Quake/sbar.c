@@ -668,7 +668,7 @@ Sbar_DrawScoreboard
 void Sbar_DrawScoreboard (void)
 {
 	Sbar_SoloScoreboard ();
-	if (cl.gametype == GAME_DEATHMATCH)
+	if (cl.gametype == GAME_DEATHMATCH || cl.maxclients > 1) // woods coop support (sleeper) -- joequake/qrack
 		Sbar_DeathmatchOverlay ();
 }
 
