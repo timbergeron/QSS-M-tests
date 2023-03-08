@@ -1410,7 +1410,7 @@ static void Host_Connect_f (void)
 		Host_ConnectToLastServer_f();
 	else
 	{
-		if (((Valid_Domain(name)) || (Valid_IP(name))) || !q_strcasecmp(name, "local")) // woods #connectfilter -- avoid client lockup if possible
+		if (((Valid_Domain(name)) || (Valid_IP(name))) || !q_strcasecmp(name, "local") || !q_strcasecmp(name, "localhost")) // woods #connectfilter -- avoid client lockup if possible
 		{
 			strcpy(lastcattempt, name); // woods verbose connection info
 			CL_EstablishConnection(name);
