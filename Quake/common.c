@@ -4036,10 +4036,13 @@ void Write_Log (const char* log_message, char* filename)
 	int found = 0, i;
 	char fname[MAX_OSPATH];
 
-	q_snprintf(fname, sizeof(fname), "%s/backups/%s", com_gamedir, filename);
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, filename);
 
 	// Open the log file in read mode
-	FILE* log_file = fopen(fname, "rn");
+	FILE* log_file = fopen(fname, "a+");
+
+	if (!log_file)
+		return;
 
 	// Check if the file exists
 	if (log_file) {

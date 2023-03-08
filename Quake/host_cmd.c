@@ -355,10 +355,10 @@ void ServerList_Init(void)
 	q_snprintf(name, sizeof(name), "%s/id1", com_basedir); //  make an id1 folder if it doesnt exist already #smartafk
 	Sys_mkdir(name);
 
-	q_snprintf(name, sizeof(name), "%s/backups", com_gamedir); //  create backups folder if not there
+	q_snprintf(name, sizeof(name), "%s/id1/backups", com_basedir); //  create backups folder if not there
 	Sys_mkdir(name);
 
-	FILE* file = fopen(va("%s/backups/%s", com_gamedir, SERVERLIST), "r");
+	FILE* file = fopen(va("%s/id1/backups/%s", com_basedir, SERVERLIST), "r");
 	
 	if (file == NULL) {
 		return;
