@@ -342,7 +342,9 @@ void CL_SignonReply (void)
 
 		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected && !cl_ambient.value) // woods for no background sounds #stopsound
 			Cmd_ExecuteString("stopsound\n", src_command);
-		if ((cl_autodemo.value == 1) && (!cls.demoplayback) && (!cls.demorecording))   // woods for #autodemo
+		if ((cl_autodemo.value == 1 || cl_autodemo.value == 4) && !cls.demoplayback && !cls.demorecording)   // woods for #autodemo
+			Cmd_ExecuteString("record\n", src_command);
+		if (cl_autodemo.value == 3 && !cls.demoplayback && !cls.demorecording && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected))   // woods for #autodemo
 			Cmd_ExecuteString("record\n", src_command);
 		key_dest = key_game; // woods exit console on server connect
 		maptime = SDL_GetTicks(); // woods connected map time #maptime

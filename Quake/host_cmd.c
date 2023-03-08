@@ -1212,8 +1212,6 @@ static void Host_Changelevel_f (void)
 	// also issue an error if spawn failed -- O.S.
 	if (!sv.active)
 		Host_Error ("cannot run map %s", level);
-	if ((cl_autodemo.value == 1) && (cls.demorecording)) // woods stops demo for #autodemo changelevel clientside
-		Cmd_ExecuteString("stop\n", src_command);     // woods stops demo for #autodemo changelevel clientside
 }
 
 /*
@@ -1271,8 +1269,8 @@ static void Host_Reconnect_Sv_f (void)
 	if (cls.demoplayback)	// cross-map demo playback fix from Baker
 		return;
 
-	if ((cl_autodemo.value == 1) && (cls.demorecording))   // woods #autodemo
-		CL_Stop_f();
+	if ((cl_autodemo.value == 3 || cl_autodemo.value == 4) && cls.demorecording) // woods #autodemo
+		Cbuf_AddText("stop\n");
 
 	SCR_BeginLoadingPlaque ();
 	cl.protocol_dpdownload = false;
