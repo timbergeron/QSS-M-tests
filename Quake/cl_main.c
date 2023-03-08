@@ -96,6 +96,7 @@ char			lastmphost[NET_NAMELEN]; // woods - connected server address
 int				maptime;		// woods connected map time #maptime
 
 void Log_Last_Server_f(void); // woods #connectlast (Qrack) -- write last server to file memory
+void Host_ConnectToLastServer_f(void); // woods use #connectlast for smarter reconnect
 
 void CL_ClearTrailStates(void)
 {
@@ -253,7 +254,10 @@ void CL_EstablishConnection (const char *host)
 	{
 		host = lasthost;
 		if (!*host)
+		{ 
+			Host_ConnectToLastServer_f (); // woods use #connectlast for smarter reconnect
 			return;
+		}
 	}
 	else
 		q_strlcpy(lasthost, host, sizeof(lasthost));
