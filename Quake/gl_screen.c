@@ -379,8 +379,10 @@ void SCR_DrawCenterString (void) //actually do the drawing
 
 	if (!scr_obscenterprint.value)
 		if (!cameras) // woods #crxcamera -- don't wipe if selecting camera via mouse menu
-			if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
-				return;
+			if (!countdown)
+				if (!qeintermission)
+					if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
+						return;
 
 	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
@@ -1277,6 +1279,9 @@ void SCR_ShowObsFrags(void)
 	if (cl.intermission)
 		return;
 
+	if (qeintermission)
+		return;
+
 	if (scr_viewsize.value == 120)
 		return;
 
@@ -1607,6 +1612,9 @@ void SCR_Observing(void)
 			return;
 		
 		if (cl.intermission)
+			return;
+
+		if (qeintermission)
 			return;
 
 		if (!strcmp(observing, "off"))
