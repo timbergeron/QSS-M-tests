@@ -743,8 +743,10 @@ void M_Setup_Draw (void)
 
 	M_Print(64, 80, "Name Maker"); // woods #namemaker
 
-	M_Print (64, 104, "Shirt color"); // woods 80 to 104 #namemaker
-	M_Print (64, 128, "Pants color"); // woods 104 to 128 #namemaker
+	M_Print (64, 104, "Shirt -"); // woods 80 to 104 #namemaker #showcolornum
+	M_PrintWhite (126, 104, CL_PLColours_ToString(setup_top)); // woods #showcolornum
+	M_Print (64, 128, "Pants -"); // woods 104 to 128 #namemaker #showcolornum
+	M_PrintWhite (126, 128, CL_PLColours_ToString(setup_bottom)); // woods #showcolornum
 
 	M_DrawTextBox (64, 152-8, 14, 1);  // woods 140 to 152 #namemaker
 	M_Print (72, 152, "Accept Changes");
