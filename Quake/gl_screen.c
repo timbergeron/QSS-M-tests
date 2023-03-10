@@ -1102,6 +1102,9 @@ void SCR_DrawMatchClock(void)
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 		}
 
+		if (key_dest == key_menu) // woods #menuclear
+			return;
+
 		if (countdown && draw) // woods #clearcrxcountdown
 			return;
 
@@ -1803,6 +1806,9 @@ void SCR_DrawCrosshair (void)
 	int x,hue;
 
 	hue = 0;
+
+	if (key_dest == key_menu) // woods #menuclear
+		return;
 
 	if (countdown && draw) // woods #clearcrxcountdown
 		return;
