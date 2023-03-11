@@ -47,6 +47,8 @@ static cvar_t	mod_ignorelmscale = {"mod_ignorelmscale", "0"};
 cvar_t	r_replacemodels = {"r_replacemodels", "", CVAR_ARCHIVE};
 static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
+static cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
+
 static byte	*mod_novis;
 static int	mod_novis_capacity;
 
@@ -73,6 +75,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&gl_load24bit);
 	Cvar_RegisterVariable (&r_replacemodels);
 	Cvar_RegisterVariable (&mod_ignorelmscale);
+	Cvar_RegisterVariable (&gl_loadlitfiles); // woods #loadlits
 
 	Cmd_AddCommand ("mcache", Mod_Print);
 
@@ -1047,7 +1050,7 @@ static void Mod_LoadLighting (lump_t *l)
 	COM_StripExtension(litfilename, litfilename, sizeof(litfilename));
 	q_strlcat(litfilename, ".lit", sizeof(litfilename));
 	mark = Hunk_LowMark();
-	data = (byte*) COM_LoadHunkFile (litfilename, &path_id);
+	data = gl_loadlitfiles.value?(byte*) COM_LoadHunkFile (litfilename, &path_id):NULL; // woods #loadlits
 	if (data)
 	{
 		// use lit file only from the same gamedir as the map
