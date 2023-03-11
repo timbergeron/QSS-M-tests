@@ -510,7 +510,10 @@ Host_WriteConfig_f  - woods - ironwail #writecfg
 */
 void Host_WriteConfig_f(void)
 {
-	Host_WriteConfigurationToFile(Cmd_Argc() >= 2 ? Cmd_Argv(1) : "config.cfg");
+	char filename[MAX_QPATH];
+	q_strlcpy(filename, Cmd_Argc() >= 2 ? Cmd_Argv(1) : "config.cfg", sizeof(filename));
+	COM_AddExtension(filename, ".cfg", sizeof(filename));
+	Host_WriteConfigurationToFile(filename);
 }
 
 /*
