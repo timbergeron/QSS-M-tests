@@ -84,7 +84,7 @@ cvar_t	gl_nocolors = {"gl_nocolors","0",CVAR_NONE};
 cvar_t	gl_enemycolor = {"gl_enemycolor","",CVAR_ARCHIVE}; // woods #enemycolors
 cvar_t	gl_teamcolor = { "gl_teamcolor","",CVAR_ARCHIVE}; // woods #enemycolors
 cvar_t	gl_laserpoint = {"gl_laserpoint","0", CVAR_ARCHIVE }; // woods #laser
-cvar_t	gl_laserpoint_alpha = { "gl_laserpoint_alpha","0", CVAR_ARCHIVE }; // woods #laser
+cvar_t	gl_laserpoint_alpha = { "gl_laserpoint_alpha",".3", CVAR_ARCHIVE }; // woods #laser
 
 //johnfitz -- new cvars
 cvar_t	r_stereo = {"r_stereo","0",CVAR_NONE};
