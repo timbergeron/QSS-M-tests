@@ -724,10 +724,27 @@ void M_Menu_Setup_f (void)
 	IN_UpdateGrabs();
 }
 
+qboolean chasewasnotactive; // woods #3rdperson
+qboolean flyme; // woods #3rdperson
 
 void M_Setup_Draw (void)
 {
 	qpic_t	*p;
+
+	char buf[15];
+	const char* obs;
+	obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+
+	if (!strcmp(obs, "fly")) // woods #3rdperson
+		flyme = true;
+	else
+		flyme = false;
+
+	if (!chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+	{
+		chasewasnotactive = true;
+		Cbuf_AddText("chase_active 1\n");
+	}
 
 	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
 	p = Draw_CachePic ("gfx/p_multi.lmp");
@@ -777,6 +794,11 @@ void M_Setup_Key (int k)
 	switch (k)
 	{
 	case K_ESCAPE:
+		if (chasewasnotactive && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+		{
+			chasewasnotactive = false;
+			Cbuf_AddText("chase_active 0\n");
+		}
 	case K_BBUTTON:
 		M_Menu_MultiPlayer_f ();
 		break;
@@ -800,9 +822,19 @@ void M_Setup_Key (int k)
 			return;
 		S_LocalSound ("misc/menu3.wav");
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
+		{
 			M_AdjustColour(&setup_top, -1);
+			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+		}
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
+		{
 			M_AdjustColour(&setup_bottom, -1);
+			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+		}
 		break;
 	case K_RIGHTARROW:
 		if (setup_cursor < 2)
@@ -810,9 +842,19 @@ void M_Setup_Key (int k)
 	forward:
 		S_LocalSound ("misc/menu3.wav");
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
+		{
 			M_AdjustColour(&setup_top, +1);
+			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+		}
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
+		{
 			M_AdjustColour(&setup_bottom, +1);
+			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+		}
 		break;
 
 	case K_ENTER:
@@ -839,6 +881,13 @@ void M_Setup_Key (int k)
 		if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 			Cbuf_AddText( va ("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)) );
 		m_entersound = true;
+
+		if (chasewasnotactive && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+		{
+			chasewasnotactive = false;
+			Cbuf_AddText("chase_active 0\n");
+		}
+
 		M_Menu_MultiPlayer_f ();
 		break;
 
