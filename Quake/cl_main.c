@@ -256,6 +256,7 @@ void CL_EstablishConnection (const char *host)
 		if (!*host)
 		{ 
 			Host_ConnectToLastServer_f (); // woods use #connectlast for smarter reconnect
+			Con_Printf("using server history\n"); // woods verbose connection info
 			return;
 		}
 	}
@@ -263,6 +264,8 @@ void CL_EstablishConnection (const char *host)
 		q_strlcpy(lasthost, host, sizeof(lasthost));
 
 	CL_Disconnect ();
+
+	Con_Printf(va("connecting to ^m%s\n", host)); // woods verbose connection info
 
 	cls.netcon = NET_Connect (host);
 	if (!cls.netcon) // woods -  Baker 3.60 - Rook's Qrack port 26000 notification on failure
