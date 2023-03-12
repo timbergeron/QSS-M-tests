@@ -353,7 +353,8 @@ void CL_SignonReply (void)
 			Cmd_ExecuteString("record\n", src_command);
 		if (cl_autodemo.value == 3 && !cls.demoplayback && !cls.demorecording && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected))   // woods for #autodemo
 			Cmd_ExecuteString("record\n", src_command);
-		key_dest = key_game; // woods exit console on server connect
+		if (VID_HasMouseOrInputFocus())
+			key_dest = key_game; // woods exit console on server connect
 		maptime = SDL_GetTicks(); // woods connected map time #maptime
 
 		if (registered.value == 0) // woods #pak0only
