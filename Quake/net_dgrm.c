@@ -2125,7 +2125,6 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	sock->proquake_angle_hack = true;
 
 	// send the connection request
-	Con_SafePrintf("connecting to %s\n", lastcattempt); // woods verbose connection info
 	SCR_UpdateScreen ();
 	start_time = net_time;
 
