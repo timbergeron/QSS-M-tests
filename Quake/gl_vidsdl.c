@@ -777,7 +777,8 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 // fix the leftover Alt from any Alt-Tab or the like that switched us away
 	ClearAllStates ();
 
-	Con_SafePrintf ("Video mode %dx%dx%d %dHz (%d-bit z-buffer, %dx FSAA) initialized\n",
+	if (cls.state == ca_disconnected) // woods #supressvidmsgs
+		Con_SafePrintf ("Video mode %dx%dx%d %dHz (%d-bit z-buffer, %dx FSAA) initialized\n",
 				VID_GetCurrentWidth(),
 				VID_GetCurrentHeight(),
 				VID_GetCurrentBPP(),
@@ -1032,7 +1033,8 @@ static void GL_CheckExtensions (void)
 		GL_GenBuffersFunc = (PFNGLGENBUFFERSARBPROC) SDL_GL_GetProcAddress("glGenBuffersARB");
 		if (GL_BindBufferFunc && GL_BufferDataFunc && GL_BufferSubDataFunc && GL_DeleteBuffersFunc && GL_GenBuffersFunc)
 		{
-			Con_Printf("FOUND: ARB_vertex_buffer_object\n");
+			if (cls.state == ca_disconnected) // woods #supressvidmsgs
+				Con_Printf("FOUND: ARB_vertex_buffer_object\n");
 			gl_vbo_able = true;
 		}
 		else
@@ -1052,11 +1054,13 @@ static void GL_CheckExtensions (void)
 		GL_ClientActiveTextureFunc = (PFNGLCLIENTACTIVETEXTUREARBPROC) SDL_GL_GetProcAddress("glClientActiveTextureARB");
 		if (GL_MTexCoord2fFunc && GL_SelectTextureFunc && GL_ClientActiveTextureFunc)
 		{
-			Con_Printf("FOUND: ARB_multitexture\n");
+			if (cls.state == ca_disconnected) // woods #supressvidmsgs
+				Con_Printf("FOUND: ARB_multitexture\n");
 			gl_mtexable = true;
 			
 			glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_max_texture_units);
-			Con_Printf("GL_MAX_TEXTURE_UNITS: %d\n", (int)gl_max_texture_units);
+			if (cls.state == ca_disconnected) // woods #supressvidmsgs
+				Con_Printf("GL_MAX_TEXTURE_UNITS: %d\n", (int)gl_max_texture_units);
 		}
 		else
 		{
@@ -1074,7 +1078,8 @@ static void GL_CheckExtensions (void)
 		Con_Warning ("texture_env_combine disabled at command line\n");
 	else if (GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_env_combine"))
 	{
-		Con_Printf("FOUND: ARB_texture_env_combine\n");
+		if (cls.state == ca_disconnected) // woods #supressvidmsgs
+			Con_Printf("FOUND: ARB_texture_env_combine\n");
 		gl_texture_env_combine = true;
 	}
 	else if (GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_env_combine"))
@@ -1093,7 +1098,8 @@ static void GL_CheckExtensions (void)
 		Con_Warning ("texture_env_add disabled at command line\n");
 	else if (GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_env_add"))
 	{
-		Con_Printf("FOUND: ARB_texture_env_add\n");
+		if (cls.state == ca_disconnected) // woods #supressvidmsgs
+			Con_Printf("FOUND: ARB_texture_env_add\n");
 		gl_texture_env_add = true;
 	}
 	else if (GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_env_add"))
@@ -1137,7 +1143,8 @@ static void GL_CheckExtensions (void)
 	else
 	{
 #if defined(USE_SDL2)
-		Con_Printf("FOUND: SDL_GL_SetSwapInterval\n");
+		if (cls.state == ca_disconnected) // woods #supressvidmsgs
+			Con_Printf("FOUND: SDL_GL_SetSwapInterval\n");
 #else
 		Con_Printf("FOUND: SDL_GL_SWAP_CONTROL\n");
 #endif
@@ -1162,7 +1169,8 @@ static void GL_CheckExtensions (void)
 
 		if (test1 == 1 && test2 == 2)
 		{
-			Con_Printf("FOUND: EXT_texture_filter_anisotropic\n");
+			if (cls.state == ca_disconnected) // woods #supressvidmsgs
+				Con_Printf("FOUND: EXT_texture_filter_anisotropic\n");
 			gl_anisotropy_able = true;
 		}
 		else
@@ -1191,7 +1199,8 @@ static void GL_CheckExtensions (void)
 		Con_Warning ("texture_non_power_of_two disabled at command line\n");
 	else if (GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_non_power_of_two"))
 	{
-		Con_Printf("FOUND: ARB_texture_non_power_of_two\n");
+		if (cls.state == ca_disconnected) // woods #supressvidmsgs
+			Con_Printf("FOUND: ARB_texture_non_power_of_two\n");
 		gl_texture_NPOT = true;
 	}
 	else
@@ -1262,7 +1271,8 @@ static void GL_CheckExtensions (void)
 			GL_Uniform4fFunc &&
 			GL_Uniform4fvFunc)
 		{
-			Con_Printf("FOUND: GLSL\n");
+			if (cls.state == ca_disconnected) // woods #supressvidmsgs
+				Con_Printf("FOUND: GLSL\n");
 			gl_glsl_able = true;
 		}
 		else
@@ -1345,9 +1355,12 @@ static void GL_Init (void)
 
 	strcpy(videoc, gl_renderer); // woods #q_sysinfo (qrack)
 
-	Con_SafePrintf ("GL_VENDOR: %s\n", gl_vendor);
-	Con_SafePrintf ("GL_RENDERER: %s\n", gl_renderer);
-	Con_SafePrintf ("GL_VERSION: %s\n", gl_version);
+	if (cls.state == ca_disconnected) // woods #supressvidmsgs
+	{
+		Con_SafePrintf("GL_VENDOR: %s\n", gl_vendor);
+		Con_SafePrintf("GL_RENDERER: %s\n", gl_renderer);
+		Con_SafePrintf("GL_VERSION: %s\n", gl_version);
+	}
 	
 	if (gl_version == NULL || sscanf(gl_version, "%d.%d", &gl_version_major, &gl_version_minor) < 2)
 	{
