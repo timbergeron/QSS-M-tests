@@ -1424,6 +1424,27 @@ qboolean Valid_Domain(const char* domain_str) // woods #connectfilter
 	return true;
 }
 
+qboolean Valid_Port(char* address) // woods #connectfilter
+{
+	char* port_start = strchr(address, ':');
+	if (port_start != NULL) 
+	{
+		int port_len = strlen(port_start + 1);
+		if (port_len == 5)
+		{
+			for (int i = 0; i < port_len; i++) 
+			{
+				if (!isdigit(*(port_start + i + 1))) 
+					return false;
+			}
+			return true;
+		}
+		else 
+			return false;
+	}
+	return true;
+}
+
 /*
 =====================
 Host_Connect_f
@@ -1447,7 +1468,7 @@ static void Host_Connect_f (void)
 		Host_ConnectToLastServer_f();
 	else
 	{
-		if (((Valid_Domain(name)) || (Valid_IP(name))) || !q_strcasecmp(name, "local") || !q_strcasecmp(name, "localhost")) // woods #connectfilter -- avoid client lockup if possible
+		if ((((Valid_Domain(name)) || (Valid_IP(name))) && (Valid_Port(name))) || !q_strcasecmp(name, "local") || !q_strcasecmp(name, "localhost")) // woods #connectfilter -- avoid client lockup if possible
 		{
 			strcpy(lastcattempt, name); // woods verbose connection info
 			CL_EstablishConnection(name);
@@ -1457,8 +1478,7 @@ static void Host_Connect_f (void)
 		}
 		else
 		{
-			Con_Printf("\naddress is not a valid ip or domain name\n");
-			Con_Printf("using a different port may help\n\n");
+			Con_Printf("\naddress is ^mnot^m a valid ip, domain name, or port\n\n");
 			return;
 		}
 	}
