@@ -783,6 +783,25 @@ int TexMgr_SafeTextureSize (int s)
 }
 
 /*
+===============
+TexMgr_SafeTextureSize2 -- // woods #gl_max_size
+===============
+*/
+int TexMgr_SafeTextureSize2 (int s)
+{
+	int p = 0;
+	if (!gl_texture_NPOT)
+		s = TexMgr_Pad(s);
+	if (p > 0) {
+		p = TexMgr_Pad(p);
+		if (p < s) s = p;
+	}
+	if (s > gl_hardware_maxsize)
+		s = gl_hardware_maxsize;
+	return s;
+}
+
+/*
 ================
 TexMgr_PadConditional -- only pad if a texture of that size would be padded. (used for tex coords)
 ================
@@ -1149,9 +1168,42 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 	}
 
 	// mipmap down
+
 	picmip = (glt->flags & TEXPREF_NOPICMIP) ? 0 : q_max((int)gl_picmip.value, 0);
-	mipwidth = TexMgr_SafeTextureSize (glt->width >> picmip);
-	mipheight = TexMgr_SafeTextureSize (glt->height >> picmip);
+
+	if (gl_max_size.value) // woods #gl_max_size only apply to map bsp wall/floors
+	{ 
+		if (!strstr(glt->name, "maps") ||
+		   	(strstr(glt->name, "maps/b_batt0.bsp") ||
+			 strstr(glt->name, "maps/b_batt1.bsp") ||
+			 strstr(glt->name, "maps/b_bh10.bsp") ||
+			 strstr(glt->name, "maps/b_bh100.bsp") ||
+			 strstr(glt->name, "maps/b_bh25.bsp") ||
+			 strstr(glt->name, "maps/b_explob.bsp") ||
+			 strstr(glt->name, "maps/b_nail0.bsp") ||
+			 strstr(glt->name, "maps/b_nail1.bsp") ||
+			 strstr(glt->name, "maps/b_rock0.bsp") ||
+			 strstr(glt->name, "maps/b_rock1.bsp") ||
+			 strstr(glt->name, "maps/b_shell0.bsp") ||
+			 strstr(glt->name, "maps/b_shell1.bsp")) ||
+
+			strstr(glt->name, "*") || strstr(glt->name, "sky"))
+		{
+			mipwidth = TexMgr_SafeTextureSize2 (glt->width >> picmip);
+			mipheight = TexMgr_SafeTextureSize2 (glt->height >> picmip);
+		}
+		else
+		{ 
+			mipwidth = TexMgr_SafeTextureSize (glt->width >> picmip);
+			mipheight = TexMgr_SafeTextureSize (glt->height >> picmip);
+		}
+	}
+	else
+	{
+		mipwidth = TexMgr_SafeTextureSize(glt->width >> picmip);
+		mipheight = TexMgr_SafeTextureSize(glt->height >> picmip);
+	}
+
 	while ((int) glt->width > mipwidth)
 	{
 		TexMgr_MipMapW (data, glt->width, glt->height);
