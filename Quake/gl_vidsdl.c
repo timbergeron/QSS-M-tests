@@ -887,6 +887,17 @@ static void VID_Restart (void)
 }
 
 /*
+===================
+VID_ChangedRestart_f -- woods #vidrestart
+===================
+*/
+void VID_ChangedRestart_f(void)
+{
+	vid_changed = true;
+	VID_Restart();
+}
+
+/*
 ================
 VID_Test -- johnfitz -- like vid_restart, but asks for confirmation after switching modes
 ================

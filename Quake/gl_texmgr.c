@@ -33,6 +33,8 @@ static cvar_t	gl_max_size = {"gl_max_size", "0", CVAR_NONE};
 cvar_t	gl_picmip = {"gl_picmip", "0", CVAR_NONE}; // woods remove static for #f_config
 static GLint	gl_hardware_maxsize;
 
+void VID_ChangedRestart_f (void); // woods #vidrestart
+
 static int numgltextures;
 static gltexture_t	*active_gltextures, *free_gltextures;
 gltexture_t		*notexture, *nulltexture;
@@ -721,7 +723,9 @@ void TexMgr_Init (void)
 	TexMgr_LoadPalette ();
 
 	Cvar_RegisterVariable (&gl_max_size);
+	Cvar_SetCallback (&gl_max_size, VID_ChangedRestart_f); // woods #vidrestart
 	Cvar_RegisterVariable (&gl_picmip);
+	Cvar_SetCallback (&gl_picmip, VID_ChangedRestart_f); // woods #vidrestart
 	Cvar_RegisterVariable (&gl_texture_anisotropy);
 	Cvar_SetCallback (&gl_texture_anisotropy, &TexMgr_Anisotropy_f);
 	gl_texturemode.string = glmodes[glmode_idx].name1?glmodes[glmode_idx].name1:glmodes[glmode_idx].name2;
