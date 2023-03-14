@@ -79,6 +79,7 @@ void Sbar_MiniDeathmatchOverlay (void);
 void Sbar_DeathmatchOverlay (void);
 void M_DrawPic (int x, int y, qpic_t *pic);
 void Draw_SubPic_QW (int x, int y, qpic_t* pic, int ofsx, int ofsy, int w, int h); // woods #sbarstyles for qw hud
+extern cvar_t scr_showspeed; // woods
 
 qboolean Sbar_CSQCCommand(void)
 {
@@ -1048,6 +1049,11 @@ void Sbar_DrawInventory_QW (void)
 			Sbar_DrawCharacter(25 + x, 188 - 11 * (4 - i) - 24, 18 + num[2] - '0');
 	}
 
+	GL_SetCanvas(CANVAS_SBAR);
+
+	if (scr_sbar.value == 3)
+		return;
+
 	flashon = 0;
 	// items
 	for (i = 0; i < 6; i++)
@@ -1486,7 +1492,7 @@ void Sbar_DrawFace_Team (void)
 	color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 	color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
-	if (scr_sbar.value == 3)
+	if (scr_sbar.value == 3 && scr_viewsize.value <= 110)
 		{
 			GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 			Draw_Fill(18, 164, 23, 1, color, .7); // top
@@ -1679,7 +1685,7 @@ void Sbar_Draw (void)
 			Sbar_DrawFrags ();
 	}
 
-	if (scr_sbar.value == 3) // qe hud does not use 'traditional sbar' #qehud
+	if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // qe hud does not use 'traditional sbar' #qehud
 	{
 		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 
@@ -1892,7 +1898,8 @@ void Sbar_Draw (void)
 		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
 		char* tempstring = va("%i%%", complete_pct_int);
 		int len = strlen(tempstring), i;
-		int x, y;
+		int x = 0, y = 0;
+
 		if (scr_sbar.value == 3) // #qehud
 		{
 			y = 149;
@@ -1904,15 +1911,49 @@ void Sbar_Draw (void)
 				x -= 20;
 			if (cl.stats[STAT_AMMO] > 99) // three digits
 				x -= 32;
+
+			if (scr_viewsize.value > 110)
+				return;
+
 		}
-		else
+		if (scr_sbar.value == 2)
 		{
-			GL_SetCanvas(CANVAS_SBAR);
-			x = 316;
-			y = -13;
+			GL_SetCanvas(CANVAS_SBAR2);
+
+			y = 19;
+
+			if (!scr_showspeed.value && strcmp(mute, "y")) // by itself
+					x = 24;
+			if (scr_showspeed.value && strcmp(mute, "y"))
+				x = 60;
+			if (scr_showspeed.value && !strcmp(mute, "y")) // both
+				x = 104;
+			if (!scr_showspeed.value && !strcmp(mute, "y"))
+				x = 62;
+
+			if (complete_pct_int < 10)
+				x -= 7;
+			if (complete_pct_int > 99)
+				x += 7;
 		}
-		if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
-			x = 280;
+		if (scr_sbar.value == 1)
+		{
+			GL_SetCanvas(CANVAS_SBAR2);
+
+			if (!strcmp(mute, "y"))
+				x = 280;
+			else
+				x = 320;
+
+			if (scr_viewsize.value <= 100)
+				y = -6;
+			else if (scr_viewsize.value == 110)
+				y = 19;
+			else
+				return;
+		}
+	//	if ((!strcmp(mute, "y") && (scr_sbar.value == 2)) || (scr_viewsize.value == 110 && (!strcmp(mute, "y")))) // woods #sbarstyles
+		//	x = 280;
 
 		// Bronze it
 		for (i = 0; i < len; i++)

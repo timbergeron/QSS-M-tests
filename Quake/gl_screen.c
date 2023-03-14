@@ -384,10 +384,10 @@ void SCR_DrawCenterString (void) //actually do the drawing
 					if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
 						return;
 
-	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
-		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
-	else
-		GL_SetCanvas(CANVAS_MOD); //johnfitz // woods messages scale with console font size instead
+		if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
+			GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
+		else
+			GL_SetCanvas(CANVAS_MOD); //johnfitz // woods messages scale with console font size instead
 
 // the finale prints the characters one at a time
 	if (cl.intermission)
@@ -794,7 +794,7 @@ void SCR_DrawFPS (void)
 		sprintf (st2, "%4.0f", lastfps); // woods #f_config
 		cl.fps = atoi(st2); // woods #f_config
 		x = 312 - (strlen(st)<<3); // woods added padding
-		if (scr_sbar.value == 3) // woods #qehud
+		if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // woods #qehud
 		{
 			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 			x = 301;
@@ -867,7 +867,7 @@ void SCR_DrawClock (void)
 
 	//draw it
 
-	if (scr_sbar.value == 3) // woods #qehud
+	if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // woods #qehud
 	{
 		GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 		x = 301;
@@ -919,7 +919,7 @@ void SCR_ShowPing(void)
 			x = 46; //johnfitz -- simplified becuase some positioning is handled elsewhere
 			y = 20;
 
-			if (scr_sbar.value == 3) // #qehud
+			if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // #qehud
 			{
 				GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
 				if (cl.stats[STAT_ARMOR] < 1)
@@ -1485,6 +1485,9 @@ void SCR_DrawSpeed (void)
 	char			st[64];
 	int				x, y;
 
+	if (scr_viewsize.value > 110)
+		return;
+
 	if (scr_sbar.value == 3)
 	{
 		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
@@ -1536,6 +1539,9 @@ void SCR_Mute(void)
 	if (scr_sbar.value > 3)
 		return;
 
+	if (scr_viewsize.value > 110)
+		return;
+
 	if (!strcmp(mute, "y"))
 	{
 
@@ -1570,7 +1576,14 @@ void SCR_Mute(void)
 			else
 				return;
 			if (scr_sbar.value == 2)
+			{ 
 				y = 43;
+
+				if (!scr_showspeed.value || !cls.demoplayback)
+					x = 0;
+				if (scr_showspeed.value)
+					x = 40;
+			}
 
 			M_PrintWhite(x, y, "mute");
 		}
