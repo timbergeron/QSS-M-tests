@@ -2262,7 +2262,7 @@ void Sbar_FinaleOverlay (void)
 {
 	qpic_t	*pic;
 
-	GL_SetCanvas (CANVAS_MENU); //johnfitz
+	GL_SetCanvas (CANVAS_MOD); //johnfitz -- woods, maintain alignment
 
 	pic = Draw_CachePic ("gfx/finale.lmp");
 	Draw_Pic ( (320 - pic->width)/2, 16, pic); //johnfitz -- stretched menus
