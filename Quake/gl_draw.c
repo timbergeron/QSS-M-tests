@@ -453,7 +453,10 @@ void Draw_LoadPics (void)
 
 	const unsigned int conchar_texflags = (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_NOPICMIP | TEXPREF_CONCHARS;	//Spike - we use nearest with 8bit, but not replacements. replacements also use mipmaps because they're just noise otherwise.
 
-	draw_load24bit = !!gl_load24bit.value;
+	if (gl_load24bit.value > 0) // woods #load24bit2
+		draw_load24bit = true;
+	else
+		draw_load24bit = false;
 
 	char_texture = NULL;
 	//logical path

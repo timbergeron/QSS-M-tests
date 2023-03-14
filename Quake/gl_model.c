@@ -830,11 +830,24 @@ static void Mod_LoadTextures (lump_t *l)
 				mark = Hunk_LowMark();
 				COM_StripExtension (loadmodel->name + 5, mapname, sizeof(mapname));
 				q_snprintf (filename, sizeof(filename), "textures/%s/#%s", mapname, tx->name+1); //this also replaces the '*' with a '#'
-				data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
-				if (!data)
+				
+				if (gl_load24bit.value == 2) // woods #load24bit2
 				{
-					q_snprintf (filename, sizeof(filename), "textures/#%s", tx->name+1);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
+					data = /*!gl_load24bit.value ? NULL : */Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced); // woods load water
+					if (!data)
+					{
+						q_snprintf (filename, sizeof(filename), "textures/#%s", tx->name+1);
+						data = /*!gl_load24bit.value ? NULL : */Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced); // woods load water
+					}
+				}
+				else
+				{
+					data = !gl_load24bit.value ? NULL : Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
+					if (!data)
+					{
+						q_snprintf (filename, sizeof(filename), "textures/#%s", tx->name + 1);
+						data = !gl_load24bit.value ? NULL : Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
+					}
 				}
 
 				//now load whatever we found
@@ -873,11 +886,48 @@ static void Mod_LoadTextures (lump_t *l)
 				mark = Hunk_LowMark ();
 				COM_StripExtension (loadmodel->name + 5, mapname, sizeof(mapname));
 				q_snprintf (filename, sizeof(filename), "textures/%s/%s", mapname, tx->name);
-				data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
-				if (!data)
+
+				if (gl_load24bit.value == 2) // woods #load24bit2
 				{
-					q_snprintf (filename, sizeof(filename), "textures/%s", tx->name);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
+					qboolean brushbsp;
+
+					if (!strcmp(mapname, "b_batt0") || // woods, show textures for bmodels #textureless
+						!strcmp(mapname, "b_batt1") ||
+						!strcmp(mapname, "b_bh10") ||
+						!strcmp(mapname, "b_bh100") ||
+						!strcmp(mapname, "b_bh25") ||
+						!strcmp(mapname, "b_explob") ||
+						!strcmp(mapname, "b_nail0") ||
+						!strcmp(mapname, "b_nail1") ||
+						!strcmp(mapname, "b_rock0") ||
+						!strcmp(mapname, "b_rock1") ||
+						!strcmp(mapname, "b_shell0") ||
+						!strcmp(mapname, "b_shell1"))
+						brushbsp = true;
+					else
+						brushbsp = false;
+
+					if (brushbsp)
+						data = Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
+					else
+						data = (!gl_load24bit.value || gl_load24bit.value == 2) ? NULL : Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
+					if (!data)
+					{
+						q_snprintf(filename, sizeof(filename), "textures/%s", tx->name);
+						if (brushbsp)
+							data = Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
+						else
+							data = (!gl_load24bit.value || gl_load24bit.value == 2) ? NULL : Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
+					}
+				}
+				else
+				{
+					data = (!gl_load24bit.value || gl_load24bit.value == 2) ? NULL : Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
+					if (!data)
+					{
+						q_snprintf (filename, sizeof(filename), "textures/#%s", tx->name + 1);
+						data = (!gl_load24bit.value || gl_load24bit.value == 2) ? NULL : Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
+					}
 				}
 
 				//now load whatever we found
@@ -892,11 +942,11 @@ static void Mod_LoadTextures (lump_t *l)
 						free(data);
 					Hunk_FreeToLowMark (mark);
 					q_snprintf (filename2, sizeof(filename2), "%s_glow", filename);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &rfmt, &malloced);
+					data = (!gl_load24bit.value || gl_load24bit.value == 2)?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &rfmt, &malloced);
 					if (!data)
 					{
 						q_snprintf (filename2, sizeof(filename2), "%s_luma", filename);
-						data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &rfmt, &malloced);
+						data = (!gl_load24bit.value || gl_load24bit.value == 2)?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &rfmt, &malloced);
 					}
 
 					if (data)
@@ -3118,7 +3168,10 @@ static void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 			qboolean malloced=false;
 			enum srcformat fmt = SRC_RGBA;
 			q_snprintf (filename, sizeof(filename), "%s_%i", loadmodel->name, i);
-			data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &fmt, &malloced);
+			if (gl_load24bit.value == 2) // woods #load24bit2
+				data = /*!gl_load24bit.value ? NULL : */Image_LoadImage(filename, &fwidth, &fheight, &fmt, &malloced);
+			else
+				data = !gl_load24bit.value ? NULL : Image_LoadImage(filename, &fwidth, &fheight, &fmt, &malloced);
 			//now load whatever we found
 			if (data) //load external image
 			{
@@ -3130,11 +3183,11 @@ static void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 					free(data);
 				Hunk_FreeToLowMark (mark);
 				q_snprintf (filename2, sizeof(filename2), "%s_glow", filename);
-				data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced);
+				data = (!gl_load24bit.value || gl_load24bit.value == 2) ?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced); // woods #load24bit2
 				if (!data)
 				{
 					q_snprintf (filename2, sizeof(filename2), "%s_luma", filename);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced);
+					data = (!gl_load24bit.value || gl_load24bit.value == 2) ?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced); // woods #load24bit2
 				}
 
 				if (data)
