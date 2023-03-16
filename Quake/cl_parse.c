@@ -49,6 +49,7 @@ int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // w
 extern int	maptime; // woods connected map time #maptime
 extern char videosetg[50];	// woods #q_sysinfo (qrack)
 extern char videoc[40];		// woods #q_sysinfo (qrack)
+qboolean	endscoreprint = false; // woods pq_confilter+
 
 const char *svc_strings[128] =
 {
@@ -2448,6 +2449,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 
 	if (!strncmp(string, "The match has begun!", 20)) // woods #con_mm1mute + other use
 	{
+		endscoreprint = false; // woods pq_confilter +
 		cl.matchinp = 1;
 	}
 
@@ -2483,11 +2485,12 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 			{
 				if (!strcmp(string, "The match is over\n"))
 				{
+					endscoreprint = true; // woods pq_confilter +
 					cl.matchinp = 0;
 					cl.match_pause_time = 0;
 					cl.minutes = 255;					
 					if ((cl_autodemo.value == 2) && (cls.demorecording)) // woods #autodemo
-						Cmd_ExecuteString("stop\n", src_command);
+						Cbuf_AddText("stop\n", src_command);
 					
 					q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_gamedir); // woods for end config (say gg, change color, etc)
 					if (Sys_FileTime(checkname) == -1)

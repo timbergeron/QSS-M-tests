@@ -80,6 +80,7 @@ qboolean	con_initialized;
 
 void Char_Console2(int key); // woods #ezsay add leading space for mode 2
 void Key_Console(int key); // woods con_clear_input_on_toggle
+extern qboolean	endscoreprint; // woods -- don't filter end scores pq_confilter+
 
 /*
 ================
@@ -590,8 +591,8 @@ static void Con_Print (const char *txt)
 				!strcmp(txt, "rockets") ||
 				!strcmp(txt, "shells") ||
 				!strcmp(txt, "spikes") ||
-				!strncmp(txt, "The Blue team has", 17) ||
-				!strncmp(txt, "The Red team has", 16) ||
+				(!strncmp(txt, "The Blue team has", 17) && !endscoreprint) ||
+				(!strncmp(txt, "The Red team has", 16) && !endscoreprint) ||
 				!strncmp(txt, "Match ends", 10) ||
 			//	!strcmp(txt, " health\n") ||
 				!strncmp(txt, "\"timelimit\" changed",19)) && con_filter.value)
@@ -605,8 +606,8 @@ static void Con_Print (const char *txt)
 				!strcmp(txt, "You got armor\n") ||
 				!strcmp(txt, "Ring of Shadows magic is fading\n") ||
 				!strcmp(txt, "Air supply in Biosuit expiring\n") ||
-				!strncmp(txt, "The Blue team has", 17) ||
-				!strncmp(txt, "The Red team has", 16) ||
+				(!strncmp(txt, "The Blue team has", 17) && !endscoreprint) ||
+				(!strncmp(txt, "The Red team has", 16) && !endscoreprint) ||
 				!strncmp(txt, "Match ends", 10) ||
 				!strncmp(txt, "\"timelimit\" changed", 19)) && con_filter.value)
 				Con_Printf("\n");
