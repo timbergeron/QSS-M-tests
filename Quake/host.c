@@ -531,23 +531,23 @@ void Host_BackupConfiguration(void)
 	time_t systime = time(0);
 	struct tm loct = *localtime(&systime);
 
-	q_snprintf(name, sizeof(name), "%s/id1", com_basedir); //  make an id1 folder if it doesnt exist already #smartafk
-	Sys_mkdir(name);
-
-	f = fopen(va("%s", com_gamedir, str), "r");
-
-	if (f)
-	{ 
-		q_snprintf(name, sizeof(name), "%s/backups", com_gamedir); //  create backups folder if not there
-		Sys_mkdir(name);
-	}
-
-	strftime(str, 24, "config-%m-%d-%Y", &loct);
-
 	// dedicated servers initialize the host but don't parse and set the
 	// config.cfg cvars
 	if (host_initialized && !isDedicated && !host_parms->errstate)
-	{
+	{	
+		strftime(str, 24, "config-%m-%d-%Y", &loct);
+		
+		q_snprintf(name, sizeof(name), "%s/id1", com_basedir); //  make an id1 folder if it doesnt exist already #smartafk
+		Sys_mkdir(name);
+
+		f = fopen(va("%s/%s", com_gamedir, "config.cfg"), "r");
+
+		if (f)
+		{
+			q_snprintf(name, sizeof(name), "%s/backups", com_gamedir); //  create backups folder if not there
+			Sys_mkdir(name);
+		}
+		
 		f = fopen(va("%s/backups/%s.cfg", com_gamedir, str), "w");
 		if (!f)
 		{
