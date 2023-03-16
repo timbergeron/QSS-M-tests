@@ -265,7 +265,10 @@ void CL_EstablishConnection (const char *host)
 
 	CL_Disconnect ();
 
-	Con_Printf(va("connecting to ^m%s\n", host)); // woods verbose connection info
+	if (!strstr(lasthost, ":"))
+		Con_Printf(va("connecting to ^m%s:%i\n", host, net_hostport)); // include port if not specified
+	else
+		Con_Printf(va("connecting to ^m%s\n", host)); // woods verbose connection info
 
 	cls.netcon = NET_Connect (host);
 	if (!cls.netcon) // woods -  Baker 3.60 - Rook's Qrack port 26000 notification on failure
