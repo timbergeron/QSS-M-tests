@@ -2490,7 +2490,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					cl.match_pause_time = 0;
 					cl.minutes = 255;					
 					if ((cl_autodemo.value == 2) && (cls.demorecording)) // woods #autodemo
-						Cbuf_AddText("stop\n", src_command);
+						Cbuf_AddText("stop\n");
 					
 					q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_gamedir); // woods for end config (say gg, change color, etc)
 					if (Sys_FileTime(checkname) == -1)
