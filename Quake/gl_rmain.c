@@ -693,7 +693,7 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		{
 			case mod_alias:
 
-				if (swapflagprecache && map_ctf_flag_style == 2) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+				if (swapflagprecache && map_ctf_flag_style == 2 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
 				{
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
 					{
@@ -704,7 +704,7 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 					}
 				}
 
-				if (swapflagprecache2 && map_ctf_flag_style == 3) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+				if (swapflagprecache2 && map_ctf_flag_style == 3 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
 				{
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
 					{
@@ -715,7 +715,7 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 					}
 				}
 
-				if (swapflagprecache3 && map_ctf_flag_style == 4) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+				if (swapflagprecache3 && map_ctf_flag_style == 4 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
 				{
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
 					{
