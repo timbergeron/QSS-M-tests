@@ -81,6 +81,8 @@ qboolean	con_initialized;
 void Char_Console2(int key); // woods #ezsay add leading space for mode 2
 void Key_Console(int key); // woods con_clear_input_on_toggle
 extern qboolean	endscoreprint; // woods -- don't filter end scores pq_confilter+
+char lastconnected[3]; // woods -- #identify+
+char lc[3]; // woods -- #identify+
 
 /*
 ================
@@ -620,6 +622,16 @@ static void Con_Print (const char *txt)
 			Con_Printf("\n");
 			return;
 		}
+
+		if (!strstr(txt, "entered the game")) // woods -- #identify+ copy all strings, except entered
+			strncpy(lc, txt, 2);
+
+		if (strstr(txt, "entered the game")) // woods -- #identify+ copy the name prior
+			strcpy(lastconnected, lc);
+
+		if (strstr(txt, "has connected")) // woods -- #identify+
+			strncpy(lastconnected, txt, 2);
+
 	}
 	// end woods for eliminating messages confilter+
 

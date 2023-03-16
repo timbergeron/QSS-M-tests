@@ -40,6 +40,7 @@ double		mpservertime;	// woods #servertime
 extern		char afk_name[16]; // woods #smartafk
 
 cvar_t sv_adminnick = {"sv_adminnick", "server admin", CVAR_ARCHIVE}; // woods (darkpaces) #adminnick
+extern char lastconnected[3]; // woods -- #identify+
 
 /*
 ==================
@@ -3238,6 +3239,19 @@ int unfun_match(const char* s1, char* s2) // woods add const
 	return false;
 }
 
+unsigned int Send_Identify_Command (unsigned int interval, void* param) // woods -- #identify+
+{
+	char* lastconnected = (char*)param;
+
+	unsigned char* ch; // woods dequake
+	for (ch = lastconnected; *ch; ch++)
+		*ch = dequake[*ch];
+
+	Con_Printf("\n");
+	Cbuf_AddText(va("identify %s\n\n", lastconnected));
+	return 0;
+}
+
 /* JPG 1.05
 ==================
 Host_Identify_f
@@ -3260,7 +3274,17 @@ void Host_Identify_f(void)
 
 	if (Cmd_Argc() < 2)
 	{
-		Con_Printf("usage: identify <player number or name>\n");
+		Con_Printf("usage: identify or <player number or name>\n\n");
+		
+		if (lastconnected[0] != '\0') // woods -- #identify+
+		{ 
+			Cbuf_AddText("status\n\n");
+			Con_Printf("identifying the ^mlast connected^m player\n\n");
+			char* lastconnected_copy =  SDL_strdup(lastconnected); // copy of lastconnected to pass to the callback function
+			SDL_TimerID timer_id = SDL_AddTimer(750, Send_Identify_Command, lastconnected_copy);
+		}
+		else
+			Con_Printf("cannot identify ^mlast connected^m player (not found)\n\n");
 		return;
 	}
 	if (sscanf(Cmd_Argv(1), "%d.%d.%d", &a, &b, &c) == 3)
