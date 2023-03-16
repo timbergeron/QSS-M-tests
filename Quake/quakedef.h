@@ -42,17 +42,27 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	QUAKESPASM_VER_SUFFIX		// optional version suffix string literal like "-beta1"
 #endif
 
+#define QSS_VER	"8-11-22"
+
+#define QSSM_VER_MAJOR		1
+#define QSSM_VER_MINOR		5
+#define QSSM_VER_PATCH		4
+#ifndef QSSM_VER_SUFFIX
+#define QSSM_VER_SUFFIX			// optional version suffix string literal like "-beta1"
+#endif
+
 #define	QS_STRINGIFY_(x)	#x
 #define	QS_STRINGIFY(x)	QS_STRINGIFY_(x)
 
 // combined version string like "0.92.1-beta1"
 #define	QUAKESPASM_VER_STRING	QS_STRINGIFY(QUAKESPASM_VERSION) "." QS_STRINGIFY(QUAKESPASM_VER_PATCH)
+#define	QSSM_VER_STRING		QS_STRINGIFY(QSSM_VER_MAJOR) "." QS_STRINGIFY(QSSM_VER_MINOR) "." QS_STRINGIFY(QSSM_VER_PATCH) QSSM_VER_SUFFIX
 
 #ifdef QSS_DATE
 	// combined version string like "2020-10-20-beta1"
 	#define	ENGINE_NAME_AND_VER	"QSS " QS_STRINGIFY(QSS_DATE) QUAKESPASM_VER_SUFFIX
 #else
-	#define ENGINE_NAME_AND_VER "QSS-M (1.5.4)" " " QUAKESPASM_VER_STRING
+	#define ENGINE_NAME_AND_VER "QSS-M " QSSM_VER_STRING
 #endif
 
 //define	PARANOID			// speed sapping error checking

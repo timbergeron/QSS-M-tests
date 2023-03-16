@@ -267,6 +267,8 @@ void Host_Version_f (void)
 {
 	Con_Printf ("Quake Version %1.2f\n", VERSION);
 	Con_Printf ("QuakeSpasm Version " QUAKESPASM_VER_STRING "\n");
+	Con_Printf("QuakeSpasm Spiked Version " QSS_VER "\n");
+	Con_Printf("QSS-M Version " QSSM_VER_STRING "\n");
 #ifdef QSS_VERSION
 	Con_Printf ("QSS Git Description " QS_STRINGIFY(QSS_VERSION) "\n");
 #endif
