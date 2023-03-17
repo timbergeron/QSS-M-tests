@@ -1185,12 +1185,11 @@ void Cmd_ForwardToServer (void)
 								while (*ch && *ch != ':')
 									*dst++ = *ch++;
 							}
-							while (*ch && *ch != ':')
-								*ch++;
-							if (*ch)
-								*ch++;
+							for (; *ch && *ch != ':'; ch++)
+								;
 							if (!*ch)
 								break;
+							ch++;
 						}
 					}
 				}
@@ -1420,12 +1419,11 @@ void Cmd_ForwardToServer (void)
 								while (*ch && *ch != ':')
 									*dst++ = *ch++;
 							}
-							while (*ch && *ch != ':')
-								*ch++;
-							if (*ch)
-								*ch++;
+							for (; *ch && *ch != ':'; ch++)
+								;
 							if (!*ch)
 								break;
+							ch++;
 						}
 					}
 					if (first)
@@ -1450,12 +1448,11 @@ void Cmd_ForwardToServer (void)
 								while (*ch && *ch != ':')
 									*dst++ = *ch++;
 							}
-							while (*ch && *ch != ':')
-								*ch++;
-							if (*ch)
-								*ch++;
+							for (; *ch && *ch != ':'; ch++)
+								;
 							if (!*ch)
 								break;
+							ch++;
 						}
 					}
 					//	if (first)
@@ -1477,12 +1474,11 @@ void Cmd_ForwardToServer (void)
 									*dst++ = *ch++;
 								break;
 							}
-							while (*ch && *ch != ':')
-								*ch++;
-							if (*ch)
-								*ch++;
+							for (; *ch && *ch != ':'; ch++)
+								;
 							if (!*ch)
 								break;
+							ch++;
 						}
 					}
 					else
