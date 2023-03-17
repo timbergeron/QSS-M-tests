@@ -1760,7 +1760,7 @@ static void PF_sv_setspawnparms (void)
 SV_Find_Next_Map_f -- woods to find next map in sv_map_rotation cvar #maprotation
 ==============
 */
-const char* SV_Find_Next_Map_f (char* level_list)
+char* SV_Find_Next_Map_f (char* level_list)
 {
 	static int index = 0;
 	static char level_name[16];

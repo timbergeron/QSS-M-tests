@@ -1124,18 +1124,18 @@ void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 		goto fullbrights;
 	}
 
-	if (strcmp(model, "maps/b_batt0.bsp") && // woods, show textures for bmodels #textureless
-		strcmp(model, "maps/b_batt1.bsp") &&
-		strcmp(model, "maps/b_bh10.bsp") &&
-		strcmp(model, "maps/b_bh100.bsp") &&
-		strcmp(model, "maps/b_bh25.bsp") &&
-		strcmp(model, "maps/b_explob.bsp") &&
-		strcmp(model, "maps/b_nail0.bsp") &&
-		strcmp(model, "maps/b_nail1.bsp") &&
-		strcmp(model, "maps/b_rock0.bsp") &&
-		strcmp(model, "maps/b_rock1.bsp") &&
-		strcmp(model, "maps/b_shell0.bsp") &&
-		strcmp(model, "maps/b_shell1.bsp"))
+	if (strcmp(model->name, "maps/b_batt0.bsp") && // woods, show textures for bmodels #textureless
+		strcmp(model->name, "maps/b_batt1.bsp") &&
+		strcmp(model->name, "maps/b_bh10.bsp") &&
+		strcmp(model->name, "maps/b_bh100.bsp") &&
+		strcmp(model->name, "maps/b_bh25.bsp") &&
+		strcmp(model->name, "maps/b_explob.bsp") &&
+		strcmp(model->name, "maps/b_nail0.bsp") &&
+		strcmp(model->name, "maps/b_nail1.bsp") &&
+		strcmp(model->name, "maps/b_rock0.bsp") &&
+		strcmp(model->name, "maps/b_rock1.bsp") &&
+		strcmp(model->name, "maps/b_shell0.bsp") &&
+		strcmp(model->name, "maps/b_shell1.bsp"))
 
 		if (r_lightmap_cheatsafe)
 		{
