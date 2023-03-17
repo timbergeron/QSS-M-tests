@@ -377,17 +377,13 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	const char* realobs;
 	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
 
-	if (!scr_obscenterprint.value)
-		if (!cameras) // woods #crxcamera -- don't wipe if selecting camera via mouse menu
-			if (!countdown)
-				if (!qeintermission)
-					if ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))) // woods get rid of centerprint for observers
-						return;
+	if (!scr_obscenterprint.value && !cameras && !countdown && !qeintermission && ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))))
+		return;
 
-		if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
-			GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
-		else
-			GL_SetCanvas(CANVAS_MOD); //johnfitz // woods messages scale with console font size instead
+	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
+		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
+	else
+		GL_SetCanvas(CANVAS_MOD); //johnfitz // woods messages scale with console font size instead
 
 // the finale prints the characters one at a time
 	if (cl.intermission)
