@@ -1947,7 +1947,7 @@ static void Host_Name_f (void)
 		SV_UpdateInfo((host_client-svs.clients)+1, "name", newName);
 
 	// JPG 1.05 - log the IP address woods for #iplog  (log the IP address)
-	if (cls.state == ca_connected)
+	if (cls.state == ca_connected && !cls.demoplayback)
 		if (sscanf(net_activeSockets->maskedaddress, "%d.%d.%d", &a, &b, &c) == 3)
 			IPLog_Add((a << 16) | (b << 8) | c, newName);
 }
