@@ -2403,13 +2403,11 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
 	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
-	int color = 0;
 	const char* observer = "null";
 	const char* observing = "null";
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{// am I colored up?
-		color = cl.scores[cl.realviewentity - 1].pants.basic;
 
 		char buf[10];
 		char buf2[10];

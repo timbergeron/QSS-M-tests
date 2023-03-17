@@ -33,7 +33,7 @@ static cvar_t	gl_max_size = {"gl_max_size", "0", CVAR_NONE};
 cvar_t	gl_picmip = {"gl_picmip", "0", CVAR_NONE}; // woods remove static for #f_config
 static GLint	gl_hardware_maxsize;
 
-void VID_ChangedRestart_f (void); // woods #vidrestart
+void VID_ChangedRestart_f (cvar_t* var); // woods #vidrestart
 
 static int numgltextures;
 static gltexture_t	*active_gltextures, *free_gltextures;

@@ -2090,8 +2090,8 @@ void Sbar_DeathmatchOverlay (void)
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
 			Draw_Fill ( x, y, 320-x*2, 8, ((k+1)==cl.viewentity)?75:73, 1);
 
-			Draw_FillPlayer ( x, y, 40, 4, s->shirt, 1); //johnfitz -- stretched overlays
-			Draw_FillPlayer ( x, y+4, 40, 4, s->pants, 1); //johnfitz -- stretched overlays
+		Draw_FillPlayer ( x, y, 40, 4, s->shirt, 1); //johnfitz -- stretched overlays
+		Draw_FillPlayer ( x, y+4, 40, 4, s->pants, 1); //johnfitz -- stretched overlays
 
 	// draw number
 		f = s->frags;

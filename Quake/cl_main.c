@@ -849,7 +849,7 @@ void CL_RelinkEntities (void)
 		}
 
 		if (ent->effects & EF_BRIGHTFIELD) // woods add ef_brightfield support
-			if (PScript_RunParticleEffectTypeString(oldorg, ent, frametime, "EF_BRIGHTFIELD"))
+			if (PScript_RunParticleEffectTypeString(oldorg, NULL, frametime, "EF_BRIGHTFIELD"))
 				R_EntityParticles (ent); // R_EntityParticles aka Classic_BrightField
 
 		if (ent->effects & EF_MUZZLEFLASH)

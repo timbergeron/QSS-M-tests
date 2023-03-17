@@ -1193,10 +1193,6 @@ void IN_SendKeyEvents (void)
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
-		const char* afk;
-		char buf[15];
-		afk = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "afk", buf, sizeof(buf)); // use realview so eyecam doesnt give wrong value
-
 		if (cl.modtype == 1)
 			sprintf(afktype, "%s", "ÁÆË");
 	}

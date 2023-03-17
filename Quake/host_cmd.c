@@ -3281,7 +3281,7 @@ void Host_Identify_f(void)
 			Cbuf_AddText("status\n\n");
 			Con_Printf("identifying the ^mlast connected^m player\n\n");
 			char* lastconnected_copy =  SDL_strdup(lastconnected); // copy of lastconnected to pass to the callback function
-			SDL_TimerID timer_id = SDL_AddTimer(750, Send_Identify_Command, lastconnected_copy);
+			SDL_AddTimer(750, Send_Identify_Command, lastconnected_copy);
 		}
 		else
 			Con_Printf("cannot identify ^mlast connected^m player (not found)\n\n");

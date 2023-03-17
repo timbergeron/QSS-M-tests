@@ -624,13 +624,13 @@ static void Con_Print (const char *txt)
 		}
 
 		if (!strstr(txt, "entered the game")) // woods -- #identify+ copy all strings, except entered
-			strncpy(lc, txt, 2);
+			memcpy(lc, txt, sizeof(lc));
 
 		if (strstr(txt, "entered the game")) // woods -- #identify+ copy the name prior
 			strcpy(lastconnected, lc);
 
 		if (strstr(txt, "has connected")) // woods -- #identify+
-			strncpy(lastconnected, txt, 2);
+			memcpy(lastconnected, txt, sizeof(lastconnected));
 
 	}
 	// end woods for eliminating messages confilter+

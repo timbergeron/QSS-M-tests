@@ -891,7 +891,7 @@ static void VID_Restart (void)
 VID_ChangedRestart_f -- woods #vidrestart
 ===================
 */
-void VID_ChangedRestart_f(void)
+void VID_ChangedRestart_f (cvar_t* var)
 {
 	vid_changed = true;
 	VID_Restart();
