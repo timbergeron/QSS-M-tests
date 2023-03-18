@@ -655,7 +655,7 @@ static void SCR_Callback_refdef (cvar_t *var)
 {
 	vid.recalc_refdef = 1;
 	if (key_dest != key_console && host_initialized && scr_viewsize.value != 130 && scr_viewsize.value != 20) // woods
-		Con_Printf(va("screen size: ^m%i\n", (int)scr_viewsize.value));
+		Con_Printf("screen size: ^m%i\n", (int)scr_viewsize.value);
 }
 
 /*

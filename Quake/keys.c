@@ -676,7 +676,7 @@ void Word_Delete (void) // woods from ezquake
 		len++;
 	}
 
-	strcpy(key_lines[edit_line] + key_linepos, key_lines[edit_line] + key_linepos + len);
+	memmove(key_lines[edit_line] + key_linepos, key_lines[edit_line] + key_linepos + len, strlen(key_lines[edit_line] + key_linepos + len) + 1);
 }
 
 static qboolean Key_IsWordSeparator(char c) // woods (ironwail)

@@ -216,7 +216,7 @@ static void Con_Dump_f (void)
 			buffer[x] &= 0x7f;
 
 		unsigned char* ch; // woods dequake
-		for (ch = buffer; *ch; ch++)
+		for (ch = (unsigned char*)buffer; *ch; ch++)
 		*ch = dequake[*ch];
 
 		fprintf (f, "%s\n", buffer);
@@ -913,7 +913,7 @@ void Con_Printf (const char *fmt, ...)
 	Sys_Printf ("%s", msg);
 
 	unsigned char* ch; // woods dequake
-	for (ch = demsg; *ch; ch++)
+	for (ch = (unsigned char*)demsg; *ch; ch++)
 		*ch = dequake[*ch];
 
 	// log all messages to file

@@ -1026,7 +1026,7 @@ static void UpdateWindowTitle(void)
 		char ln[128];
 
 		strcpy(ln, cl.levelname); // woods dequake
-		for (ch = ln; *ch; ch++)
+		for (ch = (unsigned char*)ln; *ch; ch++)
 		{
 			*ch = dequake[*ch];
 			if (*ch == 10 || *ch == 13)

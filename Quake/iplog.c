@@ -294,7 +294,7 @@ void IPLog_DumpTree (iplog_t *root, FILE *f)
 	sprintf(address, "%d.%d.%d.xxx", root->addr >> 16, (root->addr >> 8) & 0xff, root->addr & 0xff);
 	strcpy(name, root->name);
 
-	for (ch = name ; *ch ; ch++)
+	for (ch = (unsigned char*)name ; *ch ; ch++)
 	{
 		*ch = dequake[*ch];
 		if (*ch == 10 || *ch == 13)

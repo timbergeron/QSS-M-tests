@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 			sprintf(ticks, "%i\n", currentTime);
 			if (currentTime > lastTime + 60000 * cl_idle.value) // 60000 = 1 min
 			{
-				Con_Printf(ticks);
+				Con_Printf("%s", ticks);
 				//Host_Reconnect_Con_f ();
 				//Cmd_ExecuteString("reconnect", src_command);
 				Cbuf_AddText("reconnect\n");

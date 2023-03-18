@@ -1371,7 +1371,7 @@ void Host_ConnectToLastServer_f (void) // woods #connectlast (Qrack)
 		return;
 	}
 		
-	fgets(name, NET_NAMELEN, f);
+	(void) fgets(name, NET_NAMELEN, f);
 
 		{
 		retry:
@@ -3244,7 +3244,7 @@ unsigned int Send_Identify_Command (unsigned int interval, void* param) // woods
 	char* lastconnected = (char*)param;
 
 	unsigned char* ch; // woods dequake
-	for (ch = lastconnected; *ch; ch++)
+	for (ch = (unsigned char*)lastconnected; *ch; ch++)
 		*ch = dequake[*ch];
 
 	Con_Printf("\n");
