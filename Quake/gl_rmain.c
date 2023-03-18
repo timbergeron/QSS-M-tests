@@ -803,10 +803,10 @@ void R_ShowBoundingBoxes (void)
 	oldvm = qcvm;
 	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(&sv.qcvm);
-	for (i=0, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
+	for (i=1, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
 	{
-		if (ed == sv_player)
-			continue; //don't draw player's own bbox
+		if (ed == sv_player || ed->free)
+			continue; //don't draw player's own bbox or freed edicts
 
 //		if (r_showbboxes.value != 2)
 //			if (!SV_VisibleToClient (sv_player, ed, sv.worldmodel))

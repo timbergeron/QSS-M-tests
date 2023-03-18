@@ -2021,7 +2021,7 @@ static int COM_FindFile (const char *filename, int *handle, FILE **file,
 	searchpath_t	*search;
 	char		netpath[MAX_OSPATH];
 	pack_t		*pak;
-	int		i, findtime;
+	int		i;
 	const char *ext;
 
 	if (file && handle)
@@ -2099,8 +2099,7 @@ static int COM_FindFile (const char *filename, int *handle, FILE **file,
 			}
 
 			q_snprintf (netpath, sizeof(netpath), "%s/%s",search->filename, filename);
-			findtime = Sys_FileTime (netpath);
-			if (findtime == -1)
+			if (! (Sys_FileType(netpath) & FS_ENT_FILE))
 				continue;
 
 			if (path_id)
@@ -2328,7 +2327,7 @@ byte *COM_LoadMallocFile_TextMode_OSPath (const char *path, long *len_out)
 	FILE	*f;
 	byte	*data;
 	long	len, actuallen;
-	
+
 	// ericw -- this is used by Host_Loadgame_f. Translate CRLF to LF on load games,
 	// othewise multiline messages have a garbage character at the end of each line.
 	// TODO: could handle in a way that allows loading CRLF savegames on mac/linux
@@ -2336,26 +2335,34 @@ byte *COM_LoadMallocFile_TextMode_OSPath (const char *path, long *len_out)
 	f = fopen (path, "rt");
 	if (f == NULL)
 		return NULL;
-	
+
 	len = COM_filelength (f);
 	if (len < 0)
+	{
+		fclose (f);
 		return NULL;
-	
+	}
+
 	data = (byte *) malloc (len + 1);
 	if (data == NULL)
+	{
+		fclose (f);
 		return NULL;
+	}
 
 	// (actuallen < len) if CRLF to LF translation was performed
 	actuallen = fread (data, 1, len, f);
 	if (ferror(f))
 	{
+		fclose (f);
 		free (data);
 		return NULL;
 	}
 	data[actuallen] = '\0';
-	
+
 	if (len_out != NULL)
 		*len_out = actuallen;
+	fclose (f);
 	return data;
 }
 
@@ -3521,7 +3528,7 @@ void LOC_LoadFile (const char *file)
 	cursor = localization.text;
 
 	// skip BOM
-	if ((unsigned char)(cursor[0]) == 0xEF && (unsigned char)(cursor[1]) == 0xBB && cursor[2] == 0xB)
+	if ((unsigned char)(cursor[0]) == 0xEF && (unsigned char)(cursor[1]) == 0xBB && (unsigned char)(cursor[2]) == 0xBF)
 		cursor += 3;
 
 	lineno = 0;

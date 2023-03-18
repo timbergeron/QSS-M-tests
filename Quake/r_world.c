@@ -710,9 +710,14 @@ void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain
 	glpoly_t	*p;
 	qboolean	bound;
 	float entalpha;
+	qboolean	has_lit_water;
+	qboolean	has_unlit_water;
 
 	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe) // ericw -- !r_drawworld_cheatsafe check moved to R_DrawWorld_Water ()
 		return;
+
+	has_lit_water = false;
+	has_unlit_water = false;
 
 	if (gl_glsl_water_able)
 	{
@@ -754,11 +759,11 @@ void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain
 
 					mode = s->lightmaptexturenum>=0 && !r_fullbright_cheatsafe;
 					if (mode)
-					{
+					{	//lit
 						GL_EnableVertexAttribArrayFunc (LMCoordsAttrIndex);
 						GL_Bind (lightmaps[s->lightmaptexturenum].texture);
 					}
-					else
+					else	//unlit
 						GL_DisableVertexAttribArrayFunc (LMCoordsAttrIndex);
 
 					GL_UseProgramFunc (r_water[mode].program);

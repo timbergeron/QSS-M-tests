@@ -202,4 +202,3 @@ void DrawWaterPoly (glpoly_t *p)
 	}
 }
 
-

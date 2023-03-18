@@ -149,6 +149,8 @@ QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc = NULL; //spike (for iqms)
 
 QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC GL_CompressedTexImage2D = NULL;	//spike
 
+QS_PFNGENERATEMIPMAP GL_GenerateMipmap = NULL;
+
 //====================================
 
 //johnfitz -- new cvars
@@ -1261,6 +1263,14 @@ static void GL_CheckExtensions (void)
 	{
 		Con_Warning ("GLSL alias model rendering not available, using Fitz renderer\n");
 	}
+
+	// glGenerateMipmap for warp textures
+	if (COM_CheckParm("-nowarpmipmaps"))
+		Con_Warning ("glGenerateMipmap disabled at command line\n");
+	else if ((GL_GenerateMipmap = SDL_GL_GetProcAddress("glGenerateMipmap")) != NULL)
+		Con_Printf ("FOUND: glGenerateMipmap\n");
+	else
+		Con_Warning ("glGenerateMipmap not available, liquids won't have mipmaps\n");
 }
 
 /*
