@@ -1944,6 +1944,7 @@ void SV_SendServerinfo (client_t *client)
 		}
 	}
 
+	client->pextknown = true;	//if its not set yet, it'll probably never get set.
 	cantruncate = client->message.cursize == 0;
 retry:
 	MSG_WriteByte (&client->message, svc_print);
@@ -3014,7 +3015,7 @@ void SV_UpdateToReliableMessages (void)
 
 	for (j=0, client = svs.clients ; j<svs.maxclients ; j++, client++)
 	{
-		if (!client->active)
+		if (!client->active || !client->pextknown) //don't let it see random reliables before it sees the svc_serverdata packet.
 			continue;
 		SZ_Write (&client->message, sv.reliable_datagram.data, sv.reliable_datagram.cursize);
 	}
