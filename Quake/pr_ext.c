@@ -6295,6 +6295,7 @@ static void PF_cl_clearscene(void)
 {
 	int i;
 	dlight_t *dl;
+	float s;
 
 	if (cl_numvisedicts + 64 > cl_maxvisedicts)
 	{
@@ -6314,8 +6315,9 @@ static void PF_cl_clearscene(void)
 	}
 
 	memset(&viewprops, 0, sizeof(viewprops));
-	viewprops.rect_size[0] = vid.width;
-	viewprops.rect_size[1] = vid.height;
+	s = PR_GetVMScale();
+	viewprops.rect_size[0] = glwidth/s;
+	viewprops.rect_size[1] = glheight/s;
 
 	if (qcvm == &cl.qcvm)
 	{

@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 
 extern cvar_t gl_fullbrights, r_drawflat, gl_overbright, r_oldwater; //johnfitz
+extern cvar_t r_brokenturbbias; // to replicate a QuakeSpasm bug.
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 
 int		gl_lightmap_format;
@@ -634,7 +635,7 @@ void R_DrawBrushModel_ShowTris (entity_t *e)
 		if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
 			(!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON)))
 		{
-			if ((psurf->flags & SURF_DRAWTURB) && r_oldwater.value)
+			if ((psurf->flags & SURF_DRAWTURB) && !gl_glsl_water_able)
 				for (p = psurf->polys->next; p; p = p->next)
 					DrawGLTriangleFan (p);
 			else
@@ -813,12 +814,12 @@ void GL_CreateSurfaceLightmap (qmodel_t *model, msurface_t *surf)
 BuildSurfaceDisplayList -- called at level load time
 ================
 */
-void BuildSurfaceDisplayList (msurface_t *fa)
+static void BuildSurfaceDisplayList (msurface_t *fa)
 {
 	int			i, lindex, lnumverts;
 	medge_t		*pedges, *r_pedge;
 	float		*vec;
-	float		s, t;
+	float		s, t, s0, t0, sdiv, tdiv;
 	glpoly_t	*poly;
 	int			lmscale = (1<<fa->lmshift);
 
@@ -834,6 +835,17 @@ void BuildSurfaceDisplayList (msurface_t *fa)
 	fa->polys = poly;
 	poly->numverts = lnumverts;
 
+	if ((fa->flags & SURF_DRAWTURB) && r_brokenturbbias.value)
+	{
+		// match Mod_PolyForUnlitSurface
+		s0 = t0 = 0.f;
+	}
+	else
+	{
+		s0 = fa->texinfo->vecs[0][3];
+		t0 = fa->texinfo->vecs[1][3];
+	}
+
 	for (i=0 ; i<lnumverts ; i++)
 	{
 		lindex = currentmodel->surfedges[fa->firstedge + i];
@@ -848,10 +860,10 @@ void BuildSurfaceDisplayList (msurface_t *fa)
 			r_pedge = &pedges[-lindex];
 			vec = r_pcurrentvertbase[r_pedge->v[1]].position;
 		}
-		s = DotProduct (vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
+		s = DotProduct (vec, fa->texinfo->vecs[0]) + s0;
 		s /= fa->texinfo->texture->width;
 
-		t = DotProduct (vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
+		t = DotProduct (vec, fa->texinfo->vecs[1]) + t0;
 		t /= fa->texinfo->texture->height;
 
 		VectorCopy (vec, poly->verts[i]);

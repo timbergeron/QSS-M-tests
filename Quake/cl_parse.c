@@ -2052,7 +2052,6 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	ent->skinnum = ent->baseline.skin;
 	ent->effects = ent->baseline.effects;
 	ent->alpha = ent->baseline.alpha; //johnfitz -- alpha
-
 	VectorCopy (ent->baseline.origin, ent->origin);
 	VectorCopy (ent->baseline.angles, ent->angles);
 	if (ent->model)

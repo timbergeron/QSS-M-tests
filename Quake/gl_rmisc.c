@@ -34,7 +34,6 @@ extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_overbright;
 extern cvar_t gl_overbright_models;
-extern cvar_t r_waterquality;
 extern cvar_t r_waterwarp;
 extern cvar_t r_oldskyleaf;
 extern cvar_t r_drawworld;
@@ -46,6 +45,7 @@ extern cvar_t r_nolerp_list;
 extern cvar_t r_noshadow_list;
 //johnfitz
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
+cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates QS's bug where it ignores texture coord offsets for water (breaking curved water volumes). we do NOT ignore scales though.
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
@@ -204,7 +204,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_stereodepth);
 	Cvar_RegisterVariable (&r_clearcolor);
 	Cvar_SetCallback (&r_clearcolor, R_SetClearColor_f);
-	Cvar_RegisterVariable (&r_waterquality);
+	Cvar_RegisterVariable (&r_brokenturbbias);
 	Cvar_RegisterVariable (&r_waterwarp);
 	Cvar_RegisterVariable (&r_drawflat);
 	Cvar_RegisterVariable (&r_flatlightstyles);
