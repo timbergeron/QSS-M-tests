@@ -1364,7 +1364,7 @@ static void GL_Init (void)
 	gl_version = (const char *) glGetString (GL_VERSION);
 	gl_extensions = (const char *) glGetString (GL_EXTENSIONS);
 
-	strcpy(videoc, gl_renderer); // woods #q_sysinfo (qrack)
+	snprintf(videoc, sizeof(videoc), "%s", gl_renderer); // woods #q_sysinfo (qrack)
 
 	if (cls.state == ca_disconnected) // woods #supressvidmsgs
 	{
