@@ -1255,6 +1255,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "playdemo ", &demolist },
 	{ "timedemo ", &demolist },
 	{ "exec ", &execlist }, // woods #execlist
+	{ "gl_texturemode ", &texturemode }, // woods #texturemode
 	{ "bind ", &bindlist }, // woods #bindlist
 	{ "unbind ", &unbindlist }, // woods #bindlist
 	{ "connect ", &serverlist } // woods #serverlist

@@ -50,6 +50,8 @@ unsigned int d_8to24table_conchars[256];
 unsigned int d_8to24table_shirt[256];
 unsigned int d_8to24table_pants[256];
 
+void FileList_Add (const char* name, filelist_item_t** list); // woods #texturemode
+
 static struct
 {
 	const char *formatname;	//full name
@@ -223,6 +225,26 @@ static void TexMgr_SetFilterModes (gltexture_t *glt)
 	{
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmodes[glmode_idx].magfilter);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmodes[glmode_idx].magfilter);
+	}
+}
+
+filelist_item_t* texturemode; // woods #texturemode
+
+/*
+===============
+TextureMode_Init -- woods - tab completion for gl_texturemode #texturemode
+===============
+*/
+void TextureMode_Init (void)
+{
+	int i;
+	char modename[32];
+
+	for (i = 0; i < NUM_GLMODES; i++)
+	{
+		q_snprintf(modename, sizeof(modename), "%s", glmodes[i].name1);
+		if (strstr(modename, "GL"))
+			FileList_Add(modename, &texturemode);
 	}
 }
 

@@ -76,7 +76,7 @@ void Host_Quit_f (void)
 FileList_Add
 ==================
 */
-static void FileList_Add (const char *name, filelist_item_t **list)
+void FileList_Add (const char *name, filelist_item_t **list) // woods remove static #texturemode
 {
 	filelist_item_t	*item,*cursor,*prev;
 
