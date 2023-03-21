@@ -98,6 +98,8 @@ int				maptime;		// woods connected map time #maptime
 void Log_Last_Server_f(void); // woods #connectlast (Qrack) -- write last server to file memory
 void Host_ConnectToLastServer_f(void); // woods use #connectlast for smarter reconnect
 
+extern char lastconnected[3]; // woods #identify+
+
 void CL_ClearTrailStates(void)
 {
 	int i;
@@ -225,6 +227,7 @@ void CL_Disconnect (void)
 	cl.intermission = 0;
 	cl.worldmodel = NULL;
 	cl.sendprespawn = false;
+	memset(lastconnected, '\0', sizeof(lastconnected)); // woods #identify+
 }
 
 void CL_Disconnect_f (void)
