@@ -597,7 +597,7 @@ static void Con_Print (const char *txt)
 				(!strncmp(txt, "The Red team has", 16) && !endscoreprint) ||
 				!strncmp(txt, "Match ends", 10) ||
 			//	!strcmp(txt, " health\n") ||
-				!strncmp(txt, "\"timelimit\" changed",19)) && con_filter.value)
+				!strncmp(txt, "\"timelimit\" changed",19)) && con_filter.value && !endscoreprint)
 		{
 			fixline = 1;
 			if ((
@@ -611,7 +611,7 @@ static void Con_Print (const char *txt)
 				(!strncmp(txt, "The Blue team has", 17) && !endscoreprint) ||
 				(!strncmp(txt, "The Red team has", 16) && !endscoreprint) ||
 				!strncmp(txt, "Match ends", 10) ||
-				!strncmp(txt, "\"timelimit\" changed", 19)) && con_filter.value)
+				!strncmp(txt, "\"timelimit\" changed", 19)) && con_filter.value && !endscoreprint)
 				Con_Printf("\n");
 
 			return;
