@@ -1023,6 +1023,7 @@ to call ED_CallSpawnFunctions () to let the objects initialize themselves.
 */
 void ED_LoadFromFile (const char *data)
 {
+	const char* classname; // woods #nomonsters (ironwail)
 	dfunction_t	*func;
 	edict_t		*ent = NULL;
 	int		inhibit = 0;
@@ -1076,16 +1077,24 @@ void ED_LoadFromFile (const char *data)
 			continue;
 		}
 
+		classname = PR_GetString(ent->v.classname); // woods #nomonsters (ironwail)
+		if (sv.nomonsters && !Q_strncmp(classname, "monster_", 8))
+		{
+			ED_Free(ent);
+			inhibit++;
+			continue;
+		}
+
 	// look for the spawn function
 		//
-		func = ED_FindFunction (va("spawnfunc_%s", PR_GetString(ent->v.classname)));
+		func = ED_FindFunction(va("spawnfunc_%s", classname)); // woods #nomonsters (ironwail)
 		if (func)
 		{
 			if (!usingspawnfunc++)
 				Con_DPrintf2 ("Using DP_SV_SPAWNFUNC_PREFIX\n");
 		}
 		else
-			func = ED_FindFunction ( PR_GetString(ent->v.classname) );
+			func = ED_FindFunction (classname); // woods #nomonsters (ironwail)
 
 		if (!func)
 		{
@@ -1380,6 +1389,16 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcr
 	return true;
 }
 
+/*
+===============
+ED_Nomonsters_f -- // woods #nomonsters (ironwail)
+===============
+*/
+static void ED_Nomonsters_f(cvar_t* cvar)
+{
+	if (cvar->value)
+		Con_Warning("\"%s\" can break gameplay.\n", cvar->name);
+}
 
 /*
 ===============
@@ -1394,6 +1413,7 @@ void PR_Init (void)
 	Cmd_AddCommand ("profile", PR_Profile_f);
 	Cmd_AddCommand ("pr_dumpplatform", PR_DumpPlatform_f);
 	Cvar_RegisterVariable (&nomonsters);
+	Cvar_SetCallback (&nomonsters, ED_Nomonsters_f); // woods #nomonsters (ironwail)
 	Cvar_RegisterVariable (&gamecfg);
 	Cvar_RegisterVariable (&scratch1);
 	Cvar_RegisterVariable (&scratch2);

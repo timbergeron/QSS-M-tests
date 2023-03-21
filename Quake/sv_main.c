@@ -33,6 +33,8 @@ int				sv_protocol = PROTOCOL_RMQ;//spike -- enough maps need this now that we c
 unsigned int	sv_protocol_pext1 = PEXT1_SUPPORTED_SERVER; //spike
 unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
 
+extern cvar_t nomonsters; // woods #nomonsters (ironwail)
+
 //============================================================================
 
 void SV_CalcStats(client_t *client, int *statsi, float *statsf, const char **statss)
@@ -3629,6 +3631,7 @@ void SV_SpawnServer (const char *server)
 
 	sv.state = ss_loading;
 	sv.paused = false;
+	sv.nomonsters = (nomonsters.value != 0.f); // woods #nomonsters (ironwail)
 
 	qcvm->time = 1.0;
 
