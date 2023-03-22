@@ -1741,7 +1741,7 @@ void Key_Event (int key, qboolean down)
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp
-	if (down && (key == K_MWHEELUP) && keydown[K_COMMAND])
+	if (down && (key == K_MWHEELUP) && (keydown[K_COMMAND] && keydown[K_SHIFT]))
 	{
 		Cmd_ExecuteString("inc scr_conscale 1\n", src_command);
 		Cmd_ExecuteString("inc scr_sbarscale 1\n", src_command);
@@ -1750,7 +1750,7 @@ void Key_Event (int key, qboolean down)
 	}
 #endif
 	if (!(scr_conscale.value > 11) || !(scr_sbarscale.value > 7)) // max clamp
-	if (down && (key == K_MWHEELUP) && keydown[K_CTRL]) // woods #shortcuts
+	if (down && (key == K_MWHEELUP) && (keydown[K_CTRL] && keydown[K_SHIFT])) // woods #shortcuts
 	{
 		Cmd_ExecuteString("inc scr_conscale 1\n", src_command);
 		Cmd_ExecuteString("inc scr_sbarscale 1\n", src_command);
@@ -1760,7 +1760,7 @@ void Key_Event (int key, qboolean down)
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts
 		if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
-	if (down && (key == K_MWHEELDOWN) && keydown[K_COMMAND])
+	if (down && (key == K_MWHEELDOWN) && (keydown[K_COMMAND] && keydown[K_SHIFT]))
 	{
 		Cmd_ExecuteString("inc scr_conscale -1\n", src_command);
 		Cmd_ExecuteString("inc scr_sbarscale -1\n", src_command);
@@ -1770,7 +1770,7 @@ void Key_Event (int key, qboolean down)
 #endif
 
 	if (!(scr_conscale.value < -1) || !(scr_sbarscale.value < -1)) // min clamp
-	if (down && (key == K_MWHEELDOWN) && keydown[K_CTRL]) // woods #shortcuts
+	if (down && (key == K_MWHEELDOWN) && (keydown[K_CTRL] && keydown[K_SHIFT])) // woods #shortcuts
 	{
 		Cmd_ExecuteString("inc scr_conscale -1\n", src_command);
 		Cmd_ExecuteString("inc scr_sbarscale -1\n", src_command);
@@ -1779,7 +1779,7 @@ void Key_Event (int key, qboolean down)
 	}
 
 	if (sfxvolume.value < 1) // min clamp
-		if (down && (key == K_MWHEELUP) && keydown[K_ALT]) // woods #shortcuts
+		if (down && (key == K_MWHEELUP) && (keydown[K_ALT] && keydown[K_SHIFT])) // woods #shortcuts
 		{
 			Cmd_ExecuteString("inc volume .02\n", src_command);
 			if (!strcmp(mute, "y"))
@@ -1789,7 +1789,7 @@ void Key_Event (int key, qboolean down)
 		}
 
 	if (sfxvolume.value > 0)// min clamp
-		if (down && (key == K_MWHEELDOWN) && keydown[K_ALT]) // woods #shortcuts
+		if (down && (key == K_MWHEELDOWN) && (keydown[K_ALT] && keydown[K_SHIFT])) // woods #shortcuts
 		{
 			Cmd_ExecuteString("inc volume -.02\n", src_command);
 			if (!strcmp(mute, "y"))
