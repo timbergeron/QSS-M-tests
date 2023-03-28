@@ -703,7 +703,45 @@ Cmd_History_f -- woods #history
 */
 void Cmd_History_f(void)
 {
-	Cmd_ExecuteString("printtxt history.txt\n", src_command);
+	const char* secondary = NULL;
+
+	History_Shutdown();
+	History_Init();
+
+	if (Cmd_Argc() >= 2)
+	{
+		secondary = Cmd_Argv(1);
+	
+		if (!strcmp(secondary, "servers") || !strcmp(secondary, "-s") || !strcmp(secondary, "s"))
+		{ 
+			Cmd_ExecuteString("printtxt id1/backups/servers.txt\n", src_command);
+			return;
+		}
+	
+		if (!strcmp(secondary, "console") || !strcmp(secondary, "-c") || !strcmp(secondary, "c"))
+		{
+			Cmd_ExecuteString("printtxt history.txt\n", src_command);
+			return;
+		}
+
+		if (!strcmp(secondary, "all") || !strcmp(secondary, "-a") || !strcmp(secondary, "a"))
+		{
+			Con_Printf("\n^mserver history:\n");
+			Cmd_ExecuteString("printtxt id1/backups/servers.txt\n", src_command);
+			Con_Printf("^mconsole history:\n");
+			Cmd_ExecuteString("printtxt history.txt\n", src_command);
+			return;
+		}
+	}
+
+	Con_Printf("\n");
+	Con_Printf("usage: history <option>\n\n");
+	Con_Printf("all, -a, a      show all history\n");
+	Con_Printf("console, -c, c  console history\n");
+	Con_Printf("servers, -s, s  server connection history\n");
+	
+	Con_Printf("\n");
+
 }
 
 /*

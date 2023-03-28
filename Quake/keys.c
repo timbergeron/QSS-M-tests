@@ -1441,45 +1441,8 @@ void History_Shutdown (void)
 
 void Print_History(void) // woods #shortcuts #history
 {
-	FILE* fp;
-	int c;
-
-	History_Shutdown();
-	History_Init();
-
-	fp = fopen(va("%s/%s", host_parms->userdir, HISTORY_FILE_NAME), "rt");
-
-	if (fp == NULL) 
-	{
-		Con_Printf("Error in opening file"); // history init will print, but error check anyway.
-		return;
-	} 
-
-	int ch = fgetc(fp); // is there a history?
-
-	if (ch == EOF)
-	{ 
-		Con_Printf("no current console history\n");
-		return;
-	}
-	else
-		ungetc(ch, fp);
-
-	Con_Printf("\n");
-	Con_Printf("^mconsole history:\n");
-	Con_Printf("\n");
-
-	do 
-	{
-		c = fgetc(fp);
-		if (feof(fp))
-			break;
-		Con_Printf("%c", c);
-	} 
-	while (1);
-	fclose(fp);
-
-	Con_Printf("\n"); // bottom padding
+	Cmd_ExecuteString("history -a\n", src_command);
+	return;
 }
 
 /*
