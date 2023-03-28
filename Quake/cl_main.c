@@ -228,6 +228,7 @@ void CL_Disconnect (void)
 	cl.worldmodel = NULL;
 	cl.sendprespawn = false;
 	memset(lastconnected, '\0', sizeof(lastconnected)); // woods #identify+
+	cl.matchinp = 0; // woods
 }
 
 void CL_Disconnect_f (void)
