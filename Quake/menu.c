@@ -1510,7 +1510,7 @@ void M_Options_Draw (void)
 	// OPT_ALWAYRUN:
 	M_Print (16, 32 + 8*OPT_ALWAYRUN,	"            Always Run");
 	if (cl_alwaysrun.value)
-		M_Print (220, 32 + 8*OPT_ALWAYRUN, "quakespasm");
+		M_Print (220, 32 + 8*OPT_ALWAYRUN, "qs/power hop"); // woods
 	else if (cl_forwardspeed.value > 200.0)
 		M_Print (220, 32 + 8*OPT_ALWAYRUN, "vanilla");
 	else
