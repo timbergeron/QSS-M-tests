@@ -212,9 +212,11 @@ void ExtraMaps_NewGame (void)
 	ExtraMaps_Init ();
 }
 
+filelist_item_t* levelwithdesc; // woods #mapdescriptions
+
 /*
 ==================
-Host_Maps_f
+Host_Maps_f -- woods add worldspawn map description support #mapdescriptions
 ==================
 */
 static void Host_Maps_f (void)
@@ -222,13 +224,94 @@ static void Host_Maps_f (void)
 	int i;
 	filelist_item_t	*level;
 
-	for (level = extralevels, i = 0; level; level = level->next, i++)
-		Con_SafePrintf ("   %s\n", level->name);
+	int max_word_length = 0;
+	int count = 0;
 
-	if (i)
-		Con_SafePrintf ("%i map(s)\n", i);
+	const char* filter = NULL; 
+
+	if (Cmd_Argc() >= 2)
+		filter = Cmd_Argv(1);
+
+	for (level = extralevels, i = 0; level; level = level->next, i++) // find the max map name length
+	{
+		int word_length = strlen(level->name);
+		if (word_length > max_word_length) 
+		{
+			max_word_length = word_length;
+		}
+	}
+
+	if (levelwithdesc == NULL) // only run once
+	{
+		char* space_str = NULL;
+		int num_spaces = 0;
+
+		for (level = extralevels, i = 0; level; level = level->next, i++)
+		{
+			char* mapdesc[70];
+			Mod_LoadMapDescription(mapdesc, sizeof(mapdesc), level->name);
+
+			int word_length = strlen(level->name);
+			int num_spaces = (max_word_length + 2) - word_length;
+
+			if (num_spaces < 1) {
+				num_spaces = 1;
+			}
+
+			if (space_str == NULL) // allocate the space string once
+				space_str = malloc((num_spaces + 1) * sizeof(char));
+			else if (num_spaces + 1 > strlen(space_str))
+				space_str = realloc(space_str, (num_spaces + 1) * sizeof(char));
+
+			memset(space_str, ' ', num_spaces);
+			space_str[num_spaces] = '\0';
+
+			char combined[MAX_CHAT_SIZE_EX];
+
+			snprintf(combined, sizeof(combined), "%s%s%s", level->name, space_str, mapdesc);
+
+			FileList_Add(combined, &levelwithdesc);
+		}
+		free(space_str);
+	}
+
+	Con_SafePrintf("\n");
+
+	for (level = levelwithdesc, i = 0; level; level = level->next, i++)
+	{ 
+		char buf[MAX_CHAT_SIZE_EX];
+	
+		if (filter)
+		{
+			if (!q_strcasestr(level, filter))
+				continue;
+			COM_TintSubstring(level, filter, buf, sizeof(buf));
+			count++;
+		}
+		else
+		{
+			q_strlcpy(buf, level, sizeof(buf));
+		}
+		
+		Con_SafePrintf("   %s\n", buf);
+	}
+
+	if (filter)
+	{
+		if (count)
+			Con_SafePrintf("\n");
+		Con_SafePrintf("%i map(s) found containing '%s'\n", count, filter);
+		Con_SafePrintf("\n");
+	}
 	else
-		Con_SafePrintf ("no maps found\n");
+	{
+		Con_SafePrintf ("\n");
+		if (i)
+			Con_SafePrintf ("%i map(s)\n", i);
+		else
+			Con_SafePrintf ("no maps found\n");
+		Con_SafePrintf ("\n");
+	}
 }
 
 //==============================================================================

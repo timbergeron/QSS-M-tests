@@ -337,7 +337,7 @@ extern	double		last_angle_time;	// JPG - need this for smooth chasecam (from Pro
 
 typedef struct filelist_item_s
 {
-	char			name[32];
+	char			name[100]; // woods #mapdescriptions
 	struct filelist_item_s	*next;
 } filelist_item_t;
 
