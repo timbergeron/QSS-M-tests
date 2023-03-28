@@ -3025,15 +3025,15 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods -- use mac terminal to get some more detailed info that SDL2 can't
 
 			char* SYSINFO_processor_description = NULL;
-			char* osversion_num = NULL;
 			char* os_codename = NULL;
 			char* com_modelname = NULL;
 
 			char buf[75];
-			char buf2[75];
+			char buf2[16];
 			char buf2a[75];
+			char os_unknown[30];
 			size_t buflen = 75;
-			size_t buflen2 = 75;
+			size_t buflen2 = 16;
 			size_t buflen2a = 75;
 
 			// get prcoessor info: brand, name, ghz
@@ -3047,14 +3047,13 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 
 			if (sysctlbyname("kern.osproductversion", &buf2, &buflen2, NULL, 0) == -1)
 			{
-				osversion_num = "Unknown Version #";
-				os_codename = "Unknown OS Name";
+				os_codename = "Unknown OS Name/Version";
 			}
 			else
 			{
-				osversion_num = buf2;
-
-				if (!strncmp(buf2, "12.", 3))
+				if (!strncmp(buf2, "13.", 3))
+					os_codename = "macOS Ventura (2022)";
+				else if (!strncmp(buf2, "12.", 3))
 					os_codename = "macOS Monterey (2021)";
 				else if (!strncmp(buf2, "11", 2))
 					os_codename = "macOS Big Sur (2020)";
@@ -3081,7 +3080,10 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 				else if (!strncmp(buf2, "10.5", 3))
 					os_codename = "Mac OS X Leopard (2007)";
 				else
-					sprintf(osversion_num, "Mac OS %s", buf2);
+				{ 
+					sprintf(os_unknown, "macOS %s", buf2);
+					os_codename = os_unknown;
+				}
 			}
 
 			platform = os_codename;
