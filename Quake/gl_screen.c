@@ -81,6 +81,8 @@ extern qboolean	sb_showscores; // woods
 extern int	fragsort[MAX_SCOREBOARD]; // woods #scrping
 extern int	scoreboardlines; // woods #scrping
 char mute[2]; // woods for mute to memory #usermute
+qboolean pausedprint; // woods #qssmhints
+qboolean timerstarted; // woods #qssmhints
 
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display
@@ -91,6 +93,9 @@ int	Sbar_ColorForMap(int m); // woods #matchhud
 void Sbar_DrawCharacter(int x, int y, int num); // woods #matchhud
 void Sbar_SortFrags_Obs(void); // woods #observerhud
 void Sound_Toggle_Mute_On_f(void); // woods #usermute -- adapted from Fitzquake Mark V
+
+Uint32 HintTimer_Callback(Uint32 interval, void* param); // woods #qssmhints
+void Print_Hints_f(void); // woods #qssmhints
 
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
@@ -115,6 +120,7 @@ cvar_t		scr_matchclockscale = {"scr_matchclockscale", "1",CVAR_ARCHIVE}; // wood
 cvar_t		scr_showscores = {"scr_showscores", "0",CVAR_ARCHIVE}; // woods #observerhud
 cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet scr_obscenterprint
 cvar_t		scr_obscenterprint = {"scr_obscenterprint", "0",CVAR_ARCHIVE}; // woods
+cvar_t		scr_hints = {"scr_hints", "1",CVAR_ARCHIVE}; // woods #qssmhints
 //johnfitz
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
 cvar_t		cl_predict = { "cl_predict", "0", CVAR_NONE }; // 2021 re-release
@@ -195,6 +201,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	countdown = false; // woods #clearcrxcountdown
 	cameras = false; // woods #crxcamera
 	qeintermission = false; // woods #qeintermission
+	pausedprint = false; // woods #qssmhints
 
 	if (strstr(str, "eyecam") || strstr(str, "chasecam")) // woods #crxcamera
 		cameras = true;
@@ -214,7 +221,10 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 		countdown = false;
 
 	if ((strstr(str, "паусед")) || (strstr(str, "PAUSED"))) // #showpaused
+	{
+		pausedprint = true; // woods #qssmhints
 		return;
+	}
 
 // ===============================
 // woods for center print filter  -> this is #flagstatus
@@ -718,6 +728,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_showscores); // woods #observerhud
 	Cvar_RegisterVariable (&scr_shownet); // woods #shownet
 	Cvar_RegisterVariable (&scr_obscenterprint); // woods
+	Cvar_RegisterVariable (&scr_hints); // woods #qssmhints
 	//johnfitz
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
 	Cvar_RegisterVariable (&cl_predict); // 2021 re-release
@@ -745,6 +756,7 @@ void SCR_Init (void)
 	Cmd_AddCommand("togglezoom", SCR_ToggleZoom_f); // woods #zoom (ironwail)
 	Cmd_AddCommand("+zoom", SCR_ZoomDown_f); // woods #zoom (ironwail)
 	Cmd_AddCommand("-zoom", SCR_ZoomUp_f); // woods #zoom (ironwail)
+	Cmd_AddCommand("hints", Print_Hints_f); // woods #hints
 
 	SCR_LoadPics (); //johnfitz
 
@@ -1771,18 +1783,115 @@ void SCR_DrawPause (void)
 
 /*
 ==============
-DrawPause2 -- woods #showpaused
+QSS-M Hints -- woods #qssmhints
+==============
+*/
+
+char* hints[] = {
+	"typing anything into the console searches for commands",
+	"typing help into the console opens qss-m webpage in browser",
+	"alt-enter swtiches between windowed and fullscreen mode",
+	"pressing tab in console will auto-complete commands",
+	"dragging a demo into windowed mode plays the demo",
+	"arrow keys, scroll wheel, and pgup/pgdn adjust demo speed",
+	"ctrl-u clears the console line",
+	"cl_say allows you to tyle chat into the console",
+	"connect last or reconnect will connect to last server",
+	"connect + tab will autocomplete server history",
+	"send a direct message by typing tell + first letters of name",
+	"alt+shift+scrollwheel adjust game volume",
+	"ctrl-m or mute will mute volume",
+	"clear command will clear all console history",
+	"type exec + tab to exec cfgs, or restore cfg backup",
+	"uparrow and downarrow in the console for history",
+	"add nickname to con_notifylist to flash client attentiion",
+	"ctrl-enter in console will use messagemode2 (team)",
+	"uparrow and downarrow in the console for history",
+	"ctrl-home and ctrl-end jump to top/bottom of console",
+	"type identify to identify the last person connected",
+	"type lastid to see your last recorded ghost code",
+	"type hints to print all hints to the console",
+	"typing 'maps chamber' will search maps for chamber",
+	"anything in end.cfg will be executed at match end",
+	"anything in ctf.cfg will be executed if mode is ctf",
+	"anything in dm.cfg will be executed if mode is dm",
+	"type namemaker to make custom names with quake chars",
+	"chat f_config, f_system, f_version, f_random for player info",
+	"cl_smartspawn 1 can help train spawning with spacebar",
+	"say_rand0 will randomly chat a line from say_rand0.txt",
+	"typing open id1 or open screenshots etc will open folder",
+	"w_switch values > 0 will disable all auto weapon switches",
+	"use cl_enemycolor and cl_teamcolor to force colors"
+};
+
+char* random_hint;
+int num_hints = sizeof(hints) / sizeof(hints[0]);
+
+Uint32 HintTimer_Callback (Uint32 interval, void* param)
+{
+	int index = rand() % num_hints;
+	random_hint = hints[index];
+	return interval;
+}
+
+/*
+==============
+Print_Hints_f -- woods #qssmhints
+==============
+*/
+
+void Print_Hints_f (void)
+{
+	Con_Printf("\n");
+	for (int i = 0; i < num_hints; i++) 
+	{
+		Con_Printf("%s\n", hints[i]);
+	}
+	Con_Printf("\n");
+}
+
+/*
+==============
+DrawPause2 -- woods #showpaused #qssmhints
 ==============
 */
 void SCR_DrawPause2(void)
 {
 	qpic_t* pic;
+	char hint[80];
+	static SDL_TimerID hint_timer_id = 0;
 
 	GL_SetCanvas(CANVAS_MENU2); //johnfitz
 
 	pic = Draw_CachePic("gfx/pause.lmp");
-	if (cl.match_pause_time > 0)
-	Draw_Pic((320 - pic->width) / 2, (240 - 48 - pic->height) / 2, pic); //johnfitz -- stretched menus
+
+	if (cl.match_pause_time > 0 || pausedprint)
+		Draw_Pic((320 - pic->width) / 2, (240 - 48 - pic->height) / 2, pic); //johnfitz -- stretched menus
+
+	if ((cl.match_pause_time > 0 || pausedprint) && scr_hints.value)
+	{
+		GL_SetCanvas(CANVAS_HINT);
+
+		if (!timerstarted) // only start timer once
+		{ 
+			random_hint = hints[rand() % num_hints];
+			hint_timer_id = SDL_AddTimer(6000, HintTimer_Callback, NULL);
+			timerstarted = true;
+		}
+
+		snprintf(hint, sizeof(hint), "%s", random_hint);
+		M_Print(340 - (strlen(hint) * 4), 300, "QSS-M Hint:");
+		M_PrintWhite(346 - ((strlen(hint) - 24) * 4), 300, hint);
+	}
+	else // remove timer when not paused, if it was started
+	{ 
+		if (timerstarted)
+		{
+			SDL_RemoveTimer(hint_timer_id);
+			hint_timer_id = 0;
+		}
+		timerstarted = false;
+	}
 
 	scr_tileclear_updates = 0; //johnfitz
 }

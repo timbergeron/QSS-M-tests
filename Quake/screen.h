@@ -82,6 +82,7 @@ typedef enum {
 	CANVAS_BOTTOMRIGHTQE, // woods for QE hud, scr_sbar 3
 	CANVAS_BOTTOMRIGHTQESMALL, // woods for QE hud, scr_sbar 3
 	CANVAS_MOD, // woods #modprint
+	CANVAS_HINT, // woods #qssmhints
 	CANVAS_OBSERVER, // woods #observer
 	CANVAS_SCORES, // woods #observerhud
 	CANVAS_BOTTOMRIGHT,
