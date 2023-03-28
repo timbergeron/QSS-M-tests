@@ -855,14 +855,14 @@ static void Mod_LoadTextures (lump_t *l)
 				{
 					q_strlcpy (texturename, filename, sizeof(texturename));
 					tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, fwidth, fheight,
-						rfmt, data, filename, 0, TEXPREF_NONE);
+						rfmt, data, filename, 0, TEXPREF_MIPMAP); // woods #watermip
 				}
 				else //use the texture from the bsp file
 				{
 					q_snprintf (texturename, sizeof(texturename), "%s:%s", loadmodel->name, tx->name);
 					offset = (src_offset_t)(mt+1) - (src_offset_t)mod_base;
 					tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, imgwidth, imgheight,
-						fmt, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_NONE);
+						fmt, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP); // woods #watermip
 				}
 
 				Hunk_FreeToLowMark (mark);
