@@ -269,12 +269,19 @@ void Sky_LoadSkyBox (const char *name)
 		}
 		else
 		{
-			Con_Printf ("Couldn't load %s\n", filename);
+			//Con_Printf ("Couldn't load skybox %s\n", filename); // woods
 			skybox_textures[i] = notexture;
 		}
 		if (malloced)
 			free(data);
 		Hunk_FreeToLowMark (mark);
+	}
+
+	if (nonefound) // woods, verbose missing sky + limit spam
+	{
+		int length = strlen(filename);
+		filename[length - 2] = '\0';
+		Con_Printf("this map uses an external sky, could't load skybox %s\n", filename);
 	}
 
 	if (nonefound) // go back to scrolling sky if skybox is totally missing
