@@ -49,6 +49,8 @@ static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
 static cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
 
+extern cvar_t	r_fastturb; // woods #fastturb
+
 static byte	*mod_novis;
 static int	mod_novis_capacity;
 
@@ -851,7 +853,7 @@ static void Mod_LoadTextures (lump_t *l)
 				}
 
 				//now load whatever we found
-				if (data) //load external image
+				if (data && !r_fastturb.value) //load external image // woods #fastturb
 				{
 					q_strlcpy (texturename, filename, sizeof(texturename));
 					tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, fwidth, fheight,

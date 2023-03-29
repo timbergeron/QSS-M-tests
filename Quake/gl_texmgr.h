@@ -105,6 +105,7 @@ void TexMgr_ReloadNobrightImages (void);
 int TexMgr_Pad(int s);
 int TexMgr_SafeTextureSize (int s);
 int TexMgr_SafeTextureSize2 (int s); // woods #gl_max_size
+int TexMgr_SafeTextureSize3 (int s); // woods #fastturb
 int TexMgr_PadConditional (int s);
 
 // TEXTURE BINDING & TEXTURE UNIT SWITCHING

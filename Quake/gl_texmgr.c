@@ -31,6 +31,7 @@ static cvar_t	gl_texturemode = {"gl_texturemode", "", CVAR_ARCHIVE};
 static cvar_t	gl_texture_anisotropy = {"gl_texture_anisotropy", "1", CVAR_ARCHIVE};
 static cvar_t	gl_max_size = {"gl_max_size", "0", CVAR_NONE};
 cvar_t	gl_picmip = {"gl_picmip", "0", CVAR_NONE}; // woods remove static for #f_config
+cvar_t	r_fastturb = {"r_fastturb", "0", CVAR_ARCHIVE}; // woods #fastturb
 static GLint	gl_hardware_maxsize;
 
 void VID_ChangedRestart_f (cvar_t* var); // woods #vidrestart
@@ -748,6 +749,7 @@ void TexMgr_Init (void)
 	Cvar_SetCallback (&gl_max_size, VID_ChangedRestart_f); // woods #vidrestart
 	Cvar_RegisterVariable (&gl_picmip);
 	Cvar_SetCallback (&gl_picmip, VID_ChangedRestart_f); // woods #vidrestart
+	Cvar_RegisterVariable (&r_fastturb); // woods #fastturb
 	Cvar_RegisterVariable (&gl_texture_anisotropy);
 	Cvar_SetCallback (&gl_texture_anisotropy, &TexMgr_Anisotropy_f);
 	gl_texturemode.string = glmodes[glmode_idx].name1?glmodes[glmode_idx].name1:glmodes[glmode_idx].name2;
@@ -816,6 +818,25 @@ TexMgr_SafeTextureSize2 -- // woods #gl_max_size
 int TexMgr_SafeTextureSize2 (int s)
 {
 	int p = 0;
+	if (!gl_texture_NPOT)
+		s = TexMgr_Pad(s);
+	if (p > 0) {
+		p = TexMgr_Pad(p);
+		if (p < s) s = p;
+	}
+	if (s > gl_hardware_maxsize)
+		s = gl_hardware_maxsize;
+	return s;
+}
+
+/*
+===============
+TexMgr_SafeTextureSize3 -- // woods #fastturb
+===============
+*/
+int TexMgr_SafeTextureSize3 (int s)
+{
+	int p = 1;
 	if (!gl_texture_NPOT)
 		s = TexMgr_Pad(s);
 	if (p > 0) {
@@ -1228,6 +1249,12 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 	{
 		mipwidth = TexMgr_SafeTextureSize(glt->width >> picmip);
 		mipheight = TexMgr_SafeTextureSize(glt->height >> picmip);
+	}
+
+	if (strstr(glt->name, "*") && r_fastturb.value) // woods #fastturb
+	{
+		mipwidth = TexMgr_SafeTextureSize3 (glt->width >> picmip);
+		mipheight = TexMgr_SafeTextureSize3 (glt->height >> picmip);
 	}
 
 	while ((int) glt->width > mipwidth)
