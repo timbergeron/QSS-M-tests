@@ -244,11 +244,10 @@ static void Host_Maps_f (void)
 	if (levelwithdesc == NULL) // only run once
 	{
 		char* space_str = NULL;
-		int num_spaces = 0;
 
 		for (level = extralevels, i = 0; level; level = level->next, i++)
 		{
-			char* mapdesc[70];
+			char mapdesc[70];
 			Mod_LoadMapDescription(mapdesc, sizeof(mapdesc), level->name);
 
 			int word_length = strlen(level->name);
@@ -283,14 +282,14 @@ static void Host_Maps_f (void)
 	
 		if (filter)
 		{
-			if (!q_strcasestr(level, filter))
+			if (!q_strcasestr(level->name, filter))
 				continue;
-			COM_TintSubstring(level, filter, buf, sizeof(buf));
+			COM_TintSubstring(level->name, filter, buf, sizeof(buf));
 			count++;
 		}
 		else
 		{
-			q_strlcpy(buf, level, sizeof(buf));
+			q_strlcpy(buf, level->name, sizeof(buf));
 		}
 		
 		Con_SafePrintf("   %s\n", buf);
