@@ -1173,10 +1173,10 @@ qboolean CL_CheckDownload(const char *filename)
 		return true;	//block while we're already downloading something
 	if (allow_download.value == 2) // woods #ftehack
 	{ 
-		if (netquakeio)
-			return false;
 		if (!cl.protocol_dpdownload && cl.protocol != 666) // woods, allow downloads on qecrx (nq physics, FTE server) -- hack
 			return false;	//can't download anyway
+		if (netquakeio)
+			return false;
 	}
 	else
 	{

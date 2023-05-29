@@ -523,9 +523,6 @@ static void Con_Print (const char *txt)
 
 		}
 
-		if (cl.protocol == 666 && (strstr(txt, "VERSION 1.09 SERVER"))) // woods
-			netquakeio = true; // woods
-
 		if (cl_autodemo.value == 2) // woods, inspired by uns disconnects :(
 			if (!strcmp(txt, "Match unpaused\n") && !cls.demoplayback && !cls.demorecording)
 				Cmd_ExecuteString("record\n", src_command);
@@ -641,6 +638,9 @@ static void Con_Print (const char *txt)
 
 	}
 	// end woods for eliminating messages confilter+
+
+	if (strstr(txt, "VERSION 1.09 SERVER")) // woods
+		netquakeio = true; // woods
 
 	if (strstr(txt, "server does not have file locs/") || strstr(txt, "Download locs/")) // woods #locdownloads try to download; don't spam console its missing (kilomile)
 		return;
