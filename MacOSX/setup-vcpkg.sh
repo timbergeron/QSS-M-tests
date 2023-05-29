@@ -5,8 +5,8 @@ if [ ! -d "vcpkg" ]; then
     ./vcpkg/bootstrap-vcpkg.sh
 fi
 
-./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=x64-osx-10.9 zlib libogg opus opusfile libvorbis libmad libFLAC
-./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=arm64-osx-11.0 zlib libogg opus opusfile libvorbis libmad libFLAC
+./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=x64-osx-10.9 zlib libogg opus opusfile libvorbis libmad libflac
+./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=arm64-osx-11.0 zlib libogg opus opusfile libvorbis libmad libflac
 
 mkdir -p libs_universal
 lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libogg.a ./vcpkg/installed/arm64-osx-11.0/lib/libogg.a -output ./libs_universal/libogg.a
