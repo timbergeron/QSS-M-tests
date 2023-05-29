@@ -99,6 +99,7 @@ void Log_Last_Server_f(void); // woods #connectlast (Qrack) -- write last server
 void Host_ConnectToLastServer_f(void); // woods use #connectlast for smarter reconnect
 
 extern char lastconnected[3]; // woods #identify+
+extern qboolean netquakeio; // woods
 
 void CL_ClearTrailStates(void)
 {
@@ -229,6 +230,7 @@ void CL_Disconnect (void)
 	cl.sendprespawn = false;
 	memset(lastconnected, '\0', sizeof(lastconnected)); // woods #identify+
 	cl.matchinp = 0; // woods
+	netquakeio = false; // woods
 }
 
 void CL_Disconnect_f (void)
@@ -1171,6 +1173,8 @@ qboolean CL_CheckDownload(const char *filename)
 		return true;	//block while we're already downloading something
 	if (allow_download.value == 2) // woods #ftehack
 	{ 
+		if (netquakeio)
+			return false;
 		if (!cl.protocol_dpdownload && cl.protocol != 666) // woods, allow downloads on qecrx (nq physics, FTE server) -- hack
 			return false;	//can't download anyway
 	}

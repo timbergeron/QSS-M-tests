@@ -44,6 +44,7 @@ int		con_buffersize; //johnfitz -- user can now override default
 
 qboolean 	con_forcedup;		// because no entities to refresh
 qboolean 	matchstats = false;	// woods
+qboolean 	netquakeio = false;	// woods
 
 int		con_totallines;		// total lines in console scrollback
 int		con_backscroll;		// lines up from bottom to display
@@ -518,6 +519,9 @@ static void Con_Print (const char *txt)
 			}
 
 		}
+
+		if (cl.protocol == 666 && (strstr(txt, "VERSION 1.09 SERVER"))) // woods
+			netquakeio = true; // woods
 
 		if (cl_autodemo.value == 2) // woods, inspired by uns disconnects :(
 			if (!strcmp(txt, "Match unpaused\n") && !cls.demoplayback && !cls.demorecording)
