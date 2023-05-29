@@ -62,6 +62,7 @@ cvar_t		con_filter = { "con_filter", "1", CVAR_ARCHIVE }; //johnfitz
 cvar_t		con_notifylist = { "con_notifylist", "", CVAR_ARCHIVE }; // woods #notiy
 cvar_t		con_mm1mute = {"con_mm1mute", "1", CVAR_ARCHIVE}; // woods #con_mm1mute
 cvar_t		con_notifylines = { "con_notifylines","4",CVAR_ARCHIVE }; // woods #notifylines
+cvar_t		con_notifyposition = { "con_notifyposition","0",CVAR_ARCHIVE }; // woods #notifyposition
 
 char		con_lastcenterstring[1024]; //johnfitz
 
@@ -378,6 +379,8 @@ void Con_Init (void)
 	Cvar_RegisterVariable (&con_notifylist); // woods #notiy
 	Cvar_RegisterVariable (&con_mm1mute); // woods #con_mm1mute
 	Cvar_RegisterVariable (&con_notifylines); // woods #notifylines
+	Cvar_RegisterVariable (&con_notifyposition); // woods #notifyposition
+
 
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f);
 	Cmd_AddCommand ("messagemode", Con_MessageMode_f);
@@ -1547,7 +1550,7 @@ void Con_DrawNotify (void)
 	int		maxlines = CLAMP (0, con_notifylines.value, NUM_CON_TIMES); // woods from proquake 493 #notifylines
 
 	GL_SetCanvas (CANVAS_CONSOLE); //johnfitz
-	v = vid.conheight; //johnfitz
+	v = vid.conheight + con_notifyposition.value; // woods #notifyposition
 
 	for (i = con_current - maxlines + 1; i <= con_current; i++) // woods from proquake 493 #notifylines
 	{
