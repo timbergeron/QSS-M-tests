@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static	char	pr_string_temp[STRINGTEMP_BUFFERS][STRINGTEMP_LENGTH];
 static	byte	pr_string_tempindex = 0;\
 
-cvar_t sv_map_rotation = {"sv_map_rotation", "dm2 dm3 dm4 dm6 e1m2 end", CVAR_NONE}; // woods #maprotation
+cvar_t sv_map_rotation = {"sv_map_rotation", "", CVAR_NONE}; // woods #maprotation
 
 char *PR_GetTempString (void)
 {
