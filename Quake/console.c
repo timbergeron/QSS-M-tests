@@ -631,7 +631,7 @@ static void Con_Print (const char *txt)
 			memcpy(lc, txt, sizeof(lc));
 
 		if (strstr(txt, "entered the game")) // woods -- #identify+ copy the name prior
-			strcpy(lastconnected, lc);
+			memcpy(lastconnected, lc, sizeof(lastconnected));
 
 		if (strstr(txt, "has connected")) // woods -- #identify+
 			memcpy(lastconnected, txt, sizeof(lastconnected));
@@ -648,11 +648,11 @@ static void Con_Print (const char *txt)
 	if (!VID_HasMouseOrInputFocus() && !cls.demoplayback) // woods flash if my name is mentioned #flash
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 		{ 
-			char namewithcolon[16]; // me talking while away needs to be avoided (f_ prints, alt tabbed, etc)
+			char namewithcolon[20]; // me talking while away needs to be avoided (f_ prints, alt tabbed, etc)
 
 			sprintf(namewithcolon, "%s: ", cl_name.string); // "woods: "
 
-			if (strstr(txt, "στατιστιγσ") || strstr(txt, "match starting") || strstr(txt, "End of match"))
+			if (strstr(txt, "?????") || strstr(txt, "match starting") || strstr(txt, "End of match"))
 				matchstats = true;
 			if (strstr(txt, "The match is over"))
 				matchstats = false;
