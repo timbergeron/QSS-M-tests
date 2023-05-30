@@ -652,7 +652,7 @@ static void Con_Print (const char *txt)
 
 			sprintf(namewithcolon, "%s: ", cl_name.string); // "woods: "
 
-			if (strstr(txt, "?????") || strstr(txt, "match starting") || strstr(txt, "End of match"))
+			if (strstr(txt, "στατιστιγσ") || strstr(txt, "match starting") || strstr(txt, "End of match"))
 				matchstats = true;
 			if (strstr(txt, "The match is over"))
 				matchstats = false;
