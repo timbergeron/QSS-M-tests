@@ -731,14 +731,17 @@ void M_Setup_Draw (void)
 {
 	qpic_t	*p;
 
-	char buf[15];
-	const char* obs;
-	obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+	if (cls.state == ca_connected)
+	{
+		char buf[15];
+		const char* obs;
+		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
 
-	if (!strcmp(obs, "fly")) // woods #3rdperson
-		flyme = true;
-	else
-		flyme = false;
+		if (!strcmp(obs, "fly")) // woods #3rdperson
+			flyme = true;
+		else
+			flyme = false;
+	}
 
 	if (!chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 	{
