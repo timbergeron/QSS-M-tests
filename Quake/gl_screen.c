@@ -1170,6 +1170,14 @@ void SCR_DrawMatchScores(void)
 	{
 		GL_SetCanvas(CANVAS_TOPRIGHT3);
 
+		char buf[10];
+
+		const char* uiplaymode;
+		uiplaymode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf, sizeof(buf)); // userinfo (qecrx)
+
+		if (!q_strcasecmp(uiplaymode, "ffa"))
+			return;
+		
 		if (scr_match_hud.value)   // woods for console var off and on
 		{
 			if (cl.minutes != 255)
