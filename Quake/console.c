@@ -85,6 +85,7 @@ void Key_Console(int key); // woods con_clear_input_on_toggle
 extern qboolean	endscoreprint; // woods -- don't filter end scores pq_confilter+
 char lastconnected[3]; // woods -- #identify+
 char lc[3]; // woods -- #identify+
+int retry_counter = 0; // woods #ms
 
 /*
 ================
@@ -641,6 +642,12 @@ static void Con_Print (const char *txt)
 
 	if (strstr(txt, "VERSION 1.09 SERVER")) // woods
 		netquakeio = true; // woods
+
+	if ((strstr(txt, "CL_ParseServerMessage: svc_updatename") && strstr(txt, "MAX_SCOREBOARD")) && retry_counter < 3) // woods, retry 3 times until this is fixed :(
+	{
+		Cbuf_AddText("reconnect\n");
+		retry_counter++;
+	}
 
 	if (strstr(txt, "server does not have file locs/") || strstr(txt, "Download locs/")) // woods #locdownloads try to download; don't spam console its missing (kilomile)
 		return;

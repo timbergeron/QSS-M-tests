@@ -100,6 +100,7 @@ void Host_ConnectToLastServer_f(void); // woods use #connectlast for smarter rec
 
 extern char lastconnected[3]; // woods #identify+
 extern qboolean netquakeio; // woods
+extern int retry_counter; // woods #ms
 
 void CL_ClearTrailStates(void)
 {
@@ -401,6 +402,8 @@ void CL_SignonReply (void)
 
 		if (!q_strcasecmp(val, "ctf"))
 			Cbuf_AddText("exec ctf.cfg\n");
+
+		retry_counter = 0; // woods #ms
 
 		break;
 	}
