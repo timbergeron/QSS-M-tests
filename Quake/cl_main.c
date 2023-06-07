@@ -232,7 +232,9 @@ void CL_Disconnect (void)
 	memset(lastconnected, '\0', sizeof(lastconnected)); // woods #identify+
 	cl.matchinp = 0; // woods
 	netquakeio = false; // woods
-	Cbuf_AddText("setinfo observing off\n"); // woods
+
+	if (cl.modtype == 1 || cl.modtype == 4)
+		Cbuf_AddText("setinfo observing off\n"); // woods
 }
 
 void CL_Disconnect_f (void)
