@@ -252,6 +252,13 @@ Host should be either "local" or a net address to be passed on
 void CL_EstablishConnection (const char *host)
 {
 	static char lasthost[NET_NAMELEN];
+
+	char addressip[18]; // woods
+	char local_verbose[40]; // woods
+
+	int	numaddresses; // woods
+	qhostaddr_t addresses[16]; // woods
+
 	if (cls.state == ca_dedicated)
 		return;
 
@@ -272,10 +279,20 @@ void CL_EstablishConnection (const char *host)
 
 	CL_Disconnect ();
 
-	if (!strstr(lasthost, ":"))
-		Con_Printf("connecting to ^m%s:%i\n", host, net_hostport); // woods include port if not specified
+	numaddresses = NET_ListAddresses(addresses, sizeof(addresses) / sizeof(addresses[0])); // woods
+
+	if (numaddresses && !strstr(addresses[0], "[")) // woods, no [ for ipv6
+		sprintf(addressip, " -- %s", addresses[0]);
+
+	if (!strcmp(host, "local") || !strcmp(host, "localhost")) // woods
+		sprintf(local_verbose, "%s%s", host, addressip);
 	else
-		Con_Printf("connecting to ^m%s\n", host); // woods verbose connection info
+		sprintf(local_verbose, "%s", host);
+
+	if (!strstr(lasthost, ":"))
+		Con_Printf("connecting to ^m%s:%i\n", local_verbose, net_hostport); // woods include port if not specified
+	else
+		Con_Printf("connecting to ^m%s\n", local_verbose); // woods verbose connection info
 
 	cls.netcon = NET_Connect (host);
 	if (!cls.netcon) // woods -  Baker 3.60 - Rook's Qrack port 26000 notification on failure
