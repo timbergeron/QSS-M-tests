@@ -253,7 +253,7 @@ void CL_EstablishConnection (const char *host)
 {
 	static char lasthost[NET_NAMELEN];
 
-	char addressip[18]; // woods
+	char addressip[18] = {'\0'}; // woods
 	char local_verbose[40]; // woods
 
 	int	numaddresses; // woods
