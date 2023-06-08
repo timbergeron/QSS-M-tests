@@ -947,6 +947,10 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, glwidth, glheight, 0, -99999, 99999);
 		glViewport (glx, gly, glwidth, glheight);
 		break;
+	case CANVAS_DEFAULT2: // woods
+		glOrtho(0, glwidth / 2, glheight / 2, 0, -99999, 99999);
+		glViewport(glx, gly, glwidth, glheight);
+		break;
 	case CANVAS_SCOREBOARD: // woods for +showscores #scoreboard
 		s = (float)glwidth / vid.conwidth; //use console scale
 		glOrtho (0, glwidth / s, glheight / s, 0, -99999, 99999);

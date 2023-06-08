@@ -1763,7 +1763,7 @@ void SCR_DrawNet (void)
 	if (cls.demoplayback)
 		return;
 
-	GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
+	GL_SetCanvas (CANVAS_DEFAULT2); // woods
 
 	Draw_Pic (scr_vrect.x+64, scr_vrect.y, scr_net);
 }
