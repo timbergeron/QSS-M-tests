@@ -332,6 +332,9 @@ void GL_DrawAliasFrame_GLSL (aliasglsl_t *glsl, aliashdr_t *paliashdr, lerpdata_
 {
 	float	blend;
 
+	if (!currententity->model) // woods -- flush guard
+		return;
+
 	if (lerpdata.pose1 != lerpdata.pose2)
 	{
 		blend = lerpdata.blend;
@@ -446,6 +449,9 @@ GL_DrawAliasFrame
 */
 void GL_DrawAliasFrame (aliashdr_t *paliashdr, lerpdata_t lerpdata)
 {
+	if (!currententity->model) // woods -- flush guard
+		return;
+
 	static	vec3_t vpos[65536];
 	static	vec4_t vc[65536];
 	int i;
