@@ -368,7 +368,7 @@ typedef struct
 	char		ghostcode[4];		// woods for ghost code to memory #ghostcode
 	char		observer[2];		// woods for ghost code to memory #observer
 	int			fps;				// woods #f_config
-	int			modtype;			// woods #modtype detect mp server mod type 3 - crmod, 2 - crctf, 1 - crx
+	int			modtype;			// woods #modtype detect mp server mod type 5 - FTE, 4 - hybrid crx, 3 - crmod, 2 - crctf, 1 - crx
 	int			teamscore[3];		// woods #hud_diff	
 	int			teamcolor[3];		// woods #hud_diff
 	int			realviewentity;		// woods #hud_diff

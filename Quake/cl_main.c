@@ -403,6 +403,12 @@ void CL_SignonReply (void)
 			cl.modtype = 1;
 			strncpy(cl.observer, "n", sizeof(cl.observer));
 		}
+
+		char buf2[10]; // woods #modtype [FTE server check]
+		val = Info_GetKey(cl.serverinfo, "*version", buf2, sizeof(buf2));
+		if (strstr(val, "FTE"))
+			cl.modtype = 5;
+
 		/*
 		
 		char buf2[10]; // woods #modtype [qecrx server check]
