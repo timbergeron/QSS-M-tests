@@ -528,10 +528,6 @@ static void Con_Print (const char *txt)
 			if (!strcmp(txt, "Match unpaused\n") && !cls.demoplayback && !cls.demorecording)
 				Cmd_ExecuteString("record\n", src_command);
 
-		if (cl.modtype == 4)
-			if (strstr(txt, "{&c")) // woods supress the ezquake spam
-				return;
-
 		if (strstr(txt, ": ")) // woods #like
 			strcpy(cl.lastchat, txt);
 
@@ -727,6 +723,24 @@ static void Con_Print (const char *txt)
 
 	while ( (c = *txt) )
 	{
+		if ((cl.modtype == 4 || cl.modtype == 5) && strstr(txt, "&c")) // woods ezquake console colors filter
+		{
+			switch (*txt)
+			{
+			case '&':
+				if (*(txt + 1) == 'c' && *(txt + 2) && *(txt + 3) && *(txt + 4))
+				{
+					txt += 5;
+					continue;
+				}
+				break;
+			case '{':
+			case '}':
+				txt++;
+				continue;
+			}
+		}
+
 		if (c == '^' && pr_checkextension.value)
 		{	//parse markup like FTE/DP might.
 			switch(txt[1])
