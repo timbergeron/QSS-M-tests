@@ -828,6 +828,11 @@ void Cache_Flush (void)
 		Cache_Free ( cache_head.next->user, true); // reclaim the space //johnfitz -- added second argument
 }
 
+void Cache_Flush_f (cvar_t* var) // woods #loadskins
+{
+	Cache_Flush();
+}
+
 /*
 ============
 Cache_Print

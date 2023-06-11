@@ -36,6 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static char loadfilename[MAX_OSPATH]; //file scope so that error messages can use it
 
+extern cvar_t gl_load24bit_skins; // woods #loadskins
+
 typedef struct stdio_buffer_s {
 	FILE *f;
 	unsigned char buffer[1024];
@@ -533,6 +535,9 @@ byte *Image_LoadImage (const char *name, int *width, int *height, enum srcformat
 			if (origname == name)
 				continue;	//no point trying.
 		}
+
+		if (strstr(name, "progs/player.mdl_") && !gl_load24bit_skins.value) // woods #loadskins
+			break;
 
 		q_snprintf (loadfilename, sizeof(loadfilename), "%s%s.dds", prefixes[i], name);
 		COM_FOpenFile (loadfilename, &f, NULL);

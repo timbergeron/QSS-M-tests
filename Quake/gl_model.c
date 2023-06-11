@@ -48,6 +48,8 @@ cvar_t	r_replacemodels = {"r_replacemodels", "", CVAR_ARCHIVE};
 static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
 static cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
+cvar_t gl_load24bit_skins = {"gl_load24bit_skins", "1", CVAR_ARCHIVE }; // woods #loadskins
+void Cache_Flush_f (cvar_t* var); // woods #loadskins
 
 extern cvar_t	r_fastturb; // woods #fastturb
 
@@ -78,6 +80,8 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&r_replacemodels);
 	Cvar_RegisterVariable (&mod_ignorelmscale);
 	Cvar_RegisterVariable (&gl_loadlitfiles); // woods #loadlits
+	Cvar_RegisterVariable (&gl_load24bit_skins); // woods #loadskins
+	Cvar_SetCallback (&gl_load24bit_skins, Cache_Flush_f); // woods #loadskins
 
 	Cmd_AddCommand ("mcache", Mod_Print);
 
