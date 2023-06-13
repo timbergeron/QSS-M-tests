@@ -1502,7 +1502,7 @@ qboolean Valid_Domain(const char* domain_str) // woods #connectfilter
 		}
 	}
 
-	if (count != 1 && count != 2)  // 1 or 2 for substring
+	if (count < 1 || count > 4)  // adjust for international domains
 		return false;
 
 	return true;
