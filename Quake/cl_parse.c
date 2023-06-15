@@ -2405,14 +2405,18 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
 	const char* observer = "null";
 	const char* observing = "null";
+	const char* mode = "null";
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{// am I colored up?
 
 		char buf[10];
 		char buf2[10];
+		char buf3[10];
 		observer = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf)); // userinfo
 		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf2, sizeof(buf2)); // userinfo
+		mode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf3, sizeof(buf3)); // userinfo
+
 	}
 
 	if (!q_strcasecmp(observer, "off") && !q_strcasecmp(observing, "off")) // use info keys to detect
@@ -2420,7 +2424,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	else
 		cl.notobserver = 0;
 
-	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.match_pause_time == 0) // is there a match in progress?
+	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.match_pause_time == 0 && q_strcasecmp(mode, "ffa")) // is there a match in progress?
 		cl.matchinp = 1;
 	else
 		cl.matchinp = 0;
