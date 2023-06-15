@@ -1998,6 +1998,13 @@ void Sbar_IntermissionNumber (int x, int y, int num, int digits, int color)
 	}
 }
 
+qboolean flash () // woods #smartstatus
+{
+	unsigned int ticks = SDL_GetTicks();
+	unsigned int half_seconds = ticks / 750;
+	return half_seconds % 2 == 0;
+}
+
 /*
 ==================
 Sbar_DeathmatchOverlay
@@ -2009,12 +2016,14 @@ void Sbar_DeathmatchOverlay (void)
 	//qpic_t	*pic; // woods disabled
 	int	i, k, l;
 	int	x, y, f;
-	int w, w2; // woods for dynamic scoreboard
+	int w, w2, y2; // woods for dynamic scoreboard
 	int	xofs, yofs; // woods #scoreboard
 	char	num[12];
 	//char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	scoreboard_t	*s;
 	int ct = (SDL_GetTicks() - maptime)/1000; // woods connected map time #maptime
+	qboolean notready = false; // woods #smartstatus
+	qboolean oneready = false; // woods #smartstatus
 
 	// JPG 1.05 - check to see if we should update IP status  // woods for #iplog
 	if (iplog_size && (cl.time - cl.last_status_time > 5))
@@ -2039,7 +2048,7 @@ void Sbar_DeathmatchOverlay (void)
 	yofs = (vid.conheight - 200) >> 1; // woods #scoreboard
 
 	x = xofs + 64 + w2; // woods #scoreboard
-	y = yofs - 20; // woods #scoreboard
+	y2 = y = yofs - 20; // woods #smartstatus
 
 	//pic = Draw_CachePic ("gfx/ranking.lmp"); //woods #scoreboard (remove rankings logo)
 	//M_DrawPic ((320-pic->width)/2, 8, pic); woods #scoreboard
@@ -2065,7 +2074,8 @@ void Sbar_DeathmatchOverlay (void)
 	/*if (cl.matchinp) // woods -- match running 0 for CRCTF, 255 for CDMOD
 		Draw_String(x - 64, y - 10, "  ping  frags   name"); // woods
 	else*/
-	Draw_String (x - 64, y - 10, "  ping  frags   name            status"); // woods
+
+	oneready = false; // woods #smartstatus
 
 	for (i = 0; i < l; i++)
 	{
@@ -2073,6 +2083,18 @@ void Sbar_DeathmatchOverlay (void)
 		s = &cl.scores[k];
 		if (!s->name[0])
 			continue;
+
+		if (cl.modtype == 1 || cl.modtype == 4) // woods -- dynamic status flash scoreboard label if not ready #smartstatus
+		{
+			if (strstr(s->name, "ׂובהש") || strstr(s->name, "Ready"))
+				oneready = true;
+			
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (!strstr(s->name, "ׂובהש") || !strstr(s->name, "Ready")))
+				notready = true;
+
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (strstr(s->name, "ׂובהש") || strstr(s->name, "Ready")))
+				notready = false;
+		}
 
 		if (k == cl.viewentity - 1) // #scoreboard
 		{
@@ -2137,6 +2159,14 @@ void Sbar_DeathmatchOverlay (void)
 		
 		y += 10;
 	}
+
+	Draw_String(x - 64, y2 - 10, "  ping  frags   name"); // woods #smartstatus
+
+	if (flash() && notready && oneready) // on odd second, if im not ready AND someone else is ready
+		M_Print(x + 192, y2 - 10, "status");
+	else
+		Draw_String
+		(x + 192, y2 - 10, "status");
 
 	Draw_Fill(x - 64, y, 329 + w, 1, 0, 1);	//Border - Bottom // woods #scoreboard
 
