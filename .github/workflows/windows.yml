@@ -1,0 +1,40 @@
+name: Windows CI (MinGW Linux Cross)
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+          platform: [w64, w32]
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        # use apt-spy2 to select closest apt mirror,
+        # which helps avoid connectivity issues in Azure;
+        # see https://github.com/actions/virtual-environments/issues/675
+        sudo gem install apt-spy2
+        sudo apt-spy2 check
+        sudo apt-spy2 fix --commit
+        # after selecting a specific mirror, we need to run 'apt-get update'
+        sudo apt-get update
+        sudo apt-get install -y mingw-w64
+        sudo apt-get install -y libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev zip
+    - name: Build
+      run: |
+        chmod 755 build-${{ matrix.platform }}.sh
+        sudo ./build-${{ matrix.platform }}.sh
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: QSS-M ${{ matrix.platform }}
+        path: |
+          Quake/QSS-M-w*.zip

@@ -1,29 +1,28 @@
-name: Auto Build
+name: macOS CI (Xcode)
 
 on:
   push
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    name: arm64-intel
+    runs-on: macos-latest
     strategy:
       fail-fast: false
-      matrix:
-        os: [macos-latest]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
-    - name: macOS Build
+    - name: macOS
       if: runner.os == 'macOS'
       run: |
           cd MacOSX
           ./build-macos.sh
 
     - name: Upload macOS artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       if: runner.os == 'macOS'
       with:
-        name: macos
+        name: QSS-M
         path: |
           MacOSX/build/Release/*.zip
