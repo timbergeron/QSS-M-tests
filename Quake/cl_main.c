@@ -90,7 +90,7 @@ extern float	host_netinterval;	//Spike
 
 extern cvar_t	allow_download; // woods #ftehack
 extern cvar_t	pq_lag; // woods
-qboolean		qeintermission; // woods #qeintermission
+extern qboolean	qeintermission; // woods #qeintermission
 
 char			lastmphost[NET_NAMELEN]; // woods - connected server address
 int				maptime;		// woods connected map time #maptime
@@ -256,8 +256,8 @@ void CL_EstablishConnection (const char *host)
 {
 	static char lasthost[NET_NAMELEN];
 
-	char addressip[18] = {'\0'}; // woods
-	char local_verbose[40]; // woods
+	char addressip[70] = {'\0'}; // woods
+	char local_verbose[64]; // woods
 
 	int	numaddresses; // woods
 	qhostaddr_t addresses[16]; // woods
@@ -285,7 +285,7 @@ void CL_EstablishConnection (const char *host)
 	numaddresses = NET_ListAddresses(addresses, sizeof(addresses) / sizeof(addresses[0])); // woods
 
 	if (numaddresses && !strstr(addresses[0], "[")) // woods, no [ for ipv6
-		sprintf(addressip, " -- %s", addresses[0]);
+		snprintf(addressip, sizeof(addressip), " -- %s", addresses[0]);
 
 	if (!strcmp(host, "local") || !strcmp(host, "localhost")) // woods
 		sprintf(local_verbose, "%s%s", host, addressip);

@@ -1453,19 +1453,22 @@ void Host_ConnectToLastServer_f (void) // woods #connectlast (Qrack)
 		Con_Printf("No server connection history.\n");
 		return;
 	}
-		
-	(void) fgets(name, NET_NAMELEN, f);
 
+	if (fgets(name, NET_NAMELEN, f) == NULL)
+	{
+		Con_Printf("Error reading from file.\n");
+		fclose(f);
+		return;
+	}
+		
+	retry:
+		if (cls.state == ca_disconnected)
+			Cbuf_AddText(va("connect %s\n", name));
+		else
 		{
-		retry:
-			if (cls.state == ca_disconnected)
-				Cbuf_AddText(va("connect %s\n", name));
-			else
-			{
-				CL_Disconnect();
-				if (cls.state == ca_disconnected)//if a server crash; can create an endless loop error here CLIENTS	arent disconnected just in limbo. :(
-					goto retry;
-			}
+			CL_Disconnect();
+			if (cls.state == ca_disconnected)//if a server crash; can create an endless loop error here CLIENTS	arent disconnected just in limbo. :(
+				goto retry;
 		}
 
 	fclose(f);

@@ -421,7 +421,7 @@ void Sys_Printf (const char *fmt, ...)
 	va_end(argptr);
 
 	unsigned char* ch;
-	for (ch = text; *ch; ch++)
+	for (ch = (unsigned char*)text; *ch; ch++)
 		*ch = dequake[*ch];
 
 	printf ("%s", text);

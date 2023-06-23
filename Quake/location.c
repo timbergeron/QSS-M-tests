@@ -71,7 +71,7 @@ void LOC_SetLoc (vec3_t mins, vec3_t maxs, char *name)
 
 	VectorSet(l->mins, mins[0], mins[1], mins[2]-32);	//ProQuake Locs are extended +/- 32 units on the z-plane...
 	VectorSet(l->maxs, maxs[0], maxs[1], maxs[2]+32);
-	q_snprintf (l->name, namelen + 1, name);	
+	q_snprintf (l->name, namelen + 1, "%s", name);
 	Con_DPrintf("Location %s assigned.\n", name);
 	for (ptr = &locations;*ptr;ptr = &(*ptr)->next_loc);
 	*ptr = l; // woods remove indent
