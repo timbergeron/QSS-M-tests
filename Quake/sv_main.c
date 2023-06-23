@@ -29,6 +29,8 @@ server_static_t	svs;
 
 static char	localmodels[MAX_MODELS][8];	// inline model names for precache
 
+cvar_t	sv_defaultmap = {"sv_defaultmap","start", CVAR_ARCHIVE}; // woods #mapchangeprotect (R00k) 
+
 int				sv_protocol = PROTOCOL_RMQ;//spike -- enough maps need this now that we can probably afford incompatibility with engines that still don't support 999 (vanilla was already broken) -- PROTOCOL_FITZQUAKE; //johnfitz
 unsigned int	sv_protocol_pext1 = PEXT1_SUPPORTED_SERVER; //spike
 unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
@@ -1490,6 +1492,7 @@ void SV_Init (void)
 	extern	cvar_t	sv_sound_land;			//spike - and also mutable...
 	extern	cvar_t	sv_adminnick;			// woods (darkpaces) #adminnick
 	extern	cvar_t	sv_map_rotation;		// woods #maprotation
+	extern	cvar_t	sv_defaultmap;		// woods #mapchangeprotect
 
 
 	Cvar_RegisterVariable (&sv_maxvelocity);
@@ -1517,6 +1520,7 @@ void SV_Init (void)
 
 	Cvar_RegisterVariable (&sv_adminnick); // woods (darkpaces) #adminnick
 	Cvar_RegisterVariable (&sv_map_rotation); // woods #maprotation
+	Cvar_RegisterVariable (&sv_defaultmap); // woods #mapchangeprotect
 
 	if (isDedicated)
 		sv_public.string = "1";
@@ -3638,21 +3642,32 @@ void SV_SpawnServer (const char *server)
 	q_strlcpy (sv.name, server, sizeof(sv.name));
 	q_snprintf (sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", server);
 	qcvm->worldmodel = Mod_ForName (sv.modelname, false);
-	if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush)
+	if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush) // woods -- (manquake/proquake 3.99b: R00k) #mapchangeprotect
 	{
-		// woods -- Default to start map when map can't be found. (manquake/proquake 3.99b: R00k) #mapchangeprotect
-		strcpy(sv.name, "start"); // just use start, instead of cvar
-		q_snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.name);
-		qcvm->worldmodel = Mod_ForName(sv.modelname, false);
-		Con_Printf("using start.bsp instead to avoid error\n");
-		
-		if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush)
+		if (sv_defaultmap.string[0] != '\0')
 		{
-			Con_Printf ("Couldn't spawn server %s\n", sv.modelname);
-			sv.active = false;
-			return;
+			strcpy(sv.name, sv_defaultmap.string);
+			q_snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv_defaultmap.string);
+			qcvm->worldmodel = Mod_ForName(sv.modelname, false);
+			Con_Printf("attemping sv_defaultmap ^m%s.bsp^m\n", sv_defaultmap.string);
+		}
+		else
+		{
+			strcpy(sv.name, "start"); // just use start, instead of cvar
+			q_snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", sv.name);
+			qcvm->worldmodel = Mod_ForName(sv.modelname, false);
+			Cvar_SetQuick (&sv_defaultmap, "start");
+			Con_Printf("no sv_defaultmap is set, using ^mstart.bsp^m as substitute\n");
 		}
 	}
+		
+	if (!qcvm->worldmodel || qcvm->worldmodel->type != mod_brush)
+	{
+		Con_Printf ("Couldn't spawn server, missing map '%s'\n", sv.modelname);
+		sv.active = false;
+		return;
+	}
+	
 	sv.models[1] = qcvm->worldmodel;
 	qcvm->GetModel = SV_ModelForIndex;
 
