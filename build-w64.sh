@@ -15,5 +15,5 @@ export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
 make -f Makefile.w64 clean
 ./build_cross_win64-sdl2.sh $MAKEARGS
 mv quakespasm.exe QSS-M-w64.exe
-zip -9j QSS-M-w64.zip ../Windows/codecs/x64/*.dll ../LICENSE.txt ../Quakespasm.html quakespasm.pak ../Quakespasm.txt ../Quakespasm-Spiked.txt ../Quakespasm-Music.txt ../Windows/SDL2/lib64/SDL2.dll ../QSS-M-Revision.txt QSS-M-w64.exe
+zip -9j QSS-M-w64.zip ../Windows/codecs/x64/*.dll ../Windows/curl/lib/x64/libcurl.dll ../LICENSE.txt ../Quakespasm.html quakespasm.pak ../Quakespasm.txt ../Quakespasm-Spiked.txt ../Quakespasm-Music.txt ../Windows/SDL2/lib64/SDL2.dll ../QSS-M-Revision.txt QSS-M-w64.exe
 make -f Makefile.w64 clean
