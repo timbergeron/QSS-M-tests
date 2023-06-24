@@ -24,7 +24,7 @@ jobs:
         # after selecting a specific mirror, we need to run 'apt-get update'
         sudo apt-get update
         sudo apt-get install -y mingw-w64
-        sudo apt-get install -y libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev zip
+        sudo apt-get install -y libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libcurl4-openssl-dev zip
 
     - name: Build
       run: |
