@@ -681,7 +681,7 @@ void M_MultiPlayer_Key (int key)
 /* SETUP MENU */
 
 static int		setup_cursor = 5; // woods 4 to 5 #namemaker
-static int		setup_cursor_table[] = {40, 56, 80, 104, 128, 152}; // woods add value, change position #namemaker
+static int		setup_cursor_table[] = {40, 56, 80, 104, 128, 166}; // woods add value, change position #namemaker #colorbar
 
 char	namemaker_name[16]; // woods #namemaker
 qboolean namemaker_shortcut = false; // woods #namemaker
@@ -727,6 +727,30 @@ void M_Menu_Setup_f (void)
 qboolean chasewasnotactive; // woods #3rdperson
 qboolean flyme; // woods #3rdperson
 
+void M_DrawColorBar (int x, int y, int highlight) // woods #colorbar -- mh
+{
+	int i;
+	int intense = highlight * 16 + (highlight < 8 ? 11 : 4);
+
+	// position correctly
+	x = 64;
+
+	for (i = 0; i < 14; i++)
+	{
+		// take the approximate midpoint colour (handle backward ranges)
+		int c = i * 16 + (i < 8 ? 8 : 7);
+
+		// braw baseline colour (offset downwards a little so that it fits correctly
+		Draw_Fill(x + i * 8, y + 4, 8, 8, c, 1);
+	}
+
+	// draw the highlight rectangle
+	Draw_Fill(x - 1 + highlight * 8, y + 3, 10, 10, 15, 1);
+
+	// redraw the highlighted color at brighter intensity
+	Draw_Fill(x + highlight * 8, y + 4, 8, 8, intense, 1);
+}
+
 void M_Setup_Draw (void)
 {
 	qpic_t	*p;
@@ -765,20 +789,22 @@ void M_Setup_Draw (void)
 
 	M_Print (64, 104, "Shirt -"); // woods 80 to 104 #namemaker #showcolornum
 	M_PrintWhite (126, 104, CL_PLColours_ToString(setup_top)); // woods #showcolornum
+	M_DrawColorBar(64, 112, atoi(CL_PLColours_ToString(setup_top))); // woods #colorbar
 	M_Print (64, 128, "Pants -"); // woods 104 to 128 #namemaker #showcolornum
 	M_PrintWhite (126, 128, CL_PLColours_ToString(setup_bottom)); // woods #showcolornum
+	M_DrawColorBar(64, 136, atoi(CL_PLColours_ToString(setup_bottom))); // woods #colorbar
 
-	M_DrawTextBox (64, 152-8, 14, 1);  // woods 140 to 152 #namemaker
-	M_Print (72, 152, "Accept Changes");
+	M_DrawTextBox (64, 166-8, 14, 1);  // woods 140 to 152 #namemaker
+	M_Print (72, 166, "Accept Changes"); // woods #colorbar
 
 	p = Draw_CachePic ("gfx/bigbox.lmp");
-	M_DrawTransPic (160, 64, p);
+	M_DrawTransPic (176, 87, p); // woods #colorbar
 	p = Draw_CachePic ("gfx/menuplyr.lmp");
 
 	setup_top = CL_PLColours_Parse(CL_PLColours_ToString(setup_top)); // woods menu color fix
 	setup_bottom = CL_PLColours_Parse(CL_PLColours_ToString(setup_bottom)); // woods menu color fix
 
-	M_DrawTransPicTranslate (172, 72, p, setup_top, setup_bottom);
+	M_DrawTransPicTranslate (188, 95, p, setup_top, setup_bottom); // woods #colorbar
 
 	M_DrawCharacter (56, setup_cursor_table [setup_cursor], 12+((int)(realtime*4)&1));
 
