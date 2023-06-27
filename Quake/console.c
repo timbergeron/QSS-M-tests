@@ -1268,6 +1268,46 @@ void AddToTabList (const char *name, const char *type)
 	}
 }
 
+/*
+============
+FindCommandStart - // woods ironwail 61de982 & bcfc889 #completequotes
+============
+*/
+static const char* FindCommandStart(void)
+{
+	const char* str = key_lines[edit_line] + 1;
+	const char* end = str + key_linepos - 1;
+	const char* ret = str;
+	const char* quote = NULL;
+
+	while (*str && str != end)
+	{
+		char c = *str++;
+		if (c == '\"')
+		{
+			if (!quote)
+			{
+				quote = ret; // save previous command boundary
+				ret = str; // new command
+			}
+			else
+			{
+				ret = quote; // restore saved cursor
+				quote = NULL;
+			}
+		}
+		else if (c == ';')
+			ret = str;
+		else if (!quote && c == '/' && *str == '/')
+			break;
+	}
+
+	while (*ret == ' ')
+		ret++;
+
+	return ret;
+}
+
 typedef struct arg_completion_type_s
 {
 	const char		*command;
@@ -1406,6 +1446,9 @@ void Con_TabComplete (void)
 	static char	*c;
 	tab_t		*t;
 	int		mark, i, j;
+	const char* str; // woods #completequotes
+
+	str = FindCommandStart(); // woods #completequotes
 
 // if editline is empty, return
 	if (key_lines[edit_line][1] == 0)
@@ -1433,7 +1476,7 @@ void Con_TabComplete (void)
 		arg_completion_type_t arg_completion = arg_completion_types[j];
 		const char *command_name = arg_completion.command;
 		
-		if (!strncmp (key_lines[edit_line] + 1, command_name, strlen(command_name)))
+		if (!q_strncasecmp(str, command_name, strlen(command_name))) // woods #completequotes
 		{
 			int nummatches = 0;
 			const char *matched_map = FindCompletion(partial, *arg_completion.filelist, &nummatches);
