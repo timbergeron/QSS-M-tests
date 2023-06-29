@@ -527,7 +527,7 @@ void Load_Ghost_ID_f (void)
 
 	while (fgets(buffer, sizeof(buffer), f) != NULL)
 	{
-		Con_Printf("your last ghostcode was %.3s\n", buffer);
+		Con_Printf("your last ghostcode was ^m%.3s\n", buffer);
 	}
 
 	fclose(f);
