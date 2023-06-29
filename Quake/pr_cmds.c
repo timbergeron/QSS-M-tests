@@ -684,7 +684,10 @@ static void PF_sound (void)
 
 	if (rate && rate != 1)
 		Con_DPrintf("sound() rate scaling is not supported\n");
-	if (flags)
+#define SUPPORTED_SERVER_CHANNEL_FLAGS (CF_FORCELOOP|CF_NOSPACIALISE|CF_NOREVERB|CF_FOLLOW|CF_NOREPLACE|CF_SENDVELOCITY|CF_UNICAST|CF_RELIABLE)
+#define SERVER_ONLY_CHANNEL_FLAGS (CF_UNICAST|CF_RELIABLE) //stuff that's purely serverside
+#define SUPPORTED_CLIENT_CHANNEL_FLAGS (0) //our client is poop. :(
+	if (flags & ~((SUPPORTED_CLIENT_CHANNEL_FLAGS|SERVER_ONLY_CHANNEL_FLAGS)&SUPPORTED_SERVER_CHANNEL_FLAGS))
 		Con_DPrintf("sound() flags %#x not supported\n", flags);
 	if (offset)
 		Con_DPrintf("sound() time offsets are not supported\n");
