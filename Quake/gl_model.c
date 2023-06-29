@@ -1050,6 +1050,7 @@ static void Mod_LoadLighting (lump_t *l)
 	unsigned int path_id;
 	int	bspxsize;
 
+	loadmodel->flags &= ~MOD_HDRLIGHTING; //just in case.
 	loadmodel->lightdata = NULL;
 	// LordHavoc: check for a .lit file
 	q_strlcpy(litfilename, loadmodel->name, sizeof(litfilename));
@@ -1074,12 +1075,28 @@ static void Mod_LoadLighting (lump_t *l)
 			{
 				if (8+l->filelen*3 == com_filesize)
 				{
-					Con_DPrintf2("%s loaded\n", litfilename);
+					Con_DPrintf2("%s loaded (ldr)\n", litfilename);
 					loadmodel->lightdata = data + 8;
+					loadmodel->lightdatasamples = l->filelen;
 					return;
 				}
 				Hunk_FreeToLowMark(mark);
 				Con_Printf("Outdated .lit file (%s should be %u bytes, not %u)\n", litfilename, 8+l->filelen*3, (unsigned)com_filesize);
+			}
+			else if (i == 0x10001)
+			{
+				if (8+l->filelen*4 == com_filesize)
+				{
+					Con_DPrintf2("%s loaded (hdr)\n", litfilename);
+					loadmodel->lightdata = data + 8;
+					loadmodel->lightdatasamples = l->filelen;
+					loadmodel->flags |= MOD_HDRLIGHTING;
+					for (i = 0; i < loadmodel->lightdatasamples; i++)
+						((int*)loadmodel->lightdata)[i] = LittleLong(((int*)loadmodel->lightdata)[i]);
+					return;
+				}
+				Hunk_FreeToLowMark(mark);
+				Con_Printf("Outdated .lit file (%s should be %u bytes, not %u)\n", litfilename, 8+l->filelen*4, (unsigned)com_filesize);
 			}
 			else
 			{
@@ -1094,16 +1111,15 @@ static void Mod_LoadLighting (lump_t *l)
 		}
 	}
 	// LordHavoc: no .lit found, expand the white lighting data to color
-	if (!l->filelen)
-		return;
 
 	// Quake64 bsp lighmap data
-	if (loadmodel->bspversion == BSPVERSION_QUAKE64)
+	if (loadmodel->bspversion == BSPVERSION_QUAKE64 && l->filelen)
 	{
 		// RGB lightmap samples are packed in 16bits.
 		// RRRRR GGGGG BBBBBB
 
 		loadmodel->lightdata = (byte *) Hunk_AllocName ( (l->filelen / 2)*3, litfilename);
+		loadmodel->lightdatasamples = (l->filelen / 2);
 		in = mod_base + l->fileofs;
 		out = loadmodel->lightdata;
 
@@ -1119,52 +1135,42 @@ static void Mod_LoadLighting (lump_t *l)
 		return;
 	}
 
-	in = Q1BSPX_FindLump("RGBLIGHTING", &bspxsize);
-	if (loadmodel->lightdata && bspxsize == l->filelen*3)
+	in = Q1BSPX_FindLump("LIGHTING_E5BGR9", &bspxsize);
+	if (in && (!l->filelen || (bspxsize && bspxsize == l->filelen*4)))
 	{
-		loadmodel->lightdata = out = (byte *) Hunk_AllocName ( l->filelen*3, litfilename);
-		memcpy(out, in, l->filelen*3);
-		Con_DPrintf("bspx lighting loaded\n");
+		loadmodel->lightdata = (byte *) Hunk_AllocName ( bspxsize, litfilename);
+		loadmodel->lightdatasamples = bspxsize/4;
+		memcpy(loadmodel->lightdata, in, bspxsize);
+		loadmodel->flags |= MOD_HDRLIGHTING;
+		Con_DPrintf("bspx hdr lighting loaded\n");
+		for (i = 0; i < loadmodel->lightdatasamples; i++)	//native endian...
+			((int*)loadmodel->lightdata)[i] = LittleLong(((int*)loadmodel->lightdata)[i]);
+		return;
 	}
-	else
+	in = Q1BSPX_FindLump("RGBLIGHTING", &bspxsize);
+	if (in && (!l->filelen || (bspxsize && bspxsize == l->filelen*3)))
 	{
-		in = Q1BSPX_FindLump("LIGHTING_E5BGR9", &bspxsize);
-		if (in && bspxsize == l->filelen*4)
-		{	//we don't really support hdr lighting, but we downgrade it to ldr whenever there's no rgb data.
-			//FIXME: don't convert this stuff here. upload the data to the gpu with GL_EXT_shared_exponent (core in gl3)
-			loadmodel->lightdata = (byte *) Hunk_AllocName ( l->filelen*3, litfilename);
-			out = loadmodel->lightdata;
-			Con_DPrintf("bspx hdr->ldr lighting loaded\n");
-			for (i = 0;i < l->filelen;i++, in+=4)
-			{
-				static const float rgb9e5tab[32] = {	//multipliers for the 9-bit mantissa, according to the biased mantissa
-					//aka: pow(2, biasedexponent - bias-bits) where bias is 15 and bits is 9
-					1.0/(1<<24),	1.0/(1<<23),	1.0/(1<<22),	1.0/(1<<21),	1.0/(1<<20),	1.0/(1<<19),	1.0/(1<<18),	1.0/(1<<17),
-					1.0/(1<<16),	1.0/(1<<15),	1.0/(1<<14),	1.0/(1<<13),	1.0/(1<<12),	1.0/(1<<11),	1.0/(1<<10),	1.0/(1<<9),
-					1.0/(1<<8),		1.0/(1<<7),		1.0/(1<<6),		1.0/(1<<5),		1.0/(1<<4),		1.0/(1<<3),		1.0/(1<<2),		1.0/(1<<1),
-					1.0,			1.0*(1<<1),		1.0*(1<<2),		1.0*(1<<3),		1.0*(1<<4),		1.0*(1<<5),		1.0*(1<<6),		1.0*(1<<7),
-				};
-				unsigned int e5bgr9 = *(unsigned int*)in;
-				float e = rgb9e5tab[e5bgr9>>27] * (1<<7);	//we're converting to a scale that holds overbrights, so 1->128, its 2->255ish
-				*out++ = q_min(255, e*((e5bgr9>> 0)&0x1ff));	//red
-				*out++ = q_min(255, e*((e5bgr9>> 9)&0x1ff));	//green
-				*out++ = q_min(255, e*((e5bgr9>>18)&0x1ff));	//blue
-			}
-		}
-		else
+		loadmodel->lightdata = (byte *) Hunk_AllocName ( bspxsize, litfilename);
+		loadmodel->lightdatasamples = bspxsize/3;
+		memcpy(loadmodel->lightdata, in, bspxsize);
+		Con_DPrintf("bspx ldr lighting loaded\n");
+		return;
+	}
+	if (l->filelen)
+	{
+		loadmodel->lightdata = (byte *) Hunk_AllocName ( l->filelen*3, litfilename);
+		loadmodel->lightdatasamples = l->filelen;
+		in = loadmodel->lightdata + l->filelen*2; // place the file at the end, so it will not be overwritten until the very last write
+		out = loadmodel->lightdata;
+		memcpy (in, mod_base + l->fileofs, l->filelen);
+		for (i = 0;i < l->filelen;i++)
 		{
-			loadmodel->lightdata = (byte *) Hunk_AllocName ( l->filelen*3, litfilename);
-			in = loadmodel->lightdata + l->filelen*2; // place the file at the end, so it will not be overwritten until the very last write
-			out = loadmodel->lightdata;
-			memcpy (in, mod_base + l->fileofs, l->filelen);
-			for (i = 0;i < l->filelen;i++)
-			{
-				d = *in++;
-				*out++ = d;
-				*out++ = d;
-				*out++ = d;
-			}
+			d = *in++;
+			*out++ = d;
+			*out++ = d;
+			*out++ = d;
 		}
+		return;
 	}
 }
 
@@ -1557,6 +1563,7 @@ static void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 	unsigned short *lmstyle16 = NULL;
 	int lumpsize;
 	char scalebuf[16];
+	int facestyles;
 
 	if (bsp2)
 	{
@@ -1674,8 +1681,14 @@ static void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 		if (loadmodel->bspversion == BSPVERSION_QUAKE64)
 			lofs /= 2; // Q64 samples are 16bits instead 8 in normal Quake 
 
+		for (facestyles = 0 ; facestyles<MAXLIGHTMAPS && out->styles[facestyles] != INVALID_LIGHTSTYLE ; facestyles++)
+			;	//count the styles so we can bound-check properly.
 		if (lofs == -1)
 			out->samples = NULL;
+		else if (lofs+facestyles*((out->extents[0]>>out->lmshift)+1)*((out->extents[1]>>out->lmshift)+1) > loadmodel->lightdatasamples)
+			out->samples = NULL; //corrupt...
+		else if (loadmodel->flags & MOD_HDRLIGHTING)
+			out->samples = loadmodel->lightdata + (lofs * 4); //spike -- hdr lighting data is 4-aligned
 		else
 			out->samples = loadmodel->lightdata + (lofs * 3); //johnfitz -- lit support via lordhavoc (was "+ i")
 
@@ -3370,7 +3383,7 @@ void Mod_SetExtraFlags (qmodel_t *mod)
 	if (!mod)
 		return;
 
-	mod->flags &= (0xFF | MF_HOLEY); //only preserve first byte, plus MF_HOLEY
+	mod->flags &= (0xFF | MF_HOLEY | MOD_HDRLIGHTING); //only preserve first byte, plus MF_HOLEY
 
 	if (mod->type == mod_alias)
 	{

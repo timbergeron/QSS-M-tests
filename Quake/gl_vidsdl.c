@@ -67,7 +67,7 @@ static int gl_version_major;
 static int gl_version_minor;
 static const char *gl_extensions;
 
-qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
+qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc, gl_texture_e5bgr9;
 
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
@@ -1168,6 +1168,7 @@ static void GL_CheckExtensions (void)
 	gl_texture_bptc = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 2) || GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_bptc"));
 	gl_texture_etc2 = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_compatibility"));
 	gl_texture_astc = GL_CompressedTexImage2D && (																			  GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
+	gl_texture_e5bgr9 = gl_version_major >= 3;
 	
 	// GLSL
 	//

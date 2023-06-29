@@ -161,7 +161,7 @@ typedef struct msurface_s
 	unsigned short		styles[MAXLIGHTMAPS];
 	int			cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
 	qboolean	cached_dlight;				// true if dynamic light in cache
-	byte		*samples;		// [numstyles*surfsize]
+	void		*samples;		// [numstyles*surfsize]
 } msurface_t;
 
 typedef struct mnode_s
@@ -446,6 +446,7 @@ typedef enum {mod_brush, mod_sprite, mod_alias, mod_ext_invalid} modtype_t;
 #define MOD_EMITREPLACE 2048	//particle effect completely replaces the model (for flames or whatever).
 #define MOD_EMITFORWARDS 4096	//particle effect is emitted forwards, rather than downwards. why down? good question.
 //spike
+#define MOD_HDRLIGHTING (1u<<13)	//spike -- light samples are in e5bgr9 format. int aligned.
 
 typedef struct qmodel_s
 {
@@ -526,6 +527,7 @@ typedef struct qmodel_s
 
 	byte		*visdata;
 	byte		*lightdata;
+	size_t		lightdatasamples;
 	char		*entities;
 
 	qboolean	viswarn; // for Mod_DecompressVis()
