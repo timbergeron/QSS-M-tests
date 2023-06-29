@@ -653,4 +653,3 @@ void PR_ExecuteProgram (func_t fnum)
 #undef OPA
 #undef OPB
 #undef OPC
-

@@ -1169,7 +1169,7 @@ static void GL_CheckExtensions (void)
 	gl_texture_etc2 = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_compatibility"));
 	gl_texture_astc = GL_CompressedTexImage2D && (																			  GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
 	gl_texture_e5bgr9 = gl_version_major >= 3;
-	
+
 	// GLSL
 	//
 	if (COM_CheckParm("-noglsl"))
@@ -1268,10 +1268,14 @@ static void GL_CheckExtensions (void)
 	// glGenerateMipmap for warp textures
 	if (COM_CheckParm("-nowarpmipmaps"))
 		Con_Warning ("glGenerateMipmap disabled at command line\n");
-	else if ((GL_GenerateMipmap = SDL_GL_GetProcAddress("glGenerateMipmap")) != NULL)
-		Con_Printf ("FOUND: glGenerateMipmap\n");
 	else
-		Con_Warning ("glGenerateMipmap not available, liquids won't have mipmaps\n");
+	{
+		GL_GenerateMipmap = (QS_PFNGENERATEMIPMAP) SDL_GL_GetProcAddress("glGenerateMipmap");
+		if (GL_GenerateMipmap != NULL)
+			Con_Printf ("FOUND: glGenerateMipmap\n");
+		else
+			Con_Warning ("glGenerateMipmap not available, liquids won't have mipmaps\n");
+	}
 }
 
 /*
@@ -1385,12 +1389,13 @@ void	VID_Shutdown (void)
 	if (vid_initialized)
 	{
 		VID_Gamma_Shutdown (); //johnfitz
-
+#if defined(USE_SDL2)
+		SDL_GL_DeleteContext(gl_context);
+		gl_context = NULL;
+		SDL_DestroyWindow(draw_context);
+#endif
 		SDL_QuitSubSystem(SDL_INIT_VIDEO);
 		draw_context = NULL;
-#if defined(USE_SDL2)
-		gl_context = NULL;
-#endif
 		PL_VID_Shutdown();
 	}
 }
@@ -2410,3 +2415,4 @@ void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float c
 	if (oldcursor)
 		SDL_FreeCursor(oldcursor);
 }
+
