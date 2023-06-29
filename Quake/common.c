@@ -2056,7 +2056,13 @@ static int COM_FindFile (const char *filename, int *handle, FILE **file,
 						{
 							fseek (f, pak->files[i].filepos, SEEK_SET);
 							f = FSZIP_Deflate(f, pak->files[i].deflatedsize, pak->files[i].filelen);
-							*handle = Sys_FileOpenStdio(f);
+							if (f)
+								*handle = Sys_FileOpenStdio(f);
+							else
+							{	//error!
+								com_filesize = -1;
+								*handle = -1;
+							}
 						}
 						else
 						{	//error!
