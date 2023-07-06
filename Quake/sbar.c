@@ -594,6 +594,11 @@ void Sbar_DrawInventory (void)
 		{
 			time = cl.item_gettime[i];
 			flashon = (int)((cl.time - time)*10);
+			if (flashon < 0)
+			{	//wait what? it happened in the future? no no no!
+				time = 0;
+				cl.item_gettime[i] = cl.time;
+			}
 			if (flashon >= 10)
 			{
 				if ( cl.stats[STAT_ACTIVEWEAPON] == (IT_SHOTGUN<<i)  )
