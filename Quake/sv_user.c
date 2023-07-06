@@ -651,6 +651,22 @@ void SV_ReadQCRequest(void)
 			args[i] = 'i';
 			G_INT(OFS_PARM0+i*3) = MSG_ReadLong();
 			break;
+		case ev_ext_uint32:
+			args[i] = 'u';
+			G_INT(OFS_PARM0+i*3) = MSG_ReadLong();
+			break;
+		case ev_ext_sint64:
+			args[i] = 'I';
+			G_INT64(OFS_PARM0+i*3) = MSG_ReadInt64();
+			break;
+		case ev_ext_uint64:
+			args[i] = 'U';
+			G_DOUBLE(OFS_PARM0+i*3) = MSG_ReadUInt64();
+			break;
+		case ev_ext_double:
+			args[i] = 'F';
+			G_DOUBLE(OFS_PARM0+i*3) = MSG_ReadDouble();
+			break;
 		case ev_string:
 			args[i] = 's';
 			G_INT(OFS_PARM0+i*3) = PR_MakeTempString(MSG_ReadString());

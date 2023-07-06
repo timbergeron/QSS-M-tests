@@ -972,6 +972,26 @@ void MSG_WriteFloat (sizebuf_t *sb, float f)
 	SZ_Write (sb, &dat.l, 4);
 }
 
+void MSG_WriteDouble (sizebuf_t *sb, double f)
+{
+	union
+	{
+		double	f;
+		int64_t	l;
+	} dat;
+	byte *o = SZ_GetSpace (sb, sizeof(f));
+	dat.f = f;
+
+	o[0] = dat.l>>0;
+	o[1] = dat.l>>8;
+	o[2] = dat.l>>16;
+	o[3] = dat.l>>24;
+	o[4] = dat.l>>32;
+	o[5] = dat.l>>40;
+	o[6] = dat.l>>48;
+	o[7] = dat.l>>56;
+}
+
 void MSG_WriteString (sizebuf_t *sb, const char *s)
 {
 	if (!s)
@@ -1168,6 +1188,26 @@ float MSG_ReadFloat (void)
 	msg_readcount += 4;
 
 	dat.l = LittleLong (dat.l);
+
+	return dat.f;
+}
+float MSG_ReadDouble (void)
+{
+	union
+	{
+		double	f;
+		uint64_t	l;
+	} dat;
+
+	dat.l = ((uint64_t)net_message.data[msg_readcount  ]<<0 )	|
+			((uint64_t)net_message.data[msg_readcount+1]<<8 )	|
+			((uint64_t)net_message.data[msg_readcount+2]<<16)	|
+			((uint64_t)net_message.data[msg_readcount+3]<<24)	|
+			((uint64_t)net_message.data[msg_readcount+4]<<32)	|
+			((uint64_t)net_message.data[msg_readcount+5]<<40)	|
+			((uint64_t)net_message.data[msg_readcount+6]<<48)	|
+			((uint64_t)net_message.data[msg_readcount+7]<<56)	;
+	msg_readcount += 8;
 
 	return dat.f;
 }

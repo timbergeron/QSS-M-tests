@@ -2362,6 +2362,23 @@ static void PF_WriteFloat(void)
 {	//curiously, this was missing in vanilla.
 	MSG_WriteFloat(WriteDest(), G_FLOAT(OFS_PARM0));
 }
+static void PF_WriteDouble(void)
+{
+	MSG_WriteDouble(WriteDest(), G_DOUBLE(OFS_PARM0));
+}
+static void PF_WriteInt(void)
+{
+	MSG_WriteDouble(WriteDest(), G_INT(OFS_PARM0));
+}
+static void PF_WriteInt64(void)
+{
+	MSG_WriteInt64(WriteDest(), G_INT64(OFS_PARM0));
+}
+static void PF_WriteUInt64(void)
+{
+	MSG_WriteUInt64(WriteDest(), G_UINT64(OFS_PARM0));
+}
+
 static void PF_sv_te_blooddp(void)
 {	//blood is common enough that we should emulate it for when engines do actually support it.
 	float *org = G_VECTOR(OFS_PARM0);
@@ -4556,7 +4573,11 @@ static struct svcustomstat_s *PR_CustomStat(int idx, int type)
 	switch(type)
 	{
 	case ev_ext_integer:
+	case ev_ext_uint32:
 	case ev_float:
+//	case ev_ext_sint64:
+//	case ev_ext_uint64:
+//	case ev_ext_double:
 	case ev_vector:
 	case ev_entity:
 		break;
@@ -5596,6 +5617,22 @@ static void PF_cl_readfloat(void)
 {
 	G_FLOAT(OFS_RETURN) = MSG_ReadFloat();
 }
+static void PF_cl_readdouble(void)
+{
+	G_DOUBLE(OFS_RETURN) = MSG_ReadDouble();
+}
+static void PF_cl_readint(void)
+{
+	G_INT(OFS_RETURN) = MSG_ReadLong();
+}
+static void PF_cl_readint64(void)
+{
+	G_INT64(OFS_RETURN) = MSG_ReadInt64();
+}
+static void PF_cl_readuint64(void)
+{
+	G_UINT64(OFS_RETURN) = MSG_ReadUInt64();
+}
 static void PF_cl_readentitynum(void)
 {
 	G_FLOAT(OFS_RETURN) = MSG_ReadEntity(cl.protocol_pext2);
@@ -5621,9 +5658,25 @@ static void PF_cl_sendevent(void)
 			MSG_WriteByte(&cls.message, ev_float);
 			MSG_WriteFloat(&cls.message, G_FLOAT(OFS_PARM0+a*3));
 			break;
+		case 'F':
+			MSG_WriteByte(&cls.message, ev_ext_double);
+			MSG_WriteDouble(&cls.message, G_DOUBLE(OFS_PARM0+a*3));
+			break;
 		case 'i':
 			MSG_WriteByte(&cls.message, ev_ext_integer);
 			MSG_WriteLong(&cls.message, G_INT(OFS_PARM0+a*3));
+			break;
+		case 'I':
+			MSG_WriteByte(&cls.message, ev_ext_sint64);
+			MSG_WriteInt64(&cls.message, G_INT64(OFS_PARM0+a*3));
+			break;
+		case 'u':
+			MSG_WriteByte(&cls.message, ev_ext_uint32);
+			MSG_WriteLong(&cls.message, G_INT(OFS_PARM0+a*3));
+			break;
+		case 'U':
+			MSG_WriteByte(&cls.message, ev_ext_uint64);
+			MSG_WriteUInt64(&cls.message, G_UINT64(OFS_PARM0+a*3));
 			break;
 		case 'v':
 			MSG_WriteByte(&cls.message, ev_vector);
@@ -7356,6 +7409,11 @@ static struct
 //	{"getmodeleventidx",PF_getmodeleventidx,PF_getmodeleventidx,0,		PF_NoMenu, D("float(float modidx, float framenum, int eventidx, __out float timestamp, __out int code, __out string data)", "Reports an indexed event within a model's animation. Writes to timestamp,code,data arguments on success. Returns false if the animation/event/model was out of range/invalid. Does not consider looping animations (retry from index 0 if it fails and you know that its a looping animation). This builtin is more annoying to use than getnextmodelevent, but can be made to deal with multiple events with the exact same timestamp.")},
 	{"touchtriggers",	PF_touchtriggers,	PF_touchtriggers,	279,	PF_NoMenu, D("void(optional entity ent, optional vector neworigin)", "Triggers a touch events between self and every SOLID_TRIGGER entity that it is in contact with. This should typically just be the triggers touch functions. Also optionally updates the origin of the moved entity.")},//
 	{"WriteFloat",		PF_WriteFloat,		PF_NoCSQC,			280,	PF_NoMenu, "void(float buf, float fl)"},
+	{"WriteDouble",		PF_WriteDouble,		PF_NoCSQC,			0,		PF_NoMenu, "void(float buf, __double fl)"},
+	{"WriteInt",		PF_WriteInt,		PF_NoCSQC,			0,		PF_NoMenu, D("void(float buf, int fl)", "Writes all 4 bytes of a 32bit integer without truncating to a float first before converting back to an int (unlike WriteLong does, but otherwise equivelent).")},//
+	{"WriteUInt",		PF_WriteInt,		PF_NoCSQC,			0,		PF_NoMenu, D("void(float buf, __uint fl)", "Writes all 4 bytes of a 32bit integer without truncating to a float first before converting back to an int (unlike WriteLong does, but otherwise equivelent).")},//
+	{"WriteInt64",		PF_WriteInt64,		PF_NoCSQC,			0,		PF_NoMenu, D("void(float buf, __int64 val)", "Writes all 8 bytes of a 64bit integer. This uses variable-length coding and will send only a single byte for any value between -64 and 63.")},//
+	{"WriteUInt64",		PF_WriteUInt64,		PF_NoCSQC,			0,		PF_NoMenu, D("void(float buf, __uint64 val)", "Writes all 8 bytes of a 64bit unsigned integer. Values between 0-127 will be sent in a single byte.")},//
 //	{"skel_ragupdate",	PF_skel_ragedit,	PF_skel_ragedit,	281,	PF_NoMenu, D("float(entity skelent, string dollcmd, float animskel)", "Updates the skeletal object attached to the entity according to its origin and other properties.\nif animskel is non-zero, the ragdoll will animate towards the bone state in the animskel skeletal object, otherwise they will pick up the model's base pose which may not give nice results.\nIf dollcmd is not set, the ragdoll will update (this should be done each frame).\nIf the doll is updated without having a valid doll, the model's default .doll will be instanciated.\ncommands:\n doll foo.doll : sets up the entity to use the named doll file\n dollstring TEXT : uses the doll file directly embedded within qc, with that extra prefix.\n cleardoll : uninstanciates the doll without destroying the skeletal object.\n animate 0.5 : specifies the strength of the ragdoll as a whole \n animatebody somebody 0.5 : specifies the strength of the ragdoll on a specific body (0 will disable ragdoll animations on that body).\n enablejoint somejoint 1 : enables (or disables) a joint. Disabling joints will allow the doll to shatter.")}, // (FTE_CSQC_RAGDOLL)
 //	{"skel_mmap",		PF_skel_mmap,		PF_skel_mmap,		282,	PF_NoMenu, D("float*(float skel)", "Map the bones in VM memory. They can then be accessed via pointers. Each bone is 12 floats, the four vectors interleaved (sadly).")},// (FTE_QC_RAGDOLL)
 //	{"skel_set_bone_world",PF_skel_set_bone_world,PF_skel_set_bone_world,283,PF_NoMenu, D("void(entity ent, float bonenum, vector org, optional vector angorfwd, optional vector right, optional vector up)", "Sets the world position of a bone within the given entity's attached skeletal object. The world position is dependant upon the owning entity's position. If no orientation argument is specified, v_forward+v_right+v_up are used for the orientation instead. If 1 is specified, it is understood as angles. If 3 are specified, they are the forawrd/right/up vectors to use.")},
@@ -7408,7 +7466,7 @@ static struct
 	{"drawsubpic",		PF_NoSSQC,			PF_cl_drawsubpic,	328,	PF_cl_drawsubpic,369,		D("void(vector pos, vector sz, string pic, vector srcpos, vector srcsz, vector rgb, float alpha, optional float drawflag)", "Draws a rescaled subsection of an image to the screen.")},// #328 EXT_CSQC_'DARKPLACES'
 //	{"drawrotpic",		PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("void(vector pivot, vector mins, vector maxs, string pic, vector rgb, float alpha, float angle)", "Draws an image rotating at the pivot. To rotate in the center, use mins+maxs of half the size with mins negated. Angle is in degrees.")},
 //	{"drawrotsubpic",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("void(vector pivot, vector mins, vector maxs, string pic, vector txmin, vector txsize, vector rgb, vector alphaandangles)", "Overcomplicated draw function for over complicated people. Positions follow drawrotpic, while texture coords follow drawsubpic. Due to argument count limitations in builtins, the alpha value and angles are combined into separate fields of a vector (tip: use fteqcc's [alpha, angle] feature.")},
-	{"getstati",		PF_NoSSQC,			PF_cl_getstat_int,	330,	PF_NoMenu, D("#define getstati_punf(stnum) (float)(__variant)getstati(stnum)\nint(float stnum)", "Retrieves the numerical value of the given EV_INTEGER or EV_ENTITY stat. Use getstati_punf if you wish to type-pun a float stat as an int to avoid truncation issues in DP.")},// (EXT_CSQC)
+	{"getstati",		PF_NoSSQC,			PF_cl_getstat_int,	330,	PF_NoMenu, D("#define getstati_punf(stnum) (float)(__variant)getstati(stnum)\nint(float stnum)", "Retrieves the numerical value of the given EV_INTEGER or EV_ENTITY stat. Use getstati_punf if you wish to type-pun a float stat as an int to avoid truncation issues with DP's network protocol.")},// (EXT_CSQC)
 	{"getstatf",		PF_NoSSQC,			PF_cl_getstat_float,331,	PF_NoMenu, D("#define getstatbits getstatf\nfloat(float stnum, optional float firstbit, optional float bitcount)", "Retrieves the numerical value of the given EV_FLOAT stat. If firstbit and bitcount are specified, retrieves the upper bits of the STAT_ITEMS stat (converted into a float, so there are no VM dependancies).")},// (EXT_CSQC)
 	{"getstats",		PF_NoSSQC,			PF_cl_getstat_string,332,	PF_NoMenu, D("string(float stnum)", "Retrieves the value of the given EV_STRING stat, as a tempstring.\nString stats use a separate pool of stats from numeric ones.\n")},
 //	{"getplayerstat",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("__variant(float playernum, float statnum, float stattype)", "Retrieves a specific player's stat, matching the type specified on the server. This builtin is primarily intended for mvd playback where ALL players are known. For EV_ENTITY, world will be returned if the entity is not in the pvs, use type-punning with EV_INTEGER to get the entity number if you just want to see if its set. STAT_ITEMS should be queried as an EV_INTEGER on account of runes and items2 being packed into the upper bits.")},
@@ -7451,6 +7509,11 @@ static struct
 	{"readangle",		PF_NoSSQC,			PF_cl_readangle,	365,	PF_NoMenu, "float()"},// (EXT_CSQC)
 	{"readstring",		PF_NoSSQC,			PF_cl_readstring,	366,	PF_NoMenu, "string()"},// (EXT_CSQC)
 	{"readfloat",		PF_NoSSQC,			PF_cl_readfloat,	367,	PF_NoMenu, "float()"},// (EXT_CSQC)
+	{"readdouble",		PF_NoSSQC,			PF_cl_readdouble,	0,		PF_NoMenu, D("__double()", "Reads a double-precision float without any truncation nor conversions. Data MUST have originally been written with WriteDouble.")},
+	{"readint",			PF_NoSSQC,			PF_cl_readint,		0,		PF_NoMenu, D("int()", "Reads a 32bit signed int without any conversions to float, otherwise interchangable with readlong.")},// (EXT_CSQC)
+	{"readuint",		PF_NoSSQC,			PF_cl_readint,		0,		PF_NoMenu, D("__uint()", "Reads a 32bit unsigned int without any conversions to float.")},// (EXT_CSQC)
+	{"readint64",		PF_NoSSQC,			PF_cl_readint64,	0,		PF_NoMenu, D("__int64()", "Reads a 64bit signed int. Paired with WriteInt64.")},
+	{"readuint64",		PF_NoSSQC,			PF_cl_readuint64,	0,		PF_NoMenu, D("__uint64()", "Reads a 64bit unsigned int. Paired with WriteUInt64.")},
 	{"readentitynum",	PF_NoSSQC,			PF_cl_readentitynum,368,	PF_NoMenu, "float()"},// (EXT_CSQC)
 //	{"deltalisten",		NULL,				PF_FullCSQCOnly,	371,	PF_NoMenu, D("float(string modelname, float(float isnew) updatecallback, float flags)", "Specifies a per-modelindex callback to listen for engine-networking entity updates. Such entities are automatically interpolated by the engine (unless flags specifies not to).\nThe various standard entity fields will be overwritten each frame before the updatecallback function is called.")},//  (EXT_CSQC_1)
 //	{"dynamiclight_get",PF_NoSSQC,			PF_FullCSQCOnly,	372,	PF_NoMenu, D("__variant(float lno, float fld)", "Retrieves a property from the given dynamic/rt light. Return type depends upon the light field requested.")},
@@ -8678,6 +8741,7 @@ void PR_DumpPlatform_f(void)
 	fprintf(f, "const float EV_VOID = %i;\n", ev_void);
 	fprintf(f, "const float EV_STRING = %i;\n", ev_string);
 	fprintf(f, "const float EV_FLOAT = %i;\n", ev_float);
+	fprintf(f, "const float EV_FLOAT_PUN = %i; //to work around DP's stat limitations.\n", ev_ext_integer);
 	fprintf(f, "const float EV_VECTOR = %i;\n", ev_vector);
 	fprintf(f, "const float EV_ENTITY = %i;\n", ev_entity);
 	fprintf(f, "const float EV_FIELD = %i;\n", ev_field);

@@ -32,8 +32,12 @@ typedef union eval_s
 	float		_float;
 	float		vector[3];
 	func_t		function;
-	int		_int;
-	int		edict;
+	int32_t		_int;
+	uint32_t	_uint32;
+	qcsint64_t	_sint64;
+	qcuint64_t	_uint64;
+	qcdouble_t	_double;
+	int			edict;
 } eval_t;
 
 #define	MAX_ENT_LEAFS	32
@@ -123,6 +127,9 @@ int NUM_FOR_EDICT(edict_t*);
 
 #define	G_FLOAT(o)		(qcvm->globals[o])
 #define	G_INT(o)		(*(int *)&qcvm->globals[o])
+#define	G_INT64(o)		(*(qcsint64_t *)&qcvm->globals[o])
+#define	G_UINT64(o)		(*(qcuint64_t *)&qcvm->globals[o])
+#define	G_DOUBLE(o)		(*(qcdouble_t *)&qcvm->globals[o])
 #define	G_EDICT(o)		((edict_t *)((byte *)qcvm->edicts+ *(int *)&qcvm->globals[o]))
 #define G_EDICTNUM(o)		NUM_FOR_EDICT(G_EDICT(o))
 #define	G_VECTOR(o)		(&qcvm->globals[o])
