@@ -1401,6 +1401,17 @@ char *CL_PLColours_ToString(plcolour_t c)
 	return "0";
 }
 
+plcolour_t CL_PLColours_FromLegacy(int val)
+{
+	plcolour_t c;
+	val&=0xf;
+	c.type = 1;
+	c.basic = val;
+	c.rgb[0] = c.rgb[1] = c.rgb[2] = val; //fixme... store proper palette?
+
+	return c;
+}
+
 plcolour_t CL_PLColours_Parse(const char *s)
 {
 	plcolour_t c;
@@ -1408,17 +1419,13 @@ plcolour_t CL_PLColours_Parse(const char *s)
 	if (!strncmp(s, "0x", 2))
 	{
 		c.type = 2;
-		c.basic = 0;
+		c.basic = 0;	//find nearest?
 		c.rgb[0] = 0xff&(v>>16);
 		c.rgb[1] = 0xff&(v>>8);
 		c.rgb[2] = 0xff&(v>>0);
 	}
 	else if (*s)
-	{
-		c.type = 1;
-		c.basic = v;
-		c.rgb[0] = c.rgb[1] = c.rgb[2] = v&0xf;
-	}
+		return CL_PLColours_FromLegacy(v);
 	else
 	{
 		c.type = 0;
@@ -1430,20 +1437,13 @@ plcolour_t CL_PLColours_Parse(const char *s)
 static void CL_UserinfoChanged(scoreboard_t *sb)
 {
 	char tmp[64];
-	plcolour_t top, bot;
 	Info_GetKey(sb->userinfo, "name", sb->name, sizeof(sb->name));
 
 	Info_GetKey(sb->userinfo, "topcolor", tmp, sizeof(tmp));
-	top = CL_PLColours_Parse(tmp);
+	sb->shirt = CL_PLColours_Parse(*tmp?tmp:"0");
 	Info_GetKey(sb->userinfo, "bottomcolor", tmp, sizeof(tmp));
-	bot = CL_PLColours_Parse(tmp);
+	sb->pants = CL_PLColours_Parse(*tmp?tmp:"0");
 
-	if (!CL_PLColours_Equals(top, sb->shirt) || !CL_PLColours_Equals(bot, sb->pants))
-	{
-		sb->shirt = top;
-		sb->pants = bot;
-		R_TranslateNewPlayerSkin (sb-cl.scores);
-	}
 	//for qw compat. remember that keys with an asterisk are blocked from setinfo (still changable via ssqc though).
 	sb->spectator = atoi(Info_GetKey(sb->userinfo, "*spectator", tmp, sizeof(tmp)));	//0=regular player, 1=spectator, 2=spec-with-scores aka waiting their turn to (re)spawn.
 	//Info_GetKey(sb->userinfo, "team", sb->team, sizeof(sb->team));

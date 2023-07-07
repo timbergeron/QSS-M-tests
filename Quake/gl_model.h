@@ -380,9 +380,14 @@ typedef struct {
 		PV_QUAKEFORGE,	//trivertx16_t
 		PV_IQM,			//iqmvert_t
 	} poseverttype;	//spike
-	struct gltexture_s	*gltextures[MAX_SKINS][4]; //johnfitz
-	struct gltexture_s	*fbtextures[MAX_SKINS][4]; //johnfitz
-	intptr_t					texels[MAX_SKINS];	// only for player skins
+	struct skintextures_s
+	{
+		struct gltexture_s *base;
+		struct gltexture_s *luma;
+		struct gltexture_s *upper;
+		struct gltexture_s *lower;
+	} textures[MAX_SKINS][4]; //spike
+	intptr_t			texels[MAX_SKINS];	// only for player skins
 	maliasframedesc_t	frames[1];	// variable sized
 } aliashdr_t;
 

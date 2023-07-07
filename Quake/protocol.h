@@ -482,6 +482,7 @@ typedef struct entity_state_s
 	unsigned short	tagentity;
 	unsigned short	pad;
 	unsigned char	colormod[3];	//spike -- entity tints, *32
+	unsigned char	glowmod[3];	//spike -- entity tints, *32
 	unsigned char	alpha;		//johnfitz -- added
 	unsigned int	solidsize;	//for csqc prediction logic.
 					#define ES_SOLID_NOT 0

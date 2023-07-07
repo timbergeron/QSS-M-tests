@@ -517,7 +517,6 @@ qboolean Draw_ReloadTextures(qboolean force)
 	{
 		TexMgr_NewGame ();
 		Draw_NewGame ();
-		R_NewGame ();
 
 
 		Cache_Flush ();

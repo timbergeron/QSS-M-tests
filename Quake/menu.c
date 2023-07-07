@@ -662,9 +662,82 @@ static plcolour_t	setup_oldtop;
 static plcolour_t	setup_oldbottom;
 static plcolour_t	setup_top;
 static plcolour_t	setup_bottom;
+extern qboolean	keydown[];
+
+
+//http://axonflux.com/handy-rgb-to-hsl-and-rgb-to-hsv-color-model-c
+static void rgbtohsv(byte *rgb, vec3_t result)
+{	//helper for the setup menu
+	int r = rgb[0], g = rgb[1], b = rgb[2];
+	float maxc = q_max(r, q_max(g, b)), minc = q_min(r, q_min(g, b));
+    float h, s, l = (maxc + minc) / 2;
+
+	float d = maxc - minc;
+	if (maxc)
+		s = d / maxc;
+	else
+		s = 0;
+
+	if(maxc == minc)
+	{
+		h = 0; // achromatic
+	}
+	else
+	{
+		if (maxc == r)
+			h = (g - b) / d + ((g < b) ? 6 : 0);
+		else if (maxc == g)
+			h = (b - r) / d + 2;
+		else
+			h = (r - g) / d + 4;
+		h /= 6;
+    }
+
+	result[0] = h;
+	result[1] = s;
+	result[2] = l;
+};
+//http://axonflux.com/handy-rgb-to-hsl-and-rgb-to-hsv-color-model-c
+static void hsvtorgb(float inh, float s, float v, byte *out)
+{	//helper for the setup menu
+	int r, g, b;
+	float h = inh - (int)floor(inh);
+	int i = h * 6;
+	float f = h * 6 - i;
+	float p = v * (1 - s);
+	float q = v * (1 - f * s);
+	float t = v * (1 - (1 - f) * s);
+	switch(i)
+	{
+	default:
+	case 0: r = v*0xff, g = t*0xff, b = p*0xff; break;
+	case 1: r = q*0xff, g = v*0xff, b = p*0xff; break;
+	case 2: r = p*0xff, g = v*0xff, b = t*0xff; break;
+	case 3: r = p*0xff, g = q*0xff, b = v*0xff; break;
+	case 4: r = t*0xff, g = p*0xff, b = v*0xff; break;
+	case 5: r = v*0xff, g = p*0xff, b = q*0xff; break;
+	}
+
+	out[0] = r;
+	out[1] = g;
+	out[2] = b;
+};
 
 void M_AdjustColour(plcolour_t *tr, int dir)
 {
+	if (keydown[K_SHIFT])
+	{
+		vec3_t hsv;
+		rgbtohsv(CL_PLColours_ToRGB(tr), hsv);
+
+		hsv[0] += dir/128.0;
+		hsv[1] = 1;
+		hsv[2] = 1;	//make these consistent and not inherited from any legacy colours. we're persisting in rgb with small hue changes so we can't actually handle greys, so whack the saturation and brightness right up.
+		tr->type = 2;	//rgb...
+		tr->basic = 0;	//no longer relevant.
+		hsvtorgb(hsv[0], hsv[1], hsv[2], tr->rgb);
+	}
+	else
 	{
 		tr->type = 1;
 		if (tr->basic+dir < 0)
