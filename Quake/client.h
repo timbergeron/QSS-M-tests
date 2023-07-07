@@ -41,6 +41,9 @@ typedef struct
 	plcolour_t shirt;
 	plcolour_t pants;
 	int		ping;
+	int		spectator;	//support for fte's hybrid servers.
+						//FIXME: handle quakeworld's teams.
+						//FIXME: handle quakeworld's skins (QWTF may require it).
 
 	char	userinfo[8192];
 } scoreboard_t;

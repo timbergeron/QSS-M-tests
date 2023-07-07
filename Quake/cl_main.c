@@ -1444,6 +1444,10 @@ static void CL_UserinfoChanged(scoreboard_t *sb)
 		sb->pants = bot;
 		R_TranslateNewPlayerSkin (sb-cl.scores);
 	}
+	//for qw compat. remember that keys with an asterisk are blocked from setinfo (still changable via ssqc though).
+	sb->spectator = atoi(Info_GetKey(sb->userinfo, "*spectator", tmp, sizeof(tmp)));	//0=regular player, 1=spectator, 2=spec-with-scores aka waiting their turn to (re)spawn.
+	//Info_GetKey(sb->userinfo, "team", sb->team, sizeof(sb->team));
+	//Info_GetKey(sb->userinfo, "skin", sb->skin, sizeof(sb->skin));
 }
 static void CL_ServerExtension_FullUserinfo_f(void)
 {

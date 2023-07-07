@@ -5450,9 +5450,6 @@ void PF_cl_playerkey_internal(int player, const char *key, qboolean retfloat)
 {
 	char buf[1024];
 	const char *ret = buf;
-	extern int	fragsort[MAX_SCOREBOARD];
-	extern int	scoreboardlines;
-	extern int	Sbar_ColorForMap (int m);
 	if (player < 0 && player >= -scoreboardlines)
 		player = fragsort[-1-player];
 	if (player < 0 || player >= MAX_SCOREBOARD)
@@ -6986,7 +6983,6 @@ enum getrenderentityfield_e
 };
 static void PF_cl_getrenderentity(void)
 {
-	extern int	Sbar_ColorForMap (int m);
 	vec3_t tmp;
 	size_t entnum = G_FLOAT(OFS_PARM0);
 	enum getrenderentityfield_e fldnum = G_FLOAT(OFS_PARM1);
