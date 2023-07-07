@@ -352,7 +352,7 @@ const char *COM_GetGameNames(qboolean full);
 qboolean COM_GameDirMatches(const char *tdirs);
 
 pack_t *FSZIP_LoadArchive (const char *packfile);
-FILE *FSZIP_Deflate(FILE *src, qofs_t srcsize, qofs_t outsize);
+FILE *FSZIP_Deflate(FILE *src, qofs_t srcsize, qofs_t outsize, const char *entryname);
 
 void COM_WriteFile (const char *filename, const void *data, int len);
 int COM_OpenFile (const char *filename, int *handle, unsigned int *path_id);
