@@ -315,22 +315,34 @@ R_CullModelForEntity -- johnfitz -- uses correct bounds based on rotation
 qboolean R_CullModelForEntity (entity_t *e)
 {
 	vec3_t mins, maxs;
-	float scale = ENTSCALE_DECODE(e->netstate.scale);
+	vec_t scalefactor, *minbounds, *maxbounds;
 
 	if (e->angles[0] || e->angles[2]) //pitch or roll
 	{
-		VectorMA (e->origin, scale, e->model->rmins, mins);
-		VectorMA (e->origin, scale, e->model->rmaxs, maxs);
+		minbounds = e->model->rmins;
+		maxbounds = e->model->rmaxs;
 	}
 	else if (e->angles[1]) //yaw
 	{
-		VectorMA (e->origin, scale, e->model->ymins, mins);
-		VectorMA (e->origin, scale, e->model->ymaxs, maxs);
+		minbounds = e->model->ymins;
+		maxbounds = e->model->ymaxs;
 	}
 	else //no rotation
 	{
-		VectorMA (e->origin, scale, e->model->mins, mins);
-		VectorMA (e->origin, scale, e->model->maxs, maxs);
+		minbounds = e->model->mins;
+		maxbounds = e->model->maxs;
+	}
+
+	scalefactor = ENTSCALE_DECODE(e->netstate.scale);
+	if (scalefactor != 1.0f)
+	{
+		VectorMA (e->origin, scalefactor, minbounds, mins);
+		VectorMA (e->origin, scalefactor, maxbounds, maxs);
+	}
+	else
+	{
+		VectorAdd (e->origin, minbounds, mins);
+		VectorAdd (e->origin, maxbounds, maxs);
 	}
 
 	return R_CullBox (mins, maxs);
@@ -349,7 +361,10 @@ void R_RotateForEntity (vec3_t origin, vec3_t angles, unsigned char scale)
 	glRotatef (angles[2],  1, 0, 0);
 
 	if (scale != ENTSCALE_DEFAULT)
-		glScalef (ENTSCALE_DECODE(scale), ENTSCALE_DECODE(scale), ENTSCALE_DECODE(scale));
+	{
+		float scalefactor = ENTSCALE_DECODE(scale);
+		glScalef(scalefactor, scalefactor, scalefactor);
+	}
 }
 
 /*
@@ -855,10 +870,10 @@ void R_ShowBoundingBoxes (void)
 	oldvm = qcvm;
 	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(&sv.qcvm);
-	for (i=0, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
+	for (i=1, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
 	{
-		if (ed == sv_player)
-			continue; //don't draw player's own bbox
+		if (ed == sv_player || ed->free)
+			continue; //don't draw player's own bbox or freed edicts
 
 //		if (r_showbboxes.value != 2)
 //			if (!SV_VisibleToClient (sv_player, ed, sv.worldmodel))

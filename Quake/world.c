@@ -439,29 +439,34 @@ void SV_LinkEdict (edict_t *ent, qboolean touch_triggers)
 		return;
 
 // set the abs box
-	if ((ent->v.solid == SOLID_BSP||ent->v.solid == SOLID_EXT_BSPTRIGGER) && (ent->v.angles[0] || ent->v.angles[1] || ent->v.angles[2]) && !qcvm->brokenpushrotate)
-	{	// expand for rotation the lame way. hopefully there's an origin brush in there.
-		int i;
-		float v1,v2;
-		vec3_t max;
-		//q2 method
-		for (i=0 ; i<3 ; i++)
-		{
-			v1 = fabs(ent->v.mins[i]);
-			v2 = fabs(ent->v.maxs[i]);
-			max[i] = q_max(v1,v2);
-		}
-		v1 = sqrt(DotProduct(max,max));
-		for (i=0 ; i<3 ; i++)
-		{
-			ent->v.absmin[i] = ent->v.origin[i] - v1;
-			ent->v.absmax[i] = ent->v.origin[i] + v1;
-		}
-	}
-	else
+	VectorAdd (ent->v.origin, ent->v.mins, ent->v.absmin);
+	VectorAdd (ent->v.origin, ent->v.maxs, ent->v.absmax);
+	if ((ent->v.solid == SOLID_BSP||ent->v.solid == SOLID_EXT_BSPTRIGGER) && (ent->v.angles[0] || ent->v.angles[1] || ent->v.angles[2]))
 	{
-		VectorAdd (ent->v.origin, ent->v.mins, ent->v.absmin);
-		VectorAdd (ent->v.origin, ent->v.maxs, ent->v.absmax);
+		if (qcvm->rotatingbmodel)
+		{	// expand for rotation the lame way. hopefully there's an origin brush in there.
+			int i;
+			float v1,v2;
+			vec3_t max;
+			//q2 method
+			for (i=0 ; i<3 ; i++)
+			{
+				v1 = fabs(ent->v.mins[i]);
+				v2 = fabs(ent->v.maxs[i]);
+				max[i] = q_max(v1,v2);
+			}
+			v1 = sqrt(DotProduct(max,max));
+			for (i=0 ; i<3 ; i++)
+			{
+				ent->v.absmin[i] = ent->v.origin[i] - v1;
+				ent->v.absmax[i] = ent->v.origin[i] + v1;
+			}
+		}
+		else if (!qcvm->warned_rotatingbmodel)
+		{
+			Con_Warning("%s(\"%s\") has angles set, but DP_SV_ROTATINGBMODEL is not enabled\n", (ent->v.solid == SOLID_EXT_BSPTRIGGER)?"SOLID_BSPTRIGGER":"SOLID_BSP", PR_GetString(ent->v.classname));
+			qcvm->warned_rotatingbmodel = true;
+		}
 	}
 
 //
@@ -971,27 +976,39 @@ trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t max
 	VectorSubtract (end, offset, end_l);
 
 // trace a line through the apropriate clipping hull
-	if ((ent->v.solid == SOLID_BSP || ent->v.solid == SOLID_EXT_BSPTRIGGER) && (ent->v.angles[0]||ent->v.angles[1]||ent->v.angles[2]) && !qcvm->brokenpushrotate && qcvm->edicts != ent)	//don't rotate the world entity's collisions (its not networked, and some maps are buggy, resulting in screwed collisions)
+	if ((ent->v.solid == SOLID_BSP || ent->v.solid == SOLID_EXT_BSPTRIGGER) && (ent->v.angles[0]||ent->v.angles[1]||ent->v.angles[2]) && qcvm->edicts != ent)	//don't rotate the world entity's collisions (its not networked, and some maps are buggy, resulting in screwed collisions)
 	{
+		if (qcvm->rotatingbmodel)
+		{
 #define DotProductTranspose(v,m,a) ((v)[0]*(m)[0][a] + (v)[1]*(m)[1][a] + (v)[2]*(m)[2][a])
-		vec3_t axis[3], start_r, end_r, tmp;
-		AngleVectors(ent->v.angles, axis[0], axis[1], axis[2]);
-		VectorInverse(axis[1]);
-		start_r[0] = DotProduct(start_l, axis[0]);
-		start_r[1] = DotProduct(start_l, axis[1]);
-		start_r[2] = DotProduct(start_l, axis[2]);
-		end_r[0] = DotProduct(end_l, axis[0]);
-		end_r[1] = DotProduct(end_l, axis[1]);
-		end_r[2] = DotProduct(end_l, axis[2]);
-		SV_RecursiveHullCheck (hull, start_r, end_r, &trace, hitcontents);
-		VectorCopy(trace.endpos, tmp);
-		trace.endpos[0] = DotProductTranspose(tmp,axis,0);
-		trace.endpos[1] = DotProductTranspose(tmp,axis,1);
-		trace.endpos[2] = DotProductTranspose(tmp,axis,2);
-		VectorCopy(trace.plane.normal, tmp);
-		trace.plane.normal[0] = DotProductTranspose(tmp,axis,0);
-		trace.plane.normal[1] = DotProductTranspose(tmp,axis,1);
-		trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
+			vec3_t axis[3], start_r, end_r, tmp;
+			AngleVectors(ent->v.angles, axis[0], axis[1], axis[2]);
+			VectorInverse(axis[1]);
+			start_r[0] = DotProduct(start_l, axis[0]);
+			start_r[1] = DotProduct(start_l, axis[1]);
+			start_r[2] = DotProduct(start_l, axis[2]);
+			end_r[0] = DotProduct(end_l, axis[0]);
+			end_r[1] = DotProduct(end_l, axis[1]);
+			end_r[2] = DotProduct(end_l, axis[2]);
+			SV_RecursiveHullCheck (hull, start_r, end_r, &trace, hitcontents);
+			VectorCopy(trace.endpos, tmp);
+			trace.endpos[0] = DotProductTranspose(tmp,axis,0);
+			trace.endpos[1] = DotProductTranspose(tmp,axis,1);
+			trace.endpos[2] = DotProductTranspose(tmp,axis,2);
+			VectorCopy(trace.plane.normal, tmp);
+			trace.plane.normal[0] = DotProductTranspose(tmp,axis,0);
+			trace.plane.normal[1] = DotProductTranspose(tmp,axis,1);
+			trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
+		}
+		else
+		{
+			if (!qcvm->warned_rotatingbmodel)
+			{
+				Con_Warning("%s(\"%s\") has angles set, but DP_SV_ROTATINGBMODEL is not enabled\n", (ent->v.solid == SOLID_EXT_BSPTRIGGER)?"SOLID_BSPTRIGGER":"SOLID_BSP", PR_GetString(ent->v.classname));
+				qcvm->warned_rotatingbmodel = true;
+			}
+			SV_RecursiveHullCheck (hull, start_l, end_l, &trace, hitcontents);
+		}
 	}
 	else
 		SV_RecursiveHullCheck (hull, start_l, end_l, &trace, hitcontents);
@@ -1206,7 +1223,7 @@ static void World_ClipToNetwork ( moveclip_t *clip )
 			VectorSubtract (clip->end, offset, end_l);
 
 		// trace a line through the apropriate clipping hull
-			if (touch->netstate.solidsize == ES_SOLID_BSP && (touch->angles[0]||touch->angles[1]||touch->angles[2]) && !qcvm->brokenpushrotate)	//don't rotate the world entity's collisions (its not networked, and some maps are buggy, resulting in screwed collisions)
+			if (touch->netstate.solidsize == ES_SOLID_BSP && (touch->angles[0]||touch->angles[1]||touch->angles[2]) && qcvm->rotatingbmodel)	//don't rotate the world entity's collisions (its not networked, and some maps are buggy, resulting in screwed collisions)
 			{
 		#define DotProductTranspose(v,m,a) ((v)[0]*(m)[0][a] + (v)[1]*(m)[1][a] + (v)[2]*(m)[2][a])
 				vec3_t axis[3], start_r, end_r, tmp;

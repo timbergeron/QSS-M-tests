@@ -127,6 +127,20 @@ void SV_CalcStats(client_t *client, int *statsi, float *statsf, const char **sta
 		case ev_ext_integer:
 			statsi[sv.customstats[i].idx] = eval->_int;
 			break;
+		case ev_ext_uint32:
+			statsi[sv.customstats[i].idx] = eval->_uint32;
+			break;
+		case ev_ext_sint64:
+			statsi[sv.customstats[i].idx+0] = eval->_sint64;
+			statsi[sv.customstats[i].idx+1] = eval->_sint64>>32;
+			break;
+		case ev_ext_uint64:
+			statsi[sv.customstats[i].idx+0] = eval->_uint64;
+			statsi[sv.customstats[i].idx+1] = eval->_uint64>>32;
+			break;
+		case ev_ext_double:
+			statsf[sv.customstats[i].idx] = eval->_double;	//FIXME: precision loss
+			break;
 		case ev_entity:
 			statsi[sv.customstats[i].idx] = NUM_FOR_EDICT(PROG_TO_EDICT(eval->edict));
 			break;
@@ -1955,6 +1969,7 @@ void SV_SendServerinfo (client_t *client)
 		}
 	}
 
+	client->pextknown = true;	//if its not set yet, it'll probably never get set.
 	cantruncate = client->message.cursize == 0;
 retry:
 	MSG_WriteByte (&client->message, svc_print);
@@ -2466,9 +2481,9 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 
 		// johnfitz -- max size for protocol 15 is 18 bytes, not 16 as originally
 		// assumed here.  And, for protocol 85 the max size is actually 24 bytes.
-		// For float coords and angles the limit is 39. 
+		// For float coords and angles the limit is 40.
 		// FIXME: Use tighter limit according to protocol flags and send bits.
-		if (msg->cursize + 39 > msg->maxsize)
+		if (msg->cursize + 40 > msg->maxsize)
 		{
 			//johnfitz -- less spammy overflow message
 			if (!dev_overflows.packetsize || dev_overflows.packetsize + CONSOLE_RESPAM_TIME < realtime )
@@ -3030,7 +3045,7 @@ void SV_UpdateToReliableMessages (void)
 
 	for (j=0, client = svs.clients ; j<svs.maxclients ; j++, client++)
 	{
-		if (!client->active)
+		if (!client->active || !client->pextknown) //don't let it see random reliables before it sees the svc_serverdata packet.
 			continue;
 		SZ_Write (&client->message, sv.reliable_datagram.data, sv.reliable_datagram.cursize);
 	}
@@ -3424,7 +3439,6 @@ void SV_CreateBaseline (void)
 		{
 			svent->baseline.colormap = entnum;
 			svent->baseline.modelindex = SV_ModelIndex("progs/player.mdl");
-			svent->baseline.alpha = ENTALPHA_DEFAULT; //johnfitz -- alpha support
 		}
 		else
 		{
@@ -3440,7 +3454,7 @@ void SV_CreateBaseline (void)
 #ifndef ENTSCALE_QS_IS_BROKEN	//Older versions of QS do NOT support B_SCALE. If we use default baseline values here then we will simply fall back to spamming U_SCALE every time instead.
 		val = GetEdictFieldValue(svent, qcvm->extfields.scale);
 		if (val)
-			svent->baseline.scale = ENTALPHA_ENCODE(val->_float);
+			svent->baseline.scale = ENTSCALE_ENCODE(val->_float);
 #endif
 
 		//Spike -- baselines are now transmitted on a per-client basis.
@@ -3720,6 +3734,7 @@ void SV_SpawnServer (const char *server)
 
 // all setup is completed, any further precache statements are errors
 	sv.state = ss_active;
+	qcvm->worldlocked = true;
 
 // run two frames to allow everything to settle
 	host_frametime = 0.1;

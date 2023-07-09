@@ -638,9 +638,10 @@ void V_PolyBlend (void)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity ();
 
-	glColor4fv (v_blend);
-
 	glBegin (GL_QUADS);
+
+	glColor4fv (v_blend); // inside glBegin / glEnd to workaround an AMD driver bug
+
 	glVertex2f (0,0);
 	glVertex2f (1, 0);
 	glVertex2f (1, 1);
@@ -917,7 +918,7 @@ void V_CalcRefdef (void)
 
 	view->model = cl.model_precache[cl.stats[STAT_WEAPON]];
 	view->frame = cl.stats[STAT_WEAPONFRAME];
-	view->netstate.colormap = 0;
+	view->netstate = nullentitystate;
 
 //johnfitz -- v_gunkick
 	if (v_gunkick.value == 1) //original quake kick
@@ -1060,7 +1061,7 @@ void V_Init (void)
 	Cvar_RegisterVariable (&v_kickroll);
 	Cvar_RegisterVariable (&v_kickpitch);
 	Cvar_RegisterVariable (&v_gunkick); //johnfitz
-	
+
 	Cvar_RegisterVariable (&r_viewmodel_quake); //MarkV
 }
 

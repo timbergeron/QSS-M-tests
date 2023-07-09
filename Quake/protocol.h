@@ -101,7 +101,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define U_FRAME2		(1<<17) // 1 byte, this is .frame & 0xFF00 (second byte)
 #define U_MODEL2		(1<<18) // 1 byte, this is .modelindex & 0xFF00 (second byte)
 #define U_LERPFINISH	(1<<19) // 1 byte, 0.0-1.0 maps to 0-255, not sent if exactly 0.1, this is ent->v.nextthink - sv.time, used for lerping
-#define U_SCALE			(1<<20) // 1 byte, for PROTOCOL_RMQ PRFL_EDICTSCALE, currently read but ignored
+#define U_SCALE			(1<<20) // 1 byte, for PROTOCOL_RMQ PRFL_EDICTSCALE
 #define U_UNUSED21		(1<<21)
 #define U_UNUSED22		(1<<22)
 #define U_EXTEND2		(1<<23) // another byte to follow, future expansion
@@ -253,10 +253,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define ENTALPHA_TOSAVE(a)	(((a)==ENTALPHA_DEFAULT)?0.0f:(((a)==ENTALPHA_ZERO)?-1.0f:((float)(a)-1)/(254))) //server convert to float for savegame
 //johnfitz
 
-#define ENTSCALE_DEFAULT	16
-#define ENTSCALE_ENCODE(f)	((f)?CLAMP(1,(int)(ENTSCALE_DEFAULT*(f)),255):ENTSCALE_DEFAULT)
-#define ENTSCALE_DECODE(es)	((es)/(float)ENTSCALE_DEFAULT)
-#define ENTSCALE_QS_IS_BROKEN	//FIXME: remove this once QS fixes its support for B_SCALE, allowing for scaled makestatic and baselines. Until then we are no worse than DP, just with more bloated ent deltas (replacementdeltas avoids spawnstatic feature loss).
+#define ENTSCALE_DEFAULT	16 // Equivalent to float 1.0f due to byte packing.
+#define ENTSCALE_ENCODE(a)	((a) ? ((a) * ENTSCALE_DEFAULT) : ENTSCALE_DEFAULT) // Convert to byte
+#define ENTSCALE_DECODE(a)	((float)(a) / ENTSCALE_DEFAULT) // Convert to float for rendering
 
 // defaults for clientinfo messages
 #define	DEFAULT_VIEWHEIGHT	22
@@ -493,6 +492,7 @@ typedef struct entity_state_s
 	unsigned short	tagentity;
 	unsigned short	pad;
 	unsigned char	colormod[3];	//spike -- entity tints, *32
+	unsigned char	glowmod[3];	//spike -- entity tints, *32
 	unsigned char	alpha;		//johnfitz -- added
 	unsigned int	solidsize;	//for csqc prediction logic.
 					#define ES_SOLID_NOT 0
@@ -537,4 +537,3 @@ typedef struct
 } usercmd_t;
 
 #endif	/* _QUAKE_PROTOCOL_H */
-

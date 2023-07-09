@@ -42,6 +42,9 @@ typedef struct
 	plcolour_t pants;
 	int		ping;
 	int		addr;			// JPG - added this // woods for #iplog
+	int		spectator;	//support for fte's hybrid servers.
+						//FIXME: handle quakeworld's teams.
+						//FIXME: handle quakeworld's skins (QWTF may require it).
 
 	char	userinfo[8192];
 } scoreboard_t;

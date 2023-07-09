@@ -90,6 +90,7 @@ cvar_t devstats = {"devstats","0",CVAR_NONE}; //johnfitz -- track developer stat
 
 cvar_t	campaign = {"campaign","0",CVAR_NONE}; // for the 2021 rerelease
 cvar_t	horde = {"horde","0",CVAR_NONE}; // for the 2021 rerelease
+cvar_t	sv_cheats = {"sv_cheats","0",CVAR_NONE}; // for the 2021 rerelease
 
 devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
@@ -369,6 +370,7 @@ void Host_InitLocal (void)
 
 	Cvar_RegisterVariable (&campaign);
 	Cvar_RegisterVariable (&horde);
+	Cvar_RegisterVariable (&sv_cheats);
 
 	Cvar_RegisterVariable (&pausable);
 
@@ -1119,6 +1121,7 @@ static void CL_LoadCSProgs(void)
 				qcvm->extglobals.servercommandframe = NULL;
 			}
 
+			qcvm->rotatingbmodel = true;	//csqc always assumes this is enabled.
 			qcvm->GetModel = PR_CSQC_GetModel;
 			//set a few globals, if they exist
 			if (qcvm->extglobals.maxclients)
@@ -1134,6 +1137,7 @@ static void CL_LoadCSProgs(void)
 
 			//set a few worldspawn fields too
 			qcvm->edicts->v.solid = SOLID_BSP;
+			qcvm->edicts->v.movetype = MOVETYPE_PUSH;
 			qcvm->edicts->v.modelindex = 1;
 			qcvm->edicts->v.model = PR_SetEngineString(cl.worldmodel->name);
 			VectorCopy(cl.worldmodel->mins, qcvm->edicts->v.mins);
@@ -1152,6 +1156,7 @@ static void CL_LoadCSProgs(void)
 				G_FLOAT(OFS_PARM2) = 10000*maj + 100*(min) + QUAKESPASM_VER_PATCH;
 				PR_ExecuteProgram(qcvm->extfuncs.CSQC_Init);
 			}
+			qcvm->worldlocked = true;
 
 			if (fullcsqc)
 			{

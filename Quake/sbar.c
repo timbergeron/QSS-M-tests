@@ -490,9 +490,10 @@ void Sbar_DrawNum (int x, int y, int num, int digits, int color)
 Sbar_SortFrags
 ===============
 */
-void Sbar_SortFrags (void)
+void Sbar_SortFrags (qboolean ignorespecs)
 {
 	int		i, j, k;
+	int		w1,w2;
 
 // sort by frags
 	scoreboardlines = 0;
@@ -500,6 +501,8 @@ void Sbar_SortFrags (void)
 	{
 		if (cl.scores[i].name[0])
 		{
+			if (cl.scores[i].spectator==1 && ignorespecs)
+				continue;
 			fragsort[scoreboardlines] = i;
 			scoreboardlines++;
 		}
@@ -508,8 +511,11 @@ void Sbar_SortFrags (void)
 	for (i = 0; i < scoreboardlines; i++)
 	{
 		for (j = 0; j < scoreboardlines - 1 - i; j++)
-		{
-			if (cl.scores[fragsort[j]].frags < cl.scores[fragsort[j+1]].frags)
+		{	//spike: adding this so spectators end up at the bottom.
+			w1 = cl.scores[fragsort[j+0]].spectator!=1, w2 = cl.scores[fragsort[j+1]].spectator!=1;	//sort by spectatorness...
+			if (w1==w2)
+				w1 = cl.scores[fragsort[j+0]].frags, w2 = cl.scores[fragsort[j+1]].frags;		//then by frags
+			if (w1 < w2)
 			{
 				k = fragsort[j];
 				fragsort[j] = fragsort[j+1];
@@ -706,6 +712,11 @@ void Sbar_DrawInventory (void)
 		{
 			time = cl.item_gettime[i];
 			flashon = (int)((cl.time - time)*10);
+			if (flashon < 0)
+			{	//wait what? it happened in the future? no no no!
+				time = 0;
+				cl.item_gettime[i] = cl.time;
+			}
 			if (flashon >= 10)
 			{
 				if ( cl.stats[STAT_ACTIVEWEAPON] == (IT_SHOTGUN<<i)  )
@@ -1616,7 +1627,7 @@ void Sbar_Draw (void)
 			*qcvm->extglobals.clframetime = host_frametime;
 		if (qcvm->extglobals.player_localentnum)
 			*qcvm->extglobals.player_localentnum = cl.viewentity;
-		Sbar_SortFrags ();
+		Sbar_SortFrags (false);
 		G_VECTORSET(OFS_PARM0, vid.width/s, vid.height/s, 0);
 		G_FLOAT(OFS_PARM1) = sb_showscores;
 		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_DrawHud);
@@ -2054,7 +2065,7 @@ void Sbar_DeathmatchOverlay (void)
 	//M_DrawPic ((320-pic->width)/2, 8, pic); woods #scoreboard
 
 // scores
-	Sbar_SortFrags ();
+	Sbar_SortFrags (false);
 
 // draw the text
 	l = scoreboardlines;
@@ -2111,20 +2122,29 @@ void Sbar_DeathmatchOverlay (void)
 	// draw background
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
 			Draw_Fill ( x, y, 320-x*2, 8, ((k+1)==cl.viewentity)?75:73, 1);
+		else
+			Draw_Fill ( x, y, 320-x*2, 8, 0, 0.3);	//or darken it for readability. noisy backgrounds make text hard to read.
 
-		Draw_FillPlayer ( x, y, 40, 4, s->shirt, 1); //johnfitz -- stretched overlays
-		Draw_FillPlayer ( x, y+4, 40, 4, s->pants, 1); //johnfitz -- stretched overlays
+		if (s->spectator == 1)	//2 is 'spectator-with-scores' (temporarily inactive players).
+		{
+			M_PrintWhite (x, y, "spect");
+		}
+		else
+		{
+			Draw_FillPlayer ( x, y, 40, 4, s->shirt, 1); //johnfitz -- stretched overlays
+			Draw_FillPlayer ( x, y+4, 40, 4, s->pants, 1); //johnfitz -- stretched overlays
 
-	// draw number
-		f = s->frags;
-		sprintf (num, "%3i",f);
+		// draw number
+			f = s->frags;
+			sprintf (num, "%3i",f);
 
-		Draw_Character ( x+8 , y, num[0]); //johnfitz -- stretched overlays
-		Draw_Character ( x+16 , y, num[1]); //johnfitz -- stretched overlays
-		Draw_Character ( x+24 , y, num[2]); //johnfitz -- stretched overlays
+			Draw_Character ( x+8 , y, num[0]); //johnfitz -- stretched overlays
+			Draw_Character ( x+16 , y, num[1]); //johnfitz -- stretched overlays
+			Draw_Character ( x+24 , y, num[2]); //johnfitz -- stretched overlays
 
-		if (k == cl.viewentity - 1)
-			Draw_Character ( x - 8, y, 12); //johnfitz -- stretched overlays
+			if (k == cl.viewentity - 1)
+				Draw_Character ( x - 8, y, 12); //johnfitz -- stretched overlays
+		}
 
 #if 0
 {
@@ -2199,7 +2219,7 @@ void Sbar_MiniDeathmatchOverlay (void)
 		return;
 
 // scores
-	Sbar_SortFrags ();
+	Sbar_SortFrags (true);
 
 // draw the text
 	numlines = (scr_viewsize.value >= 110) ? 3 : 6; //johnfitz
@@ -2280,7 +2300,7 @@ void Sbar_IntermissionOverlay (void)
 			*qcvm->extglobals.intermission_time = cl.completed_time;
 		pr_global_struct->time = cl.time;
 		pr_global_struct->frametime = host_frametime;
-		Sbar_SortFrags ();
+		Sbar_SortFrags (false);
 		G_VECTORSET(OFS_PARM0, vid.width/s, vid.height/s, 0);
 		G_FLOAT(OFS_PARM1) = sb_showscores;
 		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_DrawScores);

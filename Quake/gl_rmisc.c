@@ -34,7 +34,6 @@ extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_overbright;
 extern cvar_t gl_overbright_models;
-extern cvar_t r_waterquality;
 extern cvar_t r_waterwarp;
 extern cvar_t r_oldskyleaf;
 extern cvar_t r_drawworld;
@@ -230,7 +229,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_stereodepth);
 	Cvar_RegisterVariable (&r_clearcolor);
 	Cvar_SetCallback (&r_clearcolor, R_SetClearColor_f);
-	Cvar_RegisterVariable (&r_waterquality);
+	Cvar_RegisterVariable (&r_brokenturbbias);
 	Cvar_RegisterVariable (&r_waterwarp);
 	Cvar_RegisterVariable (&r_drawflat);
 	Cvar_RegisterVariable (&r_flatlightstyles);
@@ -272,148 +271,6 @@ void R_Init (void)
 
 	Sky_Init (); //johnfitz
 	Fog_Init (); //johnfitz
-}
-
-/*
-===============
-R_TranslatePlayerSkin -- johnfitz -- rewritten.  also, only handles new colors, not new skins // woods #enemycolors
-===============
-*/
-void R_TranslatePlayerSkin (int playernum)
-{
-	const char *enemy;
-	const char *team;
-	
-	enemy = gl_enemycolor.string;
-	team = gl_teamcolor.string;
-
-	char buf[10];
-	char buf2[10];
-	char buf3[10];
-	char buf4[10];
-	const char* simode;
-	simode = Info_GetKey(cl.serverinfo, "mode", buf, sizeof(buf)); // serverinfo (nqcrx)
-
-	const char* siplaymode;
-	siplaymode = Info_GetKey(cl.serverinfo, "playmode", buf2, sizeof(buf2)); // serverinfo (nqcrx)
-
-	const char* uimode;
-	uimode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf3, sizeof(buf3)); // userinfo (qecrx)
-
-	const char* uiplaymode;
-	uiplaymode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "playmode", buf4, sizeof(buf4)); // userinfo (qecrx)
-
-	//FIXME: if gl_nocolors is on, then turned off, the textures may be out of sync with the scoreboard colors.
-	if (!gl_nocolors.value)
-		if (playertextures[playernum])
-		{ 
-				if ((strcmp(gl_teamcolor.string, "") || strcmp(gl_enemycolor.string, "")) && !cls.demoplayback) // woods #enemycolors, do we run it?
-				{ 
-					// is this a team game? if so we can use a team color AND an enemy color
-					if (cl.teamcolor[0] || (!q_strcasecmp(simode, "ctf") && !strcmp(siplaymode, "public")) || (!q_strcasecmp(uimode, "ctf") && !strcmp(uiplaymode, "public")))
-					{
-						if (strcmp(gl_teamcolor.string, "") && !strcmp(gl_enemycolor.string, "")) // team color active, enemy blank
-						{
-							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
-								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
-							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic)
-								TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
-						}
-
-						if (strcmp(gl_enemycolor.string, "") && !strcmp(gl_teamcolor.string, "")) // enemy color active, team blank
-						{
-							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
-								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
-							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic)
-								TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants);
-						}
-
-						if (strcmp(gl_enemycolor.string, "") && strcmp(gl_teamcolor.string, "")) // both enemy and team active
-						{
-							if (cl.scores[playernum].pants.basic != cl.scores[cl.viewentity - 1].pants.basic) // player has diff color than me, set ENEMY COLOR
-								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
-							if (cl.scores[playernum].pants.basic == cl.scores[cl.viewentity - 1].pants.basic) // player has SAME color than me, set TEAM COLOR
-								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(team), CL_PLColours_Parse(team));
-						}
-					}
-					else
-					{
-						if (strcmp(gl_enemycolor.string, "")) // ffa, no teams (ALL enemies)
-								TexMgr_ReloadImage(playertextures[playernum], CL_PLColours_Parse(enemy), CL_PLColours_Parse(enemy));
-						else
-							TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants); // default behavior / colors
-					}
-				}
-			else
-				TexMgr_ReloadImage(playertextures[playernum], cl.scores[playernum].shirt, cl.scores[playernum].pants); // default behavior / colors
-		}
-}
-
-/*
-===============
-R_TranslateNewPlayerSkin -- johnfitz -- split off of TranslatePlayerSkin -- this is called when
-the skin or model actually changes, instead of just new colors
-added bug fix from bengt jardup
-===============
-*/
-void R_TranslateNewPlayerSkin (int playernum)
-{
-	char		name[64];
-	byte		*pixels;
-	aliashdr_t	*paliashdr;
-	int		skinnum;
-
-//get correct texture pixels
-	currententity = &cl.entities[1+playernum];
-
-	if (!currententity->model || currententity->model->type != mod_alias)
-		return;
-
-	paliashdr = (aliashdr_t *)Mod_Extradata (currententity->model);
-
-	skinnum = currententity->skinnum;
-
-	if (paliashdr->numskins)
-	{
-		//TODO: move these tests to the place where skinnum gets received from the server
-		if (skinnum < 0 || skinnum >= paliashdr->numskins)
-		{
-			Con_DPrintf("(%d): Invalid player skin #%d\n", playernum, skinnum);
-			skinnum = 0;
-		}
-
-		pixels = (byte *)paliashdr + paliashdr->texels[skinnum]; // This is not a persistent place!
-
-	//upload new image
-		q_snprintf(name, sizeof(name), "player_%i", playernum);
-		playertextures[playernum] = TexMgr_LoadImage (currententity->model, name, paliashdr->skinwidth, paliashdr->skinheight,
-			SRC_INDEXED, pixels, paliashdr->gltextures[skinnum][0]->source_file, paliashdr->gltextures[skinnum][0]->source_offset, TEXPREF_PAD | TEXPREF_OVERWRITE);
-	}
-	else
-	{
-		q_snprintf(name, sizeof(name), "player_%i", playernum);
-		playertextures[playernum] = TexMgr_LoadImage (currententity->model, name, paliashdr->skinwidth, paliashdr->skinheight,
-			SRC_EXTERNAL, NULL, "skins/base.pcx", 0, TEXPREF_PAD | TEXPREF_OVERWRITE);
-	}
-
-//now recolor it
-	
-	R_TranslatePlayerSkin(playernum);
-
-}
-
-/*
-===============
-R_NewGame -- johnfitz -- handle a game switch
-===============
-*/
-void R_NewGame (void)
-{
-	int i;
-
-	//clear playertexture pointers (the textures themselves were freed by texmgr_newgame)
-	for (i=0; i<MAX_SCOREBOARD; i++)
-		playertextures[i] = NULL;
 }
 
 /*

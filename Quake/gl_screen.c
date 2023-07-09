@@ -240,7 +240,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	{ 
 		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
-		if (!strpbrk(str, "ÄÅÅÅ")) // cdmod MOD print
+		if (!strpbrk(str, "Äùùù")) // cdmod MOD print
 		{
 			// RED
 
@@ -2097,6 +2097,7 @@ void SCR_SetUpToDrawConsole (void)
 {
 	//johnfitz -- let's hack away the problem of slow console when host_timescale is <0
 	extern float frame_timescale; // woods #demorewind (Baker Fitzquake Mark V)
+	float conspeed;
 	//extern cvar_t host_timescale;
 	//float timescale;
 	//johnfitz
@@ -2126,11 +2127,12 @@ void SCR_SetUpToDrawConsole (void)
 		scr_conlines = 0; //none visible
 
 	//timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
+	conspeed = (scr_conspeed.value > 0) ? scr_conspeed.value : 1e6f;
 
 	if (scr_conlines < scr_con_current)
 	{
 		// ericw -- (glheight/600.0) factor makes conspeed resolution independent, using 800x600 as a baseline
-		scr_con_current -= scr_conspeed.value * host_frametime / frame_timescale; //johnfitz -- timescale // woods #demorewind (Baker Fitzquake Mark V)
+		scr_con_current -= conspeed * host_frametime / frame_timescale; //johnfitz -- timescale // woods #demorewind (Baker Fitzquake Mark V)
 	//	scr_con_current -= scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines > scr_con_current)
 			scr_con_current = scr_conlines;
@@ -2138,7 +2140,7 @@ void SCR_SetUpToDrawConsole (void)
 	else if (scr_conlines > scr_con_current)
 	{
 		// ericw -- (glheight/600.0)
-		scr_con_current += scr_conspeed.value * (glheight / 600.0) * host_frametime / frame_timescale; //johnfitz -- timescale // woods #demorewind (Baker Fitzquake Mark V)
+		scr_con_current += conspeed * (glheight / 600.0) * host_frametime / frame_timescale; //johnfitz -- timescale // woods #demorewind (Baker Fitzquake Mark V)
 		//scr_con_current += scr_conspeed.value*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines < scr_con_current)
 			scr_con_current = scr_conlines;
@@ -2295,7 +2297,7 @@ void SCR_ScreenShot_f (void)
 	{
 		q_snprintf (imagename, sizeof(imagename), "screenshots/qssm%04i.%s", i, ext);	// "fitz%04i.tga" // woods #screenshots
 		q_snprintf (checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
-		if (Sys_FileTime(checkname) == -1)
+		if (Sys_FileType(checkname) == FS_ENT_NONE)
 			break;	// file doesn't exist
 	}
 	if (i == 10000)
@@ -2592,7 +2594,10 @@ void SCR_UpdateScreen (void)
 		G_FLOAT(OFS_PARM0) = glwidth/s;
 		G_FLOAT(OFS_PARM1) = glheight/s;
 		G_FLOAT(OFS_PARM2) = true;
-		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateView);
+		if (cls.signon == SIGNONS||!cl.qcvm.extfuncs.CSQC_UpdateViewLoading)
+			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateView);
+		else
+			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateViewLoading);
 		PR_SwitchQCVM(NULL);
 
 		GL_Set2D ();

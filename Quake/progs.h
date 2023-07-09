@@ -32,8 +32,12 @@ typedef union eval_s
 	float		_float;
 	float		vector[3];
 	func_t		function;
-	int		_int;
-	int		edict;
+	int32_t		_int;
+	uint32_t	_uint32;
+	qcsint64_t	_sint64;
+	qcuint64_t	_uint64;
+	qcdouble_t	_double;
+	int			edict;
 } eval_t;
 
 #define	MAX_ENT_LEAFS	32
@@ -123,6 +127,9 @@ int NUM_FOR_EDICT(edict_t*);
 
 #define	G_FLOAT(o)		(qcvm->globals[o])
 #define	G_INT(o)		(*(int *)&qcvm->globals[o])
+#define	G_INT64(o)		(*(qcsint64_t *)&qcvm->globals[o])
+#define	G_UINT64(o)		(*(qcuint64_t *)&qcvm->globals[o])
+#define	G_DOUBLE(o)		(*(qcdouble_t *)&qcvm->globals[o])
 #define	G_EDICT(o)		((edict_t *)((byte *)qcvm->edicts+ *(int *)&qcvm->globals[o]))
 #define G_EDICTNUM(o)		NUM_FOR_EDICT(G_EDICT(o))
 #define	G_VECTOR(o)		(&qcvm->globals[o])
@@ -185,6 +192,7 @@ struct pr_extfuncs_s
 	QCEXTFUNC(CSQC_Parse_Event,			"void()")															\
 	QCEXTFUNC(CSQC_Parse_Damage,		"float(float save, float take, vector dir)")						\
 	QCEXTFUNC(CSQC_UpdateView,			"void(float vwidth, float vheight, float notmenu)")					/*full only: for the full csqc-draws-entire-screen interface*/	\
+	QCEXTFUNC(CSQC_UpdateViewLoading,	"void(float vwidth, float vheight, float notmenu)")					/*full only: for the full csqc-draws-entire-screen interface*/	\
 	QCEXTFUNC(CSQC_Input_Frame,			"void()")															/*full only: input angles stuff.*/	\
 	QCEXTFUNC(CSQC_Parse_CenterPrint,	"float(string msg)")												\
 	QCEXTFUNC(CSQC_Parse_Print,			"void(string printmsg, float printlvl)")							\
@@ -375,9 +383,11 @@ struct qcvm_s
 	void *cursorhandle;	//video code.
 	qboolean nogameaccess;	//simplecsqc isn't allowed to poke properties of the actual game (to prevent cheats when there's no restrictions on what it can access)
 	qboolean brokenbouncemissile;	//2021 rerelease redefined it, breaking any mod that depends on it.
-	qboolean brokenpushrotate;		//2021 rerelease fucks over avelocity on movetype_push.
+	qboolean rotatingbmodel;		//2021 rerelease fucks over avelocity on movetype_push. broken by lots of other defective maps too.
 	qboolean brokeneffects;			//2021 rerelease redefined EF_RED and EF_BLUE.
 	qboolean precacheanytime; //mod queried for support. this is used to spam warnings to anyone that doesn't bother checking for it first. this annoyance is to reduce compat issues.
+
+	qboolean warned_rotatingbmodel;		//to enable warnings if the map looks like it this extension should have been enabled.
 
 	//was static inside pr_edict
 	char		*strings;
@@ -408,6 +418,7 @@ struct qcvm_s
 	int			reserved_edicts;
 	int			max_edicts;
 	edict_t		*edicts;			// can NOT be array indexed, because edict_t is variable sized, but can be used to reference the world ent
+	qboolean	worldlocked;
 	struct qmodel_s	*worldmodel;
 	struct qmodel_s	*(*GetModel)(int modelindex);	//returns the model for the given index, or null.
 

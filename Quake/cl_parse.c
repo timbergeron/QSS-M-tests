@@ -542,9 +542,9 @@ static unsigned int CLFTE_ReadDelta(unsigned int entnum, entity_state_t *news, c
 	{
 		/*news->glowsize =*/ MSG_ReadByte();
 		/*news->glowcolour =*/ MSG_ReadByte();
-		/*news->glowmod[0] =*/ MSG_ReadByte();
-		/*news->glowmod[1] =*/ MSG_ReadByte();
-		/*news->glowmod[2] =*/ MSG_ReadByte();
+		news->glowmod[0] = MSG_ReadByte();
+		news->glowmod[1] = MSG_ReadByte();
+		news->glowmod[2] = MSG_ReadByte();
 	}
 	if (bits & UF_FATNESS)
 		/*news->fatness =*/ MSG_ReadByte();
@@ -612,13 +612,7 @@ static void CL_EntitiesDeltaed(void)
 			VectorCopy (ent->netstate.origin, ent->msg_origins[0]);
 			VectorCopy (ent->netstate.angles, ent->msg_angles[0]);
 		}
-		skin = ent->netstate.skin;
-		if (skin != ent->skinnum)
-		{
-			ent->skinnum = skin;
-			if (newnum > 0 && newnum <= cl.maxclients)
-				R_TranslateNewPlayerSkin (newnum - 1); //johnfitz -- was R_TranslatePlayerSkin
-		}
+		ent->skinnum = ent->netstate.skin;
 		ent->effects = ent->netstate.effects;
 
 		//johnfitz -- lerping for movetype_step entities
@@ -656,8 +650,6 @@ static void CL_EntitiesDeltaed(void)
 			}
 			else
 				forcelink = true;	// hack to make null model players work
-			if (newnum > 0 && newnum <= cl.maxclients)
-				R_TranslateNewPlayerSkin (newnum - 1); //johnfitz -- was R_TranslatePlayerSkin
 
 			ent->lerpflags |= LERP_RESETANIM; //johnfitz -- don't lerp animation across model changes
 		}
@@ -1088,9 +1080,9 @@ static void CLDP_ReadDelta(unsigned int entnum, entity_state_t *s, const entity_
 	}
 	if (bits & E5_GLOWMOD)
 	{
-		/*s->glowmod[0] =*/ MSG_ReadByte();
-		/*s->glowmod[1] =*/ MSG_ReadByte();
-		/*s->glowmod[2] =*/ MSG_ReadByte();
+		s->glowmod[0] = MSG_ReadByte();
+		s->glowmod[1] = MSG_ReadByte();
+		s->glowmod[2] = MSG_ReadByte();
 	}
 	if (bits & E5_COMPLEXANIMATION)
 	{
@@ -1638,7 +1630,6 @@ static void CL_ParseUpdate (int bits)
 	qboolean	forcelink;
 	entity_t	*ent;
 	int		num;
-	int		skin;
 
 	if (cls.signon == SIGNONS - 1)
 	{	// first update is the final signon stage
@@ -1707,15 +1698,9 @@ static void CL_ParseUpdate (int bits)
 	if (bits & U_COLORMAP)
 		ent->netstate.colormap = MSG_ReadByte();
 	if (bits & U_SKIN)
-		skin = MSG_ReadByte();
+		ent->skinnum = MSG_ReadByte();
 	else
-		skin = ent->baseline.skin;
-	if (skin != ent->skinnum)
-	{
-		ent->skinnum = skin;
-		if (num > 0 && num <= cl.maxclients)
-			R_TranslateNewPlayerSkin (num - 1); //johnfitz -- was R_TranslatePlayerSkin
-	}
+		ent->skinnum = ent->baseline.skin;
 	if (bits & U_EFFECTS)
 		ent->effects = MSG_ReadByte();
 	else
@@ -1832,8 +1817,6 @@ static void CL_ParseUpdate (int bits)
 		}
 		else
 			forcelink = true;	// hack to make null model players work
-		if (num > 0 && num <= cl.maxclients)
-			R_TranslateNewPlayerSkin (num - 1); //johnfitz -- was R_TranslatePlayerSkin
 
 		ent->lerpflags |= LERP_RESETANIM; //johnfitz -- don't lerp animation across model changes
 	}
@@ -2064,10 +2047,8 @@ static void CL_NewTranslation (int slot, int vanillacolour)
 	if (slot > cl.maxclients)
 		Sys_Error ("CL_NewTranslation: slot > cl.maxclients");
 
-	//clumsy, but ensures its initialised properly.
-	cl.scores[slot].shirt = CL_PLColours_Parse(va("%i", (vanillacolour>>4)&0xf));
-	cl.scores[slot].pants = CL_PLColours_Parse(va("%i", (vanillacolour>>0)&0xf));
-	R_TranslatePlayerSkin (slot);
+	cl.scores[slot].shirt = CL_PLColours_FromLegacy((vanillacolour>>4)&0xf);
+	cl.scores[slot].pants = CL_PLColours_FromLegacy((vanillacolour>>0)&0xf);
 }
 
 /*
@@ -2112,7 +2093,6 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	ent->skinnum = ent->baseline.skin;
 	ent->effects = ent->baseline.effects;
 	ent->alpha = ent->baseline.alpha; //johnfitz -- alpha
-
 	VectorCopy (ent->baseline.origin, ent->origin);
 	VectorCopy (ent->baseline.angles, ent->angles);
 	if (ent->model)

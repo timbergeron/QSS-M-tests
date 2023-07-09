@@ -682,13 +682,21 @@ void SV_PushMove (edict_t *pusher, float movetime)
 	int			mark; //johnfitz
 	float	solid_backup;
 
-	if ((pusher->v.avelocity[0] || pusher->v.avelocity[1] || pusher->v.avelocity[2]) && !qcvm->brokenpushrotate)
-	{	//spike -- added this block for proper rotations
-		mark = Hunk_LowMark ();
-		if (SV_PushMoveAngles (pusher, movetime))
-			pusher->v.ltime += movetime;
-		Hunk_FreeToLowMark (mark);
-		return;
+	if ((pusher->v.avelocity[0] || pusher->v.avelocity[1] || pusher->v.avelocity[2]))
+	{
+		if (qcvm->rotatingbmodel)
+		{	//spike -- added this block for proper rotations
+			mark = Hunk_LowMark ();
+			if (SV_PushMoveAngles (pusher, movetime))
+				pusher->v.ltime += movetime;
+			Hunk_FreeToLowMark (mark);
+			return;
+		}
+		if (!qcvm->warned_rotatingbmodel)
+		{
+			Con_Warning("MOVETYPE_PUSH(\"%s\") has avelocity, but DP_SV_ROTATINGBMODEL is not enabled\n", PR_GetString(pusher->v.classname));
+			qcvm->warned_rotatingbmodel = true;
+		}
 	}
 
 	if (!pusher->v.velocity[0] && !pusher->v.velocity[1] && !pusher->v.velocity[2])
@@ -1537,6 +1545,8 @@ void SV_Physics (double frametime)
 	else
 		physics_mode = (qcvm==&cl.qcvm)?0:2;	//csqc doesn't run thinks by default. it was meant to simplify implementations, but we just force fields to match ssqc so its not that large a burden.
 
+	if (frametime < 0)
+		frametime = 0;	//no, just no. stoopid float precision.
 	pr_global_struct->time = qcvm->time;
 	pr_global_struct->frametime = qcvm->frametime = frametime;
 

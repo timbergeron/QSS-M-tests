@@ -267,7 +267,7 @@ void Chase_UpdateForDrawing (void)
 	VectorCopy (ideal, r_refdef.vieworg);
 
 	// find the spot the player is looking at
-	VectorMA (cl.viewent.origin, 4096, forward, temp);
+	VectorMA (cl.viewent.origin, 1<<20, forward, temp);
 	TraceLine2 (cl.viewent.origin, temp, crosshair); // woods (Qrack) #betterchase
 
 	// calculate camera angles to look at the same spot
