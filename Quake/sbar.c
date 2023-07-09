@@ -1224,7 +1224,7 @@ void Sbar_DrawFrags(void)
 	if (teamscores)
 		Sbar_SortTeamFrags();
 	else
-		Sbar_SortFrags();
+		Sbar_SortFrags (false);
 
 	// draw the text
 	l = scoreboardlines <= 4 ? scoreboardlines : 4;
@@ -2122,8 +2122,8 @@ void Sbar_DeathmatchOverlay (void)
 	// draw background
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
 			Draw_Fill ( x, y, 320-x*2, 8, ((k+1)==cl.viewentity)?75:73, 1);
-		else
-			Draw_Fill ( x, y, 320-x*2, 8, 0, 0.3);	//or darken it for readability. noisy backgrounds make text hard to read.
+		//else
+		//	Draw_Fill ( x, y, 320-x*2, 8, 0, 0.3);	//or darken it for readability. noisy backgrounds make text hard to read.
 
 		if (s->spectator == 1)	//2 is 'spectator-with-scores' (temporarily inactive players).
 		{

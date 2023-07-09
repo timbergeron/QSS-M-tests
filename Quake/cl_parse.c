@@ -2475,7 +2475,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 						Cbuf_AddText("stop\n");
 					
 					q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_gamedir); // woods for end config (say gg, change color, etc)
-					if (Sys_FileTime(checkname) == -1)
+					if (Sys_FileType(checkname) == -1)
 						return;	// file doesn't exist
 					else
 						if (VID_HasMouseOrInputFocus() && !cls.demoplayback)
@@ -2495,7 +2495,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					cl.modtype = 2; // woods #modtype [crctf server check]
 					q_snprintf(checkname, sizeof(checkname), "%s/ctf.cfg", com_gamedir); // woods for cfg particles per mod
-					if (Sys_FileTime(checkname) == -1)
+					if (Sys_FileType(checkname) == -1)
 						return;	// file doesn't exist
 					else
 						Cbuf_AddText("exec ctf.cfg\n");
@@ -2512,7 +2512,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
 					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
-					if (Sys_FileTime(checkname) == -1)
+					if (Sys_FileType(checkname) == -1)
 						return;	// file doesn't exist
 					else
 						Cbuf_AddText("exec dm.cfg\n");

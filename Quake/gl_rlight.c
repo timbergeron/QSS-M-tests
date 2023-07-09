@@ -426,7 +426,7 @@ loc0:
 				}
 				else
 				{
-					byte *lightmap = surf->samples + ((dt>>surf->lmshift) * ((surf->extents[0]>>surf->lmshift)+1) + (ds>>surf->lmshift))*3; // LordHavoc: *3 for color
+					byte *lightmap = (uint32_t*)surf->samples + ((dt>>surf->lmshift) * ((surf->extents[0]>>surf->lmshift)+1) + (ds>>surf->lmshift))*3; // LordHavoc: *3 for color
 					line3 = ((surf->extents[0]>>surf->lmshift)+1)*3;
 					for (maps = 0;maps < MAXLIGHTMAPS && surf->styles[maps] != INVALID_LIGHTSTYLE;maps++)
 					{

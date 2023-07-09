@@ -45,6 +45,7 @@ extern cvar_t r_nolerp_list;
 extern cvar_t r_noshadow_list;
 //johnfitz
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
+cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates QS's bug where it ignores texture coord offsets for water (breaking curved water volumes). we do NOT ignore scales though.
 
 extern cvar_t trace_any; // woods #tracers
 extern cvar_t trace_any_contains; // woods #tracers
@@ -177,7 +178,7 @@ void Reload_Colors_f (cvar_t* var)
 		int i;
 
 		for (i = 0; i < cl.maxclients; ++i)
-			R_TranslatePlayerSkin(i);
+			1; //R_TranslatePlayerSkin(i);
 	}
 }
 
