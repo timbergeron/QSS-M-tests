@@ -37,6 +37,7 @@ typedef int	string_t;
 	#define Q_ALIGN(a)
 #endif
 //64bit types need alignment hints to ensure we don't get misalignment exceptions on other platforms.
+#include <inttypes.h> //just in case...
 typedef Q_ALIGN(4) int64_t	qcsint64_t;
 typedef Q_ALIGN(4) uint64_t	qcuint64_t;
 typedef Q_ALIGN(4) double	qcdouble_t;
