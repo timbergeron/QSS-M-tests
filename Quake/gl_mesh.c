@@ -461,6 +461,7 @@ void GLMesh_DeleteVertexBuffers (void)
 
 //from gl_model.c
 extern char	loadname[];	// for hunk tags
+extern char diskname[]; // for skin files/etc.
 void Mod_CalcAliasBounds (aliashdr_t *a);
 
 
@@ -538,7 +539,44 @@ typedef struct {
 	int				shaderIndex;
 } md3Shader_t;
 
+qboolean Mod_GetShaderNameForSurface(const char *skinfile, const char *surfacename, char *texturename, size_t texturenamesize)
+{
+	const char *linestart = skinfile;
+//lots of `surfacename,shadername` pair lines.
+	while (*skinfile)
+	{
+		if (*skinfile == ',')
+		{
+			while (*linestart == ' ' || *linestart == '\t')
+				linestart++;
+			if (skinfile - linestart == strlen(surfacename))
+				if (!strncmp(linestart, surfacename, skinfile-linestart))
+				{	//okay, this is the one we're after.
+					skinfile++;
+					while(*skinfile == ' ' || *skinfile == '\t')
+						skinfile++;
+					linestart = skinfile;
+					while (*skinfile && *skinfile != '\n')
+						skinfile++;
+					while (skinfile > linestart && (skinfile[-1] == '\r' || skinfile[-1] == ' ' || skinfile[-1] == '\t'))
+						skinfile--;
 
+					if (skinfile-linestart >= texturenamesize)
+						return false;	//too long.
+					memcpy(texturename, linestart, skinfile-linestart);
+					texturename[skinfile-linestart] = 0;
+					return true;
+				}
+
+			//walk to the end of the line.
+			while (*skinfile && *skinfile != '\n')
+				skinfile++;
+		}
+		else if (*skinfile++ == '\n')
+			linestart = skinfile;
+	}
+	return false;
+}
 
 void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 {
@@ -559,6 +597,9 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 	int					numframes;
 	aliashdr_t			*outhdr;
 
+	char				*skinfile[countof(outhdr->textures)];
+	unsigned int		numskinfiles;
+
 	start = Hunk_LowMark ();
 
 	pinheader = (md3Header_t *)buffer;
@@ -566,16 +607,16 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 	ival = LittleLong (pinheader->version);
 	if (ival != MD3_VERSION)
 		Sys_Error ("%s has wrong version number (%i should be %i)",
-				 mod->name, ival, MD3_VERSION);
+				 diskname, ival, MD3_VERSION);
 
 	numsurfs = LittleLong (pinheader->numSurfaces);
 	numframes = LittleLong(pinheader->numFrames);
 
 	if (numframes > MAXALIASFRAMES)
 		Sys_Error ("%s has too many frames (%i vs %i)",
-				 mod->name, numframes, MAXALIASFRAMES);
+				 diskname, numframes, MAXALIASFRAMES);
 	if (!numsurfs)
-		Sys_Error ("%s has nosurfaces", mod->name);
+		Sys_Error ("%s has nosurfaces", diskname);
 
 	pinframes = (md3Frame_t*)((byte*)buffer + LittleLong(pinheader->ofsFrames));
 //
@@ -585,13 +626,20 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 	size	= sizeof(aliashdr_t) + (numframes-1) * sizeof (outhdr->frames[0]);
 	outhdr = (aliashdr_t *) Hunk_AllocName (size * numsurfs, loadname);
 
+	for (numskinfiles = 0; numskinfiles < countof(skinfile); numskinfiles++)
+	{	//q3 doesn't really support multiple skins any other way. plus this lets us fix up some texture paths...
+		skinfile[numskinfiles] = COM_LoadMallocFile(va("%s_%i.skin", diskname, numskinfiles), NULL);
+		if (!skinfile[numskinfiles])
+			break;
+	}
+
 	for (surf = 0, pinsurface = (md3Surface_t*)((byte*)buffer + LittleLong(pinheader->ofsSurfaces)); surf < numsurfs; surf++, pinsurface = (md3Surface_t*)((byte*)pinsurface + LittleLong(pinsurface->ofsEnd)))
 	{
 		aliashdr_t	*osurf = (aliashdr_t*)((byte*)outhdr + size*surf);
 		if (LittleLong(pinsurface->ident) != (('I'<<0)|('D'<<8)|('P'<<16)|('3'<<24)))
-			Sys_Error ("%s corrupt surface ident", mod->name);
+			Sys_Error ("%s corrupt surface ident", diskname);
 		if (LittleLong(pinsurface->numFrames) != numframes)
-			Sys_Error ("%s mismatched framecounts", mod->name);
+			Sys_Error ("%s mismatched framecounts", diskname);
 
 		if (surf+1 < numsurfs)
 			osurf->nextsurface = size;
@@ -647,8 +695,12 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 		//load the textures
 		if (!isDedicated)
 		{
+			int numshaders = pinsurface->numShaders;
 			pinshader = (md3Shader_t*)((byte*)pinsurface + LittleLong(pinsurface->ofsShaders));
-			osurf->numskins = LittleLong(pinsurface->numShaders);
+			if (numskinfiles)
+				osurf->numskins = numskinfiles;
+			else
+				osurf->numskins = q_max(1, q_min(countof(osurf->textures), numshaders));
 			for (j = 0; j < osurf->numskins; j++, pinshader++)
 			{
 				char texturename[MAX_QPATH];
@@ -656,31 +708,43 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 				char uppername[MAX_QPATH];
 				char lowername[MAX_QPATH];
 				char *ext;
-				//texture names in md3s are kinda fucked. they could be just names relative to the mdl, or full paths, or just simple shader names.
-				//our texture manager is too lame to scan all 1000 possibilities
-				if (strchr(pinshader->name, '/') || strchr(pinshader->name, '\\'))
-				{	//so if there's a path then we want to use that.
-					q_strlcpy(texturename, pinshader->name, sizeof(texturename));
-				}
-				else
-				{	//and if there's no path then we want to prefix it with our own.
-					q_strlcpy(texturename, mod->name, sizeof(texturename));
+				if (j >= numshaders)
+				{	//invalid skin index for the model... not a major issue I guess
+					q_strlcpy(texturename, diskname, sizeof(texturename));
 					*(char*)COM_SkipPath(texturename) = 0;
 					//and concat the specified name
-					q_strlcat(texturename, pinshader->name, sizeof(texturename));
+					q_strlcat(texturename, pinsurface->name, sizeof(texturename));
 				}
+				else
+				{
+					//texture names in md3s are kinda fucked. they could be just names relative to the mdl, or full paths, or just simple shader names.
+					//our texture manager is too lame to scan all 1000 possibilities
+					if (strchr(pinshader->name, '/') || strchr(pinshader->name, '\\'))
+					{	//so if there's a path then we want to use that.
+						q_strlcpy(texturename, pinshader->name, sizeof(texturename));
+					}
+					else
+					{	//and if there's no path then we want to prefix it with our own.
+						q_strlcpy(texturename, diskname, sizeof(texturename));
+						*(char*)COM_SkipPath(texturename) = 0;
+						//and concat the specified name
+						q_strlcat(texturename, pinshader->name, sizeof(texturename));
+					}
+				}
+				if (j < numskinfiles)
+					Mod_GetShaderNameForSurface(skinfile[j], pinsurface->name, texturename, sizeof(texturename));	//swap it out for the skinned texture..
 				//and make sure there's no extensions. these get ignored in q3, which is kinda annoying, but this is an md3 and standards are standards (and it makes luma easier).
 				ext = (char*)COM_FileGetExtension(texturename);
 				if (*ext)
 					*--ext = 0;
 				//luma has an extra postfix.
-				q_snprintf(uppername, sizeof(fullbrightname), "%s_shirt", texturename);
-				q_snprintf(lowername, sizeof(fullbrightname), "%s_pants", texturename);
+				q_snprintf(uppername, sizeof(uppername), "%s_shirt", texturename);
+				q_snprintf(lowername, sizeof(lowername), "%s_pants", texturename);
 				q_snprintf(fullbrightname, sizeof(fullbrightname), "%s_luma", texturename);
 				osurf->textures[j][0].base = TexMgr_LoadImage(mod, texturename, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, texturename, 0, TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_NOBRIGHT|TEXPREF_MIPMAP);
-				osurf->textures[j][0].lower = TexMgr_LoadImage(mod, lowername, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, lowername, 0, TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_NOBRIGHT|TEXPREF_MIPMAP);
-				osurf->textures[j][0].upper = TexMgr_LoadImage(mod, uppername, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, uppername, 0, TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_NOBRIGHT|TEXPREF_MIPMAP);
-				osurf->textures[j][0].luma = TexMgr_LoadImage(mod, fullbrightname, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, fullbrightname, 0, TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_FULLBRIGHT|TEXPREF_MIPMAP);
+				osurf->textures[j][0].lower = TexMgr_LoadImage(mod, lowername, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, lowername, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_MIPMAP);
+				osurf->textures[j][0].upper = TexMgr_LoadImage(mod, uppername, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, uppername, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_MIPMAP);
+				osurf->textures[j][0].luma = TexMgr_LoadImage(mod, fullbrightname, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, fullbrightname, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_FULLBRIGHT|TEXPREF_MIPMAP);
 				osurf->textures[j][3] = osurf->textures[j][2] = osurf->textures[j][1] = osurf->textures[j][0];
 			}
 			if (osurf->numskins)
