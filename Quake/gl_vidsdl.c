@@ -1332,7 +1332,10 @@ static void GL_CheckExtensions (void)
 	{
 		GL_GenerateMipmap = (QS_PFNGENERATEMIPMAP) SDL_GL_GetProcAddress("glGenerateMipmap");
 		if (GL_GenerateMipmap != NULL)
-			Con_Printf ("FOUND: glGenerateMipmap\n");
+		{
+			if (cls.state == ca_disconnected) // woods #supressvidmsgs
+				Con_Printf("FOUND: glGenerateMipmap\n");
+		}
 		else
 			Con_Warning ("glGenerateMipmap not available, liquids won't have mipmaps\n");
 	}
