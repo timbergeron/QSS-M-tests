@@ -110,7 +110,9 @@ sys_socket_t UDP4_Init (void)
 			else
 				myAddr4 = *(in_addr_t *)local->h_addr_list[0];
 #endif
+#ifdef PLATFORM_OSX
 		}
+#endif
 	}	
 
 	if ((net_controlsocket4 = UDP4_OpenSocket(0)) == INVALID_SOCKET)
