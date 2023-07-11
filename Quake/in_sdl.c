@@ -38,6 +38,7 @@ char	normalname2[32]; // woods #smartafk
 
 extern	char mute[2]; // woods for mute to memory #usermute
 
+static qboolean windowhasfocus = true;	//just in case sdl fails to tell us...
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through
 
@@ -316,7 +317,7 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 	qboolean needevents;	//whether we want to receive events still
 
 	qboolean gamecodecursor = (key_dest == key_game && cl.qcvm.cursorforced) || (key_dest == key_menu && cls.menu_qcvm.cursorforced);
-	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || gamecodecursor;
+	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || gamecodecursor || !windowhasfocus;
 	freemouse = wantcursor && (modestate == MS_WINDOWED || gamecodecursor);
 	needevents = (!wantcursor) || key_dest == key_game;
 
@@ -524,6 +525,8 @@ extern cvar_t scr_fov; // woods #zoom (ironwail)
 
 void IN_MouseMotion(int dx, int dy, int wx, int wy)
 {
+	if (!windowhasfocus)
+		dx = dy = 0;	//don't change view angles etc while unfocused.
 	vid.cursorpos[0] = wx;
 	vid.cursorpos[1] = wy;
 	if (key_dest == key_menu && cls.menu_qcvm.extfuncs.Menu_InputEvent)
@@ -542,7 +545,7 @@ void IN_MouseMotion(int dx, int dy, int wx, int wy)
 			G_VECTORSET(OFS_PARM2, wy, 0, 0);	//y
 			G_VECTORSET(OFS_PARM3, 0, 0, 0);	//devid
 		}
-		else
+		else if (dx||dy)
 		{
 			G_FLOAT(OFS_PARM0) = CSIE_MOUSEDELTA;
 			G_VECTORSET(OFS_PARM1, dx, dy, 0);	//x
@@ -1215,6 +1218,7 @@ void IN_SendKeyEvents (void)
 				Sys_ActivateKeyFilter(true);
 #endif
 				//S_UnblockSound();
+				windowhasfocus=true;
 				BGM_Resume(); // woods #usermute  - music
 				if (!strcmp(mute, "y")) // woods #usermute
 					Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
@@ -1242,6 +1246,7 @@ void IN_SendKeyEvents (void)
 				Sys_ActivateKeyFilter(false);
 #endif
 				//S_BlockSound();
+				windowhasfocus=false;
 				BGM_Pause(); // woods #usermute - music
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 				
@@ -1271,6 +1276,7 @@ void IN_SendKeyEvents (void)
 									Cmd_ExecuteString("say_team alt-tabbed", src_command);
 				}
 			}
+
 			else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
 			{
 				vid.width = event.window.data1;
@@ -1283,8 +1289,9 @@ void IN_SendKeyEvents (void)
 			if (event.active.state & (SDL_APPINPUTFOCUS|SDL_APPACTIVE))
 			{
 				if (event.active.gain)
-					S_UnblockSound();
-				else	S_BlockSound();
+					windowhasfocus=true, S_UnblockSound();
+				else
+					windowhasfocus=false, S_BlockSound();
 			}
 			break;
 #endif

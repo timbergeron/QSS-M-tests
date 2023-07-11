@@ -109,8 +109,6 @@ sys_socket_t UDP4_Init (void)
 			}
 			else
 				myAddr4 = *(in_addr_t *)local->h_addr_list[0];
-#endif
-#ifdef PLATFORM_OSX
 		}
 #endif
 	}	

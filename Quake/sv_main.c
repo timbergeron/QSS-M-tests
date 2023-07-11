@@ -1211,6 +1211,18 @@ static void SVFTE_BuildSnapshotForClient (client_t *client)
 	ent = NEXT_EDICT(qcvm->edicts);
 	for (e=1 ; e<maxentities ; e++, ent = NEXT_EDICT(ent))
 	{
+		if (ent->free)
+			goto invisible;
+		val = GetEdictFieldValue(ent, qcvm->extfields.customizeentityforclient);
+		if (val && val->function)
+		{
+			pr_global_struct->self = EDICT_TO_PROG(ent);	//ent being customised
+			pr_global_struct->other = proged;				//player they're being customised for
+			PR_ExecuteProgram(val->function);
+			if (!G_FLOAT(OFS_RETURN))
+				goto invisible;
+		}
+
 		eflags = 0;
 		emiteffect = GetEdictFieldValue(ent, qcvm->extfields.emiteffectnum)->_float;
 		iscsqc = cancsqc && GetEdictFieldEval(ent, SendEntity)->function;
@@ -1254,6 +1266,13 @@ invisible:
 				}
 			}
 		}
+
+		val = GetEdictFieldValue(ent, qcvm->extfields.nodrawtoclient);
+		if (val && val->edict == proged)
+			goto invisible;
+		val = GetEdictFieldValue(ent, qcvm->extfields.drawonlytoclient);
+		if (val && val->edict && val->edict != proged)
+			goto invisible;
 
 		//okay, we care about this entity.
 
@@ -2453,6 +2472,17 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 	ent = NEXT_EDICT(qcvm->edicts);
 	for (e=1 ; e<maxedict ; e++, ent = NEXT_EDICT(ent))
 	{
+		if (ent->free)
+			continue;
+		val = GetEdictFieldValue(ent, qcvm->extfields.customizeentityforclient);
+		if (val && val->function)
+		{
+			pr_global_struct->self = EDICT_TO_PROG(ent);	//ent being customised
+			pr_global_struct->other = EDICT_TO_PROG(client);//player they're being customised for
+			PR_ExecuteProgram(val->function);
+			if (!G_FLOAT(OFS_RETURN))
+				continue;
+		}
 
 		if (ent != clent)	// clent is ALLWAYS sent
 		{
@@ -2478,6 +2508,19 @@ void SV_WriteEntitiesToClient (client_t *client, sizebuf_t *msg)
 			if (i == ent->num_leafs && ent->num_leafs < MAX_ENT_LEAFS)
 				continue;		// not visible
 		}
+
+		val = GetEdictFieldValue(ent, qcvm->extfields.nodrawtoclient);
+		if (val && val->edict == EDICT_TO_PROG(client))
+			continue;
+		val = GetEdictFieldValue(ent, qcvm->extfields.drawonlytoclient);
+		if (val && val->edict && val->edict != EDICT_TO_PROG(client))
+			continue;
+		val = GetEdictFieldValue(ent, qcvm->extfields.viewmodelforclient);
+		if (val && val->edict)	//can't handle this this for this player. can't cleanly attach it to their view so don't even treat it like drawonlytoclient.
+			continue;
+		val = GetEdictFieldValue(ent, qcvm->extfields.exteriormodeltoclient);
+		if (val && val->edict == EDICT_TO_PROG(client))	//can't handle this for this player. pretend its nodrawtoclient.
+			continue;
 
 		// johnfitz -- max size for protocol 15 is 18 bytes, not 16 as originally
 		// assumed here.  And, for protocol 85 the max size is actually 24 bytes.

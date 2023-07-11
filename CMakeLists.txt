@@ -4,6 +4,11 @@ PROJECT(QSS)
 
 SET(QS_LIBS ${QS_LIBS} m ${CMAKE_DL_LIBS})
 
+#other people seem to still care about msvc.
+IF(CMAKE_C_COMPILER_ID MATCHES "GNU")
+	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror=pointer-arith")	#block this gnuc extension
+ENDIF()
+
 FIND_PACKAGE(PkgConfig REQUIRED)
 
 #sdl2 stuff

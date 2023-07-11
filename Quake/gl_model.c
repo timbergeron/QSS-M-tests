@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 qmodel_t	*loadmodel;
 char	loadname[32];	// for hunk tags
+char	diskname[MAX_QPATH];	// for loading related name-based files.
 
 static void Mod_LoadSpriteModel (qmodel_t *mod, void *buffer);
 static void Mod_LoadBrushModel (qmodel_t *mod, void *buffer);
@@ -390,11 +391,15 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 						Con_DPrintf("Ignoring %s from lower priority path\n", newname);
 						continue;
 					}
+				memcpy(diskname, newname, sizeof(newname));
 				break;
 			}
 		}
 		if (!buf)
+		{
+			memcpy(diskname, mod->name, sizeof(mod->name));
 			buf = COM_LoadStackFile (mod->name, stackbuf, sizeof(stackbuf), & mod->path_id);
+		}
 	}
 	if (!buf)
 	{
