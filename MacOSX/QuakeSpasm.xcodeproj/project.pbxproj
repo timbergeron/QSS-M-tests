@@ -107,6 +107,7 @@
 		66991C091DBAB4A600C373C0 /* Quakespasm-Music.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C031DBAB47000C373C0 /* Quakespasm-Music.txt */; };
 		66991C0A1DBAB4A600C373C0 /* Quakespasm.html in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C041DBAB47000C373C0 /* Quakespasm.html */; };
 		66991C0B1DBAB4A600C373C0 /* Quakespasm.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C051DBAB47000C373C0 /* Quakespasm.txt */; };
+		850566E12A6071F200C2FCA3 /* libxmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 850566E02A6071F200C2FCA3 /* libxmp.a */; };
 		932AE8F92944103F0062F917 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F3294410200062F917 /* libopus.a */; };
 		93B34FA22946BA0300FB5B72 /* libmad.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA02946BA0300FB5B72 /* libmad.a */; };
 		93B34FA32946BA0300FB5B72 /* libFLAC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA12946BA0300FB5B72 /* libFLAC.a */; };
@@ -116,10 +117,6 @@
 		93C700672944122600FDFB9D /* libz.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C700602944122600FDFB9D /* libz.a */; };
 		93C700682944122600FDFB9D /* libogg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93C700612944122600FDFB9D /* libogg.a */; };
 		93F78A142946BC0200800F54 /* libvorbisfile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F5294410200062F917 /* libvorbisfile.a */; };
-		93F78A192946BC6000800F54 /* libmpg123.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A152946BC6000800F54 /* libmpg123.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		93F78A1A2946BC6000800F54 /* libFLAC.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A162946BC6000800F54 /* libFLAC.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		93F78A1B2946BC6000800F54 /* libxmp.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A172946BC6000800F54 /* libxmp.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
-		93F78A1C2946BC6000800F54 /* libmad.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 93F78A182946BC6000800F54 /* libmad.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		93F78A1D2946BD5B00800F54 /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; };
 		93F78A1E2946BD5B00800F54 /* SDL2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 664D990519CF6E16000D395C /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FD07DF942782B4E3005CB9D9 /* iplog.c in Sources */ = {isa = PBXBuildFile; fileRef = FD07DF932782B4E3005CB9D9 /* iplog.c */; };
@@ -345,6 +342,10 @@
 		66991C041DBAB47000C373C0 /* Quakespasm.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Quakespasm.html; path = ../Quakespasm.html; sourceTree = "<group>"; };
 		66991C051DBAB47000C373C0 /* Quakespasm.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = Quakespasm.txt; path = ../Quakespasm.txt; sourceTree = "<group>"; };
 		66991C061DBAB48000C373C0 /* quakespasm.pak */ = {isa = PBXFileReference; lastKnownFileType = file; name = quakespasm.pak; path = ../Quake/quakespasm.pak; sourceTree = "<group>"; };
+		850566DF2A6071DD00C2FCA3 /* libxmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libxmp.a; path = libs_universal/libxmp.a; sourceTree = "<group>"; };
+		850566E02A6071F200C2FCA3 /* libxmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libxmp.a; path = libs_universal/libxmp.a; sourceTree = "<group>"; };
+		85F94F5A2A606C26005D9F52 /* libmad.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmad.a; path = libs_universal/libmad.a; sourceTree = "<group>"; };
+		85F94F5B2A606C31005D9F52 /* libFLAC.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libFLAC.a; path = libs_universal/libFLAC.a; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		932AE8F12944101F0062F917 /* libopusfile.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopusfile.a; path = libs_universal/libopusfile.a; sourceTree = "<group>"; };
 		932AE8F2294410200062F917 /* libvorbisenc.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libvorbisenc.a; path = libs_universal/libvorbisenc.a; sourceTree = "<group>"; };
@@ -362,10 +363,6 @@
 		93C700602944122600FDFB9D /* libz.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libz.a; path = libs_universal/libz.a; sourceTree = "<group>"; };
 		93C700612944122600FDFB9D /* libogg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libogg.a; path = libs_universal/libogg.a; sourceTree = "<group>"; };
 		93C700622944122600FDFB9D /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopus.a; path = libs_universal/libopus.a; sourceTree = "<group>"; };
-		93F78A152946BC6000800F54 /* libmpg123.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmpg123.dylib; path = codecs/lib/libmpg123.dylib; sourceTree = "<group>"; };
-		93F78A162946BC6000800F54 /* libFLAC.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libFLAC.dylib; path = codecs/lib/libFLAC.dylib; sourceTree = "<group>"; };
-		93F78A172946BC6000800F54 /* libxmp.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxmp.dylib; path = codecs/lib/libxmp.dylib; sourceTree = "<group>"; };
-		93F78A182946BC6000800F54 /* libmad.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmad.dylib; path = codecs/lib/libmad.dylib; sourceTree = "<group>"; };
 		B021C20714A5FF7E003F18D6 /* cfgfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cfgfile.c; path = ../Quake/cfgfile.c; sourceTree = SOURCE_ROOT; };
 		B021C20814A5FF7E003F18D6 /* cfgfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cfgfile.h; path = ../Quake/cfgfile.h; sourceTree = SOURCE_ROOT; };
 		F5F5DE80017CB4370103A810 /* libmikmod.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmikmod.dylib; path = codecs/lib/libmikmod.dylib; sourceTree = "<group>"; };
@@ -380,11 +377,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				93F78A192946BC6000800F54 /* libmpg123.dylib in Frameworks */,
-				93F78A1A2946BC6000800F54 /* libFLAC.dylib in Frameworks */,
-				93F78A1B2946BC6000800F54 /* libxmp.dylib in Frameworks */,
-				93F78A1C2946BC6000800F54 /* libmad.dylib in Frameworks */,
 				664D98E519CF6B78000D395C /* libmikmod.dylib in Frameworks */,
+				850566E12A6071F200C2FCA3 /* libxmp.a in Frameworks */,
 				932AE8F92944103F0062F917 /* libopus.a in Frameworks */,
 				93C700662944122600FDFB9D /* libopusfile.a in Frameworks */,
 				93C700682944122600FDFB9D /* libogg.a in Frameworks */,
@@ -441,6 +435,7 @@
 				93B34FA02946BA0300FB5B72 /* libmad.a */,
 				93C700612944122600FDFB9D /* libogg.a */,
 				93C700622944122600FDFB9D /* libopus.a */,
+				850566E02A6071F200C2FCA3 /* libxmp.a */,
 				93C7005F2944122600FDFB9D /* libopusfile.a */,
 				93C7005C2944122500FDFB9D /* libvorbis.a */,
 				93C7005D2944122500FDFB9D /* libvorbisenc.a */,
@@ -474,10 +469,9 @@
 		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				93F78A162946BC6000800F54 /* libFLAC.dylib */,
-				93F78A182946BC6000800F54 /* libmad.dylib */,
-				93F78A152946BC6000800F54 /* libmpg123.dylib */,
-				93F78A172946BC6000800F54 /* libxmp.dylib */,
+				85F94F5A2A606C26005D9F52 /* libmad.a */,
+				85F94F5B2A606C31005D9F52 /* libFLAC.a */,
+				850566DF2A6071DD00C2FCA3 /* libxmp.a */,
 				932AE8F6294410200062F917 /* libogg.a */,
 				932AE8F3294410200062F917 /* libopus.a */,
 				932AE8F12944101F0062F917 /* libopusfile.a */,

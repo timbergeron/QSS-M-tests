@@ -5,8 +5,8 @@ if [ ! -d "vcpkg" ]; then
     ./vcpkg/bootstrap-vcpkg.sh
 fi
 
-./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=x64-osx-10.9 zlib libogg opus opusfile libvorbis libmad libflac
-./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=arm64-osx-11.0 zlib libogg opus opusfile libvorbis libmad libflac
+./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=x64-osx-10.9 zlib libogg opus opusfile libvorbis libmad libflac libxmp
+./vcpkg/vcpkg install --overlay-triplets=custom-triplets --triplet=arm64-osx-11.0 zlib libogg opus opusfile libvorbis libmad libflac libxmp
 
 mkdir -p libs_universal
 lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libogg.a ./vcpkg/installed/arm64-osx-11.0/lib/libogg.a -output ./libs_universal/libogg.a
@@ -18,3 +18,4 @@ lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libvorbisfile.a ./vcpkg/installe
 lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libz.a ./vcpkg/installed/arm64-osx-11.0/lib/libz.a -output ./libs_universal/libz.a
 lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libmad.a ./vcpkg/installed/arm64-osx-11.0/lib/libmad.a -output ./libs_universal/libmad.a
 lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libFLAC.a ./vcpkg/installed/arm64-osx-11.0/lib/libFLAC.a -output ./libs_universal/libFLAC.a
+lipo -create ./vcpkg/installed/x64-osx-10.9/lib/libxmp.a ./vcpkg/installed/arm64-osx-11.0/lib/libxmp.a -output ./libs_universal/libxmp.a
