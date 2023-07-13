@@ -1907,11 +1907,11 @@ from our per-TMU cached texture binding table.
 */
 static void GL_DeleteTexture (gltexture_t *texture)
 {
+	int i;
 	glDeleteTextures (1, &texture->texnum);
 
-	if (texture->texnum == currenttexture[0]) currenttexture[0] = GL_UNUSED_TEXTURE;
-	if (texture->texnum == currenttexture[1]) currenttexture[1] = GL_UNUSED_TEXTURE;
-	if (texture->texnum == currenttexture[2]) currenttexture[2] = GL_UNUSED_TEXTURE;
+	for (i = 0; i < countof(currenttexture); i++)
+		if (texture->texnum == currenttexture[i]) currenttexture[i] = GL_UNUSED_TEXTURE;
 
 	texture->texnum = 0;
 }
@@ -1928,7 +1928,7 @@ Call this after changing the binding outside of GL_Bind.
 void GL_ClearBindings(void)
 {
 	int i;
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < countof(currenttexture); i++)
 	{
 		currenttexture[i] = GL_UNUSED_TEXTURE;
 	}

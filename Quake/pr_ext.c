@@ -7769,8 +7769,10 @@ static struct
 	{"DP_EF_RED",				PR_Can_EF_Red_Blue},
 	{"DP_ENT_ALPHA",			PR_Can_Ent_Alpha},	//already in quakespasm, supposedly.
 	{"DP_ENT_COLORMOD",			PR_Can_Ent_ColorMod},
+	{"DP_ENT_EXTERIORMODELTOCLIENT"},
 	{"DP_ENT_SCALE",			PR_Can_Ent_Scale},
 	{"DP_ENT_TRAILEFFECTNUM",	PR_Can_Particles},
+	{"DP_ENT_VIEWMODEL"},	//viewmodelforclient
 	//{"DP_GFX_QUAKE3MODELTAGS"}, //we support attachments but no md3/iqm/tags, so we can't really advertise this (although the builtin is complete if you ignore the lack of md3/iqms/tags)
 	{"DP_INPUTBUTTONS"},
 	{"DP_QC_AUTOCVARS"},	//they won't update on changes
@@ -7815,7 +7817,10 @@ static struct
 	{"DP_VIEWZOOM"},
 	{"DP_REGISTERCVAR",			PR_NotQEX},
 	{"DP_SV_BOTCLIENT"},
+	{"DP_SV_CUSTOMIZEENTITYFORCLIENT"},
+	{"DP_SV_DRAWONLYTOCLIENT"},
 	{"DP_SV_DROPCLIENT"},
+	{"DP_SV_NODRAWTOCLIENT"},
 //	{"DP_SV_POINTPARTICLES",	PR_Can_Particles},	//can't enable this, because certain mods then assume that we're DP and all the particles break.
 	{"DP_SV_POINTSOUND"},
 	{"DP_SV_PRECACHEANYTIME",	PR_CanPrecacheAnyTime},
