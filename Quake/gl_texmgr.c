@@ -1890,7 +1890,7 @@ static void TexMgr_ColormapTexture_Free(struct gltexture_s *basetex)
 			{
 				TexMgr_FreeTexture(colourmappedtexture[i].coloured);
 				colourmappedtexture[i].basetex = NULL;
-				colourmappedtexture[i].usetime = 0;
+				colourmappedtexture[i].usetime = FLT_MIN;
 				colourmappedtexture[i].coloured = NULL;
 				//may be multiple combinations of the same texture.
 			}
@@ -1903,6 +1903,7 @@ static void TexMgr_ColormapTexture_Free(struct gltexture_s *basetex)
 			if (colourmappedtexture[i].coloured)
 				TexMgr_FreeTexture(colourmappedtexture[i].coloured);
 			colourmappedtexture[i].coloured = NULL;
+			colourmappedtexture[i].basetex = NULL;
 		}
 		numcolourmappedtextures = 0;
 	}
@@ -1913,7 +1914,9 @@ struct gltexture_s *TexMgr_ColormapTexture(struct gltexture_s *basetex, plcolour
 	float otime;
 	int i;
 	struct gltexture_s *glt;
-	for (i = 0; i < countof(colourmappedtexture); i++)
+	if (!basetex)
+		return NULL;
+	for (i = 0; i < numcolourmappedtextures; i++)
 	{
 		if (colourmappedtexture[i].basetex == basetex && colourmappedtexture[i].upper.key == upper.key && colourmappedtexture[i].lower.key == lower.key)
 		{
