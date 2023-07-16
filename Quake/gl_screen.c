@@ -1669,13 +1669,15 @@ void SCR_Observing(void)
 			if (!strcmp(obs, "chase")) // chase
 			{
 				sprintf(printtxt, "%s", observing); // print who you are observering
-				M_PrintWhite(136 - strlen(observing), 0, printtxt);
+				M_PrintWhite(166 - (strlen(observing)*4), 0, printtxt);
 			}
 			else if (!strcmp(obs, "eyecam"))// eyecam
 			{
+				if (r_drawviewmodel.value)
+					Draw_Fill(152 - strlen(observing)*4, 0, (strlen(observing)*8) + 15, 9, 0, .8); // show their color
 				sprintf(printtxt, "%s", observing); // // print self (name), viewentity hack (eyecam thinks your are them)
-				M_PrintWhite(136-strlen(observing), 0, printtxt);
-				Draw_Fill(125 - strlen(observing), 0, 8, 8, color, 1); // show their color
+				M_PrintWhite(165-strlen(observing)*4, 0, printtxt);
+				Draw_Fill(154 - (strlen(observing)*4), 1, 7, 7, color, 1); // show their color
 			}		
 		}
 	}
