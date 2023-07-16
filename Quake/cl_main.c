@@ -395,11 +395,12 @@ void CL_SignonReply (void)
 		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
 
 		const char* val;
+		const char* val2;
 
 		char buf[10]; // woods #modtype [crx server check]
 		val = Info_GetKey(cl.serverinfo, "mod", buf, sizeof(buf));
-		if (!strcmp(val, "crx"))
-		{ 
+		if (q_strcasestr(val, "crx") && val[0] != 'q')
+		{
 			cl.modtype = 1;
 			strncpy(cl.observer, "n", sizeof(cl.observer));
 		}
@@ -409,25 +410,45 @@ void CL_SignonReply (void)
 		if (strstr(val, "FTE"))
 			cl.modtype = 5;
 
-		/*
-		
-		char buf2[10]; // woods #modtype [qecrx server check]
-		val = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mod", buf2, sizeof(buf2));
-		if (!strcmp(val, "qecrx"))
-		{
-			cl.modtype = 4;
-			strncpy(cl.observer, "n", sizeof(cl.observer));
-		}*/
+		// woods lets detect the mode of the server for hybrid/nq crx
 
-		// woods lets exec some configs based on server mode
-
-		char buf3[10];
+		char buf3[16];
 		val = Info_GetKey(cl.serverinfo, "mode", buf3, sizeof(buf3));
-		if (!strcmp(val, "dm"))
-			Cbuf_AddText("exec dm.cfg\n");
+
+		// woods lets 
 
 		if (!q_strcasecmp(val, "ctf"))
-			Cbuf_AddText("exec ctf.cfg\n");
+		{
+			Cbuf_AddText("exec ctf.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+			cl.modetype = 1;
+		}
+		if (!strcmp(val, "dm"))
+		{
+			cl.modetype = 2;
+			Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+		}
+		if (!q_strcasecmp(val, "ra") || !q_strcasecmp(val, "rocketarena"))
+			cl.modetype = 3;
+		if (!q_strcasecmp(val, "ca"))
+			cl.modetype = 4;
+		if (!q_strcasecmp(val, "airshot"))
+			cl.modetype = 5;
+		if (!q_strcasecmp(val, "wipeout"))
+			cl.modetype = 6;
+		if (!q_strcasecmp(val, "freezetag"))
+			cl.modetype = 7;
+
+		// woods lets detect the playmode of the server for hybrid/nq crx
+
+		char buf4[16];
+		val2 = Info_GetKey(cl.serverinfo, "playmode", buf4, sizeof(buf4));
+
+		if (!q_strcasecmp(val2, "match"))
+			cl.playmode = 1;
+		if (!q_strcasecmp(val2, "ffa") || !q_strcasecmp(val2, "pug") || !q_strcasecmp(val2, "normal"))
+			cl.playmode = 2;
+		if (!q_strcasecmp(val2, "practice"))
+			cl.playmode = 3;
 
 		retry_counter = 0; // woods #ms
 

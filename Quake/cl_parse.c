@@ -2517,8 +2517,8 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 						Cbuf_AddText("exec dm.cfg\n");
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
-				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods #matchhud
-					strncpy(cl.ffa, "y", sizeof(cl.ffa));
+				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods
+					cl.playmode = 2;
 				else
 				{
 					{

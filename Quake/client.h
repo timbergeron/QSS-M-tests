@@ -366,12 +366,13 @@ typedef struct
 	int			conflag;			// woods for keeping track of what's coming in string for parsing #confilter #ghostcode
 	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
 	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
-	char		ffa[2];				// woods for #matchhud #flagstatus
 	char		flagstatus[2];		// woods for #flagstatus
 	char		ghostcode[4];		// woods for ghost code to memory #ghostcode
 	char		observer[2];		// woods for ghost code to memory #observer
 	int			fps;				// woods #f_config
 	int			modtype;			// woods #modtype detect mp server mod type 5 - FTE, 4 - hybrid crx, 3 - crmod, 2 - crctf, 1 - crx
+	int			modetype;			// woods crx mode detection -- 1 - ctf, 2 - dm, 3 - ra, 4 - ca, 5 - airshot, 6 - wipeout, 7 - freetag
+	int			playmode;			// woods crx play mode detection -- 1 - match, 2 - ffa/normal/pug, 3 - practice
 	int			teamscore[3];		// woods #hud_diff	
 	int			teamcolor[3];		// woods #hud_diff
 	int			realviewentity;		// woods #hud_diff

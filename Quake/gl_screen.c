@@ -96,6 +96,7 @@ void Sound_Toggle_Mute_On_f(void); // woods #usermute -- adapted from Fitzquake 
 
 Uint32 HintTimer_Callback(Uint32 interval, void* param); // woods #qssmhints
 void Print_Hints_f(void); // woods #qssmhints
+extern qboolean netquakeio; // woods
 
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
@@ -1054,9 +1055,9 @@ void SCR_DrawMatchClock(void)
 		Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 	}
 
-	if ((cl.minutes != 255))
+	if ((cl.minutes != 255)) // hack for crmod 6.6
 	{
-		if (!strcmp(cl.ffa, "y")) // display count up to timelimit in normal/ffa mode
+		if (cl.playmode == 2 || (cl.modetype != 3 && cl.playmode == 2) || netquakeio || (!teamscores && cl.modtype == 3)) // display count up to timelimit in normal/ffa mode
 		{
 			
 			minutes = cl.time / 60;
@@ -1065,7 +1066,7 @@ void SCR_DrawMatchClock(void)
 			sprintf(num, "%3d:%02d", minutes, seconds);
 		}
 
-		if (teamscores) // display timelimit if we can get it if there is a team
+		if (cl.teamcolor[0] && cl.modetype != 3) // display timelimit if we can get it if there is a team
 		{
 			if (cl.modtype == 1) // nq crx server check, if so parse serverinfo for timelimit
 			{
@@ -1106,9 +1107,12 @@ void SCR_DrawMatchClock(void)
 		if (!strcmp(num, "empty"))
 			return;
 
+		if (qeintermission && !cl.teamcolor[0])
+			return;
+
 		if (scr_match_hud.value)
 		{
-			if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y"))) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+			if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 				M_Print(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // M_Print is colored text
 			else
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
@@ -1128,7 +1132,7 @@ void SCR_DrawMatchClock(void)
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 			{
 				GL_SetCanvas(CANVAS_MATCHCLOCK);
-				if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && !(!strcmp(cl.ffa, "y"))) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+				if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 					M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num); // M_Print is colored text
 				else
 					Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
@@ -1177,10 +1181,13 @@ void SCR_DrawMatchScores(void)
 
 		if (!q_strcasecmp(uiplaymode, "ffa"))
 			return;
+
+		if (cl.modetype == 3) // no teamscores for crx ra
+			return;
 		
 		if (scr_match_hud.value)   // woods for console var off and on
 		{
-			if (cl.minutes != 255)
+			if (cl.teamcolor[0])
 				Draw_Fill(11, 1, 32, 18, 0, 0.3);  // rectangle for missing team
 
 			for (i = 0; i < l; i++)
@@ -1415,13 +1422,12 @@ void SCR_ShowFlagStatus(void)
 	z = 0.20; // abandoned not at base flag (alpha)
 	x = 0; xx = 0; 	y = 0; 	yy = 0; // initiate
 
-	if (!strcmp(cl.ffa, "y")) // change position in ffa mode below the clock
+	if (!cl.teamgame) // change position in ffa mode below the clock
 	{  // xx and yy needed because drawalpha uses diff positioning
 		x = 26;
 		xx = 12;
 		y = -1;
 		yy = -25;
-
 	}
 
 	else // xx and yy needed because drawalpha uses diff positioning
