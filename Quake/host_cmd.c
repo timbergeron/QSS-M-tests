@@ -33,8 +33,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t	pausable;
 extern cvar_t	nomonsters; // woods #nomonsters (ironwail)
 
-void Reload_Colors_f(void); // woods #enemycolors
-
 int	current_skill;
 
 double		mpservertime;	// woods #servertime
@@ -3847,7 +3845,6 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_ClientCommandQC ("like", Host_Like_f); // woods #like
 	Cmd_AddCommand_ClientCommandQC ("tell", Host_Tell_f);
 	Cmd_AddCommand_ClientCommandQC ("color", Host_Color_f);
-	Cmd_AddCommand_ClientCommandQC ("reloadcolors", Reload_Colors_f); // woods #enemycolors
 	Cmd_AddCommand_ClientCommandQC ("kill", Host_Kill_f);
 	Cmd_AddCommand_ClientCommandQC ("pause", Host_Pause_f);
 	Cmd_AddCommand_ClientCommand ("spawn", Host_Spawn_f);

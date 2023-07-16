@@ -168,22 +168,6 @@ float GL_WaterAlphaForSurface (msurface_t *fa)
 
 /*
 ===============
-Reload_Colors -- woods #enemycolors
-===============
-*/
-void Reload_Colors_f (cvar_t* var)
-{
-	if (gl_teamcolor.value >= 0 || gl_enemycolor.value >= 0)
-	{
-		int i;
-
-		for (i = 0; i < cl.maxclients; ++i)
-			1; //R_TranslatePlayerSkin(i);
-	}
-}
-
-/*
-===============
 R_Init
 ===============
 */
@@ -217,9 +201,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&gl_playermip);
 	Cvar_RegisterVariable (&gl_nocolors);
 	Cvar_RegisterVariable (&gl_enemycolor); // woods #enemycolors
-	Cvar_SetCallback(&gl_enemycolor, Reload_Colors_f); // woods #enemycolors
 	Cvar_RegisterVariable (&gl_teamcolor); // woods #enemycolors
-	Cvar_SetCallback(&gl_teamcolor, Reload_Colors_f); // woods #enemycolors
 	Cvar_RegisterVariable (&gl_laserpoint); // woods #laser
 	Cvar_RegisterVariable (&gl_laserpoint_alpha); // woods #laser
 	Cvar_RegisterVariable (&trace_any); // woods #tracers

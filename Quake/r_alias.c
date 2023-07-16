@@ -420,13 +420,94 @@ static void GL_DrawAliasFrame_GLSL (aliasglsl_t *glsl, aliashdr_t *paliashdr, le
 #define MyVectorScale(a,s,b) do{(b)[0]=(s)*(a)[0];(b)[1]=(s)*(a)[1];(b)[2]=(s)*(a)[2];}while(0)
 	if (e->netstate.colormap > 0 && e->netstate.colormap <= cl.maxclients)
 	{
-		scoreboard_t *sb = &cl.scores[e->netstate.colormap-1];
-		byte *pal;
-		pal = CL_PLColours_ToRGB(&sb->pants);
-		MyVectorScale(pal, 1.0/255, tints[0]);
+		scoreboard_t* sb = &cl.scores[e->netstate.colormap - 1];
+		byte* pal;
 
-		pal = CL_PLColours_ToRGB(&sb->shirt);
-		MyVectorScale(pal, 1.0/255, tints[1]);
+		const char* enemycolor = gl_enemycolor.string;
+		const char* teamcolor = gl_teamcolor.string;
+
+		plcolour_t enemy = CL_PLColours_Parse(enemycolor);
+		plcolour_t team = CL_PLColours_Parse(teamcolor);
+
+		qboolean isTeamColorSet = strcmp(gl_teamcolor.string, "") != 0;
+		qboolean isEnemyColorSet = strcmp(gl_enemycolor.string, "") != 0;
+		qboolean isSamePants = sb->pants.basic == cl.scores[cl.viewentity - 1].pants.basic;
+		qboolean isSelf = sb->userinfo == cl.scores[cl.viewentity - 1].userinfo;
+
+		if ((isTeamColorSet || isEnemyColorSet) && !cls.demoplayback && !isSelf) // woods #enemycolors, do we run it?
+		{
+			if (isTeamColorSet && !isEnemyColorSet && cl.teamcolor[0]) // team color active, enemy blank
+			{
+				if (isSamePants) // player has SAME color than me, set TEAM COLOR
+				{
+					pal = CL_PLColours_ToRGB(&team);
+					MyVectorScale(pal, 1.0 / 255, tints[0]);
+					MyVectorScale(pal, 1.0 / 255, tints[1]);
+				}
+				else
+				{
+					pal = CL_PLColours_ToRGB(&sb->pants);
+					MyVectorScale(pal, 1.0 / 255, tints[0]);
+					pal = CL_PLColours_ToRGB(&sb->shirt);
+					MyVectorScale(pal, 1.0 / 255, tints[1]);
+				}
+			}
+
+			if (isEnemyColorSet && !isTeamColorSet && cl.teamcolor[0]) // enemy color active, team blank
+			{
+				if (!isSamePants) // player has diff color than me, set ENEMY COLOR
+				{
+					pal = CL_PLColours_ToRGB(&enemy);
+					MyVectorScale(pal, 1.0 / 255, tints[0]);
+					MyVectorScale(pal, 1.0 / 255, tints[1]);
+				}
+				else
+				{
+					pal = CL_PLColours_ToRGB(&sb->pants);
+					MyVectorScale(pal, 1.0 / 255, tints[0]);
+					pal = CL_PLColours_ToRGB(&sb->shirt);
+					MyVectorScale(pal, 1.0 / 255, tints[1]);
+				}
+			}
+
+			if (isEnemyColorSet && isTeamColorSet && cl.teamcolor[0]) // both enemy and team active
+			{
+				if (!isSamePants) // player has diff color than me, set ENEMY COLOR
+				{
+					pal = CL_PLColours_ToRGB(&enemy);
+					MyVectorScale(pal, 1.0 / 255, tints[0]);
+					MyVectorScale(pal, 1.0 / 255, tints[1]);
+				}
+				if (isSamePants) // player has SAME color than me, set TEAM COLOR
+				{
+					pal = CL_PLColours_ToRGB(&team);
+					MyVectorScale(pal, 1.0 / 255, tints[0]);
+					MyVectorScale(pal, 1.0 / 255, tints[1]);
+				}
+			}
+
+			if (isEnemyColorSet && !cl.teamcolor[0])// ffa all enemies green
+			{
+				pal = CL_PLColours_ToRGB(&enemy);
+				MyVectorScale(pal, 1.0 / 255, tints[0]);
+				MyVectorScale(pal, 1.0 / 255, tints[1]);
+			}
+			else if (!isEnemyColorSet && !cl.teamcolor[0])
+			{
+				pal = CL_PLColours_ToRGB(&sb->pants);
+				MyVectorScale(pal, 1.0 / 255, tints[0]);
+				pal = CL_PLColours_ToRGB(&sb->shirt);
+				MyVectorScale(pal, 1.0 / 255, tints[1]);
+			}
+
+		}
+		else // default case, no enemy or team colors on
+		{
+			pal = CL_PLColours_ToRGB(&sb->pants);
+			MyVectorScale(pal, 1.0 / 255, tints[0]);
+			pal = CL_PLColours_ToRGB(&sb->shirt);
+			MyVectorScale(pal, 1.0 / 255, tints[1]);
+		}
 	}
 	else
 	{
@@ -1349,8 +1430,37 @@ void R_DrawAliasModel (entity_t *e)
 				//on the plus side, we do use a lookup so we don't break quakerally. csqc also benefits from not needing to worry about edict numbers.
 				if (tex.base && tex.base->source_format == SRC_INDEXED && !tex.upper && !tex.lower)
 				{
-					scoreboard_t *sb = &cl.scores[e->netstate.colormap-1];
-					struct gltexture_s *t = TexMgr_ColormapTexture(tex.base, sb->pants, sb->shirt);
+					scoreboard_t* sb = &cl.scores[e->netstate.colormap - 1];
+					struct gltexture_s* t;
+
+					// woods force colors #enemycolors
+
+					plcolour_t enemy = CL_PLColours_Parse(gl_enemycolor.string);
+					plcolour_t team = CL_PLColours_Parse(gl_teamcolor.string);
+
+					qboolean isTeamColorSet = strcmp(gl_teamcolor.string, "") != 0;
+					qboolean isEnemyColorSet = strcmp(gl_enemycolor.string, "") != 0;
+					qboolean isSamePants = sb->pants.basic == cl.scores[cl.viewentity - 1].pants.basic;
+					qboolean isSelf = sb->userinfo == cl.scores[cl.viewentity - 1].userinfo;
+
+
+					if ((isTeamColorSet || isEnemyColorSet) && !cls.demoplayback && !isSelf) // woods #enemycolors, do we run it?
+					{
+						if (isTeamColorSet && !isEnemyColorSet) // team color active, enemy blank
+							t = isSamePants ? TexMgr_ColormapTexture(tex.base, team, team) : TexMgr_ColormapTexture(tex.base, sb->pants, sb->shirt);
+						else if (!isTeamColorSet && isEnemyColorSet) // enemy color active, team blank
+							t = !isSamePants ? TexMgr_ColormapTexture(tex.base, enemy, enemy) : TexMgr_ColormapTexture(tex.base, sb->pants, sb->shirt);
+						else if (isTeamColorSet && isEnemyColorSet) // both enemy and team active
+							t = !isSamePants ? TexMgr_ColormapTexture(tex.base, enemy, enemy) : TexMgr_ColormapTexture(tex.base, team, team);
+
+						if (isEnemyColorSet && !cl.teamcolor[0]) // ffa, all players are enemies! 
+							t = TexMgr_ColormapTexture(tex.base, enemy, enemy);
+						else if (!isEnemyColorSet && !cl.teamcolor[0])
+							t = TexMgr_ColormapTexture(tex.base, sb->pants, sb->shirt);
+					}
+					else // default case, no enemy or team colors on
+						t = TexMgr_ColormapTexture(tex.base, sb->pants, sb->shirt);
+
 					if (t)
 						tex.base = t;
 				}
