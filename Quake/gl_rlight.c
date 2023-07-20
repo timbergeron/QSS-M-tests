@@ -122,12 +122,18 @@ void R_RenderDlight (dlight_t *light)
 	VectorSubtract (light->origin, r_origin, v);
 	if (VectorLength (v) < rad)
 	{	// view is inside the dlight
-		AddLightBlend (1, 0.5, 0, light->radius * 0.0003);
+		if (light->color[0]==1 && light->color[1]==1 && light->color[2]==1)
+			AddLightBlend (1.0, 0.5, 0.0, light->radius * 0.0003);
+		else
+			AddLightBlend (light->color[0], light->color[1], light->color[2], light->radius * 0.0003);
 		return;
 	}
 
 	glBegin (GL_TRIANGLE_FAN);
-	glColor3f (0.2,0.1,0.0);
+	if (light->color[0]==1 && light->color[1]==1 && light->color[2]==1)	//if its default full-white, show it with an orange tint instead to replicate expected QS behaviour without breaking coloured dlights.
+		glColor3f (0.2f, 0.1f, 0.0);
+	else
+		glColor3f (light->color[0]*.2f, light->color[1]*.2f, light->color[2]*.2f);
 	for (i=0 ; i<3 ; i++)
 		v[i] = light->origin[i] - vpn[i]*rad;
 	glVertex3fv (v);
