@@ -103,6 +103,7 @@ cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbaralpha = {"scr_sbaralpha", "0.75", CVAR_ARCHIVE}; // woods #sbarstyles
 cvar_t		scr_sbaralphaqwammo = {"scr_sbaralphaqwammo", "1", CVAR_ARCHIVE};
+cvar_t		scr_sbarshowqeammo = {"scr_sbarshowqeammo", "1", CVAR_ARCHIVE}; // woods
 cvar_t		scr_sbar = {"scr_sbar", "1", CVAR_ARCHIVE}; // woods #sbarstyles
 cvar_t		scr_conwidth = {"scr_conwidth", "0", CVAR_ARCHIVE};
 cvar_t		scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
@@ -711,6 +712,7 @@ void SCR_Init (void)
 	Cvar_SetCallback (&scr_sbaralpha, SCR_Callback_refdef);
 	Cvar_RegisterVariable (&scr_sbaralpha);
 	Cvar_RegisterVariable (&scr_sbaralphaqwammo); // woods #sbarstyles
+	Cvar_RegisterVariable (&scr_sbarshowqeammo); // woods #sbarstyles
 	Cvar_RegisterVariable (&scr_sbar); // woods #sbarstyles
 	Cvar_SetCallback (&scr_conwidth, &SCR_Conwidth_f);
 	Cvar_SetCallback (&scr_conscale, &SCR_Conwidth_f);
@@ -811,14 +813,18 @@ void SCR_DrawFPS (void)
 		{
 			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 			x = 301;
+			y = 140;
+
+			if (!scr_sbarshowqeammo.value)
+				y += 36;
+
 			if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
 			{
-				y = 120;
-				if (scr_viewsize.value >= 110)
-					y += 20;
+				if (scr_sbarshowqeammo.value)
+					y -= 22;
+				if (scr_viewsize.value >= 110 && scr_sbarshowqeammo.value)
+					y += 22;
 			}
-			else
-				y = 142;
 		}
 		else
 		{
@@ -884,14 +890,19 @@ void SCR_DrawClock (void)
 	{
 		GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 		x = 301;
+		y = 140;
+
+		if (!scr_sbarshowqeammo.value)
+			y += 36;
+
 		if ((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4))
 		{
-			y = 120;
-			if (scr_viewsize.value >= 110)
-				y += 20;
+			if (scr_sbarshowqeammo.value)
+				y -= 22;
+			if (scr_viewsize.value >= 110 && scr_sbarshowqeammo.value)
+				y += 22;
 		}
-		else
-			y = 142;
+
 	}
 	else
 	{ 
@@ -1610,7 +1621,7 @@ void SCR_Mute(void)
 
 		if (scr_sbar.value == 3) // #qehud
 		{
-			y = 173;
+			y = 176;
 			x = 184;
 			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 			
@@ -1622,6 +1633,9 @@ void SCR_Mute(void)
 
 			if (cls.demoplayback)
 				x -= 34;
+
+			if (!scr_sbarshowqeammo.value)
+				x = 184;
 
 			M_PrintWhite(x, y, "mute");
 		}

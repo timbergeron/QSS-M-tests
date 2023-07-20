@@ -1162,19 +1162,23 @@ Sbar_DrawInventory_QE -- woods - keys and runes only #qehud
 */
 void Sbar_DrawInventory_QE (void)
 {
-	int	i, x;
+	int	i, x, y;
 
 	GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
-				
+	
 	// keys
 
 	x = 288;
+	y = 120;
+
+	if (!scr_sbarshowqeammo.value)
+		y -= 24;
 
 	for (i = 0; i < 2; i++)
 	{
 		if (cl.items & (IT_KEY1 << i))
 		{
-			Sbar_DrawPic(x, 120, sb_items[i]);
+			Sbar_DrawPic(x, y, sb_items[i]);
 			x -= sb_items[i]->width;
 		}
 	}
@@ -1192,7 +1196,7 @@ void Sbar_DrawInventory_QE (void)
 	{
 		if (cl.items & (IT_SIGIL1 << i))
 		{
-			Sbar_DrawPic(x, 120, sb_sigil[i]);
+			Sbar_DrawPic(x, y, sb_sigil[i]);
 			x -= sb_sigil[i]->width;
 		}
 	}
@@ -1382,15 +1386,13 @@ void Sbar_DrawRecord(void)
 	{
 		GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 
-		x = 302;
-		y = 159;
+		if (scr_viewsize.value >= 110)
+			return;
 
-		if (scr_showfps.value)
-			y -= 11;
-		if (scr_clock.value)
-			y -= 11;
-		if (((cl.items & IT_KEY1) || (cl.items & IT_KEY2) || (cl.items & IT_SIGIL1) || (cl.items & IT_SIGIL2) || (cl.items & IT_SIGIL3) || (cl.items & IT_SIGIL4)) && !(scr_viewsize.value >= 110))
-			y -= 19;
+		x = 302;
+		y = 119;
+
+
 
 		Draw_Fill(x, y, 1, 1, 249, 1);
 	}
@@ -1748,45 +1750,50 @@ void Sbar_Draw (void)
 			Draw_Fill (18, 163, 24, 25, 24, .2);
 
 		// health
-		Sbar_DrawNum(50, 139, cl.stats[STAT_HEALTH], 3
-			, cl.stats[STAT_HEALTH] <= 25);
+
+		Sbar_DrawNum(50, 139, cl.stats[STAT_HEALTH], 3, cl.stats[STAT_HEALTH] <= 25);
 
 		GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 
 	//	if (cl.stats[STAT_AMMO] > 0)
+		if (scr_sbarshowqeammo.value)
 			Sbar_DrawSubPicAlpha(280, 140, sb_sbar, 0, 0, 24, 24, 1); // ammo sbar background
 
 		// ammo icon
-		if (rogue)
+		if (scr_sbarshowqeammo.value)
 		{
-			if (cl.items & RIT_SHELLS)
-				Sbar_DrawPic(280, 140, sb_ammo[0]);
-			else if (cl.items & RIT_NAILS)
-				Sbar_DrawPic(280, 140, sb_ammo[1]);
-			else if (cl.items & RIT_ROCKETS)
-				Sbar_DrawPic(280, 140, sb_ammo[2]);
-			else if (cl.items & RIT_CELLS)
-				Sbar_DrawPic(280, 140, sb_ammo[3]);
-			else if (cl.items & RIT_LAVA_NAILS)
-				Sbar_DrawPic(280, 140, rsb_ammo[0]);
-			else if (cl.items & RIT_PLASMA_AMMO)
-				Sbar_DrawPic(280, 140, rsb_ammo[1]);
-			else if (cl.items & RIT_MULTI_ROCKETS)
-				Sbar_DrawPic(280, 140, rsb_ammo[2]);
-		}
-		else
-		{
-			if (cl.items & IT_SHELLS)
-				Sbar_DrawPic(280, 140, sb_ammo[0]);
-			else if (cl.items & IT_NAILS)
-				Sbar_DrawPic(280, 140, sb_ammo[1]);
-			else if (cl.items & IT_ROCKETS)
-				Sbar_DrawPic(280, 140, sb_ammo[2]);
-			else if (cl.items & IT_CELLS)
-				Sbar_DrawPic(280, 140, sb_ammo[3]);
+			if (rogue)
+			{
+				if (cl.items & RIT_SHELLS)
+					Sbar_DrawPic(280, 140, sb_ammo[0]);
+				else if (cl.items & RIT_NAILS)
+					Sbar_DrawPic(280, 140, sb_ammo[1]);
+				else if (cl.items & RIT_ROCKETS)
+					Sbar_DrawPic(280, 140, sb_ammo[2]);
+				else if (cl.items & RIT_CELLS)
+					Sbar_DrawPic(280, 140, sb_ammo[3]);
+				else if (cl.items & RIT_LAVA_NAILS)
+					Sbar_DrawPic(280, 140, rsb_ammo[0]);
+				else if (cl.items & RIT_PLASMA_AMMO)
+					Sbar_DrawPic(280, 140, rsb_ammo[1]);
+				else if (cl.items & RIT_MULTI_ROCKETS)
+					Sbar_DrawPic(280, 140, rsb_ammo[2]);
+			}
+			else
+			{
+				if (cl.items & IT_SHELLS)
+					Sbar_DrawPic(280, 140, sb_ammo[0]);
+				else if (cl.items & IT_NAILS)
+					Sbar_DrawPic(280, 140, sb_ammo[1]);
+				else if (cl.items & IT_ROCKETS)
+					Sbar_DrawPic(280, 140, sb_ammo[2]);
+				else if (cl.items & IT_CELLS)
+					Sbar_DrawPic(280, 140, sb_ammo[3]);
+			}
 		}
 
-		Sbar_DrawNum(198, 140, cl.stats[STAT_AMMO], 3,
+		if (scr_sbarshowqeammo.value) //draw ammo if you have it
+			Sbar_DrawNum(198, 140, cl.stats[STAT_AMMO], 3,
 			cl.stats[STAT_AMMO] <= 10);
 	}
 	else // end qe hud, use traditional sbare
