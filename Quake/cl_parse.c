@@ -2316,6 +2316,7 @@ static void CL_ParseStuffText(const char *msg)
 			PR_SwitchQCVM(&cl.qcvm);
 			tmp = PR_GetTempString();
 			memcpy(tmp, cl.stuffcmdbuf, str-cl.stuffcmdbuf);
+			tmp[str-cl.stuffcmdbuf-1] = '\n';	//put the terminator back, for lazy localcmds.
 			tmp[str-cl.stuffcmdbuf] = 0;	//null terminate it.
 			G_INT(OFS_PARM0) = PR_SetEngineString(tmp);
 			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Parse_StuffCmd);
