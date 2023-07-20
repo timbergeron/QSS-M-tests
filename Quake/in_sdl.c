@@ -328,7 +328,7 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 		needevents = freemouse = wantcursor = true;
 
 #ifdef MACOS_X_ACCELERATION_HACK
-	if (!freemouse)
+	if (needevents)
 	{	/* Save the status of mouse acceleration */
 		if (originalMouseSpeed == -1 && in_disablemacosxmouseaccel.value)
 			IN_DisableOSXMouseAccel();
