@@ -6949,6 +6949,7 @@ static void PF_cs_getinputstate(void)
 	if (seq == cl.movemessages)
 	{	//the partial/pending frame!
 		G_FLOAT(OFS_RETURN) = 1;
+		cl.pendingcmd.seconds = cl.time - cl.pendingcmd.servertime;	//make sure this is kept current. its important for smoothness.
 		CL_CSQC_SetInputs(&cl.pendingcmd, true);
 	}
 	else if (cl.movecmds[seq&MOVECMDS_MASK].sequence == seq)
