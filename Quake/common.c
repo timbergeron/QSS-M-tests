@@ -811,6 +811,13 @@ void Info_SetKey(char *info, size_t infosize, const char *key, const char *val)
 }
 const char *Info_GetKey(const char *info, const char *key, char *out, size_t outsize)
 {
+	// woods -- check that input pointers are not NULL
+	if (!info || !key || !out)
+	{
+		Con_Printf("error: NULL pointer passed to Info_GetKey function.\n");
+		return NULL;
+	}
+	
 	const char *r = out;
 	size_t keylen = strlen(key);
 
