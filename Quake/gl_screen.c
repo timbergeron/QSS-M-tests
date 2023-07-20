@@ -1141,6 +1141,11 @@ void SCR_DrawMatchClock(void)
 	}
 }
 
+int divide_round_up(int a, int b) // woods #capturediff
+{
+	return (a + b - 1) / b;
+}
+
 /*====================
 SCR_DrawMatchScores   -- woods  (Adapted from Sbar_DrawFrags from r00k) -- draw match scores upper right corner #matchhud
 ====================++
@@ -1150,11 +1155,12 @@ void SCR_DrawMatchScores(void)
 	int				i, k, l;
 	int				top, bottom;
 	int				x, y, f;
-	char			num[12];
+	char			num[16];
 	int				teamscores, colors;// JPG - added these
 	int				ts1, ts2, tc1, tc2, diff, l2; // woods #hud_diff
 	char			tcolor[12]; // woods #hud_diff
 	scoreboard_t* s; // woods #hud_diff
+	int				totalteamplayers, redteamplayers, blueteamplayers, capturepoints, capdiff; // woods #capturediff
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
@@ -1169,6 +1175,11 @@ void SCR_DrawMatchScores(void)
 
 	x = 0;
 	y = 0; // woods to position vertical
+	redteamplayers = 0;
+	blueteamplayers = 0;
+	totalteamplayers = 0;
+	capturepoints = 0;
+	capdiff = 0;
 
 	if (cl.gametype == GAME_DEATHMATCH)
 	{
@@ -1265,7 +1276,26 @@ void SCR_DrawMatchScores(void)
 						if (fragsort[i] == cl.viewentity - 1) {
 							sprintf(tcolor, "%u", s->pants.basic);
 						}
+
+						// woods, lets see how many players are on each team #capturediff
+
+						if (s->pants.basic == 4) // count number of red players
+							redteamplayers += 1;
+
+						if (s->pants.basic == 13) // count number of blue players
+							blueteamplayers += 1;
+
+						if (redteamplayers == blueteamplayers) // equal teams? 3 vs 3 not 2 vs 1
+							totalteamplayers = blueteamplayers;
+						else
+							totalteamplayers = 0;
 					}
+
+					// woods, lets do some ctf math! #capturediff
+
+					capturepoints = (totalteamplayers * 10) + 5; // capture 10 and +5 for cap
+					if (diff != 0 && capturepoints != 0)
+						capdiff = divide_round_up(diff, capturepoints); // how many ctf captures up or down
 
 					GL_SetCanvas(CANVAS_TOPRIGHT4); // lets do some printing
 
@@ -1274,14 +1304,21 @@ void SCR_DrawMatchScores(void)
 
 					else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
 					{
-						sprintf(num, "+%-i", diff);
-						M_Print(40 - (strlen(num) << 3), y, num);
+						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
+							sprintf(num, "+%-i (%i)", diff, capdiff);
+						else
+							sprintf(num, "+%-i", diff);
+
+						M_Print(84 - (strlen(num) << 3), y, num);
 					}
 
 					else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
 					{
-						sprintf(num, "-%-i", diff);
-						M_Print(40 - (strlen(num) << 3), y + 20, num);
+						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
+							sprintf(num, "-%-i (%i)", diff, capdiff);
+						else
+							sprintf(num, "-%-i", diff);
+						M_Print(84 - (strlen(num) << 3), y + 20, num);
 					}				
 				}
 			}
