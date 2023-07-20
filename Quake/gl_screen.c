@@ -595,7 +595,7 @@ static void SCR_CalcRefdef (void)
 	if (scr_viewsize.value < 30)
 		Cvar_SetQuick (&scr_viewsize, "30");
 	if (scr_viewsize.value > 120)
-		Cvar_SetQuick (&scr_viewsize, "120");
+		Cvar_SetQuick (&scr_viewsize, "130");
 
 // bound fov
 	if (scr_fov.value < 10)
@@ -668,7 +668,7 @@ void SCR_SizeDown_f (void)
 static void SCR_Callback_refdef (cvar_t *var)
 {
 	vid.recalc_refdef = 1;
-	if (key_dest != key_console && host_initialized && scr_viewsize.value != 130 && scr_viewsize.value != 20) // woods
+	if (key_dest != key_console && host_initialized && scr_viewsize.value != 140 && scr_viewsize.value != 20) // woods
 		Con_Printf("screen size: ^m%i\n", (int)scr_viewsize.value);
 }
 
@@ -786,6 +786,9 @@ void SCR_DrawFPS (void)
 	elapsed_time = realtime - oldtime;
 	frames = r_framecount - oldframecount;
 
+	if (scr_viewsize.value >= 130)
+		return;
+
 	if (elapsed_time < 0 || frames < 0)
 	{
 		oldtime = realtime;
@@ -848,6 +851,9 @@ void SCR_DrawClock (void)
 {
 	char	str[12];
 	int x,y;
+
+	if (scr_viewsize.value >= 130)
+		return;
 
 	if (scr_clock.value == 1)
 	{
@@ -927,6 +933,9 @@ void SCR_ShowPing(void)
 	char	num[12];
 	scoreboard_t* s;
 
+	if (scr_viewsize.value >= 130)
+		return;
+
 	ct = (SDL_GetTicks() - maptime) / 1000; // woods connected map time #maptime
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
@@ -997,6 +1006,9 @@ void SCR_ShowPL(void)
 	int pl;
 	char			num[12];
 
+	if (scr_viewsize.value >= 130)
+		return;
+
 	ct = (SDL_GetTicks() - maptime) / 1000; // woods connected map time #maptime
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
@@ -1057,6 +1069,9 @@ void SCR_DrawMatchClock(void)
 	minutes = match_time / 60;
 	seconds = match_time - 60 * minutes;
 	teamscores = cl.teamgame;
+
+	if (scr_viewsize.value >= 130)
+		return;
 
 	GL_SetCanvas(CANVAS_TOPRIGHT2);
 
@@ -1172,6 +1187,9 @@ void SCR_DrawMatchScores(void)
 	char			tcolor[12]; // woods #hud_diff
 	scoreboard_t* s; // woods #hud_diff
 	int				totalteamplayers, redteamplayers, blueteamplayers, capturepoints, capdiff; // woods #capturediff
+
+	if (scr_viewsize.value >= 130)
+		return;
 
 	// JPG - check to see if we should sort teamscores instead
 	teamscores = /*pq_teamscores.value && */cl.teamgame;
@@ -1360,7 +1378,7 @@ void SCR_ShowObsFrags(void)
 	if (qeintermission)
 		return;
 
-	if (scr_viewsize.value == 120)
+	if (scr_viewsize.value >= 120)
 		return;
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
@@ -1559,7 +1577,7 @@ void SCR_DrawSpeed (void)
 	char			st[64];
 	int				x, y;
 
-	if (scr_viewsize.value > 110)
+	if (scr_viewsize.value > 110 || scr_viewsize.value >= 130)
 		return;
 
 	if (scr_sbar.value == 3)
@@ -1995,6 +2013,9 @@ void SCR_DrawCrosshair (void)
 	int x,hue;
 
 	hue = 0;
+
+	if (scr_viewsize.value >= 130)
+		return;
 
 	if (key_dest == key_menu) // woods #menuclear
 		return;

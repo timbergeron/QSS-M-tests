@@ -1359,6 +1359,9 @@ void Sbar_DrawRecord(void)
 	y = 0;
 	x = 0;
 
+	if (scr_viewsize.value >= 130)
+		return;
+
 	if (scr_sbar.value == 1)
 	{
 		GL_SetCanvas(CANVAS_SBAR);
