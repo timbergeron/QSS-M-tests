@@ -749,6 +749,12 @@ void Sky_ProcessEntities (void)
 	{
 		e = cl_visedicts[i];
 
+		if (!e) // woods
+		{
+			Con_Printf("error: NULL pointer passed to Sky_ProcessEntities.\n");
+			continue;
+		}
+			
 		if (e->model->type != mod_brush)
 			continue;
 
