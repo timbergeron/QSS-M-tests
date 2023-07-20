@@ -352,9 +352,9 @@ void Cmd_Alias_f (void)
 {
 	cmdalias_t	*a;
 	char		cmd[1024];
-	int			i, c;
+	int			i, c, count = 0;; // woods #search
 	const char	*s;
-
+	qboolean found = false; // woods #search
 
 	switch (Cmd_Argc())
 	{
@@ -369,8 +369,42 @@ void Cmd_Alias_f (void)
 	case 2: //output current alias string
 		for (a = cmd_alias ; a ; a=a->next)
 			if (!strcmp(Cmd_Argv(1), a->name))
-				Con_Printf ("   %s: %s", a->name, a->value);
-		break;
+			{
+				Con_Printf("   %s: %s", a->name, a->value);
+				found = true;
+				break;
+			}
+
+		if (!found) // woods -- if exact alias not found, search for substring in all aliases names and values
+		{
+			char buf[MAX_OSPATH];
+			char buf2[MAX_OSPATH];
+			const char* search_arg = Cmd_Argv(1);
+
+			for (a = cmd_alias; a; a = a->next)
+			{
+				const char* nameFound = q_strcasestr(a->name, search_arg);
+				const char* valueFound = q_strcasestr(a->value, search_arg);
+
+				if (nameFound || valueFound)
+				{
+					if (nameFound)
+						COM_TintSubstring(a->name, search_arg, buf, sizeof(buf));
+
+					if (valueFound)
+						COM_TintSubstring(a->value, search_arg, buf2, sizeof(buf2));
+
+					Con_Printf("   %s: %s", nameFound ? buf : a->name, valueFound ? buf2 : a->value);
+					count++;
+				}
+			}
+			if (count > 0)
+				Con_Printf("\nexact alias not found. however, %d instance(s) of the search string were found\n", count);
+			else
+				Con_Printf("\nno alias or instances of the search string found\n");
+		}
+	
+	break;
 	default: //set alias string
 		s = Cmd_Argv(1);
 		if (strlen(s) >= MAX_ALIAS_NAME)
