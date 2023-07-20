@@ -1320,7 +1320,7 @@ void SCR_DrawMatchScores(void)
 						else
 							sprintf(num, "+%-i", diff);
 
-						M_Print(84 - (strlen(num) << 3), y, num);
+						M_Print(120 - (strlen(num) << 3), y, num);
 					}
 
 					else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
@@ -1329,7 +1329,7 @@ void SCR_DrawMatchScores(void)
 							sprintf(num, "-%-i (%i)", diff, capdiff);
 						else
 							sprintf(num, "-%-i", diff);
-						M_Print(84 - (strlen(num) << 3), y + 20, num);
+						M_Print(120 - (strlen(num) << 3), y + 20, num);
 					}				
 				}
 			}
