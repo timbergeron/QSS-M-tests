@@ -1233,11 +1233,11 @@ void IN_SendKeyEvents (void)
 				{
 					if (strlen(afk_name) > 1) // intiate only if a AFK event has occured
 						Cvar_Set("name", afk_name);
-
-					// be polite during matches (only) and let teammates know you have alt-tabbed
-					if (cl.notobserver && cl.matchinp)
-									Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 				}
+
+				// be polite during matches (only) and let teammates know you have alt-tabbed
+				if (cl.notobserver && cl.matchinp && cl.teamcolor[0])
+					Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 			}
 
 			else if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
@@ -1264,17 +1264,11 @@ void IN_SendKeyEvents (void)
 						Cvar_Set("name", normalname2); // set name with AFK
 						Host_Name_Backup_f(); // back up the full name incase of crash
 					}
-					
-
-						
-						
-						
-						//&& (strcmp(name, cl_name.string)))) // woods don't get rid of center for active player
-
-					// be polite during matches (only) and let teammates know you have alt-tabbed
-							if (cl.notobserver && cl.matchinp)
-									Cmd_ExecuteString("say_team alt-tabbed", src_command);
 				}
+
+				// be polite during matches (only) and let teammates know you have alt-tabbed
+				if (cl.notobserver && cl.matchinp && cl.teamcolor[0])
+					Cmd_ExecuteString("say_team alt-tabbed", src_command);
 			}
 
 			else if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
