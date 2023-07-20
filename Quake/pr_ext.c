@@ -1024,7 +1024,7 @@ static void PF_sprintf_internal (const char *s, int firstarg, char *outbuf, int 
 	char formatbuf[16];
 	char *f;
 	int argpos = firstarg;
-	int isfloat;
+	int isfloat, is64bit;
 	static int dummyivec[3] = {0, 0, 0};
 	static float dummyvec[3] = {0, 0, 0};
 
@@ -1037,10 +1037,17 @@ static void PF_sprintf_internal (const char *s, int firstarg, char *outbuf, int 
 	formatbuf[0] = '%';
 
 #define GETARG_FLOAT(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_FLOAT(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_DOUBLE(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_DOUBLE(OFS_PARM0 + 3 * (a))) : 0)
 #define GETARG_VECTOR(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_VECTOR(OFS_PARM0 + 3 * (a))) : dummyvec)
 #define GETARG_INT(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_INT(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_INT64(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_INT64(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_UINT(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_UINT(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_UINT64(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_UINT64(OFS_PARM0 + 3 * (a))) : 0)
 #define GETARG_INTVECTOR(a) (((a)>=firstarg && (a)<qcvm->argc) ? ((int*) G_VECTOR(OFS_PARM0 + 3 * (a))) : dummyivec)
 #define GETARG_STRING(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_STRING(OFS_PARM0 + 3 * (a))) : "")
+
+#define GETARG_SNUMERIC(t, a) (is64bit?(isfloat ? (t) GETARG_DOUBLE(a) : (t) GETARG_INT64 (a)):(isfloat ? (t) GETARG_FLOAT(a) : (t) GETARG_INT (a)))
+#define GETARG_UNUMERIC(t, a) (is64bit?(isfloat ? (t) GETARG_DOUBLE(a) : (t) GETARG_UINT64(a)):(isfloat ? (t) GETARG_FLOAT(a) : (t) GETARG_UINT(a)))
 
 	for(;;)
 	{
@@ -1063,6 +1070,7 @@ static void PF_sprintf_internal (const char *s, int firstarg, char *outbuf, int 
 				thisarg = -1;
 				flags = 0;
 				isfloat = -1;
+				is64bit = 0;
 
 				// is number following?
 				if(*s >= '0' && *s <= '9')
@@ -1192,6 +1200,7 @@ noflags:
 						case 'h': isfloat = 1; break;
 						case 'l': isfloat = 0; break;
 						case 'L': isfloat = 0; break;
+						case 'q': is64bit = 1; break;
 						case 'j': break;
 						case 'z': break;
 						case 't': break;
@@ -1239,6 +1248,21 @@ nolength:
 						*f++ = '.';
 						*f++ = '*';
 					}
+					switch(*s)
+					{
+						case 'd': case 'i': case 'I':
+						case 'o': case 'u': case 'x': case 'X': case 'p': case 'P':
+#ifdef _WIN32				//not c99
+							*f++ = 'I';
+							*f++ = '6';
+							*f++ = '4';
+#else						//c99
+							*f++ = 'l';
+							if (sizeof(long) == 4)
+								*f++ = 'l';	//go for long long instead
+#endif
+							break;
+					}
 					if (*s == 'p')
 						*f++ = 'x';
 					else if (*s == 'P')
@@ -1256,23 +1280,23 @@ nolength:
 					{
 						case 'd': case 'i':
 							if(precision < 0) // not set
-								q_snprintf(o, end - o, formatbuf, width, (isfloat ? (int) GETARG_FLOAT(thisarg) : (int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, GETARG_SNUMERIC(int64_t, thisarg));
 							else
-								q_snprintf(o, end - o, formatbuf, width, precision, (isfloat ? (int) GETARG_FLOAT(thisarg) : (int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, precision, GETARG_SNUMERIC(int64_t, thisarg));
 							o += strlen(o);
 							break;
 						case 'o': case 'u': case 'x': case 'X': case 'p': case 'P':
 							if(precision < 0) // not set
-								q_snprintf(o, end - o, formatbuf, width, (isfloat ? (unsigned int) GETARG_FLOAT(thisarg) : (unsigned int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, GETARG_UNUMERIC(uint64_t, thisarg));
 							else
-								q_snprintf(o, end - o, formatbuf, width, precision, (isfloat ? (unsigned int) GETARG_FLOAT(thisarg) : (unsigned int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, precision, GETARG_UNUMERIC(uint64_t, thisarg));
 							o += strlen(o);
 							break;
 						case 'e': case 'E': case 'f': case 'F': case 'g': case 'G':
 							if(precision < 0) // not set
-								q_snprintf(o, end - o, formatbuf, width, (isfloat ? (double) GETARG_FLOAT(thisarg) : (double) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, GETARG_SNUMERIC(double, thisarg));
 							else
-								q_snprintf(o, end - o, formatbuf, width, precision, (isfloat ? (double) GETARG_FLOAT(thisarg) : (double) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, precision, GETARG_SNUMERIC(double, thisarg));
 							o += strlen(o);
 							break;
 						case 'v': case 'V':
@@ -1320,17 +1344,29 @@ nolength:
 								//try and escape it... hopefully it won't get truncated by precision limits...
 								char quotedbuf[65536];
 								size_t l;
-								l = strlen(quotedarg);
-								if (strchr(quotedarg, '\"') || strchr(quotedarg, '\n') || strchr(quotedarg, '\r') || l+3 >= sizeof(quotedbuf))
-								{	//our escapes suck...
-									Con_Warning("PF_sprintf: unable to safely escape arg: %s\n", s0);
-									quotedarg="";
+								qboolean warn = false;
+								quotedbuf[0] = '\\';
+								quotedbuf[1] = '\"';
+								for (l = 2; *quotedarg && l < countof(quotedbuf)-4; )
+								{	//-2 for maximum output of an encoded char, and -2 more for the trailing \"\0.
+									switch(*quotedarg)
+									{
+									case '\n':	quotedbuf[l++] = '\\';	quotedbuf[l++] = 'n'; warn=true;break;
+									case '\r':	quotedbuf[l++] = '\\';	quotedbuf[l++] = 'r'; warn=true;break;
+									case '\"':	quotedbuf[l++] = '\\';	quotedbuf[l++] = '"'; warn=true;break;
+									default:							quotedbuf[l++] = *quotedarg;	break;
+									}
+									quotedarg++;
 								}
-								quotedbuf[0] = '\"';
-								memcpy(quotedbuf+1, quotedarg, l);
-								quotedbuf[1+l] = '\"';
-								quotedbuf[1+l+1] = 0;
-								quotedarg = quotedbuf;
+								quotedbuf[l] = '\"';
+								quotedbuf[l+1] = 0;
+								if (warn || *quotedarg)	//our escapes suck...
+								{
+									Con_Warning("PF_sprintf: unable to safely escape arg: %i\n", thisarg+1);
+									quotedarg = quotedbuf;
+								}
+								else
+									quotedarg = quotedbuf+1;	//don't need the leading cstring-indicator.
 
 								//UTF-8-FIXME: figure it out yourself
 //								if(flags & PRINTF_ALTERNATE)
