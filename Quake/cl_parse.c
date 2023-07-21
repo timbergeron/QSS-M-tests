@@ -2473,12 +2473,12 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					if ((cl_autodemo.value == 2) && (cls.demorecording)) // woods #autodemo
 						Cbuf_AddText("stop\n");
 					
-					q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_gamedir); // woods for end config (say gg, change color, etc)
-					if (Sys_FileType(checkname) == -1)
-						return;	// file doesn't exist
-					else
-						if (VID_HasMouseOrInputFocus() && !cls.demoplayback)
-							Cbuf_AddText("exec end.cfg\n");
+					if (VID_HasMouseOrInputFocus() && !cls.demoplayback)
+					{
+						q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_basedir);
+						if (COM_FileExists("end.cfg", checkname))
+							Cbuf_AddText("exec end.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+					}
 				}
 				if ((cl_autodemo.value == 2) && ((!cls.demoplayback) && (!cls.demorecording))) // intiate autodemo 2 // woods #autodemo
 					if ((!strncmp(string, "The match has begun!", 20)) || (!strncmp(string, "minutes remaining", 17)))//crmod doesnt say "begun" so catch the 1st instance of minutes remain, makes the demos miss initial spawn though :(
@@ -2510,15 +2510,21 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if (!strncmp(string, "√Ï·Ó“ÈÓÁ", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
-					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_gamedir);
-					if (Sys_FileType(checkname) == -1)
-						return;	// file doesn't exist
-					else
-						Cbuf_AddText("exec dm.cfg\n");
+
+					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_basedir);
+					if (COM_FileExists("dm.cfg", checkname))
+						Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
 				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods
+				{
 					cl.playmode = 2;
+
+					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_basedir);
+					if (COM_FileExists("dm.cfg", checkname))
+						Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+				}
 				else
 				{
 					{
