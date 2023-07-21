@@ -461,10 +461,10 @@ void Draw_LoadPics (void)
 	char_texture = NULL;
 	//logical path
 	if (!char_texture)
-		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "gfx/conchars", 0, conchar_texflags | /*TEXPREF_MIPMAP |*/ TEXPREF_ALLOWMISSING):NULL;
+		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "gfx/conchars", 0, conchar_texflags | TEXPREF_MIPMAP | TEXPREF_ALLOWMISSING):NULL; // woods enable TEXPREF_MIPMAP
 	//stupid quakeworldism
 	if (!char_texture)
-		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "charsets/conchars", 0, conchar_texflags | /*TEXPREF_MIPMAP |*/ TEXPREF_ALLOWMISSING):NULL;
+		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "charsets/conchars", 0, conchar_texflags | TEXPREF_MIPMAP | TEXPREF_ALLOWMISSING):NULL; // woods enable TEXPREF_MIPMAP
 	//vanilla.
 	if (!char_texture)
 	{
