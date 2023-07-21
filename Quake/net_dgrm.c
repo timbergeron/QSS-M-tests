@@ -29,6 +29,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "net_defs.h"
 #include "net_dgrm.h"
 
+#define MOD_PROQUAKE	1	//engines that want more precise angles will use this as an identifier.
+#define PQF_CHEATFREE	0x01
+#define PQF_IGNOREPORT	0x80	//defined by Spike rather than proquake, to say the server is using a single port and that its best to just continue to use whatever port you were already using.
+
 // these two macros are to make the code more readable
 #define sfunc	net_landrivers[sock->landriver]
 #define dfunc	net_landrivers[net_landriverlevel]
@@ -1512,7 +1516,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 				{
 					MSG_WriteByte(&net_message, 1);	//proquake
 					MSG_WriteByte(&net_message, 30);//ver 30 should be safe. 34 screws with our single-server-socket stuff.
-					MSG_WriteByte(&net_message, 0);	//no flags
+					MSG_WriteByte(&net_message, PQF_IGNOREPORT);	//flags: 0x80==ignore port
 				}
 				*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 				dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
@@ -1587,7 +1591,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 	{
 		MSG_WriteByte(&net_message, 1);	//proquake
 		MSG_WriteByte(&net_message, 30);//ver 30 should be safe. 34 screws with our single-server-socket stuff.
-		MSG_WriteByte(&net_message, 0);
+		MSG_WriteByte(&net_message, PQF_IGNOREPORT);
 	}
 	*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 	dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
@@ -2048,6 +2052,7 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	double		start_time;
 	int			control;
 	const char		*reason;
+	int port;
 
 	newsock = dfunc.Open_Socket (0);
 	if (newsock == INVALID_SOCKET)
@@ -2137,6 +2142,7 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 					{
 						Q_memcpy(&sock->addr, serveraddr, sizeof(struct qsockaddr));
 						sock->proquake_angle_hack = false;
+						port = 0;	//don't force it.
 						goto dpserveraccepted;
 					}
 					/*else if (!strcmp(s, "reject"))
@@ -2199,11 +2205,10 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 
 	if (ret == CCREP_ACCEPT)
 	{
-		int port;
 		Q_memcpy(&sock->addr, serveraddr, sizeof(struct qsockaddr));
 		port = MSG_ReadLong();
-		if (port)	//spike --- don't change the remote port if the server doesn't want us to. this allows servers to use port forwarding with less issues, assuming the server uses the same port for all clients.
-			dfunc.SetSocketPort (&sock->addr, port);
+		if (msg_badread)
+			port = 0;	//QE omits the port number, for good reason. not that we're likely to see it, but oh well.
 	}
 	else
 	{
@@ -2220,15 +2225,17 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 		byte flags = (msg_readcount<net_message.cursize)?MSG_ReadByte():0;
 		(void)ver;
 
-		if (mod == 1/*MOD_PROQUAKE*/)
+		if (mod == MOD_PROQUAKE)
 		{
-			if (flags & 1/*CHEATFREE*/)
+			if (flags & PQF_CHEATFREE)
 			{
 				reason = "Server is incompatible";
 				Con_Printf("%s\n", reason);
 				Q_strcpy(m_return_reason, reason);
 				goto ErrorReturn;
 			}
+			if (flags & PQF_IGNOREPORT)
+				port = 0; //don't switch it, for non-identity port forwarding.
 			sock->proquake_angle_hack = true;
 		}
 		else
@@ -2236,6 +2243,8 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	}
 
 dpserveraccepted:
+	if (port)	//spike --- don't change the remote port if the server doesn't want us to. this allows servers to use port forwarding with less issues, assuming the server uses the same port for all clients.
+		dfunc.SetSocketPort (&sock->addr, port);
 
 	dfunc.GetNameFromAddr (serveraddr, sock->trueaddress);
 	dfunc.GetNameFromAddr (serveraddr, sock->maskedaddress);
