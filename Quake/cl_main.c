@@ -343,7 +343,6 @@ An svc_signonnum has been received, perform a client side setup
 void CL_SignonReply (void)
 {
 	char 	str[8192];
-	char	checkname[MAX_OSPATH]; // woods
 
 	Con_DPrintf ("CL_SignonReply: %i\n", cls.signon);
 
@@ -422,16 +421,14 @@ void CL_SignonReply (void)
 		{
 			cl.modetype = 1;
 
-			q_snprintf(checkname, sizeof(checkname), "%s/ctf.cfg", com_basedir);
-			if (COM_FileExists("ctf.cfg", checkname))
+			if (COM_FileExists("ctf.cfg", NULL))
 				Cbuf_AddText("exec ctf.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 		}
 		if (!strcmp(val, "dm"))
 		{
 			cl.modetype = 2;
-			
-			q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_basedir);
-			if (COM_FileExists("dm.cfg", checkname))
+		
+			if (COM_FileExists("dm.cfg", NULL))
 				Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 		}
 		if (!q_strcasecmp(val, "ra") || !q_strcasecmp(val, "rocketarena"))

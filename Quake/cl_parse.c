@@ -2381,7 +2381,6 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	static int checkip = -1;	// player whose IP address we're expecting
 	// JPG 3.02 - made this more robust.. try to eliminate screwups due to "unconnected" and '\n'
 	s = string;
-	char	checkname[MAX_OSPATH]; // woods for checkname #modcfg and end.cfg
 	const char* observer = "null";
 	const char* observing = "null";
 	const char* mode = "null";
@@ -2475,8 +2474,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					
 					if (VID_HasMouseOrInputFocus() && !cls.demoplayback)
 					{
-						q_snprintf(checkname, sizeof(checkname), "%s/end.cfg", com_basedir);
-						if (COM_FileExists("end.cfg", checkname))
+						if (COM_FileExists("end.cfg", NULL))
 							Cbuf_AddText("exec end.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 					}
 				}
@@ -2493,11 +2491,8 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if (!strcmp(string, "Sending ClanRing CRCTF v3.5 bindings\n"))  // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 2; // woods #modtype [crctf server check]
-					q_snprintf(checkname, sizeof(checkname), "%s/ctf.cfg", com_gamedir); // woods for cfg particles per mod
-					if (Sys_FileType(checkname) == -1)
-						return;	// file doesn't exist
-					else
-						Cbuf_AddText("exec ctf.cfg\n");
+					if (COM_FileExists("ctf.cfg", NULL))
+						Cbuf_AddText("exec ctf.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 				}
 				if (!strcmp(string, "ClanRing CRCTF v3.5\n"))  // woods #observerhud
 				{
@@ -2511,8 +2506,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
 
-					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_basedir);
-					if (COM_FileExists("dm.cfg", checkname))
+					if (COM_FileExists("dm.cfg", NULL))
 						Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
@@ -2521,8 +2515,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					cl.playmode = 2;
 
-					q_snprintf(checkname, sizeof(checkname), "%s/dm.cfg", com_basedir);
-					if (COM_FileExists("dm.cfg", checkname))
+					if (COM_FileExists("dm.cfg", NULL))
 						Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 				}
 				else
