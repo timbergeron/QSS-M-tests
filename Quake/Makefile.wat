@@ -234,6 +234,8 @@ OBJS = strlcat.obj &
 	pr_ext.obj &
 	pr_edict.obj &
 	pr_exec.obj &
+	pmove.obj &
+	pmovetxt.obj &
 	sv_main.obj &
 	sv_move.obj &
 	sv_phys.obj &

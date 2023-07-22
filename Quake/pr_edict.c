@@ -1208,6 +1208,7 @@ static void PR_MergeEngineFieldDefs (void)
 		//{"glowmod",		ev_vector},	//fullbright tints
 		//{"fatness",		ev_float},	//bloated rendering...
 		//{"gravitydir",	ev_vector},	//says which direction gravity should act for this ent...
+		{"pmove_flags",		ev_float},	//if runstandardplayerphysics is to work, it needs somewhere to track a couple of flags.
 
 	};
 	int maxofs = qcvm->progs->entityfields;

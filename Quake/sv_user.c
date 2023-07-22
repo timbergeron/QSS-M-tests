@@ -392,6 +392,8 @@ void SV_ClientThink (void)
 
 	if (sv_player->v.movetype == MOVETYPE_NONE)
 		return;
+	if (qcvm->extfuncs.SV_RunClientCommand)
+		return;	//this stuff is handled on inputs. don't corrupt anything.
 
 	onground = (int)sv_player->v.flags & FL_ONGROUND;
 
@@ -510,7 +512,7 @@ void SV_ReadClientMove (usercmd_t *move)
 		return;	//okay, we don't care about that then
 
 // calc ping times
-	host_client->lastmovemessage = sequence;
+	host_client->lastmovemessage = sequence; //so client can know which input frames still need predicting.
 	if (!(host_client->protocol_pext2 & PEXT2_PREDINFO))
 	{
 		host_client->ping_times[host_client->num_pings%NUM_PING_TIMES]
@@ -555,14 +557,8 @@ void SV_ReadClientMove (usercmd_t *move)
 	//FIXME: attempt to apply physics command now, if the mod has custom physics+csqc-prediction
 
 
-	if (qcvm->extfuncs.SV_RunClientCommand)
+	if (qcvm->extfuncs.SV_RunClientCommand && host_client->knowntoqc)
 	{
-		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
-		PR_ExecuteProgram(pr_global_struct->PlayerPreThink);
-
-		if (!SV_RunThink (host_client->edict))
-			return;	//ent was removed? o.O
-
 		if (timestamp > qcvm->time)
 			timestamp = qcvm->time;					//don't let the client exceed the current time
 		if (timestamp < qcvm->time-0.5)
@@ -573,6 +569,10 @@ void SV_ReadClientMove (usercmd_t *move)
 			*qcvm->extglobals.input_timelength = timestamp - host_client->lastmovetime;
 		host_client->lastmovetime = timestamp;
 
+		if (qcvm->extglobals.input_sequence)
+			*qcvm->extglobals.input_sequence = sequence;
+		if (qcvm->extglobals.input_servertime)
+			*qcvm->extglobals.input_servertime = timestamp;
 		if (qcvm->extglobals.input_buttons)
 			*qcvm->extglobals.input_buttons = buttonbits;
 		if (qcvm->extglobals.input_impulse)
@@ -593,8 +593,13 @@ void SV_ReadClientMove (usercmd_t *move)
 			*qcvm->extglobals.input_cursor_entitynumber = curs_entity;
 
 		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
-		PR_ExecuteProgram(qcvm->extfuncs.SV_RunClientCommand);
+		PR_ExecuteProgram(pr_global_struct->PlayerPreThink);
 
+		if (!SV_RunThink (host_client->edict))
+			return;	//ent was removed? o.O
+
+		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+		PR_ExecuteProgram(qcvm->extfuncs.SV_RunClientCommand);
 
 		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
 		PR_ExecuteProgram(pr_global_struct->PlayerPostThink);

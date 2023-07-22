@@ -262,6 +262,131 @@ void SV_UnlinkEdict (edict_t *ent)
 	ent->area.prev = ent->area.next = NULL;
 }
 
+#include "pmove.h"
+static void
+World_AreaAddEntsToPmove ( edict_t *ignore, areanode_t *node, vec3_t boxminmax[2] )
+{
+	link_t		*l, *next;
+	edict_t		*other;
+
+// touch linked edicts
+	for (l = node->solid_edicts.next ; l != &node->solid_edicts ; l = next)
+	{
+		next = l->next;
+		other = EDICT_FROM_AREA(l);
+		if (other == ignore)
+			continue;
+		if (other->v.solid != SOLID_BBOX && other->v.solid != SOLID_SLIDEBOX && other->v.solid != SOLID_BSP)
+			continue;
+		if (boxminmax[0][0] > other->v.absmax[0]
+		|| boxminmax[0][1] > other->v.absmax[1]
+		|| boxminmax[0][2] > other->v.absmax[2]
+		|| boxminmax[1][0] < other->v.absmin[0]
+		|| boxminmax[1][1] < other->v.absmin[1]
+		|| boxminmax[1][2] < other->v.absmin[2] )
+			continue;
+
+		if (PROG_TO_EDICT(other->v.owner) == ignore)
+			continue;	// don't clip against own missiles
+		if (PROG_TO_EDICT(ignore->v.owner) == other)
+			continue;	// don't clip against owner
+
+		if (pmove.numphysent == countof(pmove.physents))
+			return; //too many... ooer.
+
+		pmove.physents[pmove.numphysent].info = NUM_FOR_EDICT(other);
+		pmove.physents[pmove.numphysent].model = (other->v.solid == SOLID_BSP)?qcvm->GetModel(other->v.modelindex):NULL;
+		VectorCopy(other->v.origin, pmove.physents[pmove.numphysent].origin);
+		VectorCopy(other->v.mins, pmove.physents[pmove.numphysent].mins);
+		VectorCopy(other->v.maxs, pmove.physents[pmove.numphysent].maxs);
+		VectorCopy(other->v.angles, pmove.physents[pmove.numphysent].angles);
+
+		pmove.physents[pmove.numphysent].forcecontentsmask = 0;
+		if (other->v.skin < 0)
+			switch((int)other->v.skin)
+			{
+			case CONTENTS_WATER:	pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_WATER; break;
+			case CONTENTS_LAVA:		pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_LAVA; break;
+			case CONTENTS_SLIME:	pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_SLIME; break;
+			case CONTENTS_SKY:		pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_SKY; break;
+			case CONTENTS_CLIP:		pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_CLIP; break;
+			case CONTENTS_LADDER:	pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_LADDER; break;
+			}
+
+		pmove.numphysent++;
+	}
+
+// recurse down both sides
+	if (node->axis == -1)
+		return;
+
+	if ( boxminmax[1][node->axis] > node->dist )
+		World_AreaAddEntsToPmove ( ignore, node->children[0], boxminmax );
+	if ( boxminmax[0][node->axis] < node->dist )
+		World_AreaAddEntsToPmove ( ignore, node->children[1], boxminmax );
+}
+void World_AddEntsToPmove(edict_t *ignore, vec3_t boxminmax[2])
+{
+	pmove.skipent = NUM_FOR_EDICT(ignore);
+	pmove.physents[0].model = qcvm->worldmodel;
+	pmove.numphysent = 1;
+	World_AreaAddEntsToPmove (ignore, qcvm->areanodes, boxminmax);
+
+	//csqc needs to be able to clip against the server's ents, too
+	if (qcvm == &cl.qcvm)
+	{
+		entity_t	*touch;
+		int i;
+
+		for (i=1,touch=cl.entities+1 ; i<cl.num_entities ; i++,touch++)
+		{
+			if (!touch->model)
+				continue;
+			if (touch->netstate.solidsize == ES_SOLID_NOT)
+				continue;	//not relevant
+
+			if (pmove.numphysent == countof(pmove.physents))
+				return; //too many... ooer.
+
+			if (touch->netstate.solidsize == ES_SOLID_BSP)
+			{
+				if (!touch->model || touch->model->type != mod_brush)
+					continue;
+				VectorCopy(touch->model->mins, pmove.physents[pmove.numphysent].mins);
+				VectorCopy(touch->model->maxs, pmove.physents[pmove.numphysent].maxs);
+				pmove.physents[pmove.numphysent].model = touch->model;
+			}
+			else
+			{
+				float *touch_mins = pmove.physents[pmove.numphysent].mins;
+				float *touch_maxs = pmove.physents[pmove.numphysent].maxs;
+				touch_maxs[0] = touch_maxs[1] = touch->netstate.solidsize & 255;
+				touch_mins[0] = touch_mins[1] = -touch_maxs[0];
+				touch_mins[2] = -(int)((touch->netstate.solidsize >> 8) & 255);
+				touch_maxs[2] = (int)((touch->netstate.solidsize>>16) & 65535) - 32768;
+				pmove.physents[pmove.numphysent].model = NULL;
+			}
+
+			pmove.physents[pmove.numphysent].info = -i;	//kinda backwards, but oh well. the csqc won't know their numbers.
+			VectorCopy(touch->origin, pmove.physents[pmove.numphysent].origin);
+			VectorCopy(touch->angles, pmove.physents[pmove.numphysent].angles);
+
+			pmove.physents[pmove.numphysent].forcecontentsmask = 0;
+			if (touch->skinnum < 0)
+				switch(touch->skinnum)
+				{
+				case CONTENTS_WATER:	pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_WATER; break;
+				case CONTENTS_LAVA:		pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_LAVA; break;
+				case CONTENTS_SLIME:	pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_SLIME; break;
+				case CONTENTS_SKY:		pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_SKY; break;
+				case CONTENTS_CLIP:		pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_CLIP; break;
+				case CONTENTS_LADDER:	pmove.physents[pmove.numphysent].forcecontentsmask = CONTENTBIT_LADDER; break;
+				}
+
+			pmove.numphysent++;
+		}
+	}
+}
 
 /*
 ====================
@@ -1208,8 +1333,8 @@ static void World_ClipToNetwork ( moveclip_t *clip )
 
 					touch_maxs[0] = touch_maxs[1] = touch->netstate.solidsize & 255;
 					touch_mins[0] = touch_mins[1] = -touch_maxs[0];
-					touch_mins[2] = -((touch->netstate.solidsize >>8) & 255);
-					touch_maxs[2] = ((touch->netstate.solidsize>>16) & 65535) - 32768;
+					touch_mins[2] = -(int)((touch->netstate.solidsize >>8) & 255);
+					touch_maxs[2] = (int)((touch->netstate.solidsize>>16) & 65535) - 32768;
 
 					VectorSubtract (touch_mins, clip->maxs, hullmins);
 					VectorSubtract (touch_maxs, clip->mins, hullmaxs);

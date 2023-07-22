@@ -1650,6 +1650,6 @@ void SV_Physics (double frametime)
 		PR_ExecuteProgram (qcvm->extfuncs.EndFrame);
 	}
 
-	if (!(sv_freezenonclients.value && qcvm == &sv.qcvm))
+	if (!(sv_freezenonclients.value && qcvm == &sv.qcvm))	//FIXME: this breaks input_timelength
 	  qcvm->time += frametime;
 }

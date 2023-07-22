@@ -180,6 +180,8 @@ ADD_EXECUTABLE(quakespasm
 #	Quake/net_wipx.c
 	Quake/pl_linux.c
 #	Quake/pl_win.c
+	Quake/pmove.c
+	Quake/pmovetst.c
 	Quake/pr_cmds.c
 	Quake/pr_edict.c
 	Quake/pr_exec.c

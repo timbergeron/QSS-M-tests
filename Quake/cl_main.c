@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "pmove.h"
 
 #include "arch_def.h"
 #ifdef PLATFORM_UNIX
@@ -1192,66 +1193,6 @@ void CL_AccumulateCmd (void)
 	cl.pendingcmd.seconds		= cl.mtime[0] - cl.pendingcmd.servertime;
 }
 
-void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set)
-{
-	if (set)
-	{
-		if (qcvm->extglobals.input_timelength)
-			*qcvm->extglobals.input_timelength = cmd->seconds;
-		if (qcvm->extglobals.input_angles)
-			VectorCopy(cmd->viewangles, qcvm->extglobals.input_angles);
-		if (qcvm->extglobals.input_movevalues)
-		{
-			qcvm->extglobals.input_movevalues[0] = cmd->forwardmove;
-			qcvm->extglobals.input_movevalues[1] = cmd->sidemove;
-			qcvm->extglobals.input_movevalues[2] = cmd->upmove;
-		}
-		if (qcvm->extglobals.input_buttons)
-			*qcvm->extglobals.input_buttons = cmd->buttons;
-		if (qcvm->extglobals.input_impulse)
-			*qcvm->extglobals.input_impulse = cmd->impulse;
-
-		if (qcvm->extglobals.input_weapon)
-			*qcvm->extglobals.input_weapon = cmd->weapon;
-		if (qcvm->extglobals.input_cursor_screen)
-			qcvm->extglobals.input_cursor_screen[0] = cmd->cursor_screen[0], qcvm->extglobals.input_cursor_screen[1] = cmd->cursor_screen[1];
-		if (qcvm->extglobals.input_cursor_trace_start)
-			VectorCopy(cmd->cursor_start, qcvm->extglobals.input_cursor_trace_start);
-		if (qcvm->extglobals.input_cursor_trace_endpos)
-			VectorCopy(cmd->cursor_impact, qcvm->extglobals.input_cursor_trace_endpos);
-		if (qcvm->extglobals.input_cursor_entitynumber)
-			*qcvm->extglobals.input_cursor_entitynumber = cmd->cursor_entitynumber;
-	}
-	else
-	{
-		if (qcvm->extglobals.input_timelength)
-			cmd->seconds = *qcvm->extglobals.input_timelength;
-		if (qcvm->extglobals.input_angles)
-			VectorCopy(qcvm->extglobals.input_angles, cmd->viewangles);
-		if (qcvm->extglobals.input_movevalues)
-		{
-			cmd->forwardmove = qcvm->extglobals.input_movevalues[0];
-			cmd->sidemove = qcvm->extglobals.input_movevalues[1];
-			cmd->upmove = qcvm->extglobals.input_movevalues[2];
-		}
-		if (qcvm->extglobals.input_buttons)
-			cmd->buttons = *qcvm->extglobals.input_buttons;
-		if (qcvm->extglobals.input_impulse)
-			cmd->impulse = *qcvm->extglobals.input_impulse;
-
-		if (qcvm->extglobals.input_weapon)
-			cmd->weapon = *qcvm->extglobals.input_weapon;
-		if (qcvm->extglobals.input_cursor_screen)
-			cmd->cursor_screen[0] = qcvm->extglobals.input_cursor_screen[0], cmd->cursor_screen[1] = qcvm->extglobals.input_cursor_screen[1];
-		if (qcvm->extglobals.input_cursor_trace_start)
-			VectorCopy(qcvm->extglobals.input_cursor_trace_start, cmd->cursor_start);
-		if (qcvm->extglobals.input_cursor_trace_endpos)
-			VectorCopy(qcvm->extglobals.input_cursor_trace_endpos, cmd->cursor_impact);
-		if (qcvm->extglobals.input_cursor_entitynumber)
-			cmd->cursor_entitynumber = *qcvm->extglobals.input_cursor_entitynumber;
-	}
-}
-
 /*
 =================
 CL_SendCmd
@@ -1280,9 +1221,9 @@ void CL_SendCmd (void)
 	if (cl.qcvm.extfuncs.CSQC_Input_Frame && !cl.qcvm.nogameaccess)
 	{
 		PR_SwitchQCVM(&cl.qcvm);
-		CL_CSQC_SetInputs(&cmd, true);
+		PR_GetSetInputs(&cmd, true);
 		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Input_Frame);
-		CL_CSQC_SetInputs(&cmd, false);
+		PR_GetSetInputs(&cmd, false);
 		PR_SwitchQCVM(NULL);
 	}
 
@@ -1374,12 +1315,16 @@ static void CL_ServerExtension_FullServerinfo_f(void)
 {
 	const char *newserverinfo = Cmd_Argv(1);
 	Q_strncpy(cl.serverinfo, newserverinfo, sizeof(cl.serverinfo));	//just replace it
+
+	PMCL_ServerinfoUpdated();
 }
 static void CL_ServerExtension_ServerinfoUpdate_f(void)
 {
 	const char *newserverkey = Cmd_Argv(1);
 	const char *newservervalue = Cmd_Argv(2);
 	Info_SetKey(cl.serverinfo, sizeof(cl.serverinfo), newserverkey, newservervalue);
+
+	PMCL_ServerinfoUpdated();
 }
 
 int	Sbar_ColorForMap (int m);

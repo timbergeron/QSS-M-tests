@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "pmove.h"
 #include <setjmp.h>
 
 /*
@@ -706,6 +707,9 @@ void Host_ServerFrame (void)
 
 // set the time and clear the general datagram
 	SV_ClearDatagram ();
+
+//respond to cvar changes
+	PMSV_UpdateMovevars ();
 
 // check for new clients
 	SV_CheckForNewClients ();

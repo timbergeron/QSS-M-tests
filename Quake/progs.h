@@ -127,6 +127,7 @@ int NUM_FOR_EDICT(edict_t*);
 
 #define	G_FLOAT(o)		(qcvm->globals[o])
 #define	G_INT(o)		(*(int *)&qcvm->globals[o])
+#define	G_UINT(o)		(*(unsigned int *)&qcvm->globals[o])
 #define	G_INT64(o)		(*(qcsint64_t *)&qcvm->globals[o])
 #define	G_UINT64(o)		(*(qcuint64_t *)&qcvm->globals[o])
 #define	G_DOUBLE(o)		(*(qcdouble_t *)&qcvm->globals[o])
@@ -227,7 +228,9 @@ struct pr_extglobals_s
 	QCEXTGLOBAL_FLOAT(time)\
 	QCEXTGLOBAL_FLOAT(frametime)\
 	//end
-#define QCEXTGLOBALS_GAME \
+#define QCEXTGLOBALS_INPUTS \
+	QCEXTGLOBAL_FLOAT(input_sequence)\
+	QCEXTGLOBAL_FLOAT(input_servertime)\
 	QCEXTGLOBAL_FLOAT(input_timelength)\
 	QCEXTGLOBAL_VECTOR(input_movevalues)\
 	QCEXTGLOBAL_VECTOR(input_angles)\
@@ -238,6 +241,9 @@ struct pr_extglobals_s
 	QCEXTGLOBAL_VECTOR(input_cursor_trace_start)\
 	QCEXTGLOBAL_VECTOR(input_cursor_trace_endpos)\
 	QCEXTGLOBAL_FLOAT(input_cursor_entitynumber)\
+	//end
+#define QCEXTGLOBALS_GAME \
+	QCEXTGLOBALS_INPUTS	\
 	QCEXTGLOBAL_FLOAT(physics_mode)\
 	//end
 #define QCEXTGLOBALS_CSQC \
@@ -283,6 +289,7 @@ struct pr_extfields_s
 	/*stuff used by csqc+ssqc, but not menu*/	\
 	QCEXTFIELD(customphysics,			".void()")/*function*/	\
 	QCEXTFIELD(gravity,					".float")			/*float*/	\
+	QCEXTFIELD(pmove_flags,				".float")			/*float, mostly to hold jump_held*/	\
 	//end of list
 #define QCEXTFIELDS_CL	\
 	QCEXTFIELD(frame2,					".float")				/*for csqc's addentity builtin.*/	\
@@ -428,6 +435,17 @@ struct qcvm_s
 	//originally from world.c
 	areanode_t	areanodes[AREA_NODES];
 	int			numareanodes;
+
+
+#define QCEXTGLOBAL_FLOAT(n)	float fallback_##n;
+#define QCEXTGLOBAL_VECTOR(n)	vec3_t fallback_##n;
+#define QCEXTGLOBAL_INT(n)		int fallback_##n;
+#define QCEXTGLOBAL_UINT64(n)	uint64_t fallback_##n;
+	QCEXTGLOBALS_INPUTS
+#undef QCEXTGLOBAL_FLOAT
+#undef QCEXTGLOBAL_VECTOR
+#undef QCEXTGLOBAL_INT
+#undef QCEXTGLOBAL_UINT64
 };
 extern globalvars_t	*pr_global_struct;
 
@@ -439,6 +457,8 @@ extern qcvm_t ssqcvm;
 extern qcvm_t *qcvm;
 void PR_SwitchQCVM(qcvm_t *nvm);
 #endif
+
+void PR_GetSetInputs(usercmd_t *cmd, qboolean set);
 
 extern const builtin_t pr_ssqcbuiltins[];
 extern const int pr_ssqcnumbuiltins;
