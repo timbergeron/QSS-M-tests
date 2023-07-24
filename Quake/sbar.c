@@ -172,21 +172,21 @@ void Sbar_LoadPics (void)
 	sb_colon = Draw_PicFromWad ("num_colon");
 	sb_slash = Draw_PicFromWad ("num_slash");
 
-	sb_weapons[0][0] = Draw_PicFromWad ("inv_shotgun");
-	sb_weapons[0][1] = Draw_PicFromWad ("inv_sshotgun");
-	sb_weapons[0][2] = Draw_PicFromWad ("inv_nailgun");
-	sb_weapons[0][3] = Draw_PicFromWad ("inv_snailgun");
-	sb_weapons[0][4] = Draw_PicFromWad ("inv_rlaunch");
-	sb_weapons[0][5] = Draw_PicFromWad ("inv_srlaunch");
-	sb_weapons[0][6] = Draw_PicFromWad ("inv_lightng");
+	sb_weapons[0][0] = Draw_PicFromWad2("inv_shotgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[0][1] = Draw_PicFromWad2("inv_sshotgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[0][2] = Draw_PicFromWad2("inv_nailgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[0][3] = Draw_PicFromWad2("inv_snailgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[0][4] = Draw_PicFromWad2("inv_rlaunch", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[0][5] = Draw_PicFromWad2("inv_srlaunch", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[0][6] = Draw_PicFromWad2("inv_lightng", TEXPREF_NEAREST | TEXPREF_ALPHA);
 
-	sb_weapons[1][0] = Draw_PicFromWad ("inv2_shotgun");
-	sb_weapons[1][1] = Draw_PicFromWad ("inv2_sshotgun");
-	sb_weapons[1][2] = Draw_PicFromWad ("inv2_nailgun");
-	sb_weapons[1][3] = Draw_PicFromWad ("inv2_snailgun");
-	sb_weapons[1][4] = Draw_PicFromWad ("inv2_rlaunch");
-	sb_weapons[1][5] = Draw_PicFromWad ("inv2_srlaunch");
-	sb_weapons[1][6] = Draw_PicFromWad ("inv2_lightng");
+	sb_weapons[1][0] = Draw_PicFromWad2("inv2_shotgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[1][1] = Draw_PicFromWad2("inv2_sshotgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[1][2] = Draw_PicFromWad2("inv2_nailgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[1][3] = Draw_PicFromWad2("inv2_snailgun", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[1][4] = Draw_PicFromWad2("inv2_rlaunch", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[1][5] = Draw_PicFromWad2("inv2_srlaunch", TEXPREF_NEAREST | TEXPREF_ALPHA);
+	sb_weapons[1][6] = Draw_PicFromWad2("inv2_lightng", TEXPREF_NEAREST| TEXPREF_ALPHA);
 
 	for (i = 0; i < 5; i++)
 	{
