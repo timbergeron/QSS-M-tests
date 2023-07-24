@@ -333,6 +333,19 @@ void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)
 	MSG_WriteByte (&cls.message, clc_stringcmd);
 	MSG_WriteString (&cls.message, va("setinfo \"%s\" \"%s\"\n", key, val));
 }
+
+Uint32 exec_ctf_cfg (Uint32 interval, void* param) // woods #execdelay
+{
+	Cbuf_AddText("exec ctf.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+	return 0; // only exec once
+}
+
+Uint32 exec_dm_cfg (Uint32 interval, void* param) // woods #execdelay
+{
+	Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+	return 0; // only exec once
+}
+
 /*
 =====================
 CL_SignonReply
@@ -420,16 +433,14 @@ void CL_SignonReply (void)
 		if (!q_strcasecmp(val, "ctf"))
 		{
 			cl.modetype = 1;
-
-			if (COM_FileExists("ctf.cfg", NULL))
-				Cbuf_AddText("exec ctf.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+			if (COM_FileExists("dm.cfg", NULL))
+				SDL_AddTimer(1000, exec_ctf_cfg, NULL); // 2 sec delay after connect #execdelay
 		}
-		if (!strcmp(val, "dm"))
+		if (!strcmp(val, "dm") || !strcmp(val, "ffa"))
 		{
 			cl.modetype = 2;
-		
 			if (COM_FileExists("dm.cfg", NULL))
-				Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+				SDL_AddTimer(1000, exec_dm_cfg, NULL); // 2 sec delay after connect #execdelay
 		}
 		if (!q_strcasecmp(val, "ra") || !q_strcasecmp(val, "rocketarena"))
 			cl.modetype = 3;

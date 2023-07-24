@@ -50,6 +50,8 @@ extern char videosetg[50];	// woods #q_sysinfo (qrack)
 extern char videoc[40];		// woods #q_sysinfo (qrack)
 qboolean	endscoreprint = false; // woods pq_confilter+
 
+extern Uint32 exec_dm_cfg (Uint32 interval, void* param); // woods #execdelay
+
 const char *svc_strings[128] =
 {
 	"svc_bad",
@@ -2505,18 +2507,13 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				if (!strncmp(string, "ΓμαξÒιξη", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
-
 					if (COM_FileExists("dm.cfg", NULL))
-						Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
-
+						SDL_AddTimer(2000, exec_dm_cfg, NULL); // 2 sec delay after connect #execdelay
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join
 				}
 				if ((!strcmp(string, "classic mode\n")) || (!strcmp(string, "FFA mode\n")))  // woods
 				{
 					cl.playmode = 2;
-
-					if (COM_FileExists("dm.cfg", NULL))
-						Cbuf_AddText("exec dm.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
 				}
 				else
 				{
