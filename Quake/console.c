@@ -663,7 +663,7 @@ static void Con_Print (const char *txt)
 			if (strstr(txt, ": ")) // detect if a say command from another person (not perfect)
 			{ 
 				
-				if (!strstr(txt, namewithcolon) && !matchstats && !strstr(txt, "alt-tabbed")) // not me typing away or in a match end auto print -> "woods): "
+				if (!strstr(txt, namewithcolon) && !matchstats && !strstr(txt, "alt-tabbed") && !strstr(txt, "next quad at")) // not me typing away or in a match end auto print -> "woods): "
 				{ 
 					if (cl_afk.value)
 					{
