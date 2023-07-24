@@ -2017,9 +2017,6 @@ void SCR_DrawCrosshair (void)
 	if (scr_viewsize.value >= 130)
 		return;
 
-	if (key_dest == key_menu) // woods #menuclear
-		return;
-
 	if (countdown && draw) // woods #clearcrxcountdown
 		return;
 
