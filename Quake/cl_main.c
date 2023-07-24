@@ -433,7 +433,7 @@ void CL_SignonReply (void)
 		if (!q_strcasecmp(val, "ctf"))
 		{
 			cl.modetype = 1;
-			if (COM_FileExists("dm.cfg", NULL))
+			if (COM_FileExists("ctf.cfg", NULL))
 				SDL_AddTimer(1000, exec_ctf_cfg, NULL); // 2 sec delay after connect #execdelay
 		}
 		if (!strcmp(val, "dm") || !strcmp(val, "ffa"))
