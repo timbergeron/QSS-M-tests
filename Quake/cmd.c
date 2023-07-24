@@ -43,6 +43,8 @@ cmdalias_t	*cmd_alias;
 
 qboolean	cmd_wait;
 
+extern qboolean ctrlpressed; // woods #saymodifier
+
 //=============================================================================
 
 /*
@@ -1193,7 +1195,6 @@ qboolean	Cmd_ExecuteString (const char *text, cmd_source_t src)
 	return true;
 }
 
-
 /*
 ===================
 Cmd_ForwardToServer
@@ -1222,7 +1223,10 @@ void Cmd_ForwardToServer (void)
 // JPG - handle say separately for formatting--start // woods #pqteam
 	if ((!q_strcasecmp(Cmd_Argv(0), "say") || !q_strcasecmp(Cmd_Argv(0), "say_team")) && Cmd_Argc() > 1)
 	{
-		SZ_Print(&cls.message, Cmd_Argv(0));
+		if (ctrlpressed && !q_strcasecmp(Cmd_Argv(0), "say")) // woods #saymodifier
+			SZ_Print(&cls.message, "say_team");
+		else
+			SZ_Print(&cls.message, Cmd_Argv(0));
 		SZ_Print(&cls.message, " ");
 
 		src = Cmd_Args();

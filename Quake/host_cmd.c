@@ -40,6 +40,7 @@ extern		char afk_name[16]; // woods #smartafk
 
 cvar_t sv_adminnick = {"sv_adminnick", "server admin", CVAR_ARCHIVE}; // woods (darkpaces) #adminnick
 extern char lastconnected[3]; // woods -- #identify+
+extern qboolean ctrlpressed; // woods #saymodifier
 
 /*
 ==================
@@ -3492,7 +3493,11 @@ void Host_Say_Rand_f(void) // woods JPG - proquake #sayrandom
 			}
 
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			SZ_Print(&cls.message, "say ");
+
+			if (ctrlpressed)
+				SZ_Print(&cls.message, "say_team ");
+			else
+				SZ_Print(&cls.message, "say ");
 			SZ_Print(&cls.message, msg_rand[k][msg_order[k][next_rand[k]]]);
 			if (++next_rand[k] == num_rand[k])
 				next_rand[k] = 0;

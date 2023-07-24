@@ -46,6 +46,7 @@ qboolean	menubound[MAX_KEYS];	// if true, can't be rebound while in menu
 qboolean	keydown[MAX_KEYS];
 
 qboolean	Cmd_Exists2(const char* cmd_name); // woods #ezsay
+qboolean	ctrlpressed; // woods #saymodifier
 
 void Sound_Toggle_Mute_f (void); // woods #usermute
 void SCR_Mute_Switch (void); // woods #usermute
@@ -1651,6 +1652,14 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 
 	if (key < 0 || key >= MAX_KEYS)
 		return;
+
+	if (key == K_CTRL) // woods #saymodifier
+	{
+		if (down)
+			ctrlpressed = true;
+		else
+			ctrlpressed = false;
+	}
 
 // handle fullscreen toggle
 	if (down && (key == K_ENTER || key == K_KP_ENTER) && keydown[K_ALT])
