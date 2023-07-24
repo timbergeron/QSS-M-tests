@@ -1038,7 +1038,7 @@ void R_SetupAliasLighting (entity_t	*e)
 		}
 
 		// minimum light value on gun (24)
-		if (e == &cl.viewent)
+		if (e->eflags & EFLAGS_VIEWMODEL)
 		{
 			add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 			if (add > 0.0f)
@@ -1125,6 +1125,9 @@ void R_DrawAliasModel (entity_t *e)
 
 	if (e->eflags & EFLAGS_VIEWMODEL)
 	{
+		if (skyroom_drawing)
+			return;	//no viewmodels inside skyrooms!
+
 		//transform it relative to the view, by rebuilding the modelview matrix without the view position.
 		glPushMatrix ();
 		glLoadIdentity();
@@ -1132,6 +1135,10 @@ void R_DrawAliasModel (entity_t *e)
 		glRotatef (90,  0, 0, 1);	    // put Z going up
 
 		glDepthRange (0, 0.3);
+
+		//FIXME: this needs to go. combine with depthrange and explicit viewmodel-only fov into a different projection matrix..
+		if (scr_fov.value > 90.f && cl_gun_fovscale.value)
+			fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
 	}
 	else
 	{
@@ -1146,10 +1153,6 @@ void R_DrawAliasModel (entity_t *e)
 		//
 		glPushMatrix ();
 	}
-
-	//FIXME: this needs to go. combine with depthrange and explicit viewmodel-only fov into a different projection matrix..
-	if (e == &cl.viewent && scr_fov.value > 90.f && cl_gun_fovscale.value)
-		fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
 
 	R_RotateForEntity (lerpdata.origin, lerpdata.angles, e->netstate.scale);
 	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);

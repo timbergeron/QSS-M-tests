@@ -848,6 +848,22 @@ void CL_RelinkEntities (void)
 			cl_numvisedicts++;
 		}
 	}
+
+
+	// viewmodel. last, for transparency reasons.
+	ent = &cl.viewent;
+	if (r_drawviewmodel.value
+		&& !chase_active.value
+		&& cl.stats[STAT_HEALTH] > 0
+		&& !(cl.items & IT_INVISIBILITY)
+		&& ent->model)
+	{
+		if (cl_numvisedicts < cl_maxvisedicts)
+		{
+			cl_visedicts[cl_numvisedicts] = ent;
+			cl_numvisedicts++;
+		}
+	}
 }
 
 #ifdef PSET_SCRIPT

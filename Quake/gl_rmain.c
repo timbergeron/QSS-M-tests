@@ -688,6 +688,8 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		//spike -- this would be more efficient elsewhere, but its more correct here.
 		if (currententity->eflags & EFLAGS_EXTERIORMODEL)
 			continue;
+		if (!currententity->model || currententity->model->needload)
+			continue;
 
 		switch (currententity->model->type)
 		{
@@ -705,34 +707,6 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 				break;
 		}
 	}
-}
-
-/*
-=============
-R_DrawViewModel -- johnfitz -- gutted
-=============
-*/
-void R_DrawViewModel (void)
-{
-	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value || skyroom_drawing/*silly depthrange*/)
-		return;
-
-	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
-		return;
-
-	currententity = &cl.viewent;
-	if (!currententity->model)
-		return;
-
-	//johnfitz -- this fixes a crash
-	if (currententity->model->type != mod_alias)
-		return;
-	//johnfitz
-
-	// hack the depth range to prevent view model from poking into walls
-	glDepthRange (0, 0.3);
-	R_DrawAliasModel (currententity);
-	glDepthRange (0, 1);
 }
 
 /*
@@ -1006,8 +980,6 @@ void R_RenderScene (void)
 	}
 
 	Fog_DisableGFog (); //johnfitz
-
-	R_DrawViewModel (); //johnfitz -- moved here from R_RenderView
 
 	R_ShowTris (); //johnfitz
 
