@@ -334,6 +334,12 @@ void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)
 	MSG_WriteString (&cls.message, va("setinfo \"%s\" \"%s\"\n", key, val));
 }
 
+Uint32 exec_connect_cfg (Uint32 interval, void* param) // woods #execdelay
+{
+	Cbuf_AddText("exec connect.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
+	return 0; // only exec once
+}
+
 Uint32 exec_ctf_cfg (Uint32 interval, void* param) // woods #execdelay
 {
 	Cbuf_AddText("exec ctf.cfg\n"); // exec some configs based on serverinfo, hybrid uses userinfo
@@ -406,6 +412,9 @@ void CL_SignonReply (void)
 		qeintermission = false; // woods #qeintermission
 
 		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
+
+		if (COM_FileExists("connect.cfg", NULL))
+			SDL_AddTimer(900, exec_connect_cfg, NULL); // 2 sec delay after connect #execdelay
 
 		const char* val;
 		const char* val2;
