@@ -1490,7 +1490,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 	// check for a ban
 	//fixme: no ipv6
 	//fixme: only a single address? someone seriously underestimates tor.
-	if (clientaddr->qsa_family == AF_INET)
+	if (((struct sockaddr*)clientaddr)->sa_family == AF_INET)
 	{
 		in_addr_t	testAddr;
 		testAddr = ((struct sockaddr_in *)clientaddr)->sin_addr.s_addr;
@@ -1801,7 +1801,7 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 							break;
 						if (*com_token)
 						{
-							if (masteraddr.qsa_family == AF_INET6)
+							if (((struct sockaddr*)&masteraddr)->sa_family == AF_INET6)
 								str = va("%c%c%c%cgetserversExt %s %u empty full ipv6"/*\x0A\n"*/, 255, 255, 255, 255, com_token, NET_PROTOCOL_VERSION);
 							else
 								str = va("%c%c%c%cgetservers %s %u empty full"/*\x0A\n"*/, 255, 255, 255, 255, com_token, NET_PROTOCOL_VERSION);
@@ -1846,7 +1846,7 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 					{
 					case '\\':
 						memset(&addr, 0, sizeof(addr));
-						addr.qsa_family = AF_INET;
+						((struct sockaddr_in*)&addr)->sin_family = AF_INET;
 						for (i = 0; i < 4; i++)
 							((byte*)&((struct sockaddr_in*)&addr)->sin_addr)[i] = MSG_ReadByte();
 						((byte*)&((struct sockaddr_in*)&addr)->sin_port)[0] = MSG_ReadByte();
@@ -1856,7 +1856,7 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 						break;
 					case '/':
 						memset(&addr, 0, sizeof(addr));
-						addr.qsa_family = AF_INET6;
+						((struct sockaddr_in6*)&addr)->sin6_family = AF_INET6;
 						for (i = 0; i < 16; i++)
 							((byte*)&((struct sockaddr_in6*)&addr)->sin6_addr)[i] = MSG_ReadByte();
 						((byte*)&((struct sockaddr_in6*)&addr)->sin6_port)[0] = MSG_ReadByte();
