@@ -1543,7 +1543,7 @@ void SV_Init (void)
 	extern	cvar_t	sv_reportheartbeats;	//spike
 	extern	cvar_t	com_protocolname;	//spike
 	extern	cvar_t	net_masters[];	//spike
-	extern	cvar_t	rcon_password;	//spike, proquake-compatible rcon
+	extern	cvar_t	rcon_password, password;	//spike, proquake-compatible rcon
 	extern	cvar_t	sv_sound_watersplash;	//spike - making these changable is handy...
 	extern	cvar_t	sv_sound_land;			//spike - and also mutable...
 
@@ -1578,6 +1578,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_public);
 	Cvar_RegisterVariable (&sv_reportheartbeats);
 	Cvar_RegisterVariable (&com_protocolname);
+	Cvar_RegisterVariable (&password);
 	for (i = 0; net_masters[i].name; i++)
 		Cvar_RegisterVariable (&net_masters[i]);
 	Cvar_RegisterVariable (&rcon_password);

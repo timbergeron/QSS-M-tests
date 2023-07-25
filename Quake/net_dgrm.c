@@ -54,6 +54,7 @@ static int droppedDatagrams;
 cvar_t sv_reportheartbeats = {"sv_reportheartbeats", "0"};
 cvar_t sv_public = {"sv_public", NULL};
 cvar_t com_protocolname = {"com_protocolname", "FTE-Quake DarkPlaces-Quake"};
+cvar_t password = {"password", ""};	//this is super-lame and limited to numbers, so when not numeric we hash it and use that instead. there's no nonces though.
 cvar_t net_masters[] = 
 {
 	{"net_master1", ""},
@@ -1207,7 +1208,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 	int			control;
 	int			ret;
 	int plnum;
-	int mod;//, mod_ver, mod_flags, mod_passwd;	//proquake extensions
+	int mod, /*mod_ver, mod_flags,*/ mod_passwd;	//proquake extensions
 
 	control = BigLong(*((int *)data));
 	if (control == -1)
@@ -1455,17 +1456,35 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 	//read proquake extensions
 	mod = MSG_ReadByte();
 	if (msg_badread) mod = 0;
-#if 0
-	mod_ver = MSG_ReadByte();
-	if (msg_badread) mod_ver = 0;
-	mod_flags = MSG_ReadByte();
-	if (msg_badread) mod_flags = 0;
+	/*mod_ver = */MSG_ReadByte();
+	/*if (msg_badread) mod_ver = 0;
+	mod_flags = */MSG_ReadByte();
+	/*if (msg_badread) mod_flags = 0;*/
 	mod_passwd = MSG_ReadLong();
 	if (msg_badread) mod_passwd = 0;
-	(void)mod_ver;
-	(void)mod_flags;
-	(void)mod_passwd;
-#endif
+
+	if (*password.string && strcmp(password.string, "none"))
+	{	//FIXME: if this protocol is ever updated, this needs a nonce (eg based on client's IP+time, but requires round-trips to find that out, and confines of proquake's protocol makes it awkward)
+		char *e;
+		int pwd = strtol(password.string, &e, 0);
+		if (*e)
+			pwd = Com_BlockChecksum(password.string, strlen(password.string));
+		if (mod_passwd != pwd)
+		{
+			//FIXME: add a short ban so they can't just keep trying
+			//FIXME: CCREP_REJECT really needs to be a helper...
+			SZ_Clear(&net_message);
+			// save space for the header, filled in later
+			MSG_WriteLong(&net_message, 0);
+			MSG_WriteByte(&net_message, CCREP_REJECT);
+			MSG_WriteString(&net_message, "bad/missing password.\n");
+			*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
+			dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
+			SZ_Clear(&net_message);
+			return;
+		}
+	}
+	//else if (mod_passwd) thank you for telling me your password for some other server. I'm sure I'll put it to good use...
 
 #ifdef BAN_TEST
 	// check for a ban
@@ -2085,11 +2104,22 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 		MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
 		if (sock->proquake_angle_hack)
 		{	/*Spike -- proquake compat. if both engines claim to be using mod==1 then 16bit client->server angles can be used. server->client angles remain 16bit*/
+			char *e;
+			int pwd;
+			if (!*password.string || !strcmp(password.string, "none"))
+				pwd = 0;	//no password specified, assume none.
+			else
+			{
+				pwd = strtol(password.string, &e, 0);
+				if (*e)	//something trailing = not a numer = hash it and send that.
+					pwd = Com_BlockChecksum(password.string, strlen(password.string));
+			}
+
 			Con_DWarning("Attempting to use ProQuake angle hack\n");
 			MSG_WriteByte(&net_message, 1); /*'mod', 1=proquake*/
 			MSG_WriteByte(&net_message, 34); /*'mod' version*/
 			MSG_WriteByte(&net_message, 0); /*flags*/
-			MSG_WriteLong(&net_message, 0);//strtoul(password.string, NULL, 0)); /*password*/
+			MSG_WriteLong(&net_message, pwd); /*password*/
 		}
 		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 		dfunc.Write (newsock, net_message.data, net_message.cursize, serveraddr);
