@@ -1124,14 +1124,9 @@ void R_RenderScene (void)
 
 	Fog_DisableGFog (); //johnfitz
 
-<<<<<<< HEAD
 	if (gl_laserpoint.value)
 		LaserSight (); // woods #laser
 
-	R_DrawViewModel (); //johnfitz -- moved here from R_RenderView
-
-=======
->>>>>>> upstream/qsrebase
 	R_ShowTris (); //johnfitz
 
 	R_ShowBoundingBoxes (); //johnfitz
