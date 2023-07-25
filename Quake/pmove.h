@@ -164,6 +164,8 @@ void SV_Impact (edict_t *e1, edict_t *e2);
 void World_AddEntsToPmove(edict_t *ignore, vec3_t boxminmax[2]);
 void PMCL_ServerinfoUpdated(void);
 void PMSV_SetMoveStats(edict_t *plent, float *fstat, int *istat);	//so client has the right movevars as stats.
+void PMSV_UpdateMovevars(void);
+void PF_sv_pmove(void);
 void PM_Register(void);
 #define VectorClear(v) ((v)[0] = (v)[1] = (v)[2] = 0)
 #define VectorSet(r,x,y,z) do{(r)[0] = x; (r)[1] = y;(r)[2] = z;}while(0)

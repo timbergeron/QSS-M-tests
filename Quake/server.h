@@ -206,6 +206,7 @@ typedef struct client_s
 	int lastacksequence;
 	int lastmovemessage;
 	double lastmovetime;
+	qboolean usingpmove;	//using the SV_RunClientCommand entrypoint, or getting pmove thrust upon them serverside (disables sv_user.c+movetype stuff, enables provides pmove hints to the client)
 
 	char userinfo[1024];	//spike -- for csqc to (ab)use.
 	client_voip_t voip;	//spike -- for voip

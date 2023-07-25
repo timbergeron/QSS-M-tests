@@ -1987,30 +1987,29 @@ static void PF_both_pmove(edict_t *e)
 	}
 }
 
-cvar_t pm_bunnyspeedcap = {"pm_bunnyspeedcap", "",	CVAR_SERVERINFO};		//reduces strafejumps to maxspeed instead of endlessly accelerating
-cvar_t pm_bunnyfriction = {"pm_bunnyfriction", "1",	CVAR_SERVERINFO};	//forces nq's frame of friction
-cvar_t pm_ktjump = {"pm_ktjump", "",	CVAR_SERVERINFO};
-cvar_t pm_slidefix = {"pm_slidefix", "1",	CVAR_SERVERINFO};				//don't bump when going down slopes.
-cvar_t pm_airstep = {"pm_airstep", "",	CVAR_SERVERINFO};					//allow stepping up stairs when eg jumping
-cvar_t pm_pground = {"pm_pground", "",	CVAR_SERVERINFO};					//persistent onground state, supposed to be more precise but has gamecode interaction issues.
-cvar_t pm_stepdown = {"pm_stepdown", "",	CVAR_SERVERINFO};				//glue the player to the ground when going down steps instead of just up. kinda weird.
-cvar_t pm_walljump = {"pm_walljump", "",	CVAR_SERVERINFO};				//bouncing off the walls.
-cvar_t pm_slidyslopes = {"pm_slidyslopes", "",	CVAR_SERVERINFO};			//gradually slide down slopes like vanilla nq
-cvar_t pm_autobunny = {"pm_autobunny", "",	CVAR_SERVERINFO};				//pogostick mode, for lazy noobs
-cvar_t pm_watersinkspeed = {"pm_watersinkspeed", "",	CVAR_SERVERINFO};	//speed you sink at when idle in water
-cvar_t pm_flyfriction = {"pm_flyfriction", "",	CVAR_SERVERINFO};			//friction in fly/noclip modes.
-cvar_t pm_edgefriction = {"pm_edgefriction", "2",};		//should alias to edgefriction but be listed in the serverinfo as pm_...
-cvar_t pm_stepheight = {"pm_stepheight", ""};		//should alias to edgefriction but be listed in the serverinfo as pm_...
+static cvar_t pm_bunnyspeedcap = {"pm_bunnyspeedcap", "",	CVAR_SERVERINFO};		//reduces strafejumps to maxspeed instead of endlessly accelerating
+static cvar_t pm_bunnyfriction = {"pm_bunnyfriction", "1",	CVAR_SERVERINFO};	//forces nq's frame of friction
+static cvar_t pm_ktjump = {"pm_ktjump", "",	CVAR_SERVERINFO};
+static cvar_t pm_slidefix = {"pm_slidefix", "1",	CVAR_SERVERINFO};				//don't bump when going down slopes.
+static cvar_t pm_airstep = {"pm_airstep", "",	CVAR_SERVERINFO};					//allow stepping up stairs when eg jumping
+static cvar_t pm_pground = {"pm_pground", "",	CVAR_SERVERINFO};					//persistent onground state, supposed to be more precise but has gamecode interaction issues.
+static cvar_t pm_stepdown = {"pm_stepdown", "",	CVAR_SERVERINFO};				//glue the player to the ground when going down steps instead of just up. kinda weird.
+static cvar_t pm_walljump = {"pm_walljump", "",	CVAR_SERVERINFO};				//bouncing off the walls.
+static cvar_t pm_slidyslopes = {"pm_slidyslopes", "",	CVAR_SERVERINFO};			//gradually slide down slopes like vanilla nq
+static cvar_t pm_autobunny = {"pm_autobunny", "",	CVAR_SERVERINFO};				//pogostick mode, for lazy noobs
+static cvar_t pm_watersinkspeed = {"pm_watersinkspeed", "",	CVAR_SERVERINFO};	//speed you sink at when idle in water
+static cvar_t pm_flyfriction = {"pm_flyfriction", "",	CVAR_SERVERINFO};			//friction in fly/noclip modes.
+static cvar_t pm_edgefriction = {"pm_edgefriction", "2",};		//should alias to edgefriction but be listed in the serverinfo as pm_...
+static cvar_t pm_stepheight = {"pm_stepheight", ""};		//should alias to edgefriction but be listed in the serverinfo as pm_...
 extern cvar_t sv_maxspeed;
-cvar_t sv_spectatormaxspeed = {"sv_spectatormaxspeed", "500"};
 extern cvar_t sv_accelerate;
-cvar_t sv_airaccelerate = {"sv_airaccelerate", "0.7"};
-cvar_t sv_wateraccelerate = {"sv_wateraccelerate", "10"};
-cvar_t sv_waterfriction = {"sv_waterfriction", "4"};
-extern cvar_t sv_waterfriction;
 extern cvar_t sv_friction;
 extern cvar_t sv_gravity;
 extern cvar_t sv_stopspeed;
+static cvar_t sv_airaccelerate = {"sv_airaccelerate", "0.7"};
+static cvar_t sv_wateraccelerate = {"sv_wateraccelerate", "10"};
+static cvar_t sv_waterfriction = {"sv_waterfriction", "4"};
+static cvar_t sv_spectatormaxspeed = {"sv_spectatormaxspeed", "500"};
 void PM_Register(void)
 {
 	PM_Init();

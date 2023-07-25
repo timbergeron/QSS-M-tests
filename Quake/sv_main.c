@@ -1312,7 +1312,7 @@ invisible:
 			ents[numents].state.modelindex = 0;
 		if (ent == clent)	//add velocity, but we only care for the local player (should add prediction for other entities some time too).
 		{
-			if (qcvm->extfuncs.SV_RunClientCommand)
+			if (client->usingpmove)
 				ents[numents].state.pmovetype = ent->v.movetype;	//looks like prediction is available. assuming SV_RunClientCommand just calls runstandardplayerphysics then we can predict it with matching clientside stuff.
 			else
 				ents[numents].state.pmovetype = 0;	//fixme: we don't do prediction, so don't tell the client that it can try
@@ -1539,6 +1539,7 @@ void SV_Init (void)
 	extern	cvar_t	sv_idealpitchscale;
 	extern	cvar_t	sv_aim;
 	extern	cvar_t	sv_altnoclip; //johnfitz
+	extern	cvar_t	sv_nqplayerphysics; //spike
 	extern	cvar_t	sv_public;	//spike
 	extern	cvar_t	sv_reportheartbeats;	//spike
 	extern	cvar_t	com_protocolname;	//spike
@@ -1567,6 +1568,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_gameplayfix_setmodelrealbox);
 	Cvar_RegisterVariable (&pr_checkextension);
 	Cvar_RegisterVariable (&sv_altnoclip); //johnfitz
+	Cvar_RegisterVariable (&sv_nqplayerphysics);	//spike
 
 	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
 	Cvar_RegisterVariable (&sv_sound_land); //spike
