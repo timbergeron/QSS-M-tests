@@ -557,7 +557,6 @@ static void CL_EntitiesDeltaed(void)
 	qmodel_t	*model;
 	qboolean	forcelink;
 	entity_t	*ent;
-	int			skin;
 
 	for (newnum = 1; newnum < cl.num_entities; newnum++)
 	{

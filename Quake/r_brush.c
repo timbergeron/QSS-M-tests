@@ -819,7 +819,7 @@ static void BuildSurfaceDisplayList (msurface_t *fa)
 	int			i, lindex, lnumverts;
 	medge_t		*pedges, *r_pedge;
 	float		*vec;
-	float		s, t, s0, t0, sdiv, tdiv;
+	float		s, t, s0, t0;
 	glpoly_t	*poly;
 	int			lmscale = (1<<fa->lmshift);
 

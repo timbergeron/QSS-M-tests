@@ -628,7 +628,7 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 
 	for (numskinfiles = 0; numskinfiles < countof(skinfile); numskinfiles++)
 	{	//q3 doesn't really support multiple skins any other way. plus this lets us fix up some texture paths...
-		skinfile[numskinfiles] = COM_LoadMallocFile(va("%s_%i.skin", diskname, numskinfiles), NULL);
+		skinfile[numskinfiles] = (char*)COM_LoadMallocFile(va("%s_%i.skin", diskname, numskinfiles), NULL);
 		if (!skinfile[numskinfiles])
 			break;
 	}

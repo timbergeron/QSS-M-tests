@@ -343,7 +343,6 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 	byte	*buf;
 	byte	stackbuf[1024];		// avoid dirtying the cache heap
 	int	mod_type;
-	int i;
 
 	if (!mod->needload)
 	{
@@ -759,7 +758,6 @@ static void Mod_LoadTextures (lump_t *l)
 	int			mark, fwidth, fheight;
 	char		filename[MAX_OSPATH], mapname[MAX_OSPATH];
 	byte		*data;
-	extern byte *hunk_base;
 //johnfitz
 	qboolean malloced;	//spike
 	enum srcformat fmt;	//spike
