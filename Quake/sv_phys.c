@@ -1202,7 +1202,7 @@ void SV_Physics_Client (edict_t	*ent, int num)
 	if ( ! svs.clients[num-1].active )
 		return;		// unconnected slot
 
-	if (qcvm->extfuncs.SV_RunClientCommand)
+	if (svs.clients[num-1].usingpmove)
 		return;	//we're doing independant player physics with this mod, so clientside prediction can do its thing.
 	if (!svs.clients[num-1].knowntoqc && sv_gameplayfix_spawnbeforethinks.value)
 		return;	//don't spam prethinks before we called putclientinserver.
@@ -1650,6 +1650,6 @@ void SV_Physics (double frametime)
 		PR_ExecuteProgram (qcvm->extfuncs.EndFrame);
 	}
 
-	if (!(sv_freezenonclients.value && qcvm == &sv.qcvm))
+	if (!(sv_freezenonclients.value && qcvm == &sv.qcvm))	//FIXME: this breaks input_timelength
 	  qcvm->time += frametime;
 }

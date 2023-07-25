@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "pmove.h"
 
 #include "arch_def.h"
 #ifdef PLATFORM_UNIX
@@ -40,6 +41,7 @@ cvar_t	cl_bottomcolor = {"bottomcolor", "", CVAR_ARCHIVE | CVAR_USERINFO};
 
 cvar_t	cl_shownet = {"cl_shownet","0",CVAR_NONE};	// can be 0, 1, or 2
 cvar_t	cl_nolerp = {"cl_nolerp","0",CVAR_NONE};
+cvar_t	cl_nopred = {"cl_nopred", "0", CVAR_ARCHIVE};	//name comes from quakeworld.
 
 cvar_t	cfg_unbindall = {"cfg_unbindall", "1", CVAR_ARCHIVE};
 
@@ -687,6 +689,108 @@ static qboolean CL_LerpEntity(entity_t *ent, vec3_t org, vec3_t ang, float frac)
 	int j;
 	vec3_t delta;
 	qboolean teleported = false;
+
+	if (ent->netstate.pmovetype && ent-cl.entities==cl.viewentity && qcvm->worldmodel && !cl_nopred.value)
+	{	//note: V_CalcRefdef will copy from cl.entities[viewent] to get its origin, so doing it here is the proper place anyway.
+		static struct
+		{
+			int seq;
+			float waterjumptime;
+		} propagate[countof(cl.movecmds)];
+		vec3_t bounds[2];
+
+//		memset(&pmove, 0xff, sizeof(pmove));
+#ifdef VALGRIND_MAKE_MEM_UNDEFINED
+		VALGRIND_MAKE_MEM_UNDEFINED(&pmove, sizeof(pmove));
+#endif
+		PMCL_SetMoveVars();
+
+		if (ent->netstate.solidsize)
+		{
+			pmove.player_maxs[0] = pmove.player_maxs[1] = ent->netstate.solidsize & 255;
+			pmove.player_mins[0] = pmove.player_mins[1] = -pmove.player_maxs[0];
+			pmove.player_mins[2] = -(int)((ent->netstate.solidsize >>8) & 255);
+			pmove.player_maxs[2] = (int)((ent->netstate.solidsize>>16) & 65535) - 32768;
+		}
+		else
+		{
+			VectorClear(pmove.player_mins);
+			VectorClear(pmove.player_maxs);
+		}
+		pmove.safeorigin_known = false;
+		VectorCopy(ent->msg_origins[0], pmove.origin);
+		for (j = 0; j < 3; j++)
+		{
+			pmove.velocity[j] = ent->netstate.velocity[j]*1.0/8;
+			bounds[0][j] = pmove.origin[j] + pmove.player_mins[j] - 256;
+			bounds[1][j] = pmove.origin[j] + pmove.player_maxs[j] + 256;
+		}
+		VectorClear(pmove.gravitydir);
+
+		pmove.waterjumptime = 0;//FIXME: needs propagation. (e->v.teleport_time>qcvm->time)?e->v.teleport_time - qcvm->time:0;
+		pmove.jump_held = !!(ent->netstate.pmovetype&0x40);
+		pmove.onladder = false;//!!(fl&PMF_LADDER);
+		pmove.jump_secs = 0;	//has been 0 since Z_EXT_PM_TYPE instead of imposing a delay on rejumps.
+		pmove.onground = !!(ent->netstate.pmovetype&0x80); //in case we're using pm_pground
+
+		switch(ent->netstate.pmovetype&63)
+		{
+		case MOVETYPE_WALK:		pmove.pm_type = PM_NORMAL;		break;
+		case MOVETYPE_TOSS:		//pmove.pm_type = PM_DEAD;		break;
+		case MOVETYPE_BOUNCE:	pmove.pm_type = PM_DEAD;		break;
+		case MOVETYPE_FLY:		pmove.pm_type = PM_FLY;			break;
+		case MOVETYPE_NOCLIP:	pmove.pm_type = PM_SPECTATOR;	break;
+
+		case MOVETYPE_NONE:
+		case MOVETYPE_STEP:
+		case MOVETYPE_PUSH:
+		case MOVETYPE_FLYMISSILE:
+		case MOVETYPE_EXT_BOUNCEMISSILE:
+		case MOVETYPE_EXT_FOLLOW:
+		default:				pmove.pm_type = PM_NONE;		break;
+		}
+
+		pmove.skipent = -(int)(ent-cl.entities);
+		World_AddEntsToPmove(NULL, bounds);
+
+		j = cl.ackedmovemessages+1;
+		if (j < cl.movemessages-countof(cl.movecmds))
+			j = cl.movemessages-countof(cl.movecmds);	//don't corrupt things, lost is lost.
+
+		if (propagate[j%countof(cl.movecmds)].seq == j)
+		{	//some things can only be known thanks to propagation.
+			pmove.waterjumptime = propagate[j%countof(cl.movecmds)].waterjumptime;
+		}
+//		else	 Con_Printf("propagation not available\n");	//just do without
+
+		for (; j < cl.movemessages; j++)
+		{
+			pmove.cmd = cl.movecmds[j%countof(cl.movecmds)];
+			PM_PlayerMove(1);
+
+			propagate[(j+1)%countof(cl.movecmds)].seq = j+1;
+			propagate[(j+1)%countof(cl.movecmds)].waterjumptime = pmove.waterjumptime;
+		}
+
+		//and run the partial too, to keep things smooth
+		pmove.cmd = cl.pendingcmd;
+		PM_PlayerMove(1);
+
+		VectorCopy (pmove.origin, org);
+		VectorCopy (pmove.cmd.viewangles, ang);
+		ang[0] *= -1.0/3;	//FIXME: STUPID STUPID BUG
+
+		//for bob+calcrefdef stuff, mostly.
+		VectorCopy (pmove.velocity, cl.velocity);
+		cl.onground = pmove.onground;
+		cl.inwater = pmove.waterlevel>=2;
+
+		//FIXME: add stair-smoothing support
+		//FIXME: add error correction
+
+		return true;	//if we're predicting, don't let its old position linger as interpolation. should be less laggy that way, or something.
+	}
+
 	//figure out the pos+angles of the parent
 	if (ent->forcelink)
 	{	// the entity was not updated in the last message
@@ -1106,6 +1210,22 @@ void CL_RelinkEntities (void)
 			cl_numvisedicts++;
 		}
 	}
+
+
+	// viewmodel. last, for transparency reasons.
+	ent = &cl.viewent;
+	if (r_drawviewmodel.value
+		&& !chase_active.value
+		&& cl.stats[STAT_HEALTH] > 0
+		&& !(cl.items & IT_INVISIBILITY)
+		&& ent->model)
+	{
+		if (cl_numvisedicts < cl_maxvisedicts)
+		{
+			cl_visedicts[cl_numvisedicts] = ent;
+			cl_numvisedicts++;
+		}
+	}
 }
 
 #ifdef PSET_SCRIPT
@@ -1424,8 +1544,10 @@ int CL_ReadFromServer (void)
 	if (cl_shownet.value)
 		Con_Printf ("\n");
 
+	PR_SwitchQCVM(&cl.qcvm);
 	CL_RelinkEntities ();
 	CL_UpdateTEnts ();
+	PR_SwitchQCVM(NULL);
 
 //johnfitz -- devstats
 
@@ -1482,70 +1604,12 @@ void CL_AccumulateCmd (void)
 		CL_AdjustAngles ();
 
 		//accumulate movement from other devices
+		CL_BaseMove (&cl.pendingcmd, false);
 		IN_Move (&cl.pendingcmd);
-	}
-
-	cl.pendingcmd.seconds		= cl.mtime[0] - cl.pendingcmd.servertime;
-}
-
-void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set)
-{
-	if (set)
-	{
-		if (qcvm->extglobals.input_timelength)
-			*qcvm->extglobals.input_timelength = cmd->seconds;
-		if (qcvm->extglobals.input_angles)
-			VectorCopy(cmd->viewangles, qcvm->extglobals.input_angles);
-		if (qcvm->extglobals.input_movevalues)
-		{
-			qcvm->extglobals.input_movevalues[0] = cmd->forwardmove;
-			qcvm->extglobals.input_movevalues[1] = cmd->sidemove;
-			qcvm->extglobals.input_movevalues[2] = cmd->upmove;
-		}
-		if (qcvm->extglobals.input_buttons)
-			*qcvm->extglobals.input_buttons = cmd->buttons;
-		if (qcvm->extglobals.input_impulse)
-			*qcvm->extglobals.input_impulse = cmd->impulse;
-
-		if (qcvm->extglobals.input_weapon)
-			*qcvm->extglobals.input_weapon = cmd->weapon;
-		if (qcvm->extglobals.input_cursor_screen)
-			qcvm->extglobals.input_cursor_screen[0] = cmd->cursor_screen[0], qcvm->extglobals.input_cursor_screen[1] = cmd->cursor_screen[1];
-		if (qcvm->extglobals.input_cursor_trace_start)
-			VectorCopy(cmd->cursor_start, qcvm->extglobals.input_cursor_trace_start);
-		if (qcvm->extglobals.input_cursor_trace_endpos)
-			VectorCopy(cmd->cursor_impact, qcvm->extglobals.input_cursor_trace_endpos);
-		if (qcvm->extglobals.input_cursor_entitynumber)
-			*qcvm->extglobals.input_cursor_entitynumber = cmd->cursor_entitynumber;
+		CL_FinishMove(&cl.pendingcmd, false);
 	}
 	else
-	{
-		if (qcvm->extglobals.input_timelength)
-			cmd->seconds = *qcvm->extglobals.input_timelength;
-		if (qcvm->extglobals.input_angles)
-			VectorCopy(qcvm->extglobals.input_angles, cmd->viewangles);
-		if (qcvm->extglobals.input_movevalues)
-		{
-			cmd->forwardmove = qcvm->extglobals.input_movevalues[0];
-			cmd->sidemove = qcvm->extglobals.input_movevalues[1];
-			cmd->upmove = qcvm->extglobals.input_movevalues[2];
-		}
-		if (qcvm->extglobals.input_buttons)
-			cmd->buttons = *qcvm->extglobals.input_buttons;
-		if (qcvm->extglobals.input_impulse)
-			cmd->impulse = *qcvm->extglobals.input_impulse;
-
-		if (qcvm->extglobals.input_weapon)
-			cmd->weapon = *qcvm->extglobals.input_weapon;
-		if (qcvm->extglobals.input_cursor_screen)
-			cmd->cursor_screen[0] = qcvm->extglobals.input_cursor_screen[0], cmd->cursor_screen[1] = qcvm->extglobals.input_cursor_screen[1];
-		if (qcvm->extglobals.input_cursor_trace_start)
-			VectorCopy(qcvm->extglobals.input_cursor_trace_start, cmd->cursor_start);
-		if (qcvm->extglobals.input_cursor_trace_endpos)
-			VectorCopy(qcvm->extglobals.input_cursor_trace_endpos, cmd->cursor_impact);
-		if (qcvm->extglobals.input_cursor_entitynumber)
-			cmd->cursor_entitynumber = *qcvm->extglobals.input_cursor_entitynumber;
-	}
+		cl.lastcmdtime = cl.mtime[0];
 }
 
 /*
@@ -1561,24 +1625,16 @@ void CL_SendCmd (void)
 		return;
 
 	// get basic movement from keyboard
-	CL_BaseMove (&cmd);
-
-	// allow mice or other external controllers to add to the move
-	cmd.forwardmove	+= cl.pendingcmd.forwardmove;
-	cmd.sidemove	+= cl.pendingcmd.sidemove;
-	cmd.upmove		+= cl.pendingcmd.upmove;
-	cmd.sequence	= cl.movemessages;
-	cmd.servertime	= cl.time;
-	cmd.seconds		= cmd.servertime - cl.pendingcmd.servertime;
-
-	CL_FinishMove(&cmd);
+	CL_BaseMove (&cmd, true);
+	IN_Move (&cmd);
+	CL_FinishMove(&cmd, true);
 
 	if (cl.qcvm.extfuncs.CSQC_Input_Frame && !cl.qcvm.nogameaccess)
 	{
 		PR_SwitchQCVM(&cl.qcvm);
-		CL_CSQC_SetInputs(&cmd, true);
+		PR_GetSetInputs(&cmd, true);
 		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Input_Frame);
-		CL_CSQC_SetInputs(&cmd, false);
+		PR_GetSetInputs(&cmd, false);
 		PR_SwitchQCVM(NULL);
 	}
 
@@ -1595,9 +1651,10 @@ void CL_SendCmd (void)
 			CL_SendMove2(NULL);
 		else
 			CL_SendMove(NULL);
+		cmd.seconds = 0;	//not sent, don't predict it either.
 	}
-	memset(&cl.pendingcmd, 0, sizeof(cl.pendingcmd));
-	cl.pendingcmd.servertime = cmd.servertime;
+	cl.pendingcmd.seconds = 0;
+	cl.lastcmdtime = cmd.servertime;
 
 	if (cls.demoplayback)
 	{
@@ -1710,12 +1767,16 @@ static void CL_ServerExtension_FullServerinfo_f(void)
 {
 	const char *newserverinfo = Cmd_Argv(1);
 	Q_strncpy(cl.serverinfo, newserverinfo, sizeof(cl.serverinfo));	//just replace it
+
+	PMCL_ServerinfoUpdated();
 }
 static void CL_ServerExtension_ServerinfoUpdate_f(void)
 {
 	const char *newserverkey = Cmd_Argv(1);
 	const char *newservervalue = Cmd_Argv(2);
 	Info_SetKey(cl.serverinfo, sizeof(cl.serverinfo), newserverkey, newservervalue);
+
+	PMCL_ServerinfoUpdated();
 }
 
 int	Sbar_ColorForMap (int m);
@@ -1949,6 +2010,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_anglespeedkey);
 	Cvar_RegisterVariable (&cl_shownet);
 	Cvar_RegisterVariable (&cl_nolerp);
+	Cvar_RegisterVariable (&cl_nopred);
 	Cvar_RegisterVariable (&lookspring);
 	Cvar_RegisterVariable (&lookstrafe);
 	Cvar_RegisterVariable (&sensitivity);

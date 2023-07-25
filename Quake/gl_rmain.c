@@ -703,6 +703,8 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		//spike -- this would be more efficient elsewhere, but its more correct here.
 		if (currententity->eflags & EFLAGS_EXTERIORMODEL)
 			continue;
+		if (!currententity->model || currententity->model->needload)
+			continue;
 
 		switch (currententity->model->type)
 		{
@@ -754,52 +756,6 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 				break;
 		}
 	}
-}
-
-/*
-=============
-R_DrawViewModel -- johnfitz -- gutted
-=============
-*/
-void R_DrawViewModel (void)
-{
-	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value || skyroom_drawing/*silly depthrange*/)
-		return;
-	
-	//if (cl.gametype == GAME_DEATHMATCH) // woods MH for eyes weapon trans (MHQuakeSpasm)
-	//{
-	//	if (cl.stats[STAT_HEALTH] <= 0)
-	//		return;
-	//}
-	//
-	//else
-	if (cl.stats[STAT_HEALTH] <= 0)
-		return;
-
-	currententity = &cl.viewent;
-	if (!currententity->model)
-		return;
-
-	//johnfitz -- this fixes a crash
-	if (currententity->model->type != mod_alias)
-		return;
-	//johnfitz
-
-	// woods, MH code for eyes weapon trans (MHQuakeSpasm)
-	
-	// interacts with SU_WEAPONALPHA bit in CL_ParseClientdata; this is overwritten/reset each frame so we don't need to cache & restore it
-
-	if (cl.items & IT_INVISIBILITY)
-
-			currententity->alpha = ENTALPHA_ENCODE(0.50);  // dim
-		else currententity->alpha = ENTALPHA_DEFAULT;
-
-	// end woods, MH code for eyes weapon trans
-
-	// hack the depth range to prevent view model from poking into walls
-	glDepthRange (0, 0.3);
-	R_DrawAliasModel (currententity);
-	glDepthRange (0, 1);
 }
 
 /*
@@ -1168,11 +1124,14 @@ void R_RenderScene (void)
 
 	Fog_DisableGFog (); //johnfitz
 
+<<<<<<< HEAD
 	if (gl_laserpoint.value)
 		LaserSight (); // woods #laser
 
 	R_DrawViewModel (); //johnfitz -- moved here from R_RenderView
 
+=======
+>>>>>>> upstream/qsrebase
 	R_ShowTris (); //johnfitz
 
 	R_ShowBoundingBoxes (); //johnfitz

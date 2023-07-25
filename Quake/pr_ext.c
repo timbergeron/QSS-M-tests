@@ -1024,7 +1024,7 @@ static void PF_sprintf_internal (const char *s, int firstarg, char *outbuf, int 
 	char formatbuf[16];
 	char *f;
 	int argpos = firstarg;
-	int isfloat;
+	int isfloat, is64bit;
 	static int dummyivec[3] = {0, 0, 0};
 	static float dummyvec[3] = {0, 0, 0};
 
@@ -1037,10 +1037,17 @@ static void PF_sprintf_internal (const char *s, int firstarg, char *outbuf, int 
 	formatbuf[0] = '%';
 
 #define GETARG_FLOAT(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_FLOAT(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_DOUBLE(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_DOUBLE(OFS_PARM0 + 3 * (a))) : 0)
 #define GETARG_VECTOR(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_VECTOR(OFS_PARM0 + 3 * (a))) : dummyvec)
 #define GETARG_INT(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_INT(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_INT64(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_INT64(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_UINT(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_UINT(OFS_PARM0 + 3 * (a))) : 0)
+#define GETARG_UINT64(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_UINT64(OFS_PARM0 + 3 * (a))) : 0)
 #define GETARG_INTVECTOR(a) (((a)>=firstarg && (a)<qcvm->argc) ? ((int*) G_VECTOR(OFS_PARM0 + 3 * (a))) : dummyivec)
 #define GETARG_STRING(a) (((a)>=firstarg && (a)<qcvm->argc) ? (G_STRING(OFS_PARM0 + 3 * (a))) : "")
+
+#define GETARG_SNUMERIC(t, a) (is64bit?(isfloat ? (t) GETARG_DOUBLE(a) : (t) GETARG_INT64 (a)):(isfloat ? (t) GETARG_FLOAT(a) : (t) GETARG_INT (a)))
+#define GETARG_UNUMERIC(t, a) (is64bit?(isfloat ? (t) GETARG_DOUBLE(a) : (t) GETARG_UINT64(a)):(isfloat ? (t) GETARG_FLOAT(a) : (t) GETARG_UINT(a)))
 
 	for(;;)
 	{
@@ -1063,6 +1070,7 @@ static void PF_sprintf_internal (const char *s, int firstarg, char *outbuf, int 
 				thisarg = -1;
 				flags = 0;
 				isfloat = -1;
+				is64bit = 0;
 
 				// is number following?
 				if(*s >= '0' && *s <= '9')
@@ -1192,6 +1200,7 @@ noflags:
 						case 'h': isfloat = 1; break;
 						case 'l': isfloat = 0; break;
 						case 'L': isfloat = 0; break;
+						case 'q': is64bit = 1; break;
 						case 'j': break;
 						case 'z': break;
 						case 't': break;
@@ -1239,6 +1248,21 @@ nolength:
 						*f++ = '.';
 						*f++ = '*';
 					}
+					switch(*s)
+					{
+						case 'd': case 'i': case 'I':
+						case 'o': case 'u': case 'x': case 'X': case 'p': case 'P':
+#ifdef _WIN32				//not c99
+							*f++ = 'I';
+							*f++ = '6';
+							*f++ = '4';
+#else						//c99
+							*f++ = 'l';
+							if (sizeof(long) == 4)
+								*f++ = 'l';	//go for long long instead
+#endif
+							break;
+					}
 					if (*s == 'p')
 						*f++ = 'x';
 					else if (*s == 'P')
@@ -1256,23 +1280,23 @@ nolength:
 					{
 						case 'd': case 'i':
 							if(precision < 0) // not set
-								q_snprintf(o, end - o, formatbuf, width, (isfloat ? (int) GETARG_FLOAT(thisarg) : (int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, GETARG_SNUMERIC(int64_t, thisarg));
 							else
-								q_snprintf(o, end - o, formatbuf, width, precision, (isfloat ? (int) GETARG_FLOAT(thisarg) : (int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, precision, GETARG_SNUMERIC(int64_t, thisarg));
 							o += strlen(o);
 							break;
 						case 'o': case 'u': case 'x': case 'X': case 'p': case 'P':
 							if(precision < 0) // not set
-								q_snprintf(o, end - o, formatbuf, width, (isfloat ? (unsigned int) GETARG_FLOAT(thisarg) : (unsigned int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, GETARG_UNUMERIC(uint64_t, thisarg));
 							else
-								q_snprintf(o, end - o, formatbuf, width, precision, (isfloat ? (unsigned int) GETARG_FLOAT(thisarg) : (unsigned int) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, precision, GETARG_UNUMERIC(uint64_t, thisarg));
 							o += strlen(o);
 							break;
 						case 'e': case 'E': case 'f': case 'F': case 'g': case 'G':
 							if(precision < 0) // not set
-								q_snprintf(o, end - o, formatbuf, width, (isfloat ? (double) GETARG_FLOAT(thisarg) : (double) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, GETARG_SNUMERIC(double, thisarg));
 							else
-								q_snprintf(o, end - o, formatbuf, width, precision, (isfloat ? (double) GETARG_FLOAT(thisarg) : (double) GETARG_INT(thisarg)));
+								q_snprintf(o, end - o, formatbuf, width, precision, GETARG_SNUMERIC(double, thisarg));
 							o += strlen(o);
 							break;
 						case 'v': case 'V':
@@ -1320,17 +1344,29 @@ nolength:
 								//try and escape it... hopefully it won't get truncated by precision limits...
 								char quotedbuf[65536];
 								size_t l;
-								l = strlen(quotedarg);
-								if (strchr(quotedarg, '\"') || strchr(quotedarg, '\n') || strchr(quotedarg, '\r') || l+3 >= sizeof(quotedbuf))
-								{	//our escapes suck...
-									Con_Warning("PF_sprintf: unable to safely escape arg: %s\n", s0);
-									quotedarg="";
+								qboolean warn = false;
+								quotedbuf[0] = '\\';
+								quotedbuf[1] = '\"';
+								for (l = 2; *quotedarg && l < countof(quotedbuf)-4; )
+								{	//-2 for maximum output of an encoded char, and -2 more for the trailing \"\0.
+									switch(*quotedarg)
+									{
+									case '\n':	quotedbuf[l++] = '\\';	quotedbuf[l++] = 'n'; warn=true;break;
+									case '\r':	quotedbuf[l++] = '\\';	quotedbuf[l++] = 'r'; warn=true;break;
+									case '\"':	quotedbuf[l++] = '\\';	quotedbuf[l++] = '"'; warn=true;break;
+									default:							quotedbuf[l++] = *quotedarg;	break;
+									}
+									quotedarg++;
 								}
-								quotedbuf[0] = '\"';
-								memcpy(quotedbuf+1, quotedarg, l);
-								quotedbuf[1+l] = '\"';
-								quotedbuf[1+l+1] = 0;
-								quotedarg = quotedbuf;
+								quotedbuf[l] = '\"';
+								quotedbuf[l+1] = 0;
+								if (warn || *quotedarg)	//our escapes suck...
+								{
+									Con_Warning("PF_sprintf: unable to safely escape arg: %i\n", thisarg+1);
+									quotedarg = quotedbuf;
+								}
+								else
+									quotedarg = quotedbuf+1;	//don't need the leading cstring-indicator.
 
 								//UTF-8-FIXME: figure it out yourself
 //								if(flags & PRINTF_ALTERNATE)
@@ -1773,6 +1809,365 @@ static void PF_TraceToss(void)
 		pr_global_struct->trace_ent = EDICT_TO_PROG(trace.ent);
 	else
 		pr_global_struct->trace_ent = EDICT_TO_PROG(qcvm->edicts);
+}
+
+#include "pmove.h"
+void PR_GetSetInputs(usercmd_t *cmd, qboolean set)
+{
+	if (set)
+	{
+		if (qcvm->extglobals.input_sequence)
+			*qcvm->extglobals.input_sequence = cmd->sequence;
+		if (qcvm->extglobals.input_servertime)
+			*qcvm->extglobals.input_servertime = cmd->servertime;
+		if (qcvm->extglobals.input_timelength)
+			*qcvm->extglobals.input_timelength = cmd->seconds;
+		if (qcvm->extglobals.input_angles)
+			VectorCopy(cmd->viewangles, qcvm->extglobals.input_angles);
+		if (qcvm->extglobals.input_movevalues)
+		{
+			qcvm->extglobals.input_movevalues[0] = cmd->forwardmove;
+			qcvm->extglobals.input_movevalues[1] = cmd->sidemove;
+			qcvm->extglobals.input_movevalues[2] = cmd->upmove;
+		}
+		if (qcvm->extglobals.input_buttons)
+			*qcvm->extglobals.input_buttons = cmd->buttons;
+		if (qcvm->extglobals.input_impulse)
+			*qcvm->extglobals.input_impulse = cmd->impulse;
+
+		if (qcvm->extglobals.input_weapon)
+			*qcvm->extglobals.input_weapon = cmd->weapon;
+		if (qcvm->extglobals.input_cursor_screen)
+			qcvm->extglobals.input_cursor_screen[0] = cmd->cursor_screen[0], qcvm->extglobals.input_cursor_screen[1] = cmd->cursor_screen[1];
+		if (qcvm->extglobals.input_cursor_trace_start)
+			VectorCopy(cmd->cursor_start, qcvm->extglobals.input_cursor_trace_start);
+		if (qcvm->extglobals.input_cursor_trace_endpos)
+			VectorCopy(cmd->cursor_impact, qcvm->extglobals.input_cursor_trace_endpos);
+		if (qcvm->extglobals.input_cursor_entitynumber)
+			*qcvm->extglobals.input_cursor_entitynumber = cmd->cursor_entitynumber;
+	}
+	else
+	{
+		if (qcvm->extglobals.input_sequence)
+			cmd->sequence = *qcvm->extglobals.input_sequence;
+		if (qcvm->extglobals.input_servertime)
+			cmd->servertime = *qcvm->extglobals.input_servertime;
+		if (qcvm->extglobals.input_timelength)
+			cmd->seconds = *qcvm->extglobals.input_timelength;
+		if (qcvm->extglobals.input_angles)
+			VectorCopy(qcvm->extglobals.input_angles, cmd->viewangles);
+		if (qcvm->extglobals.input_movevalues)
+		{
+			cmd->forwardmove = qcvm->extglobals.input_movevalues[0];
+			cmd->sidemove = qcvm->extglobals.input_movevalues[1];
+			cmd->upmove = qcvm->extglobals.input_movevalues[2];
+		}
+		if (qcvm->extglobals.input_buttons)
+			cmd->buttons = *qcvm->extglobals.input_buttons;
+		if (qcvm->extglobals.input_impulse)
+			cmd->impulse = *qcvm->extglobals.input_impulse;
+
+		if (qcvm->extglobals.input_weapon)
+			cmd->weapon = *qcvm->extglobals.input_weapon;
+		if (qcvm->extglobals.input_cursor_screen)
+			cmd->cursor_screen[0] = qcvm->extglobals.input_cursor_screen[0], cmd->cursor_screen[1] = qcvm->extglobals.input_cursor_screen[1];
+		if (qcvm->extglobals.input_cursor_trace_start)
+			VectorCopy(qcvm->extglobals.input_cursor_trace_start, cmd->cursor_start);
+		if (qcvm->extglobals.input_cursor_trace_endpos)
+			VectorCopy(qcvm->extglobals.input_cursor_trace_endpos, cmd->cursor_impact);
+		if (qcvm->extglobals.input_cursor_entitynumber)
+			cmd->cursor_entitynumber = *qcvm->extglobals.input_cursor_entitynumber;
+	}
+}
+static void PF_both_pmove(edict_t *e)
+{
+	static vec3_t extents = {256, 256, 256};
+	vec3_t bounds[2];
+	eval_t *pmflags = GetEdictFieldValue(e, qcvm->extfields.pmove_flags);
+	unsigned int fl = (pmflags && pmflags->_float)?pmflags->_float:0;
+
+//	memset(&pmove, 0xff, sizeof(pmove));
+#ifdef VALGRIND_MAKE_MEM_UNDEFINED
+	VALGRIND_MAKE_MEM_UNDEFINED(&pmove, sizeof(pmove));
+#endif
+	VectorCopy(e->v.mins, pmove.player_mins);
+	VectorCopy(e->v.maxs, pmove.player_maxs);
+	VectorCopy(e->v.oldorigin, pmove.safeorigin);	pmove.safeorigin_known = (qcvm==&sv.qcvm); //where we revert to when stuck. only consider this valid for ssqc.
+	VectorCopy(e->v.origin, pmove.origin);
+	VectorCopy(e->v.velocity, pmove.velocity);
+//	VectorCopy(e->v.angles, pmove.angles);
+	VectorClear(pmove.gravitydir);
+
+	pmove.waterjumptime = (e->v.teleport_time>qcvm->time)?e->v.teleport_time - qcvm->time:0;
+	pmove.jump_held = !!(fl&PMF_JUMP_HELD);
+	pmove.onladder = !!(fl&PMF_LADDER);
+	pmove.jump_secs = 0;	//has been 0 since Z_EXT_PM_TYPE instead of imposing a delay on rejumps.
+	pmove.onground = !!((int)e->v.flags & FL_ONGROUND); //in case we're using pm_pground
+	switch((int)e->v.movetype)
+	{
+	case MOVETYPE_WALK:		pmove.pm_type = PM_NORMAL;		break;
+	case MOVETYPE_TOSS:		//pmove.pm_type = PM_DEAD;		break;
+	case MOVETYPE_BOUNCE:	pmove.pm_type = PM_DEAD;		break;
+	case MOVETYPE_FLY:		pmove.pm_type = PM_FLY;			break;
+	case MOVETYPE_NOCLIP:	pmove.pm_type = PM_SPECTATOR;	break;
+
+	case MOVETYPE_NONE:
+	case MOVETYPE_STEP:
+	case MOVETYPE_PUSH:
+	case MOVETYPE_FLYMISSILE:
+	case MOVETYPE_EXT_BOUNCEMISSILE:
+	case MOVETYPE_EXT_FOLLOW:
+	default:				pmove.pm_type = PM_NONE;		break;
+	}
+
+	VectorSubtract(e->v.absmin, extents, bounds[0]);
+	VectorAdd(e->v.absmax, extents, bounds[1]);
+	World_AddEntsToPmove(e, bounds);
+
+	PR_GetSetInputs(&pmove.cmd, false);	//set pmove.cmd to the input_* globals.
+
+	PM_PlayerMove(1);
+
+	VectorCopy(pmove.safeorigin, e->v.oldorigin);
+	VectorCopy(pmove.origin, e->v.origin);
+	VectorCopy(pmove.velocity, e->v.velocity);
+//	VectorCopy(pmove.angles, e->v.angles);
+	e->v.teleport_time = (pmove.waterjumptime>0)?qcvm->time + pmove.waterjumptime:0;
+
+	//report jumping+onground properly.
+	if (pmove.jump_held && movevars.autobunny)	//make sure the qc thinks we released the button at some point, triggering a new jump sound.
+		e->v.flags = (int)e->v.flags | FL_JUMPRELEASED;
+	if (pmove.onground)
+	{
+		e->v.flags = (int)e->v.flags | FL_ONGROUND;
+		e->v.groundentity = (pmove.physents[pmove.groundent].info<0)?0:EDICT_TO_PROG(EDICT_NUM(pmove.physents[pmove.groundent].info));
+	}
+	else
+		e->v.flags = (int)e->v.flags & ~FL_ONGROUND;
+
+	//waterlevel+type
+	e->v.waterlevel = pmove.waterlevel;
+	if (pmove.watertype & CONTENTBIT_SOLID)
+		e->v.watertype = CONTENTS_SOLID;
+	else if (pmove.watertype & CONTENTBIT_SKY)
+		e->v.watertype = CONTENTS_SKY;
+	else if (pmove.watertype & CONTENTBIT_LAVA)
+		e->v.watertype = CONTENTS_LAVA;
+	else if (pmove.watertype & CONTENTBIT_SLIME)
+		e->v.watertype = CONTENTS_SLIME;
+	else if (pmove.watertype & CONTENTBIT_WATER)
+		e->v.watertype = CONTENTS_WATER;
+	else
+		e->v.watertype = CONTENTS_EMPTY;
+
+	if (pmflags)
+	{
+		pmflags->_float = ((int)pmflags->_float&~(PMF_JUMP_HELD|PMF_LADDER))
+						| (pmove.jump_held?PMF_JUMP_HELD:0)
+						| (pmove.onladder?PMF_LADDER:0);
+	}
+
+	//now do the touch events, so we can press buttons etc.
+	if (e->v.solid)
+	{
+		edict_t *other;
+		int i, n;
+		// link into place and touch triggers
+		SV_LinkEdict (e, true);
+
+		// touch other objects
+		for (i=0 ; i<pmove.numtouch ; i++)
+		{
+			n = pmove.physents[pmove.touchindex[i]].info;
+			if (n < 0)
+				continue;	//don't trigger touches for engine-networked ents, if only because edict_num can't cope.
+			other = EDICT_NUM(n);
+
+			//FIXME: should probably prevent multiple touches of the same ent.
+
+			SV_Impact(e, other);
+		}
+	}
+}
+
+static cvar_t pm_bunnyspeedcap = {"pm_bunnyspeedcap", "",	CVAR_SERVERINFO};		//reduces strafejumps to maxspeed instead of endlessly accelerating
+static cvar_t pm_bunnyfriction = {"pm_bunnyfriction", "1",	CVAR_SERVERINFO};	//forces nq's frame of friction
+static cvar_t pm_ktjump = {"pm_ktjump", "",	CVAR_SERVERINFO};
+static cvar_t pm_slidefix = {"pm_slidefix", "1",	CVAR_SERVERINFO};				//don't bump when going down slopes.
+static cvar_t pm_airstep = {"pm_airstep", "",	CVAR_SERVERINFO};					//allow stepping up stairs when eg jumping
+static cvar_t pm_pground = {"pm_pground", "",	CVAR_SERVERINFO};					//persistent onground state, supposed to be more precise but has gamecode interaction issues.
+static cvar_t pm_stepdown = {"pm_stepdown", "",	CVAR_SERVERINFO};				//glue the player to the ground when going down steps instead of just up. kinda weird.
+static cvar_t pm_walljump = {"pm_walljump", "",	CVAR_SERVERINFO};				//bouncing off the walls.
+static cvar_t pm_slidyslopes = {"pm_slidyslopes", "",	CVAR_SERVERINFO};			//gradually slide down slopes like vanilla nq
+static cvar_t pm_autobunny = {"pm_autobunny", "",	CVAR_SERVERINFO};				//pogostick mode, for lazy noobs
+static cvar_t pm_watersinkspeed = {"pm_watersinkspeed", "",	CVAR_SERVERINFO};	//speed you sink at when idle in water
+static cvar_t pm_flyfriction = {"pm_flyfriction", "",	CVAR_SERVERINFO};			//friction in fly/noclip modes.
+static cvar_t pm_edgefriction = {"pm_edgefriction", "2",};		//should alias to edgefriction but be listed in the serverinfo as pm_...
+static cvar_t pm_stepheight = {"pm_stepheight", ""};		//should alias to edgefriction but be listed in the serverinfo as pm_...
+extern cvar_t sv_maxspeed;
+extern cvar_t sv_accelerate;
+extern cvar_t sv_friction;
+extern cvar_t sv_gravity;
+extern cvar_t sv_stopspeed;
+static cvar_t sv_airaccelerate = {"sv_airaccelerate", "0.7"};
+static cvar_t sv_wateraccelerate = {"sv_wateraccelerate", "10"};
+static cvar_t sv_waterfriction = {"sv_waterfriction", "4"};
+static cvar_t sv_spectatormaxspeed = {"sv_spectatormaxspeed", "500"};
+void PM_Register(void)
+{
+	PM_Init();
+
+	Cvar_RegisterVariable(&pm_bunnyspeedcap);
+	Cvar_RegisterVariable(&pm_bunnyfriction);
+	Cvar_RegisterVariable(&pm_ktjump);
+	Cvar_RegisterVariable(&pm_slidefix);
+	Cvar_RegisterVariable(&pm_airstep);
+	Cvar_RegisterVariable(&pm_pground);
+	Cvar_RegisterVariable(&pm_stepdown);
+	Cvar_RegisterVariable(&pm_walljump);
+	Cvar_RegisterVariable(&pm_slidyslopes);
+	Cvar_RegisterVariable(&pm_autobunny);
+	Cvar_RegisterVariable(&pm_watersinkspeed);
+	Cvar_RegisterVariable(&pm_flyfriction);
+	Cvar_RegisterVariable(&pm_edgefriction);
+	Cvar_RegisterVariable(&pm_stepheight);
+	Cvar_RegisterVariable(&sv_spectatormaxspeed);
+	Cvar_RegisterVariable(&sv_airaccelerate);
+	Cvar_RegisterVariable(&sv_wateraccelerate);
+	Cvar_RegisterVariable(&sv_waterfriction);
+}
+static movevars_t svmovevars;
+void PMSV_UpdateMovevars(void)
+{
+	memset(&svmovevars, 0, sizeof(svmovevars));
+	svmovevars.accelerate		= sv_accelerate.value;
+	svmovevars.airaccelerate	= sv_airaccelerate.value;
+	svmovevars.friction			= sv_friction.value;
+	svmovevars.gravity			= sv_gravity.value;
+	svmovevars.stopspeed		= sv_stopspeed.value;
+	svmovevars.wateraccelerate	= sv_wateraccelerate.value;
+	svmovevars.waterfriction	= sv_waterfriction.value;
+	svmovevars.entgravity		= 1.0;
+	svmovevars.maxspeed			= sv_maxspeed.value;
+	svmovevars.spectatormaxspeed= sv_spectatormaxspeed.value;
+	svmovevars.bunnyspeedcap	= pm_bunnyspeedcap.value;
+	svmovevars.ktjump			= pm_ktjump.value;
+	svmovevars.airstep			= (pm_airstep.value != 0);
+	svmovevars.stepheight		= *pm_stepheight.string?pm_stepheight.value:18;
+	svmovevars.stepdown			= (pm_stepdown.value != 0);
+	svmovevars.walljump			= (pm_walljump.value);
+	svmovevars.slidefix			= (pm_slidefix.value != 0);
+	svmovevars.pground			= (pm_pground.value != 0);
+	svmovevars.slidyslopes		= (pm_slidyslopes.value!=0);
+	svmovevars.autobunny		= (pm_autobunny.value!=0);
+	svmovevars.bunnyfriction	= (pm_bunnyfriction.value!=0);
+	svmovevars.watersinkspeed	= *pm_watersinkspeed.string?pm_watersinkspeed.value:60;
+	svmovevars.flyfriction		= *pm_flyfriction.string?pm_flyfriction.value:4;
+	svmovevars.edgefriction		= *pm_edgefriction.string?pm_edgefriction.value:2;
+	svmovevars.protocolflags	= sv.protocolflags;
+	svmovevars.jumpspeed		= 270;
+	svmovevars.maxairspeed		= 30;
+	svmovevars.flags			= MOVEFLAG_VALID|MOVEFLAG_NOGRAVITYONGROUND|(*pm_edgefriction.string?0:MOVEFLAG_QWEDGEBOX);
+};
+void PF_sv_pmove(void)
+{
+	edict_t	*e			= G_EDICT(OFS_PARM0);
+	movevars = svmovevars;
+	PF_both_pmove(e);
+}
+void PMSV_SetMoveStats(edict_t *plent, float *fstat, int *istat)
+{
+	eval_t *entgrav = GetEdictFieldValue(plent, qcvm->extfields.gravity);
+	fstat[STAT_MOVEVARS_STEPHEIGHT] = svmovevars.stepheight;
+	istat[STAT_MOVEFLAGS] = svmovevars.flags;
+	fstat[STAT_MOVEVARS_GRAVITY] = svmovevars.gravity;
+	fstat[STAT_MOVEVARS_STOPSPEED] = svmovevars.stopspeed;
+	fstat[STAT_MOVEVARS_MAXSPEED] = svmovevars.maxspeed;
+	fstat[STAT_MOVEVARS_SPECTATORMAXSPEED] = svmovevars.spectatormaxspeed;
+	fstat[STAT_MOVEVARS_ACCELERATE] = svmovevars.accelerate;
+	fstat[STAT_MOVEVARS_AIRACCELERATE] = svmovevars.airaccelerate;
+	fstat[STAT_MOVEVARS_WATERACCELERATE] = svmovevars.wateraccelerate;
+	fstat[STAT_MOVEVARS_FRICTION] = svmovevars.friction;
+	fstat[STAT_MOVEVARS_WATERFRICTION] = svmovevars.waterfriction;
+	fstat[STAT_MOVEVARS_EDGEFRICTION] = svmovevars.edgefriction;
+	fstat[STAT_MOVEVARS_ENTGRAVITY] = (entgrav && entgrav->_float)?entgrav->_float:1;
+	fstat[STAT_MOVEVARS_TIMESCALE] = 1;	//gamespeed?
+//	statsf[STAT_MOVEVARS_TICRATE] = host_maxfps.value;
+	fstat[STAT_MOVEVARS_JUMPVELOCITY] = svmovevars.jumpspeed;
+	fstat[STAT_MOVEVARS_MAXAIRSPEED] = svmovevars.maxairspeed;
+}
+
+static movevars_t clmovevars;
+float PMCL_GetKeyValue(const char *key, float def)
+{
+	char buf[64];
+	const char *v;
+	v = Info_GetKey(cl.serverinfo, key, buf, sizeof(buf));
+	if (*v)
+		return atof(v);
+	return def;
+}
+void PMCL_ServerinfoUpdated(void)
+{
+	memset(&clmovevars, 0, sizeof(clmovevars));
+	clmovevars.accelerate			= PMCL_GetKeyValue("sv_accelerate", 10);
+	clmovevars.airaccelerate		= PMCL_GetKeyValue("sv_airaccelerate", 0.7);
+	clmovevars.friction				= PMCL_GetKeyValue("sv_friction", 4);
+	clmovevars.gravity				= PMCL_GetKeyValue("sv_gravity", 800);
+	clmovevars.stopspeed			= PMCL_GetKeyValue("sv_stopspeed", 100);
+	clmovevars.wateraccelerate		= PMCL_GetKeyValue("sv_wateraccelerate", 10);
+	clmovevars.waterfriction		= PMCL_GetKeyValue("sv_waterfriction", 4);
+	clmovevars.entgravity			= 1.0;
+	clmovevars.maxspeed				= PMCL_GetKeyValue("sv_maxspeed", 320);
+	clmovevars.spectatormaxspeed	= PMCL_GetKeyValue("sv_spectatormaxspeed", 500);
+	clmovevars.bunnyspeedcap		= PMCL_GetKeyValue("pm_bunnyspeedcap", 0);
+	clmovevars.ktjump				= PMCL_GetKeyValue("pm_ktjump", 0);
+	clmovevars.airstep				= PMCL_GetKeyValue("pm_airstep", 0);
+	clmovevars.stepheight			= PMCL_GetKeyValue("pm_stepheight", 18);
+	clmovevars.stepdown				= PMCL_GetKeyValue("pm_stepdown", 0);
+	clmovevars.walljump				= PMCL_GetKeyValue("pm_walljump", 0);
+	clmovevars.slidefix				= PMCL_GetKeyValue("pm_slidefix", 0);
+	clmovevars.pground				= PMCL_GetKeyValue("pm_pground", 0);
+	clmovevars.slidyslopes			= PMCL_GetKeyValue("pm_slidyslopes", 0);
+	clmovevars.autobunny			= PMCL_GetKeyValue("pm_autobunny", 0);
+	clmovevars.bunnyfriction		= PMCL_GetKeyValue("pm_bunnyfriction", 0);
+	clmovevars.watersinkspeed		= PMCL_GetKeyValue("*pm_watersinkspeed", 60);
+	clmovevars.flyfriction			= PMCL_GetKeyValue("*pm_flyfriction", 4);
+	clmovevars.edgefriction			= PMCL_GetKeyValue("*pm_edgefriction", 2);
+	clmovevars.protocolflags		= cl.protocolflags;
+	clmovevars.flags				= MOVEFLAG_VALID|MOVEFLAG_NOGRAVITYONGROUND|((PMCL_GetKeyValue("pm_edgefriction", -1000)!=-1000)?0:MOVEFLAG_QWEDGEBOX);
+	clmovevars.jumpspeed			= 270;
+	clmovevars.maxairspeed			= 30;
+};
+void PMCL_SetMoveVars(void)
+{
+	movevars = clmovevars;
+	if (cl.protocol_pext2 & PEXT2_PREDINFO)
+	{	//protocol provides movevars as stats...
+		float *fstat = (cl.protocol == PROTOCOL_VERSION_DP7)?(float*)cl.stats:cl.statsf;	//DPP5 is hideous, aim for compat though.
+
+		movevars.stepheight = fstat[STAT_MOVEVARS_STEPHEIGHT];
+		movevars.flags = cl.stats[STAT_MOVEFLAGS];
+		movevars.gravity = fstat[STAT_MOVEVARS_GRAVITY];
+		movevars.stopspeed = fstat[STAT_MOVEVARS_STOPSPEED];
+		movevars.maxspeed = fstat[STAT_MOVEVARS_MAXSPEED];
+		movevars.spectatormaxspeed = fstat[STAT_MOVEVARS_SPECTATORMAXSPEED];
+		movevars.accelerate = fstat[STAT_MOVEVARS_ACCELERATE];
+		movevars.airaccelerate = fstat[STAT_MOVEVARS_AIRACCELERATE];
+		movevars.wateraccelerate = fstat[STAT_MOVEVARS_WATERACCELERATE];
+		movevars.friction = fstat[STAT_MOVEVARS_FRICTION];
+		movevars.waterfriction = fstat[STAT_MOVEVARS_WATERFRICTION];
+		movevars.edgefriction = fstat[STAT_MOVEVARS_EDGEFRICTION];
+		movevars.entgravity = fstat[STAT_MOVEVARS_ENTGRAVITY];
+		movevars.jumpspeed = fstat[STAT_MOVEVARS_JUMPVELOCITY];
+		movevars.maxairspeed = fstat[STAT_MOVEVARS_MAXAIRSPEED];
+	}
+}
+static void PF_cs_pmove(void)
+{
+	edict_t	*e			= G_EDICT(OFS_PARM0);
+	PMCL_SetMoveVars();
+	PF_both_pmove(e);
 }
 
 //model stuff
@@ -5574,6 +5969,27 @@ static void PF_cl_serverkey_f(void)
 	PF_cl_serverkey_internal(keyname, true);
 }
 
+void PF_sv_serverkey_internal(const char *key, qboolean retfloat)
+{
+	char buf[1024];
+	const char *ret = Info_GetKey(svs.serverinfo, key, buf, sizeof(buf));
+
+	if (retfloat)
+		G_FLOAT(OFS_RETURN) = atof(ret);
+	else
+		G_INT(OFS_RETURN) = PR_SetEngineString(ret);
+}
+static void PF_sv_serverkey_s(void)
+{
+	const char *keyname = G_STRING(OFS_PARM0);
+	PF_sv_serverkey_internal(keyname, false);
+}
+static void PF_sv_serverkey_f(void)
+{
+	const char *keyname = G_STRING(OFS_PARM0);
+	PF_sv_serverkey_internal(keyname, true);
+}
+
 static void PF_sv_forceinfokey(void)
 {
 	int edict = G_EDICTNUM(OFS_PARM0);
@@ -6302,10 +6718,13 @@ static void PF_cs_addentities(void)
 
 	if (mask & MASK_VIEWMODEL)
 	{
-		//default viewmodel.
+		//default viewmodel. add it into the scene.
+		if (cl.viewent.model)
+		{	//make sure its relevant
+			cl_visedicts[cl_numvisedicts] = &cl.viewent;
+			cl_numvisedicts++;
+		}
 	}
-
-
 }
 static void PF_cs_addlight(void)
 {
@@ -6885,19 +7304,18 @@ static void PF_cs_setlistener(void)
 	VectorCopy(up, cl.listener_axis[2]);
 }
 
-void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set);
 static void PF_cs_getinputstate(void)
 {
 	unsigned int seq = G_FLOAT(OFS_PARM0);
 	if (seq == cl.movemessages)
 	{	//the partial/pending frame!
 		G_FLOAT(OFS_RETURN) = 1;
-		CL_CSQC_SetInputs(&cl.pendingcmd, true);
+		PR_GetSetInputs(&cl.pendingcmd, true);
 	}
 	else if (cl.movecmds[seq&MOVECMDS_MASK].sequence == seq)
 	{	//valid sequence slot.
 		G_FLOAT(OFS_RETURN) = 1;
-		CL_CSQC_SetInputs(&cl.movecmds[seq&MOVECMDS_MASK], true);
+		PR_GetSetInputs(&cl.movecmds[seq&MOVECMDS_MASK], true);
 	}
 	else
 		G_FLOAT(OFS_RETURN) = 0; //invalid
@@ -7482,7 +7900,7 @@ static struct
 	{"getmousepos",		PF_NoSSQC,			PF_NoCSQC,	344,	PF_m_getmousepos,66, D("vector()", "Nasty convoluted DP extension. Typically returns deltas instead of positions. Use CSQC_InputEvent for such things in csqc mods.")},	// #344 This is a DP extension
 	{"getinputstate",	PF_NoSSQC,			PF_cs_getinputstate,345,	PF_NoMenu, D("float(float inputsequencenum)", "Looks up an input frame from the log, setting the input_* globals accordingly.\nThe sequence number range used for prediction should normally be servercommandframe < sequence <= clientcommandframe.\nThe sequence equal to clientcommandframe will change between input frames.")},// (EXT_CSQC)
 	{"setsensitivityscaler",PF_NoSSQC,		PF_cl_setsensitivity,346,	PF_NoMenu, D("void(float sens)", "Temporarily scales the player's mouse sensitivity based upon something like zoom, avoiding potential cvar saving and thus corruption.")},// (EXT_CSQC)
-//	{"runstandardplayerphysics",NULL,		PF_FullCSQCOnly,	347,	PF_NoMenu, D("void(entity ent)", "Perform the engine's standard player movement prediction upon the given entity using the input_* globals to describe movement.")},
+	{"runstandardplayerphysics",PF_sv_pmove,PF_cs_pmove,		347,	PF_NoMenu, D("void(entity ent)", "Perform the engine's standard player movement prediction upon the given entity using the input_* globals to describe movement.")},
 	{"getplayerkeyvalue",NULL,				PF_cl_playerkey_s,	348,	PF_NoMenu, D("string(float playernum, string keyname)", "Look up a player's userinfo, to discover things like their name, topcolor, bottomcolor, skin, team, *ver.\nAlso includes scoreboard info like frags, ping, pl, userid, entertime, as well as voipspeaking and voiploudness.")},// (EXT_CSQC)
 	{"getplayerkeyfloat",NULL,				PF_cl_playerkey_f,	0,		PF_NoMenu, D("float(float playernum, string keyname, optional float assumevalue)", "Cheaper version of getplayerkeyvalue that avoids the need for so many tempstrings.")},
 	{"isdemo",			PF_NoSSQC,			PF_cl_isdemo,		349,	PF_cl_isdemo,349, D("float()", "Returns if the client is currently playing a demo or not")},// (EXT_CSQC)
@@ -7491,8 +7909,8 @@ static struct
 //	{"setup_reverb",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("typedef struct {\n\tfloat flDensity;\n\tfloat flDiffusion;\n\tfloat flGain;\n\tfloat flGainHF;\n\tfloat flGainLF;\n\tfloat flDecayTime;\n\tfloat flDecayHFRatio;\n\tfloat flDecayLFRatio;\n\tfloat flReflectionsGain;\n\tfloat flReflectionsDelay;\n\tvector flReflectionsPan;\n\tfloat flLateReverbGain;\n\tfloat flLateReverbDelay;\n\tvector flLateReverbPan;\n\tfloat flEchoTime;\n\tfloat flEchoDepth;\n\tfloat flModulationTime;\n\tfloat flModulationDepth;\n\tfloat flAirAbsorptionGainHF;\n\tfloat flHFReference;\n\tfloat flLFReference;\n\tfloat flRoomRolloffFactor;\n\tint   iDecayHFLimit;\n} reverbinfo_t;\nvoid(float reverbslot, reverbinfo_t *reverbinfo, int sizeofreverinfo_t)", "Reconfigures a reverb slot for weird effects. Slot 0 is reserved for no effects. Slot 1 is reserved for underwater effects. Reserved slots will be reinitialised on snd_restart, but can otherwise be changed. These reverb slots can be activated with SetListener. Note that reverb will currently only work when using OpenAL.")},
 	{"registercommand",	NULL,				PF_cl_registercommand,352,	PF_cl_registercommand,352, D("void(string cmdname)", "Register the given console command, for easy console use.\nConsole commands that are later used will invoke CSQC_ConsoleCommand.")},//(EXT_CSQC)
 	{"wasfreed",		PF_WasFreed,		PF_WasFreed,		353,	PF_WasFreed,353, D("float(entity ent)", "Quickly check to see if the entity is currently free. This function is only valid during the two-second non-reuse window, after that it may give bad results. Try one second to make it more robust.")},//(EXT_CSQC) (should be availabe on server too)
-	{"serverkey",		NULL,				PF_cl_serverkey_s,	354,	PF_NoMenu, D("string(string key)", "Look up a key in the server's public serverinfo string")},//
-	{"serverkeyfloat",	NULL,				PF_cl_serverkey_f,	0,		PF_NoMenu, D("float(string key, optional float assumevalue)", "Version of serverkey that returns the value as a float (which avoids tempstrings).")},//
+	{"serverkey",		PF_sv_serverkey_s,	PF_cl_serverkey_s,	354,	PF_NoMenu, D("string(string key)", "Look up a key in the server's public serverinfo string")},//
+	{"serverkeyfloat",	PF_sv_serverkey_f,	PF_cl_serverkey_f,	0,		PF_NoMenu, D("float(string key, optional float assumevalue)", "Version of serverkey that returns the value as a float (which avoids tempstrings).")},//
 	{"getentitytoken",	PF_NoSSQC,			PF_cs_getentitytoken,355,	PF_NoMenu, D("string(optional string resetstring)", "Grab the next token in the map's entity lump.\nIf resetstring is not specified, the next token will be returned with no other sideeffects.\nIf empty, will reset from the map before returning the first token, probably {.\nIf not empty, will tokenize from that string instead.\nAlways returns tempstrings.")},//;
 //	{"findfont",		PF_NoSSQC,			PF_FullCSQCOnly,	356,	PF_NoMenu, D("float(string s)", "Looks up a named font slot. Matches the actual font name as a last resort.")},//;
 //	{"loadfont",		PF_NoSSQC,			PF_FullCSQCOnly,	357,	PF_NoMenu, D("float(string fontname, string fontmaps, string sizes, float slot, optional float fix_scale, optional float fix_voffset)", "too convoluted for me to even try to explain correct usage. Try drawfont = loadfont(\"\", \"cour\", \"16\", -1, 0, 0); to switch to the courier font (optimised for 16 virtual pixels high), if you have the freetype2 library in windows..")},
@@ -8067,7 +8485,7 @@ void PF_Fixme (void)
 	PR_RunError ("PF_Fixme: not a builtin...");
 }
 
-/*static void PF_Fixme_noext(void) // woods unused
+/*static void PF_Fixme_noext (void)
 {
 	//interrogate the vm to try to figure out exactly which builtin they just tried to execute.
 	dstatement_t *st = &qcvm->statements[qcvm->xstatement];
@@ -8252,6 +8670,17 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 #undef QCEXTGLOBAL_FLOAT
 #undef QCEXTGLOBAL_INT
 #undef QCEXTGLOBAL_VECTOR
+
+//some need guarentees they exist (inputs get copied into globals and then back out)
+#define QCEXTGLOBAL_FLOAT(n)	if (!qcvm->extglobals.n) qcvm->extglobals.n = &qcvm->fallback_##n;
+#define QCEXTGLOBAL_VECTOR(n)	if (!qcvm->extglobals.n) qcvm->extglobals.n = &qcvm->fallback_##n[0];
+#define QCEXTGLOBAL_INT			QCEXTGLOBAL_FLOAT
+#define QCEXTGLOBAL_UINT64		QCEXTGLOBAL_FLOAT
+	QCEXTGLOBALS_INPUTS
+#undef QCEXTGLOBAL_FLOAT
+#undef QCEXTGLOBAL_VECTOR
+#undef QCEXTGLOBAL_INT
+#undef QCEXTGLOBAL_UINT64
 
 	//any #0 functions are remapped to their builtins here, so we don't have to tweak the VM in an obscure potentially-breaking way.
 	for (i = 0; i < (unsigned int)qcvm->progs->numfunctions; i++)

@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
-extern cvar_t cl_gun_fovscale; // woods #zoom (ironwail)
+extern cvar_t scr_fov, cl_gun_fovscale; // woods #zoom (ironwail)
 extern cvar_t r_coloredpowerupglow; // woods
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
@@ -1128,7 +1128,7 @@ void R_SetupAliasLighting (entity_t	*e)
 		}
 		
 		// minimum light value on gun (24)
-		if (e == &cl.viewent)
+		if (e->eflags & EFLAGS_VIEWMODEL)
 		{
 			add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 			if (add > 0.0f)
@@ -1296,6 +1296,9 @@ void R_DrawAliasModel (entity_t *e)
 
 	if (e->eflags & EFLAGS_VIEWMODEL)
 	{
+		if (skyroom_drawing)
+			return;	//no viewmodels inside skyrooms!
+
 		//transform it relative to the view, by rebuilding the modelview matrix without the view position.
 		glPushMatrix ();
 		glLoadIdentity();
@@ -1303,6 +1306,10 @@ void R_DrawAliasModel (entity_t *e)
 		glRotatef (90,  0, 0, 1);	    // put Z going up
 
 		glDepthRange (0, 0.3);
+
+		//FIXME: this needs to go. combine with depthrange and explicit viewmodel-only fov into a different projection matrix..
+		if (scr_fov.value > 90.f && cl_gun_fovscale.value)
+			fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
 	}
 	else
 	{
@@ -1318,7 +1325,6 @@ void R_DrawAliasModel (entity_t *e)
 		glPushMatrix ();
 	}
 
-	//FIXME: this needs to go. combine with depthrange and explicit viewmodel-only fov into a different projection matrix..
 	if (e == &cl.viewent && r_refdef.basefov > 90.f && cl_gun_fovscale.value) // woods #zoom (ironwail)
 		fovscale = tan(r_refdef.basefov * (0.5f * M_PI / 180.f)); // woods #zoom (ironwail)
 

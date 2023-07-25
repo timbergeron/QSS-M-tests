@@ -1714,7 +1714,7 @@ static void PF_sv_makestatic (void)
 		sv.max_statics = nm;
 	}
 	st = &sv.static_entities[sv.num_statics];
-	SV_BuildEntityState(ent, st);
+	SV_BuildEntityState(NULL, ent, st);
 	if (st->alpha == ENTALPHA_ZERO)
 		; //no point
 	else
@@ -2167,7 +2167,7 @@ static void PF_cl_makestatic (void)
 	stat = cl.static_entities[i];
 	cl.num_statics++;
 
-	SV_BuildEntityState(ent, &stat->baseline);
+	SV_BuildEntityState(NULL, ent, &stat->baseline);
 
 // copy it to the current state
 

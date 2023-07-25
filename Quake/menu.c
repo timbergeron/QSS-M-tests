@@ -2078,6 +2078,7 @@ static enum extras_e
 	EXTRAS_QCEXTENSIONS,
 	EXTRAS_CLASSICPARTICLES,
 	EXTRAS_AUDIORATE,
+	EXTRAS_PREDICTION,
 	EXTRAS_ITEMS
 } extras_cursor;
 
@@ -2093,7 +2094,7 @@ void M_Menu_Extras_f (void)
 
 static void M_Extras_AdjustSliders (int dir)
 {
-	extern cvar_t pr_checkextension, r_replacemodels, gl_load24bit, cl_nopext, r_lerpmodels, r_lerpmove, host_maxfps, sys_throttle, r_particles;
+	extern cvar_t pr_checkextension, r_replacemodels, gl_load24bit, cl_nopext, r_lerpmodels, r_lerpmove, host_maxfps, sys_throttle, r_particles, sv_nqplayerphysics, cl_nopred;
 	int m;
 	S_LocalSound ("misc/menu3.wav");
 
@@ -2185,6 +2186,15 @@ static void M_Extras_AdjustSliders (int dir)
 		Cvar_SetValueQuick (&snd_mixspeed, (snd_mixspeed.value==48000)?44100:48000);
 	//	Cbuf_AddText("\nsnd_restart\n");
 		break;
+	case EXTRAS_PREDICTION:
+		m = ((!!cl_nopred.value)<<1)|(!!sv_nqplayerphysics.value);
+		m += dir;
+		if ((m&3)==2)
+			m += dir; //boo! don't like that combo. skip it
+		m &= 3;
+		Cvar_SetValueQuick (&cl_nopred, (m>>1)&1);
+		Cvar_SetValueQuick (&sv_nqplayerphysics, (m>>0)&1);
+		break;
 	case EXTRAS_ITEMS:	//not a real option
 		break;
 	}
@@ -2192,7 +2202,7 @@ static void M_Extras_AdjustSliders (int dir)
 
 void M_Extras_Draw (void)
 {
-	extern cvar_t pr_checkextension, r_replacemodels, gl_load24bit, cl_nopext, r_lerpmodels, r_lerpmove, host_maxfps, sys_throttle, r_particles;
+	extern cvar_t pr_checkextension, r_replacemodels, gl_load24bit, cl_nopext, r_lerpmodels, r_lerpmove, host_maxfps, sys_throttle, r_particles, sv_nqplayerphysics, cl_nopred;
 	int m;
 	qpic_t	*p;
 	enum extras_e i;
@@ -2235,9 +2245,12 @@ void M_Extras_Draw (void)
 			M_DrawCheckbox(220, y, !!r_lerpmodels.value && !!r_lerpmove.value);
 			break;
 		case EXTRAS_FPSCAP:
-			M_Print (16, y,	"           Maximum FPS");
+			if (host_maxfps.value < 0)
+				M_Print (16, y,	"           Maximum PPS");
+			else
+				M_Print (16, y,	"           Maximum FPS");
 			if (host_maxfps.value)
-				M_Print (220, y, va("%g", host_maxfps.value));
+				M_Print (220, y, va("%g", fabs(host_maxfps.value)));
 			else
 				M_Print (220, y, "uncapped");
 			break;
@@ -2293,6 +2306,18 @@ void M_Extras_Draw (void)
 				M_Print (220, y, "44100 hz (CD)");
 			else
 				M_Print (220, y, va("%i hz", (int)snd_mixspeed.value));
+			break;
+
+		case EXTRAS_PREDICTION:
+			M_Print (16, y,	"    Prediction/Physics");
+			if (!cl_nopred.value && !sv_nqplayerphysics.value)
+				M_Print (220, y, "on (override ssqc)");	//deathmatch! will break quirky mods like quakerally.
+			else if (!cl_nopred.value && sv_nqplayerphysics.value)
+				M_Print (220, y, "on (compatible physics)");	//conservative / default setting.
+			else if (cl_nopred.value && !sv_nqplayerphysics.value)
+				M_Print (220, y, "off (but override ssqc)"); //silly setting (skipped when changing in menu)
+			else
+				M_Print (220, y, "off");	//honest/oldskool setting.
 			break;
 
 		case EXTRAS_ITEMS:	//unreachable.
