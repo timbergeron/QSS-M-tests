@@ -286,10 +286,13 @@ World_AreaAddEntsToPmove ( edict_t *ignore, areanode_t *node, vec3_t boxminmax[2
 		|| boxminmax[1][2] < other->v.absmin[2] )
 			continue;
 
-		if (PROG_TO_EDICT(other->v.owner) == ignore)
-			continue;	// don't clip against own missiles
-		if (PROG_TO_EDICT(ignore->v.owner) == other)
-			continue;	// don't clip against owner
+		if (ignore)
+		{
+			if (PROG_TO_EDICT(other->v.owner) == ignore)
+				continue;	// don't clip against own missiles
+			if (PROG_TO_EDICT(ignore->v.owner) == other)
+				continue;	// don't clip against owner
+		}
 
 		if (pmove.numphysent == countof(pmove.physents))
 			return; //too many... ooer.
@@ -327,8 +330,13 @@ World_AreaAddEntsToPmove ( edict_t *ignore, areanode_t *node, vec3_t boxminmax[2
 }
 void World_AddEntsToPmove(edict_t *ignore, vec3_t boxminmax[2])
 {
-	pmove.skipent = NUM_FOR_EDICT(ignore);
+	if (ignore)
+		pmove.skipent = NUM_FOR_EDICT(ignore);
 	pmove.physents[0].model = qcvm->worldmodel;
+	VectorClear(pmove.physents[0].origin);
+	VectorClear(pmove.physents[0].angles);
+	pmove.physents[0].forcecontentsmask = 0;
+	pmove.physents[0].info = 0;
 	pmove.numphysent = 1;
 	World_AreaAddEntsToPmove (ignore, qcvm->areanodes, boxminmax);
 

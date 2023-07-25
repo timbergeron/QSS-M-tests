@@ -41,6 +41,7 @@ cvar_t	cl_bottomcolor = {"bottomcolor", "", CVAR_ARCHIVE | CVAR_USERINFO};
 
 cvar_t	cl_shownet = {"cl_shownet","0",CVAR_NONE};	// can be 0, 1, or 2
 cvar_t	cl_nolerp = {"cl_nolerp","0",CVAR_NONE};
+cvar_t	cl_nopred = {"cl_nopred", "0", CVAR_ARCHIVE};	//name comes from quakeworld.
 
 cvar_t	cfg_unbindall = {"cfg_unbindall", "1", CVAR_ARCHIVE};
 
@@ -493,6 +494,108 @@ static qboolean CL_LerpEntity(entity_t *ent, vec3_t org, vec3_t ang, float frac)
 	int j;
 	vec3_t delta;
 	qboolean teleported = false;
+
+	if (ent->netstate.pmovetype && ent-cl.entities==cl.viewentity && qcvm->worldmodel && !cl_nopred.value)
+	{	//note: V_CalcRefdef will copy from cl.entities[viewent] to get its origin, so doing it here is the proper place anyway.
+		static struct
+		{
+			int seq;
+			float waterjumptime;
+		} propagate[countof(cl.movecmds)];
+		vec3_t bounds[2];
+
+//		memset(&pmove, 0xff, sizeof(pmove));
+#ifdef VALGRIND_MAKE_MEM_UNDEFINED
+		VALGRIND_MAKE_MEM_UNDEFINED(&pmove, sizeof(pmove));
+#endif
+		PMCL_SetMoveVars();
+
+		if (ent->netstate.solidsize)
+		{
+			pmove.player_maxs[0] = pmove.player_maxs[1] = ent->netstate.solidsize & 255;
+			pmove.player_mins[0] = pmove.player_mins[1] = -pmove.player_maxs[0];
+			pmove.player_mins[2] = -(int)((ent->netstate.solidsize >>8) & 255);
+			pmove.player_maxs[2] = (int)((ent->netstate.solidsize>>16) & 65535) - 32768;
+		}
+		else
+		{
+			VectorClear(pmove.player_mins);
+			VectorClear(pmove.player_maxs);
+		}
+		pmove.safeorigin_known = false;
+		VectorCopy(ent->msg_origins[0], pmove.origin);
+		for (j = 0; j < 3; j++)
+		{
+			pmove.velocity[j] = ent->netstate.velocity[j]*1.0/8;
+			bounds[0][j] = pmove.origin[j] + pmove.player_mins[j] - 256;
+			bounds[1][j] = pmove.origin[j] + pmove.player_maxs[j] + 256;
+		}
+		VectorClear(pmove.gravitydir);
+
+		pmove.waterjumptime = 0;//FIXME: needs propagation. (e->v.teleport_time>qcvm->time)?e->v.teleport_time - qcvm->time:0;
+		pmove.jump_held = !!(ent->netstate.pmovetype&0x40);
+		pmove.onladder = false;//!!(fl&PMF_LADDER);
+		pmove.jump_secs = 0;	//has been 0 since Z_EXT_PM_TYPE instead of imposing a delay on rejumps.
+		pmove.onground = !!(ent->netstate.pmovetype&0x80); //in case we're using pm_pground
+
+		switch(ent->netstate.pmovetype&63)
+		{
+		case MOVETYPE_WALK:		pmove.pm_type = PM_NORMAL;		break;
+		case MOVETYPE_TOSS:		//pmove.pm_type = PM_DEAD;		break;
+		case MOVETYPE_BOUNCE:	pmove.pm_type = PM_DEAD;		break;
+		case MOVETYPE_FLY:		pmove.pm_type = PM_FLY;			break;
+		case MOVETYPE_NOCLIP:	pmove.pm_type = PM_SPECTATOR;	break;
+
+		case MOVETYPE_NONE:
+		case MOVETYPE_STEP:
+		case MOVETYPE_PUSH:
+		case MOVETYPE_FLYMISSILE:
+		case MOVETYPE_EXT_BOUNCEMISSILE:
+		case MOVETYPE_EXT_FOLLOW:
+		default:				pmove.pm_type = PM_NONE;		break;
+		}
+
+		pmove.skipent = -(int)(ent-cl.entities);
+		World_AddEntsToPmove(NULL, bounds);
+
+		j = cl.ackedmovemessages+1;
+		if (j < cl.movemessages-countof(cl.movecmds))
+			j = cl.movemessages-countof(cl.movecmds);	//don't corrupt things, lost is lost.
+
+		if (propagate[j%countof(cl.movecmds)].seq == j)
+		{	//some things can only be known thanks to propagation.
+			pmove.waterjumptime = propagate[j%countof(cl.movecmds)].waterjumptime;
+		}
+//		else	 Con_Printf("propagation not available\n");	//just do without
+
+		for (; j < cl.movemessages; j++)
+		{
+			pmove.cmd = cl.movecmds[j%countof(cl.movecmds)];
+			PM_PlayerMove(1);
+
+			propagate[(j+1)%countof(cl.movecmds)].seq = j+1;
+			propagate[(j+1)%countof(cl.movecmds)].waterjumptime = pmove.waterjumptime;
+		}
+
+		//and run the partial too, to keep things smooth
+		pmove.cmd = cl.pendingcmd;
+		PM_PlayerMove(1);
+
+		VectorCopy (pmove.origin, org);
+		VectorCopy (pmove.cmd.viewangles, ang);
+		ang[0] *= -1.0/3;	//FIXME: STUPID STUPID BUG
+
+		//for bob+calcrefdef stuff, mostly.
+		VectorCopy (pmove.velocity, cl.velocity);
+		cl.onground = pmove.onground;
+		cl.inwater = pmove.waterlevel>=2;
+
+		//FIXME: add stair-smoothing support
+		//FIXME: add error correction
+
+		return true;	//if we're predicting, don't let its old position linger as interpolation. should be less laggy that way, or something.
+	}
+
 	//figure out the pos+angles of the parent
 	if (ent->forcelink)
 	{	// the entity was not updated in the last message
@@ -1145,8 +1248,10 @@ int CL_ReadFromServer (void)
 	if (cl_shownet.value)
 		Con_Printf ("\n");
 
+	PR_SwitchQCVM(&cl.qcvm);
 	CL_RelinkEntities ();
 	CL_UpdateTEnts ();
+	PR_SwitchQCVM(NULL);
 
 //johnfitz -- devstats
 
@@ -1570,6 +1675,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_anglespeedkey);
 	Cvar_RegisterVariable (&cl_shownet);
 	Cvar_RegisterVariable (&cl_nolerp);
+	Cvar_RegisterVariable (&cl_nopred);
 	Cvar_RegisterVariable (&lookspring);
 	Cvar_RegisterVariable (&lookstrafe);
 	Cvar_RegisterVariable (&sensitivity);

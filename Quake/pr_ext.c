@@ -1886,7 +1886,10 @@ static void PF_both_pmove(edict_t *e)
 	eval_t *pmflags = GetEdictFieldValue(e, qcvm->extfields.pmove_flags);
 	unsigned int fl = (pmflags && pmflags->_float)?pmflags->_float:0;
 
-	memset(&pmove, 0, sizeof(pmove));
+//	memset(&pmove, 0xff, sizeof(pmove));
+#ifdef VALGRIND_MAKE_MEM_UNDEFINED
+	VALGRIND_MAKE_MEM_UNDEFINED(&pmove, sizeof(pmove));
+#endif
 	VectorCopy(e->v.mins, pmove.player_mins);
 	VectorCopy(e->v.maxs, pmove.player_maxs);
 	VectorCopy(e->v.oldorigin, pmove.safeorigin);	pmove.safeorigin_known = (qcvm==&sv.qcvm); //where we revert to when stuck. only consider this valid for ssqc.
@@ -2066,7 +2069,7 @@ void PMSV_UpdateMovevars(void)
 	svmovevars.maxairspeed		= 30;
 	svmovevars.flags			= MOVEFLAG_VALID|MOVEFLAG_NOGRAVITYONGROUND|(*pm_edgefriction.string?0:MOVEFLAG_QWEDGEBOX);
 };
-static void PF_sv_pmove(void)
+void PF_sv_pmove(void)
 {
 	edict_t	*e			= G_EDICT(OFS_PARM0);
 	movevars = svmovevars;
@@ -2136,10 +2139,8 @@ void PMCL_ServerinfoUpdated(void)
 	clmovevars.jumpspeed			= 270;
 	clmovevars.maxairspeed			= 30;
 };
-static void PF_cs_pmove(void)
+void PMCL_SetMoveVars(void)
 {
-	edict_t	*e			= G_EDICT(OFS_PARM0);
-
 	movevars = clmovevars;
 	if (cl.protocol_pext2 & PEXT2_PREDINFO)
 	{	//protocol provides movevars as stats...
@@ -2161,7 +2162,11 @@ static void PF_cs_pmove(void)
 		movevars.jumpspeed = fstat[STAT_MOVEVARS_JUMPVELOCITY];
 		movevars.maxairspeed = fstat[STAT_MOVEVARS_MAXAIRSPEED];
 	}
-
+}
+static void PF_cs_pmove(void)
+{
+	edict_t	*e			= G_EDICT(OFS_PARM0);
+	PMCL_SetMoveVars();
 	PF_both_pmove(e);
 }
 

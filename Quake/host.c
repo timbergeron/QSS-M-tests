@@ -766,13 +766,13 @@ static void CL_LoadCSProgs(void)
 	qboolean fullcsqc = false;
 	int i;
 	PR_ClearProgs(&cl.qcvm);
+	PR_SwitchQCVM(&cl.qcvm);
 	if (pr_checkextension.value && !cl_nocsqc.value)
 	{	//only try to use csqc if qc extensions are enabled.
 		char versionedname[MAX_QPATH];
 		unsigned int csqchash;
 		size_t csqcsize;
 		const char *val;
-		PR_SwitchQCVM(&cl.qcvm);
 		val = Info_GetKey(cl.serverinfo, "*csprogs", versionedname, sizeof(versionedname));
 		csqchash = (unsigned int)strtoul(val, NULL, 0);
 		if (*val)
@@ -863,9 +863,18 @@ static void CL_LoadCSProgs(void)
 			}
 		}
 		else
+		{
 			PR_ClearProgs(qcvm);
-		PR_SwitchQCVM(NULL);
+			qcvm->worldmodel = cl.worldmodel;
+			SV_ClearWorld();
+		}
 	}
+	else
+	{	//always initialsing at least part of it, allowing us to share some state with prediction.
+		qcvm->worldmodel = cl.worldmodel;
+		SV_ClearWorld();
+	}
+	PR_SwitchQCVM(NULL);
 }
 
 /*
