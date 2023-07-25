@@ -636,16 +636,6 @@ void CL_SendMove(const usercmd_t* cmd)
 		}
 		in_impulse = 0;
 
-<<<<<<< HEAD
-		cl.movecmds[cl.movemessages & MOVECMDS_MASK] = *cmd;
-
-		//
-		// allways dump the first two message, because it may contain leftover inputs
-		// from the last level
-		//
-		if (++cl.movemessages <= 2)
-			buf.cursize = dump;
-=======
 		cl.movecmds[(cl.movemessages++)&MOVECMDS_MASK] = *cmd;
 
 	//
@@ -657,7 +647,6 @@ void CL_SendMove(const usercmd_t* cmd)
 			buf.cursize = dump;	//don't actually send it...
 			cl.movecmds[(cl.movemessages-1)&MOVECMDS_MASK].seconds = 0;	//and don't predict forwards. should fix prediction going weird at the start of the map.
 		}
->>>>>>> upstream/qsrebase
 		else
 			S_Voip_Transmit(clcfte_voicechat, &buf);/*Spike: Add voice data*/
 	}
