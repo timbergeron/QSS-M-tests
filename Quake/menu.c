@@ -1870,9 +1870,12 @@ void M_Extras_Draw (void)
 			M_DrawCheckbox(220, y, !!r_lerpmodels.value && !!r_lerpmove.value);
 			break;
 		case EXTRAS_FPSCAP:
-			M_Print (16, y,	"           Maximum FPS");
+			if (host_maxfps.value < 0)
+				M_Print (16, y,	"           Maximum PPS");
+			else
+				M_Print (16, y,	"           Maximum FPS");
 			if (host_maxfps.value)
-				M_Print (220, y, va("%g", host_maxfps.value));
+				M_Print (220, y, va("%g", fabs(host_maxfps.value)));
 			else
 				M_Print (220, y, "uncapped");
 			break;

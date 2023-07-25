@@ -112,7 +112,17 @@ Max_Fps_f -- ericw
 */
 static void Max_Fps_f (cvar_t *var)
 {
-	if (var->value > 72 || var->value <= 0)
+	if (var->value < 0)
+	{
+		if (!host_netinterval)
+			Con_Printf ("Using renderer/network isolation.\n");
+		host_netinterval = 1/-var->value;
+		if (host_netinterval > 1/10.f)	//don't let it get too jerky for other players
+			host_netinterval = 1/10.f;
+		if (host_netinterval < 1/150.f)	//don't let us spam servers too often. just abusive.
+			host_netinterval = 1/150.f;
+	}
+	else if (var->value > 72 || var->value <= 0)
 	{
 		if (!host_netinterval)
 			Con_Printf ("Using renderer/network isolation.\n");
@@ -650,7 +660,7 @@ qboolean Host_FilterTime (float time)
 
 	//johnfitz -- max fps cvar
 	maxfps = CLAMP (10.f, host_maxfps.value, 1000.0);
-	if (host_maxfps.value && !cls.timedemo && realtime - oldrealtime < 1.0/maxfps)
+	if (host_maxfps.value>0 && !cls.timedemo && realtime - oldrealtime < 1.0/maxfps)
 		return false; // framerate is too high
 	//johnfitz
 
@@ -663,7 +673,7 @@ qboolean Host_FilterTime (float time)
 	//johnfitz
 	else if (host_framerate.value > 0)
 		host_frametime = host_framerate.value;
-	else if (host_maxfps.value)// don't allow really long or short frames
+	else if (host_maxfps.value>0)// don't allow really long or short frames
 		host_frametime = CLAMP (0.0001, host_frametime, 0.1); //johnfitz -- use CLAMP
 
 	return true;
