@@ -1203,10 +1203,12 @@ void CL_AccumulateCmd (void)
 		CL_AdjustAngles ();
 
 		//accumulate movement from other devices
+		CL_BaseMove (&cl.pendingcmd, false);
 		IN_Move (&cl.pendingcmd);
+		CL_FinishMove(&cl.pendingcmd, false);
 	}
-
-	cl.pendingcmd.seconds		= cl.mtime[0] - cl.pendingcmd.servertime;
+	else
+		cl.lastcmdtime = cl.mtime[0];
 }
 
 /*
@@ -1222,17 +1224,9 @@ void CL_SendCmd (void)
 		return;
 
 	// get basic movement from keyboard
-	CL_BaseMove (&cmd);
-
-	// allow mice or other external controllers to add to the move
-	cmd.forwardmove	+= cl.pendingcmd.forwardmove;
-	cmd.sidemove	+= cl.pendingcmd.sidemove;
-	cmd.upmove		+= cl.pendingcmd.upmove;
-	cmd.sequence	= cl.movemessages;
-	cmd.servertime	= cl.time;
-	cmd.seconds		= cmd.servertime - cl.pendingcmd.servertime;
-
-	CL_FinishMove(&cmd);
+	CL_BaseMove (&cmd, true);
+	IN_Move (&cmd);
+	CL_FinishMove(&cmd, true);
 
 	if (cl.qcvm.extfuncs.CSQC_Input_Frame && !cl.qcvm.nogameaccess)
 	{
@@ -1246,9 +1240,12 @@ void CL_SendCmd (void)
 	if (cls.signon == SIGNONS)
 		CL_SendMove (&cmd);	// send the unreliable message
 	else
+	{
 		CL_SendMove (NULL);
-	memset(&cl.pendingcmd, 0, sizeof(cl.pendingcmd));
-	cl.pendingcmd.servertime = cmd.servertime;
+		cmd.seconds = 0;	//not sent, don't predict it either.
+	}
+	cl.pendingcmd.seconds = 0;
+	cl.lastcmdtime = cmd.servertime;
 
 	if (cls.demoplayback)
 	{

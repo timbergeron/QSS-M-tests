@@ -171,6 +171,8 @@ typedef struct
 	usercmd_t	movecmds[64];	// ringbuffer of previous movement commands (journal for prediction)
 #define MOVECMDS_MASK (countof(cl.movecmds)-1)
 	usercmd_t	pendingcmd;		// accumulated state from mice+joysticks.
+	vec3_t		accummoves;		//mostly to accumulate mouse movement for mouse-strafe
+	float		lastcmdtime;	//should use movecmds... mneh, might be uninitialised.
 
 // information for local display
 	int			stats[MAX_CL_STATS];	// health, etc
@@ -411,8 +413,8 @@ void CL_SendCmd (void);
 void CL_SendMove (const usercmd_t *cmd);
 int  CL_ReadFromServer (void);
 void CL_AdjustAngles (void);
-void CL_BaseMove (usercmd_t *cmd);
-void CL_FinishMove(usercmd_t *cmd);
+void CL_BaseMove (usercmd_t *cmd, qboolean isfinal);
+void CL_FinishMove(usercmd_t *cmd, qboolean isfinal);
 
 void CL_Download_Data(void);
 qboolean CL_CheckDownloads(void);
