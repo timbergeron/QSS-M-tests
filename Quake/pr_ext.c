@@ -6945,14 +6945,10 @@ static void PF_cl_getproperty(void)
 		G_FLOAT(OFS_RETURN+0) = viewprops.drawcrosshair;
 		break;
 	case VF_MINDIST:
-		#define NEARCLIP 4
 		G_FLOAT(OFS_RETURN+0) = NEARCLIP;
 		break;
 	case VF_MAXDIST: //maxdist
-		{
-			extern cvar_t gl_farclip;
-			G_FLOAT(OFS_RETURN+0) = gl_farclip.value;
-		}
+		G_FLOAT(OFS_RETURN+0) = gl_farclip.value;
 		break;
 
 	case VF_CL_VIEWANGLES:	//viewangles hack
