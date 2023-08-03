@@ -1181,7 +1181,7 @@ void SCR_DrawMatchScores(void)
 	int				i, k, l;
 	int				top, bottom;
 	int				x, y, f;
-	char			num[16];
+	char			num[30];
 	int				teamscores, colors;// JPG - added these
 	int				ts1, ts2, tc1, tc2, diff, l2; // woods #hud_diff
 	char			tcolor[12]; // woods #hud_diff
@@ -1334,9 +1334,9 @@ void SCR_DrawMatchScores(void)
 					else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
 					{
 						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
-							sprintf(num, "+%-i (%i)", diff, capdiff);
+							snprintf(num, sizeof(num), "+%-i (%i)", diff, capdiff);
 						else
-							sprintf(num, "+%-i", diff);
+							snprintf(num, sizeof(num), "+%-i", diff);
 
 						M_Print(120 - (strlen(num) << 3), y, num);
 					}
@@ -1344,9 +1344,9 @@ void SCR_DrawMatchScores(void)
 					else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
 					{
 						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
-							sprintf(num, "-%-i (%i)", diff, capdiff);
+							snprintf(num, sizeof(num), "+%-i (%i)", diff, capdiff);
 						else
-							sprintf(num, "-%-i", diff);
+							snprintf(num, sizeof(num), "-%-i", diff);
 						M_Print(120 - (strlen(num) << 3), y + 20, num);
 					}				
 				}
