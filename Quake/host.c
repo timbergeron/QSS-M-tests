@@ -900,8 +900,15 @@ qboolean Host_FilterTime (float time)
 	//johnfitz
 	else if (host_framerate.value > 0)
 		host_frametime = host_framerate.value;
-	else if (host_maxfps.value>0)// don't allow really long or short frames
-		host_frametime = CLAMP (0.0001, host_frametime, 0.1); //johnfitz -- use CLAMP
+	else if (host_maxfps.value > 0)// don't allow really long or short frames
+		{
+			if (cls.demoplayback && cl_demospeed.value == 0) // woods for pause
+				host_frametime *= cls.demospeed;
+			else if (cls.demoplayback && cl_demospeed.value < 1)
+				host_frametime *= CLAMP(0, cl_demospeed.value, 20);
+			else
+				host_frametime = CLAMP(0.0001, host_frametime, 0.1); //johnfitz -- use CLAMP
+		}
 
 	return true;
 }
