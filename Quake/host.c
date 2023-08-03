@@ -93,6 +93,8 @@ cvar_t	campaign = {"campaign","0",CVAR_NONE}; // for the 2021 rerelease
 cvar_t	horde = {"horde","0",CVAR_NONE}; // for the 2021 rerelease
 cvar_t	sv_cheats = {"sv_cheats","0",CVAR_NONE}; // for the 2021 rerelease
 
+cvar_t	cl_menuskip = { "cl_menuskip","0",CVAR_ARCHIVE}; // woods #menuskip
+
 devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
 
@@ -338,6 +340,19 @@ void Host_InitDeQuake (void)
 }
 
 /*
+===============
+Menu_Skip_f -- woods #menuskip
+===============
+*/
+void Menu_Skip_f(void)
+{
+	if (cl_menuskip.value)
+		Cbuf_AddText("toggleconsole\n");
+	if (cl_menuskip.value)
+		Cbuf_AddText("togglemenu\n");
+}
+
+/*
 =======================
 Host_InitLocal
 ======================
@@ -346,6 +361,7 @@ void Host_InitLocal (void)
 {
 	Cmd_AddCommand ("version", Host_Version_f);
 	Cmd_AddCommand ("svnextmap", SV_Next_Map_f); // woods #maprotation
+	Cmd_AddCommand ("menuskip", Menu_Skip_f); // woods #menuskip
 
 	Host_InitCommands ();
 
@@ -382,6 +398,8 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&campaign);
 	Cvar_RegisterVariable (&horde);
 	Cvar_RegisterVariable (&sv_cheats);
+
+	Cvar_RegisterVariable (&cl_menuskip); // woods #menuskip
 
 	Cvar_RegisterVariable (&pausable);
 
@@ -1493,8 +1511,7 @@ void Host_Init (void)
 	// johnfitz -- in case the vid mode was locked during vid_init, we can unlock it now.
 		// note: two leading newlines because the command buffer swallows one of them.
 		Cbuf_AddText ("\n\nvid_unlock\n");
-		Cbuf_AddText("toggleconsole\n"); // woods #ezsay add leading space for mode 2
-//		Cbuf_AddText("togglemenu\n"); // woods #ezsay add leading space for mode 2
+		Cbuf_AddText("menuskip\n"); // woods #menuskip
 		Cbuf_AddText("namebk\n"); // woods #smartafk lets run a backup name check for AFK leftovers (crash/force quit)
 	}
 
