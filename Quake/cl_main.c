@@ -1371,6 +1371,8 @@ qboolean CL_CheckDownload(const char *filename)
 			return false;	//can't download anyway
 		if (netquakeio)
 			return false;
+		if (cls.demoplayback)
+			return false;
 	}
 	else
 	{
