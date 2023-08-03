@@ -233,23 +233,21 @@ static void TexMgr_SetFilterModes (gltexture_t *glt)
 	}
 }
 
-filelist_item_t* texturemode; // woods #texturemode
-
 /*
 ===============
-TextureMode_Init -- woods - tab completion for gl_texturemode #texturemode
+TexMgr_TextureMode_Completion_f -- woods #iwtabcomplete
 ===============
 */
-void TextureMode_Init (void)
+static void TexMgr_TextureMode_Completion_f (cvar_t* cvar, const char* partial)
 {
 	int i;
-	char modename[32];
 
 	for (i = 0; i < NUM_GLMODES; i++)
 	{
-		q_snprintf(modename, sizeof(modename), "%s", glmodes[i].name1);
-		if (strstr(modename, "GL"))
-			FileList_Add(modename, &texturemode);
+		if (glmodes[i].name1 == NULL)
+			Con_AddToTabList(glmodes[i].name2, partial, NULL);
+		else
+			Con_AddToTabList(glmodes[i].name1, partial, NULL);
 	}
 }
 
@@ -766,6 +764,7 @@ void TexMgr_Init (void)
 	gl_texturemode.string = glmodes[glmode_idx].name1?glmodes[glmode_idx].name1:glmodes[glmode_idx].name2;
 	Cvar_RegisterVariable (&gl_texturemode);
 	Cvar_SetCallback (&gl_texturemode, &TexMgr_TextureMode_f);
+	Cvar_SetCompletion (&gl_texturemode, &TexMgr_TextureMode_Completion_f); // woods #iwtabcomplete
 	Cmd_AddCommand ("gl_describetexturemodes", &TexMgr_DescribeTextureModes_f);
 	Cmd_AddCommand ("imagelist", &TexMgr_Imagelist_f);
 	Cmd_AddCommand ("imagedump", &TexMgr_Imagedump_f);

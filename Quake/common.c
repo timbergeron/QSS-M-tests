@@ -172,6 +172,53 @@ void InsertLinkAfter (link_t *l, link_t *after)
 ============================================================================
 */
 
+
+int q_strnaturalcmp (const char* s1, const char* s2) // woods #iwtabcomplete
+{
+	if (s1 == s2)
+		return 0;
+
+skip_prefix:
+	while (*s1 && !q_isdigit(*s1) && q_toupper(*s1) == q_toupper(*s2))
+	{
+		s1++;
+		s2++;
+		continue;
+	}
+
+	if (q_isdigit(*s1) && q_isdigit(*s2))
+	{
+		const char* begin1 = s1++;
+		const char* begin2 = s2++;
+		int diff;
+
+		while (*begin1 == '0')
+			begin1++;
+		while (*begin2 == '0')
+			begin2++;
+
+		while (q_isdigit(*s1))
+			s1++;
+		while (q_isdigit(*s2))
+			s2++;
+
+		diff = (s1 - begin1) - (s2 - begin2);
+		if (diff)
+			return diff;
+
+		while (begin1 != s1)
+		{
+			diff = *begin1++ - *begin2++;
+			if (diff)
+				return diff;
+		}
+
+		goto skip_prefix;
+	}
+
+	return q_toupper(*s1) - q_toupper(*s2);
+}
+
 char* Q_strnset(char* str, int c, size_t n) // woods
 {
 	size_t i;

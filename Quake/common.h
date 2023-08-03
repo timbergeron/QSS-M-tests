@@ -230,6 +230,9 @@ void Info_Enumerate(const char *info, void(*cb)(void *ctx, const char *key, cons
 extern int q_strcasecmp (const char * s1, const char * s2);
 extern int q_strncasecmp (const char *s1, const char *s2, size_t n);
 
+/* locale-insensitive natural string comparison function */
+int q_strnaturalcmp (const char* s1, const char* s2); // woods #iwtabcomplete
+
 /* locale-insensitive case-insensitive alternative to strstr */
 extern char *q_strcasestr(const char *haystack, const char *needle);
 

@@ -54,11 +54,18 @@ void Con_Redirect(void(*flush)(const char *text));
 
 void Con_NotifyBox (const char *text);	// during startup for sound / cd warnings
 
+typedef enum { // woods #iwtabcomplete
+	TABCOMPLETE_AUTOHINT,
+	TABCOMPLETE_USER,
+} tabcomplete_t;
+
 void Con_Show (void);
 void Con_Hide (void);
 
 const char *Con_Quakebar (int len);
-void Con_TabComplete (void);
+void Con_TabComplete (tabcomplete_t mode); // woods #iwtabcomplete
+void Con_AddToTabList (const char* name, const char* partial, const char* type); // woods #iwtabcomplete
+qboolean Con_Match (const char* partial, const char* str); // woods #iwtabcomplete
 void Con_LogCenterPrint (const char *str);
 
 //

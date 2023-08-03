@@ -1443,10 +1443,7 @@ void Host_Init (void)
 		Modlist_Init (); //johnfitz
 		DemoList_Init (); //ericw
 		ExecList_Init(); // woods #execlist
-		TextureMode_Init (); // woods #texturemode
 		ServerList_Init(); // woods #serverlist
-		BindList_Init (); // woods #bindlist
-		UnBindList_Init (); // woods #bindlist
 		VID_Init ();
 		IN_Init ();
 		TexMgr_Init (); //johnfitz

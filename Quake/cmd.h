@@ -90,11 +90,13 @@ typedef enum
 extern	cmd_source_t	cmd_source;
 
 typedef void (*xcommand_t) (void);
+typedef void (*xtabcommand_t) (const char* partial); // woods #iwtabcomplete
 typedef struct cmd_function_s
 {
 	struct cmd_function_s	*next;
 	const char		*name;
 	xcommand_t		function;
+	xtabcommand_t	completion; // woods #iwtabcomplete
 	cmd_source_t	srctype;
 	qboolean		dynamic;
 	qboolean		qcinterceptable;
@@ -116,6 +118,8 @@ qboolean Cmd_AliasExists (const char *aliasname);
 qboolean Cmd_Exists (const char *cmd_name);
 // used by the cvar code to check for cvar / command name overlap
 
+cmd_function_t* Cmd_FindCommand (const char* cmd_name); // woods #iwtabcomplete
+
 const char	*Cmd_CompleteCommand (const char *partial);
 // attempts to match a partial command for automatic command line completion
 // returns NULL if nothing fits
@@ -135,6 +139,8 @@ void Cmd_TokenizeString (const char *text);
 // Takes a null terminated string.  Does not need to be /n terminated.
 // breaks the string up into arg tokens.
 
+void Cmd_AddArg(const char* arg); // woods #iwtabcomplete
+
 qboolean	Cmd_ExecuteString (const char *text, cmd_source_t src);
 // Parses a single line of text into arguments and tries to execute it.
 // The text can come from the command buffer, a remote client, or stdin.
@@ -147,6 +153,8 @@ void	Cmd_ForwardToServer (void);
 void	Cmd_Print (const char *text);
 // used by command functions to send output to either the graphics console or
 // passed as a print message to the client
+
+qboolean Cmd_IsReservedName (const char* name); // woods #iwtabcomplete
 
 #endif	/* _QUAKE_CMD_H */
 

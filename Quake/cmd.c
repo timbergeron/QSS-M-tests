@@ -571,6 +571,18 @@ void Load_Ghost_ID_f (void)
 
 /*
 ============
+Cmd_IsReservedName -- woods #iwtabcomplete
+
+Returns true if name starts with 2 underscores
+============
+*/
+qboolean Cmd_IsReservedName (const char* name)
+{
+	return name[0] == '_' && name[1] == '_';
+}
+
+/*
+============
 Cmd_List_f -- johnfitz
 ============
 */
@@ -887,6 +899,19 @@ const char	*Cmd_Args (void)
 	return cmd_args;
 }
 
+/*
+============
+Cmd_AddArg  -- woods #iwtabcomplete
+============
+*/
+void Cmd_AddArg (const char* arg)
+{
+	if (cmd_argc < MAX_ARGS)
+	{
+		cmd_argv[cmd_argc] = Z_Strdup(arg);
+		cmd_argc++;
+	}
+}
 
 /*
 ============
@@ -1026,24 +1051,28 @@ void Cmd_RemoveCommand (cmd_function_t *cmd)
 
 /*
 ============
-Cmd_Exists
+Cmd_Find -- woods #iwtabcomplete
 ============
 */
-qboolean	Cmd_Exists (const char *cmd_name)
+cmd_function_t* Cmd_FindCommand (const char* cmd_name)
 {
-	cmd_function_t	*cmd;
+	cmd_function_t* cmd;
 
-	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
-	{
-		if (!Q_strcmp (cmd_name,cmd->name))
-		{
-			if (cmd->srctype != src_command)	//these commands only exist in certain situations... so pretend they don't exist here.
-				continue;
-			return true;
-		}
-	}
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+		if (!q_strcasecmp(cmd_name, cmd->name))
+			return cmd;
 
-	return false;
+	return NULL;
+}
+
+/*
+============
+Cmd_Exists -- woods #iwtabcomplete
+============
+*/
+qboolean Cmd_Exists (const char* cmd_name)
+{
+	return Cmd_FindCommand (cmd_name) != NULL;
 }
 
 /*

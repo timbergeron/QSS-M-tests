@@ -39,6 +39,7 @@ float		con_cursorspeed = 4;
 
 #define		CON_TEXTSIZE (1024 * 1024) //ericw -- was 65536. johnfitz -- new default size
 #define		CON_MINSIZE  16384 //johnfitz -- old default, now the minimum size
+#define		CON_MARGIN   1 // woods #iwtabcomplete
 
 int		con_buffersize; //johnfitz -- user can now override default
 
@@ -1178,6 +1179,7 @@ typedef struct tab_s
 	const char	*type;
 	struct tab_s	*next;
 	struct tab_s	*prev;
+	int			count; // woods #iwtabcomplete
 } tab_t;
 tab_t	*tablist;
 
@@ -1195,7 +1197,7 @@ extern	cmdalias_t	*cmd_alias;
 
 /*
 ============
-AddToTabList -- johnfitz
+Con_AddToTabList -- johnfitz // woods #iwtabcomplete
 
 tablist is a doubly-linked loop, alphabetized by name
 ============
@@ -1206,36 +1208,57 @@ tablist is a doubly-linked loop, alphabetized by name
 static char	bash_partial[80];
 static qboolean	bash_singlematch;
 
-void AddToTabList (const char *name, const char *type)
+void Con_AddToTabList (const char* name, const char* partial, const char* type) // woods #iwtabcomplete
 {
-	tab_t	*t,*insert;
-	char	*i_bash;
-	const char *i_name;
+	tab_t* t, * insert;
+	char* i_bash, * i_bash2;
+	const char* i_name, * i_name2;
+	int		len, mark;
 
-	//mxd. Added bash_singlematch check, so bash_partial is set only once per BuildTabList() call.
-	//mxd. Because matched part is no longer expected to be at the start of a command, we can end up with empty bash_partial in the middle of BuildTabList() call.
-	if (!*bash_partial && bash_singlematch) // mxd
+	if (!Con_Match (name, partial))
+		return;
+
+	if (!*bash_partial && bash_singlematch)
 	{
-		strncpy (bash_partial, name, 79);
-		bash_partial[79] = '\0';
+		q_strlcpy (bash_partial, name, sizeof(bash_partial));
 	}
 	else
 	{
 		bash_singlematch = 0;
-		// find max common between bash_partial and name
-		i_bash = bash_partial;
-		i_name = name;
-		while (*i_bash && (q_tolower(*i_bash) == q_tolower(*i_name)))
+		i_bash = q_strcasestr (bash_partial, partial);
+		i_name = q_strcasestr (name, partial);
+		SDL_assert (i_bash);
+		SDL_assert (i_name);
+		if (i_name && i_bash)
 		{
-			i_bash++;
-			i_name++;
+			i_bash2 = i_bash;
+			i_name2 = i_name;
+			// find max common between bash_partial and name (right side)
+			while (*i_bash && q_toupper (*i_bash) == q_toupper (*i_name))
+			{
+				i_bash++;
+				i_name++;
+			}
+			*i_bash = 0;
+			// find max common between bash_partial and name (left side)
+			while (i_bash2 != bash_partial && i_name2 != name &&
+				q_toupper (i_bash2[-1]) == q_toupper (i_name2[-1]))
+			{
+				i_bash2--;
+				i_name2--;
+			}
+			if (i_bash2 != bash_partial)
+				memmove (bash_partial, i_bash2, strlen (i_bash2) + 1);
 		}
-		*i_bash = 0;
 	}
 
-	t = (tab_t *) Hunk_Alloc(sizeof(tab_t));
-	t->name = name;
+	mark = Hunk_LowMark ();
+	len = strlen (name);
+	t = (tab_t*)Hunk_AllocName (sizeof(tab_t) + len + 1, "tablist");
+	memcpy (t + 1, name, len + 1);
+	t->name = (const char*)(t + 1);
 	t->type = type;
+	t->count = 1;
 
 	if (!tablist) //create list
 	{
@@ -1243,7 +1266,7 @@ void AddToTabList (const char *name, const char *type)
 		t->next = t;
 		t->prev = t;
 	}
-	else if (strcmp(name, tablist->name) < 0) //insert at front
+	else if (q_strnaturalcmp (name, tablist->name) < 0) //insert at front
 	{
 		t->next = tablist;
 		t->prev = tablist->prev;
@@ -1256,7 +1279,14 @@ void AddToTabList (const char *name, const char *type)
 		insert = tablist;
 		do
 		{
-			if (strcmp(name, insert->name) < 0)
+			int cmp = q_strnaturalcmp (name, insert->name);
+			if (!cmp && !strcmp(name, insert->name)) // avoid duplicates
+			{
+				Hunk_FreeToLowMark (mark);
+				insert->count++;
+				return;
+			}
+			if (cmp < 0)
 				break;
 			insert = insert->next;
 		} while (insert != tablist);
@@ -1270,11 +1300,22 @@ void AddToTabList (const char *name, const char *type)
 
 /*
 ============
-FindCommandStart - // woods ironwail 61de982 & bcfc889 #completequotes
+Con_Match -- woods #iwtabcomplete
 ============
 */
-static const char* FindCommandStart(void)
+qboolean Con_Match (const char* str, const char* partial)
 {
+	return q_strcasestr(str, partial) != NULL;
+}
+
+/*
+============
+ParseCommand -- woods #iwtabcomplete
+============
+*/
+static const char* ParseCommand (void)
+{
+	char buf[MAXCMDLINE];
 	const char* str = key_lines[edit_line] + 1;
 	const char* end = str + key_linepos - 1;
 	const char* ret = str;
@@ -1305,156 +1346,184 @@ static const char* FindCommandStart(void)
 	while (*ret == ' ')
 		ret++;
 
+	q_strlcpy (buf, ret, sizeof(buf));
+	if ((uintptr_t)(end - ret) < sizeof(buf))
+		buf[end - ret] = '\0';
+	end = buf + strlen(buf);
+
+	Cmd_TokenizeString (buf);
+	// last arg should always be the one we're trying to complete,
+	// so we add a new empty one if the command ends with a space
+	if (end != buf && end[-1] == ' ')
+		Cmd_AddArg ("");
+
 	return ret;
 }
 
-typedef struct arg_completion_type_s
+static qboolean CompleteFileList (const char* partial, void* param) // woods #iwtabcomplete
 {
-	const char		*command;
-	filelist_item_t	**filelist;
+	filelist_item_t* file, ** list = (filelist_item_t**)param;
+	for (file = *list; file; file = file->next)
+		Con_AddToTabList (file->name, partial, NULL);
+	return true;
+}
+
+static qboolean CompleteBindKeys (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	int i;
+
+	if (Cmd_Argc() > 2)
+		return false;
+
+	for (i = 0; i < MAX_KEYS; i++)
+	{
+		const char* name = Key_KeynumToString(i);
+		if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
+			Con_AddToTabList (name, partial, keybindings[0][i]);
+	}
+
+	return true;
+}
+
+static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	int i;
+
+	for (i = 0; i < MAX_KEYS; i++)
+	{
+		if (keybindings[i])
+		{
+			const char* name = Key_KeynumToString(i);
+			if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
+				Con_AddToTabList (name, partial, keybindings[0][i]);
+		}
+	}
+
+	return true;
+}
+
+typedef struct arg_completion_type_s // woods #iwtabcomplete
+{
+	const char* command;
+	qboolean(*function) (const char* partial, void* param);
+	void* param;
 } arg_completion_type_t;
 
 static const arg_completion_type_t arg_completion_types[] =
 {
-	{ "map ", &extralevels },
-	{ "changelevel ", &extralevels },
-	{ "sv_defaultmap ", &extralevels }, // woods #mapchangeprotect
-	{ "game ", &modlist },
-	{ "record ", &demolist },
-	{ "playdemo ", &demolist },
-	{ "timedemo ", &demolist },
-	{ "exec ", &execlist }, // woods #execlist
-	{ "gl_texturemode ", &texturemode }, // woods #texturemode
-	{ "bind ", &bindlist }, // woods #bindlist
-	{ "unbind ", &unbindlist }, // woods #bindlist
-	{ "connect ", &serverlist } // woods #serverlist
+	{ "map",					CompleteFileList,		&extralevels },
+	{ "maps",					CompleteFileList,		&extralevels },
+	{ "changelevel",			CompleteFileList,		&extralevels },
+	{ "game",					CompleteFileList,		&modlist },
+	{ "record",					CompleteFileList,		&demolist },
+	{ "playdemo",				CompleteFileList,		&demolist },
+	{ "timedemo",				CompleteFileList,		&demolist },
+	{ "exec",					CompleteFileList,		&execlist },
+	{ "connect",				CompleteFileList,		&serverlist },
+	{ "bind",					CompleteBindKeys,		NULL },
+	{ "unbind",					CompleteUnbindKeys,		NULL },
 };
 
 static const int num_arg_completion_types =
-	sizeof(arg_completion_types)/sizeof(arg_completion_types[0]);
+sizeof (arg_completion_types) / sizeof (arg_completion_types[0]);
 
 /*
 ============
-FindCompletion -- stevenaaus
+BuildTabList -- johnfitz // woods #iwtabcomplete
 ============
 */
-const char *FindCompletion (const char *partial, filelist_item_t *filelist, int *nummatches_out)
+static void BuildTabList (const char* partial)
 {
-	static char matched[32];
-	char *i_matched, *i_name;
-	filelist_item_t	*file;
-	int   init, match, plen;
-
-	memset(matched, 0, sizeof(matched));
-	plen = strlen(partial);
-	match = 0;
-
-	for (file = filelist, init = 0; file; file = file->next)
-	{
-		if (!strncmp(file->name, partial, plen))
-		{
-			if (init == 0)
-			{
-				init = 1;
-				strncpy (matched, file->name, sizeof(matched)-1);
-				matched[sizeof(matched)-1] = '\0';
-			}
-			else
-			{ // find max common
-				i_matched = matched;
-				i_name = file->name;
-				while (*i_matched && (*i_matched == *i_name))
-				{
-					i_matched++;
-					i_name++;
-				}
-				*i_matched = 0;
-			}
-			match++;
-		}
-	}
-
-	*nummatches_out = match;
-
-	if (match > 1)
-	{
-		for (file = filelist; file; file = file->next)
-		{
-			if (!strncmp(file->name, partial, plen))
-				Con_SafePrintf ("   %s\n", file->name);
-		}
-		Con_SafePrintf ("\n");
-	}
-
-	return matched;
-}
-
-/*
-============
-TabListItemNameContains -- mxd (https://github.com/m-x-d/Quakespasm/tree/better-tab-completion)
-============
-*/
-qboolean TabListItemNameContains(const char* name, const char* partial, const int len)
-{
-	if (len < 2)
-		return !q_strncasecmp(partial, name, len);
-
-	return q_strcasestr(name, partial) != NULL;
-}
-
-/*
-============
-BuildTabList -- johnfitz
-============
-*/
-void BuildTabList (const char *partial)
-{
-	cmdalias_t		*alias;
-	cvar_t			*cvar;
-	cmd_function_t		*cmd;
-	int		len;
+	cmdalias_t* alias;
+	cvar_t* cvar;
+	cmd_function_t* cmd;
+	int				i;
 
 	tablist = NULL;
-	len = strlen(partial);
 
 	bash_partial[0] = 0;
 	bash_singlematch = 1;
 
-	cvar = Cvar_FindVarAfter ("", CVAR_NONE);
-	for ( ; cvar ; cvar=cvar->next)
-		if (TabListItemNameContains(cvar->name, partial, len)) //mxd
-			AddToTabList (cvar->name, "cvar");
+	ParseCommand();
 
-	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
-		if (cmd->srctype != src_server && TabListItemNameContains(cmd->name, partial, len)) // mxd
-			AddToTabList (cmd->name, "command");
+	if (Cmd_Argc() >= 2)
+	{
+		cvar = Cvar_FindVar(Cmd_Argv(0));
+		if (cvar)
+		{
+			// cvars can only have one argument
+			if (Cmd_Argc() == 2 && cvar->completion)
+				cvar->completion(cvar, partial);
+			return;
+		}
 
-	for (alias=cmd_alias ; alias ; alias=alias->next)
-		if (TabListItemNameContains(alias->name, partial, len)) // mxd
-			AddToTabList (alias->name, "alias");
+		cmd = Cmd_FindCommand(Cmd_Argv(0));
+		if (cmd && cmd->completion)
+		{
+			cmd->completion(partial);
+			return;
+		}
+
+		for (i = 0; i < num_arg_completion_types; i++)
+		{
+			// arg_completion contains a command we can complete the arguments
+			// for (like "map") and a list of all the maps.
+			arg_completion_type_t arg_completion = arg_completion_types[i];
+
+			if (!q_strcasecmp(Cmd_Argv(0), arg_completion.command))
+			{
+				if (arg_completion.function(partial, arg_completion.param))
+					return;
+				break;
+			}
+		}
+	}
+
+	if (!*partial)
+		return;
+
+	cvar = Cvar_FindVarAfter("", CVAR_NONE);
+	for (; cvar; cvar=cvar->next)
+		if (q_strcasestr (cvar->name, partial))
+			Con_AddToTabList (cvar->name, partial, "cvar");
+
+	for (cmd=cmd_functions; cmd; cmd=cmd->next)
+		if (cmd->srctype != src_server && q_strcasestr(cmd->name, partial) && !Cmd_IsReservedName(cmd->name))
+			Con_AddToTabList (cmd->name, partial, "command");
+
+	for (alias=cmd_alias; alias; alias=alias->next)
+		if (q_strcasestr (alias->name, partial))
+			Con_AddToTabList (alias->name, partial, "alias");
 }
 
 /*
 ============
-Con_TabComplete -- johnfitz
+Con_TabComplete -- johnfitz -- woods #iwtabcomplete
 ============
 */
-void Con_TabComplete (void)
+void Con_TabComplete (tabcomplete_t mode)
 {
 	char	partial[MAXCMDLINE];
-	const char	*match;
-	static char	*c;
-	tab_t		*t;
-	int		mark, i, j;
-	const char* str; // woods #completequotes
+	const char* match;
+	static char* c;
+	tab_t* t;
+	int		mark, i;
 
-	str = FindCommandStart(); // woods #completequotes
+	key_tabhint[0] = '\0';
+	if (mode == TABCOMPLETE_AUTOHINT)
+	{
+		key_tabpartial[0] = '\0';
 
-// if editline is empty, return
+		// only show completion hint when the cursor is at the end of the line
+		if ((size_t)key_linepos >= sizeof(key_lines[edit_line]) || key_lines[edit_line][key_linepos])
+			return;
+	}
+
+	// if editline is empty, return
 	if (key_lines[edit_line][1] == 0)
 		return;
 
-// get partial string (space -> cursor)
+	// get partial string (space -> cursor)
 	if (!key_tabpartial[0]) //first time through, find new insert point. (Otherwise, use previous.)
 	{
 		//work back from cursor until you find a space, quote, semicolon, or prompt
@@ -1467,84 +1536,54 @@ void Con_TabComplete (void)
 		partial[i] = c[i];
 	partial[i] = 0;
 
-// Map autocomplete function -- S.A
-// Since we don't have argument completion, this hack will do for now...
-	for (j=0; j<num_arg_completion_types; j++)
-	{
-	// arg_completion contains a command we can complete the arguments
-	// for (like "map ") and a list of all the maps.
-		arg_completion_type_t arg_completion = arg_completion_types[j];
-		const char *command_name = arg_completion.command;
-		
-		if (!q_strncasecmp(str, command_name, strlen(command_name))) // woods #completequotes
-		{
-			int nummatches = 0;
-			const char *matched_map = FindCompletion(partial, *arg_completion.filelist, &nummatches);
-			if (!*matched_map)
-				return;
-			q_strlcpy (partial, matched_map, MAXCMDLINE);
-			*c = '\0';
-			q_strlcat (key_lines[edit_line], partial, MAXCMDLINE);
-			key_linepos = c - key_lines[edit_line] + Q_strlen(matched_map); //set new cursor position
-			if (key_linepos >= MAXCMDLINE)
-				key_linepos = MAXCMDLINE - 1;
-			// if only one match, append a space
-			if (key_linepos < MAXCMDLINE - 1 &&
-			    key_lines[edit_line][key_linepos] == 0 && (nummatches == 1))
-			{
-				key_lines[edit_line][key_linepos] = ' ';
-				key_linepos++;
-				key_lines[edit_line][key_linepos] = 0;
-			}
-			c = key_lines[edit_line] + key_linepos;
-			return;
-		}
-	}
-
-//if partial is empty, return
-	if (partial[0] == 0)
-		return;
-
-//trim trailing space becuase it screws up string comparisons
+	//trim trailing space becuase it screws up string comparisons
 	if (i > 0 && partial[i-1] == ' ')
 		partial[i-1] = 0;
 
-// find a match
+	// find a match
 	mark = Hunk_LowMark();
 	if (!key_tabpartial[0]) //first time through
 	{
-		const size_t partial_len = strlen(partial);
 		q_strlcpy (key_tabpartial, partial, MAXCMDLINE);
 		BuildTabList (key_tabpartial);
 
 		if (!tablist)
 			return;
 
-		// print list if length > 1
-		if (tablist->next != tablist)
+		// print list if length > 1 and action is user-initiated
+		if (tablist->next != tablist && mode == TABCOMPLETE_USER)
 		{
+			int matches = 0;
+			int total = 0;
 			t = tablist;
 			Con_SafePrintf("\n");
 			do
 			{
-				char* matchchar = q_strcasestr(t->name, partial); // mxd
-				char start[MAXCMDLINE], mid[MAXCMDLINE], end[MAXCMDLINE]; // mxd
-
-				q_strlcpy(start, t->name, matchchar - t->name + 1); // mxd
-				q_strlcpy(mid, matchchar, partial_len + 1); // mxd
-				q_strlcpy(end, matchchar + partial_len, strlen(t->name) - partial_len + 1); // mxd
-
-				Con_SafePrintf("   %s^m%s^m%s (%s)\n", start, mid, end, t->type); // mxd
+				char tinted[MAXCMDLINE];
+				COM_TintSubstring (t->name, bash_partial, tinted, sizeof(tinted));
+				if (t->type)
+				{
+					if (t->type[0] == '#' && !t->type[1])
+					{
+						Con_SafePrintf("   %s (%d)\n", tinted, t->count);
+						total += t->count;
+					}
+					else
+						Con_SafePrintf ("   %s (%s)\n", tinted, t->type);
+				}
+				else
+					Con_SafePrintf("   %s\n", tinted);
 				t = t->next;
+				++matches;
 			} while (t != tablist);
+			if (total > 0)
+				Con_Printf ("   %d unique matches (%d total)\n", matches, total);
 			Con_SafePrintf("\n");
 		}
 
-	//	match = tablist->name;
-	// First time, just show maximum matching chars -- S.A.
-	//match = bash_partial;
-	//mxd. Use bash_partial only when it starts with entered text. 
-		match = ((strlen(bash_partial) > partial_len && !q_strncasecmp(partial, bash_partial, partial_len)) ? bash_partial : partial); // mxd
+		//	match = tablist->name;
+		// First time, just show maximum matching chars -- S.A.
+		match = bash_singlematch ? tablist->name : bash_partial;
 	}
 	else
 	{
@@ -1558,7 +1597,7 @@ void Con_TabComplete (void)
 		match = keydown[K_SHIFT] ? t->prev->name : t->name;
 		do
 		{
-			if (!Q_strcmp(t->name, partial))
+			if (!q_strcasecmp (t->name, partial))
 			{
 				match = keydown[K_SHIFT] ? t->prev->name : t->next->name;
 				break;
@@ -1566,9 +1605,19 @@ void Con_TabComplete (void)
 			t = t->next;
 		} while (t != tablist);
 	}
-	Hunk_FreeToLowMark(mark); //it's okay to free it here because match is a pointer to persistent data
 
-// insert new match into edit line
+	if (mode == TABCOMPLETE_AUTOHINT)
+	{
+		size_t len = strlen(partial);
+		match = q_strcasestr (match, partial);
+		if (match && match[len])
+			q_strlcpy (key_tabhint, match + len, sizeof (key_tabhint));
+		Hunk_FreeToLowMark (mark);
+		key_tabpartial[0] = '\0';
+		return;
+	}
+
+	// insert new match into edit line
 	q_strlcpy (partial, match, MAXCMDLINE); //first copy match string
 	q_strlcat (partial, key_lines[edit_line] + key_linepos, MAXCMDLINE); //then add chars after cursor
 	*c = '\0';	//now copy all of this into edit line
@@ -1577,18 +1626,24 @@ void Con_TabComplete (void)
 	if (key_linepos >= MAXCMDLINE)
 		key_linepos = MAXCMDLINE - 1;
 
-// if cursor is at end of string, let's append a space to make life easier
+	match = NULL;
+	Hunk_FreeToLowMark (mark);
+
+	// if cursor is at end of string, let's append a space to make life easier
 	if (key_linepos < MAXCMDLINE - 1 &&
-	    key_lines[edit_line][key_linepos] == 0 && bash_singlematch)
+		key_lines[edit_line][key_linepos] == 0 && bash_singlematch)
 	{
 		key_lines[edit_line][key_linepos] = ' ';
 		key_linepos++;
 		key_lines[edit_line][key_linepos] = 0;
+		key_tabpartial[0] = 0; // restart cycle
 	// S.A.: the map argument completion (may be in combination with the bash-style
 	// display behavior changes, causes weirdness when completing the arguments for
 	// the changelevel command. the line below "fixes" it, although I'm not sure about
 	// the reason, yet, neither do I know any possible side effects of it:
 		c = key_lines[edit_line] + key_linepos;
+
+		Con_TabComplete (TABCOMPLETE_AUTOHINT);
 	}
 }
 
@@ -1686,7 +1741,8 @@ extern	qpic_t *pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 
 void Con_DrawInput (void)
 {
-	int	i, ofs;
+	const char* workline = key_lines[edit_line]; // woods #iwtabcomplete
+	int	i, ofs, len; // woods #iwtabcomplete
 
 	if (key_dest != key_console && !con_forcedup)
 		return;		// don't draw anything
@@ -1697,11 +1753,20 @@ void Con_DrawInput (void)
 	else
 		ofs = 0;
 
-// draw input string
-	for (i = 0; key_lines[edit_line][i+ofs] && i < con_linewidth; i++)
-		Draw_Character ((i+1)<<3, vid.conheight - 16, key_lines[edit_line][i+ofs]);
+	len = strlen(workline); // woods #iwtabcomplete
 
-// johnfitz -- new cursor handling
+	// draw input string // woods #iwtabcomplete
+	for (i = 0; i + ofs < len; i++)
+		Draw_Character ((i + 1) << 3, vid.conheight - 16, workline[i + ofs]);
+
+	// draw tab completion hint
+	if (key_tabhint[0])
+	{
+		for (i = 0; key_tabhint[i] && i + 1 + len - ofs < con_linewidth + CON_MARGIN * 2; i++)
+			Draw_CharacterRGBA ((i+1 + len - ofs) <<3, vid.conheight - 16, key_tabhint[i] | 0x80, 1, 1, 1, 0.75f);
+	}
+
+	// johnfitz -- new cursor handling
 	if (!((int)((realtime-key_blinktime)*con_cursorspeed) & 1))
 	{
 		i = key_linepos - ofs;

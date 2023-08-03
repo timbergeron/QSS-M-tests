@@ -52,6 +52,28 @@ extern cvar_t trace_any_contains; // woods #tracers
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
+/*
+===============
+Tracer_Completion_f -- woods #iwtabcomplete
+===============
+*/
+static void Tracer_Completion_f (cvar_t* cvar, const char* partial)
+{
+	const char* item_artifacts[] = {
+		"armor1", "armor2", "armor3", "button", "cells", "changelevel", "comp_hum", "demon1", "dog", "door",
+		"drip", "drone", "enforcer", "envirosuit", "grenadelauncher", "health", "hell_knight", "intermission",
+		"invisibility", "invulnerability", "key1", "key2", "knight", "light", "lightning", "monster_army", "nailgun",
+		"ogre", "oldone", "path_corner", "player_coop", "player_deathmatch", "player_start", "rocketlauncher",
+		"rockets", "shalrath", "shambler", "shells", "spikes", "super_damage", "supernailgun", "supershotgun",
+		"swamp1", "swamp2", "tarbaby", "teleport", "teleport_destination", "trigger_changelevel", "trigger_counter",
+		"trigger_multiple", "trigger_once", "trigger_secret", "wizard ", "zombie "
+	};
+
+	int i;
+
+	for (i = 0; i < sizeof(item_artifacts) / sizeof(char*); ++i)
+		Con_AddToTabList (item_artifacts[i], partial, NULL);
+}
 
 /*
 ====================
@@ -206,6 +228,8 @@ void R_Init (void)
 	Cvar_RegisterVariable (&gl_laserpoint_alpha); // woods #laser
 	Cvar_RegisterVariable (&trace_any); // woods #tracers
 	Cvar_RegisterVariable (&trace_any_contains); // woods #tracers
+	Cvar_SetCompletion (&trace_any_contains, &Tracer_Completion_f); // woods #iwtabcomplete
+
 
 	//johnfitz -- new cvars
 	Cvar_RegisterVariable (&r_stereo);

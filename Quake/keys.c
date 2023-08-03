@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define		HISTORY_FILE_NAME "history.txt"
 
 char		key_lines[CMDLINES][MAXCMDLINE];
+char		key_tabhint[MAXCMDLINE]; // woods #iwtabcomplete
 
 int		key_linepos;
 int		key_insert = true;	//johnfitz -- insert key toggle (for editing)
@@ -766,42 +767,35 @@ void Key_Console (int key)
 		return;
 
 	case K_TAB:
-		Con_TabComplete ();
+		Con_TabComplete (TABCOMPLETE_USER); // woods #iwtabcomplete
 		return;
 
-	case K_BACKSPACE:
+	case K_BACKSPACE: // woods #iwtabcomplete
 		key_tabpartial[0] = 0;
 		if (key_linepos > 1)
 		{
-			workline += key_linepos - 1;
-			if (workline[1])
-			{
-				len = strlen(workline);
-				memmove (workline, workline + 1, len);
-			}
-			else	*workline = 0;
-			key_linepos--;
+			int numchars = keydown[K_CTRL] ? key_linepos - Key_FindWordBoundary(-1) : 1;
+			SDL_assert (numchars > 0);
+			workline += key_linepos - numchars;
+			len = strlen(workline);
+			SDL_assert ((int)len >= numchars);
+			memmove (workline, workline + numchars, len + 1 - numchars);
+			key_linepos -= numchars;
+			Con_TabComplete (TABCOMPLETE_AUTOHINT);
 		}
-#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
-		if (keydown[K_COMMAND]) // woods from ezquake
-			Word_Delete();
-		return;
-#endif
-		if (keydown[K_CTRL]) // woods from ezquake
-			Word_Delete();
 		return;
 
-	case K_DEL:
+	case K_DEL: // woods #iwtabcomplete
 		key_tabpartial[0] = 0;
 		workline += key_linepos;
 		if (*workline)
 		{
-			if (workline[1])
-			{
-				len = strlen(workline);
-				memmove (workline, workline + 1, len);
-			}
-			else	*workline = 0;
+			int numchars = keydown[K_CTRL] ? Key_FindWordBoundary(1) - key_linepos : 1;
+			SDL_assert(numchars > 0);
+			len = strlen(workline);
+			SDL_assert ((int)len >= numchars);
+			memmove (workline, workline + numchars, len + 1 - numchars);
+			Con_TabComplete (TABCOMPLETE_AUTOHINT);
 		}
 		return;
 
@@ -826,12 +820,14 @@ void Key_Console (int key)
 			con_backscroll = CLAMP(0, con_current-i%con_totallines-2, con_totallines-(glheight>>3)-1);
 		}
 		else	key_linepos = 1;
+		Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case K_END:
 		if (keydown[K_CTRL])
 			con_backscroll = 0;
 		else	key_linepos = strlen(workline);
+		Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case K_PGUP:
@@ -861,6 +857,7 @@ void Key_Console (int key)
 				key_linepos--;
 			}
 		key_blinktime = realtime;
+		Con_TabComplete(TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case K_RIGHTARROW:
@@ -887,6 +884,7 @@ void Key_Console (int key)
 				key_linepos++;
 			key_blinktime = realtime;
 		}
+		Con_TabComplete(TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case K_UPARROW:
@@ -919,6 +917,7 @@ void Key_Console (int key)
 		len = strlen(key_lines[history_line]);
 		memmove(workline, key_lines[history_line], len+1);
 		key_linepos = (int)len;
+		Con_TabComplete(TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case K_DOWNARROW:
@@ -953,12 +952,14 @@ void Key_Console (int key)
 			memmove(workline, key_lines[history_line], len+1);
 		}
 		key_linepos = (int)len;
+		Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case K_INS:
 		if (keydown[K_SHIFT])		/* Shift-Ins paste */
 			PasteToConsole();
 		else	key_insert ^= 1;
+		Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 		return;
 
 	case 'U':
@@ -967,12 +968,14 @@ void Key_Console (int key)
 		if (keydown[K_COMMAND]) {
 			key_lines[edit_line][1] = 0;	// woods clear all line typing (Qrack)
 			key_linepos = 1;
+			Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 			return;
 		}
 #endif
 		if (keydown[K_CTRL]) {
 			key_lines[edit_line][1] = 0;	// woods clear all line typing (Qrack)
 			key_linepos = 1;
+			Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 			return;
 		}
 		break;
@@ -982,11 +985,13 @@ void Key_Console (int key)
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 		if (keydown[K_COMMAND]) {	/* Cmd+v paste (Mac-only) */
 			PasteToConsole();
+			Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 			return;
 		}
 #endif
 		if (keydown[K_CTRL]) {		/* Ctrl+v paste */
 			PasteToConsole();
+			Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 			return;
 		}
 		break;
@@ -1014,6 +1019,7 @@ void Key_Console (int key)
 			workline[1] = 0;
 			key_linepos = 1;
 			history_line= edit_line;
+			Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 			return;
 		}
 		break;
@@ -1058,6 +1064,8 @@ void Char_Console (int key)
 				workline[1] = 0;
 		}
 		key_linepos++;
+
+		Con_TabComplete (TABCOMPLETE_AUTOHINT);
 	}
 }
 

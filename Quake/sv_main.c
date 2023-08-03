@@ -1520,6 +1520,21 @@ static void SV_Protocol_f (void)
 }
 
 /*
+================
+Extralevels_Completion_f --  woods #iwtabcomplete
+================
+*/
+void Extralevels_Completion_f (cvar_t* cvar, const char* partial)
+{
+	filelist_item_t* current = extralevels;
+
+	while (current != NULL) {
+		Con_AddToTabList (current->name, partial, NULL);
+		current = current->next;
+	}
+}
+
+/*
 ===============
 SV_Init
 ===============
@@ -1583,6 +1598,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_adminnick); // woods (darkpaces) #adminnick
 	Cvar_RegisterVariable (&sv_map_rotation); // woods #maprotation
 	Cvar_RegisterVariable (&sv_defaultmap); // woods #mapchangeprotect
+	Cvar_SetCompletion (&sv_defaultmap, &Extralevels_Completion_f); // woods #iwtabcomplete
 
 	if (isDedicated)
 		sv_public.string = "1";
