@@ -1420,6 +1420,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "timedemo",				CompleteFileList,		&demolist },
 	{ "exec",					CompleteFileList,		&execlist },
 	{ "connect",				CompleteFileList,		&serverlist },
+	{ "open",					CompleteFileList,		&folderlist },
 	{ "bind",					CompleteBindKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
 };

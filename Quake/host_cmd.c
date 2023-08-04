@@ -313,6 +313,75 @@ static void Host_Maps_f (void)
 }
 
 //==============================================================================
+// woods -- FolderList id1 directories management for open cmd #folderlist
+//==============================================================================
+
+filelist_item_t* folderlist;
+
+static void FolderList_Add(const char* name)
+{
+	FileList_Add(name, &folderlist);
+}
+
+#ifdef _WIN32
+void FolderList_Init(void)
+{
+	WIN32_FIND_DATA	fdat;
+	HANDLE		fhnd;
+	DWORD		attribs;
+	char		dir_string[MAX_OSPATH], mod_string[MAX_OSPATH];
+
+	q_snprintf(dir_string, sizeof(dir_string), "%s/id1/*", com_basedir);
+	fhnd = FindFirstFile(dir_string, &fdat);
+	if (fhnd == INVALID_HANDLE_VALUE)
+		return;
+
+	do
+	{
+		if (!strcmp(fdat.cFileName, ".") || !strcmp(fdat.cFileName, ".."))
+			continue;
+		q_snprintf(mod_string, sizeof(mod_string), "%s/id1/%s", com_basedir, fdat.cFileName);
+		attribs = GetFileAttributes(mod_string);
+		if (attribs != INVALID_FILE_ATTRIBUTES && (attribs & FILE_ATTRIBUTE_DIRECTORY)) {
+			/* don't bother testing for pak files / progs.dat */
+			FolderList_Add(fdat.cFileName);
+		}
+	} while (FindNextFile(fhnd, &fdat));
+
+	FindClose(fhnd);
+}
+#else
+void FolderList_Init(void)
+{
+	DIR* dir_p, * mod_dir_p;
+	struct dirent* dir_t;
+	char		dir_string[MAX_OSPATH], mod_string[MAX_OSPATH];
+
+	q_snprintf(dir_string, sizeof(dir_string), "%s/id1/", com_basedir);
+	dir_p = opendir(dir_string);
+	if (dir_p == NULL)
+		return;
+
+	while ((dir_t = readdir(dir_p)) != NULL)
+	{
+		if (!strcmp(dir_t->d_name, ".") || !strcmp(dir_t->d_name, ".."))
+			continue;
+		if (!q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "app")) // skip .app bundles on macOS
+			continue;
+		q_snprintf(mod_string, sizeof(mod_string), "%s%s/", dir_string, dir_t->d_name);
+		mod_dir_p = opendir(mod_string);
+		if (mod_dir_p == NULL)
+			continue;
+		/* don't bother testing for pak files / progs.dat */
+		FolderList_Add(dir_t->d_name);
+		closedir(mod_dir_p);
+	}
+
+	closedir(dir_p);
+}
+#endif
+
+//==============================================================================
 //johnfitz -- modlist management
 //==============================================================================
 

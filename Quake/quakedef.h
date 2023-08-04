@@ -383,10 +383,8 @@ extern filelist_item_t	*modlist;
 extern filelist_item_t	*extralevels;
 extern filelist_item_t	*demolist;
 extern filelist_item_t	*execlist; // woods #execlist
-extern filelist_item_t  *texturemode; // woods #texturemode
 extern filelist_item_t  *serverlist; // woods #serverlist
-extern filelist_item_t  *bindlist; // woods #bindlist
-extern filelist_item_t  *unbindlist; // woods #bindlist
+extern filelist_item_t*	 folderlist; // woods #folderlist
 
 void Host_ClearMemory (void);
 void Host_ServerFrame (void);
@@ -417,10 +415,9 @@ void ExtraMaps_Init (void);
 void Modlist_Init (void);
 void DemoList_Init (void);
 void ExecList_Init(void);
-void TextureMode_Init (void); // woods #texturemode
 void ServerList_Init(void); // woods #serverlist
-void BindList_Init (void); // woods #bindlist
-void UnBindList_Init (void); // woods #bindlist
+void FolderList_Init (void); // woods #folderlist
+
 
 void ExtraMaps_NewGame (void);
 void DemoList_Rebuild (void);
