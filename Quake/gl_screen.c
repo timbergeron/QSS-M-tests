@@ -2106,11 +2106,7 @@ LaserSight - port from quakespasm-shalrathy / qrack --  woods #laser
 */
 void LaserSight (void)
 {
-	char buf[15];
-	const char* obs;
-	obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
-
-	if (!strcmp(obs, "fly") || cl.stats[STAT_HEALTH] <= 0 || noclip_anglehack) // not in server flyme, noclip, or dead
+	if (cl.viewent.model->name == NULL) //R00k: dont show laserpoint when observer!
 		return;
 	
 	vec3_t	start, forward, right, up, crosshair, wall;
@@ -2119,12 +2115,12 @@ void LaserSight (void)
 	// copy origin to start, offset it correctly
 
 	AngleVectors(r_refdef.viewangles, forward, right, up);
-	VectorCopy(cl.viewent.origin, start);
+	VectorCopy(cl.entities[cl.viewentity].origin, start);
 	start[2] += 16;//QuakeC uses + '0 0 16' for gun aim.
 
 	// find the spot the player is looking at
 	VectorMA(start, 4096, forward, crosshair);
-	TraceLine(cl.viewent.origin, crosshair, wall);
+	TraceLine(start, crosshair, wall);
 
 	glDisable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -2134,9 +2130,9 @@ void LaserSight (void)
 	glEnable(GL_BLEND);
 
 	// set point 1 to players position
-	point1[0] = cl.entities[cl.viewentity].origin[0];
-	point1[1] = cl.entities[cl.viewentity].origin[1];
-	point1[2] = cl.entities[cl.viewentity].origin[2];
+	point1[0] = start[0];
+	point1[1] = start[1];
+	point1[2] = start[2];
 
 	wall[2] += -8.5; // adjust for relative crosshair
 
