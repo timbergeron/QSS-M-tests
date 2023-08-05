@@ -1967,8 +1967,8 @@ void SCR_DrawPause2(void)
 		}
 
 		snprintf(hint, sizeof(hint), "%s", random_hint);
-		M_Print(340 - (strlen(hint) * 4), 300, "QSS-M Hint:");
-		M_PrintWhite(346 - ((strlen(hint) - 24) * 4), 300, hint);
+		M_Print(360, 300, "QSS-M Hint");
+		M_PrintWhite(400 - (strlen(hint) * 4), 320, hint);
 	}
 	else // remove timer when not paused, if it was started
 	{ 
