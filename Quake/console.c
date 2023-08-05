@@ -702,8 +702,7 @@ static void Con_Print (const char *txt)
 	{
 		mask = 128;		// go to colored text`
 
-		if (cl.matchinp == 1 && con_mm1mute.value && cl.teamgame && cl.notobserver
-			&& cl.match_pause_time == 0 && !strstr(txt, cl_name.string) && (cl.seconds || cl.minutes)) // woods #con_mm1mute -- not paused, no if me, if colored
+		if (con_mm1mute.value && !strstr(txt, cl_name.string) && cl.notobserver && cl.matchinp && cl.teamcolor[0]) // woods #con_mm1mute
 		{ 
 			if (cl_mm2)
 				S_LocalSound("misc/talk.wav");	// play talk wav
