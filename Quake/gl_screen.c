@@ -2106,9 +2106,12 @@ LaserSight - port from quakespasm-shalrathy / qrack --  woods #laser
 */
 void LaserSight (void)
 {
-	if (cl.viewent.model->name == NULL) //R00k: dont show laserpoint when observer!
+	if (cl.viewent.model->name == NULL || cl.intermission || qeintermission || scr_viewsize.value >= 130 || 
+		(countdown && draw) || (qeintermission && draw) || cl.stats[STAT_HEALTH] <= 0) //R00k: dont show laserpoint when observer!
+	{
 		return;
-	
+	}
+
 	vec3_t	start, forward, right, up, crosshair, wall;
 	float point1[3];
 
@@ -2130,9 +2133,9 @@ void LaserSight (void)
 	glEnable(GL_BLEND);
 
 	// set point 1 to players position
-	point1[0] = start[0];
-	point1[1] = start[1];
-	point1[2] = start[2];
+	point1[0] = cl.entities[cl.viewentity].origin[0];
+	point1[1] = cl.entities[cl.viewentity].origin[1];
+	point1[2] = cl.entities[cl.viewentity].origin[2];
 
 	wall[2] += -8.5; // adjust for relative crosshair
 
