@@ -1764,7 +1764,7 @@ void Con_DrawInput (void)
 	if (key_tabhint[0])
 	{
 		for (i = 0; key_tabhint[i] && i + 1 + len - ofs < con_linewidth + CON_MARGIN * 2; i++)
-			Draw_CharacterRGBA ((i+1 + len - ofs) <<3, vid.conheight - 16, key_tabhint[i] | 0x80, 1, 1, 1, 0.75f);
+			Draw_CharacterRGBA ((i+1 + len - ofs) <<3, vid.conheight - 16, key_tabhint[i] | 0x80, CL_PLColours_Parse("0xffffff"), 0.75f);
 	}
 
 	// johnfitz -- new cursor handling

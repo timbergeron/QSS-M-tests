@@ -614,7 +614,7 @@ void Draw_Character (int x, int y, int num)
 Draw_CharacterRGBA -- woods -- https://github.com/nzp-team/quakespasm commit c7ba1d4 -- #iwtabcomplete
 ================
 */
-void Draw_CharacterRGBA (int x, int y, int num, float r, float g, float b, float a)
+void Draw_CharacterRGBA (int x, int y, int num, plcolour_t c, float alpha)
 {
 	int				row, col;
 	float			frow, fcol, size;
@@ -625,7 +625,15 @@ void Draw_CharacterRGBA (int x, int y, int num, float r, float g, float b, float
 		return; //don't waste verts on spaces
 
 	glEnable (GL_BLEND);
-	glColor4f (r, g, b, a);
+
+	if (c.type == 2)
+		glColor4f(c.rgb[0] / 255.0, c.rgb[1] / 255.0, c.rgb[2] / 255.0, alpha);
+	else
+	{
+		byte* pal = (byte*)&d_8to24table[(c.basic << 4) + 8];
+		glColor4f(pal[0] / 255.0, pal[1] / 255.0, pal[2] / 255.0, alpha);
+	}
+
 	glDisable (GL_ALPHA_TEST);
 	glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
