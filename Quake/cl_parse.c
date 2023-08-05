@@ -2025,7 +2025,7 @@ static void CL_ParseClientdata (void)
 
 		// woods for death location for LOCs #pqteam
 		if (health <= 0)
-			memcpy (cl.death_location, cl.viewent.origin, sizeof(vec3_t));
+			memcpy (cl.death_location, cl.entities[cl.viewentity].origin, sizeof(vec3_t));
 	}
 
 	//johnfitz -- lerping

@@ -1428,10 +1428,9 @@ void Cmd_ForwardToServer (void)
 					break;
 
 				case 'l':
-					dst += sprintf(dst, "%s", LOC_GetLocation(cl.viewent.origin));
+					dst += sprintf(dst, "%s", LOC_GetLocation(cl.entities[cl.viewentity].origin));
 					break;
 
-					// death location not currently enabled
 				case 'd':
 					dst += sprintf(dst, "%s", LOC_GetLocation(cl.death_location));
 					break;
