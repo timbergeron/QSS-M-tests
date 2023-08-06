@@ -64,6 +64,8 @@ cvar_t		con_notifylist = { "con_notifylist", "", CVAR_ARCHIVE }; // woods #notiy
 cvar_t		con_mm1mute = {"con_mm1mute", "1", CVAR_ARCHIVE}; // woods #con_mm1mute
 cvar_t		con_notifylines = { "con_notifylines","4",CVAR_ARCHIVE }; // woods #notifylines
 cvar_t		con_notifyposition = { "con_notifyposition","0",CVAR_ARCHIVE }; // woods #notifyposition
+cvar_t		con_notifyfade = {"con_notifyfade", "1", CVAR_ARCHIVE}; // woods #confade
+cvar_t		con_notifyfadetime = {"con_notifyfadetime", "0.5", CVAR_ARCHIVE}; // woods #confade
 
 char		con_lastcenterstring[1024]; //johnfitz
 
@@ -71,7 +73,7 @@ void (*con_redirect_flush)(const char *buffer);	//call this to flush the redirec
 char con_redirect_buffer[8192];
 
 #define	NUM_CON_TIMES 30 // woods from proquake 493 #notifylines
-float		con_times[NUM_CON_TIMES];	// realtime time the line was generated
+double		con_times[NUM_CON_TIMES];	// realtime time the line was generated
 						// for transparent notify lines
 
 int			con_vislines;
@@ -382,6 +384,8 @@ void Con_Init (void)
 	Cvar_RegisterVariable (&con_mm1mute); // woods #con_mm1mute
 	Cvar_RegisterVariable (&con_notifylines); // woods #notifylines
 	Cvar_RegisterVariable (&con_notifyposition); // woods #notifyposition
+	Cvar_RegisterVariable (&con_notifyfade); // woods #confade
+	Cvar_RegisterVariable (&con_notifyfadetime); // woods #confade
 
 
 	Cmd_AddCommand ("toggleconsole", Con_ToggleConsole_f);
@@ -1657,6 +1661,26 @@ DRAWING
 
 /*
 ================
+Con_NotifyAlpha -- // woods #confade (ironwail) ee58794
+================
+*/
+static float Con_NotifyAlpha (double time)
+{
+	float fade;
+	if (!time)
+		return 0.f;
+	fade = q_max (con_notifyfade.value * con_notifyfadetime.value, 0.f);
+	time += con_notifytime.value + fade - realtime;
+	if (time <= 0.f)
+		return 0.f;
+	if (!fade)
+		return 1.f;
+	time = time / fade;
+	return q_min (time, 1.0);
+}
+
+/*
+================
 Con_DrawNotify
 
 Draws the last few lines of output transparently over the game top
@@ -1666,7 +1690,7 @@ void Con_DrawNotify (void)
 {
 	int	i, x, v;
 	const char	*text;
-	float	time;
+	float	alpha; // woods #confade
 	int		maxlines = CLAMP (0, con_notifylines.value, NUM_CON_TIMES); // woods from proquake 493 #notifylines
 
 	GL_SetCanvas (CANVAS_CONSOLE); //johnfitz
@@ -1676,18 +1700,15 @@ void Con_DrawNotify (void)
 	{
 		if (i < 0)
 			continue;
-		time = con_times[i % NUM_CON_TIMES];
-		if (time == 0)
-			continue;
-		time = realtime - time;
-		if (time > con_notifytime.value)
+		alpha = Con_NotifyAlpha (con_times[i % NUM_CON_TIMES]); // woods #confade
+		if (alpha <= 0.f)
 			continue;
 		text = con_text + (i % con_totallines)*con_linewidth;
 
 		clearnotify = 0;
 
 		for (x = 0; x < con_linewidth; x++)
-			Draw_Character ((x+1)<<3, v, text[x]);
+			Draw_CharacterRGBA ((x+1)<<3, v, text[x], CL_PLColours_Parse("0xffffff"), alpha); // woods #confade
 
 		v += 8;
 

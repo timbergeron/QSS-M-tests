@@ -144,6 +144,8 @@ cvar_t		gl_triplebuffer = {"gl_triplebuffer", "1", CVAR_ARCHIVE};
 cvar_t		cl_gun_fovscale = {"cl_gun_fovscale","1",CVAR_ARCHIVE}; // Qrack
 
 extern	cvar_t	crosshair;
+extern	cvar_t	con_notifyfade; // woods #confade
+extern	cvar_t	con_notifyfadetime; // woods #confade
 
 qboolean	scr_initialized;		// ready to draw
 
@@ -367,6 +369,9 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	scr_centertime_off = (flags&CPRINT_PERSIST)?999999:scr_centertime.value;
 	scr_centertime_start = cl.time;
 
+	if (!cl.intermission)
+		scr_centertime_off += q_max(0.f, con_notifyfade.value * con_notifyfadetime.value); // woods #confade
+
 	if (*scr_centerstring && !(flags&CPRINT_PERSIST))
 		Con_LogCenterPrint (scr_centerstring);
 
@@ -388,6 +393,7 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	int		j;
 	int		x, y;
 	int		remaining;
+	float	alpha; // woods #confade
 
 	char buf[15];
 	const char* realobs;
@@ -403,9 +409,16 @@ void SCR_DrawCenterString (void) //actually do the drawing
 
 // the finale prints the characters one at a time
 	if (cl.intermission)
+	{
 		remaining = scr_printspeed.value * (cl.time - scr_centertime_start);
+		alpha = 1.f; // woods #confade
+	}
 	else
+	{
+		float fade = q_max(con_notifyfade.value * con_notifyfadetime.value, 0.f); // woods #confade
 		remaining = 9999;
+		alpha = fade ? q_min(scr_centertime_off / fade, 1.f) : 1.f; // woods #confade
+	}
 
 	scr_erase_center = 0;
 	start = scr_centerstring;
@@ -426,7 +439,7 @@ void SCR_DrawCenterString (void) //actually do the drawing
 		x = (320 - l*8)/2;	//johnfitz -- 320x200 coordinate system
 		for (j=0 ; j<l ; j++, x+=8)
 		{
-			Draw_Character (x, y, start[j]);	//johnfitz -- stretch overlays
+			Draw_CharacterRGBA (x, y, start[j], CL_PLColours_Parse("0xffffff"), alpha);	//johnfitz -- stretch overlays
 			if (!remaining--)
 				return;
 		}
