@@ -845,7 +845,16 @@ void V_CalcRefdef (void)
 	view->eflags = EFLAGS_VIEWMODEL;
 	VectorScale(forward, 1.0/32, view->origin);	//bias it very slightly sideways (so it shifts slightly when turning to mimic the 1/32 bias that used to affect it before we changed how viewmodels work)
 	view->origin[0] = bob*0.4;	//and bob it forwards
-	view->alpha = ENTALPHA_ENCODE(r_drawviewmodel.value);
+
+	if (cl.items & IT_INVISIBILITY) // woods #ringalpha
+	{
+		if (r_drawviewmodel.value == 1) 
+			view->alpha = ENTALPHA_ENCODE(0.50);
+		else
+			view->alpha = ENTALPHA_ZERO;
+	}
+	else
+		view->alpha = ENTALPHA_ENCODE(r_drawviewmodel.value);
 
 	//johnfitz -- removed all gun position fudging code (was used to keep gun from getting covered by sbar)
 	//MarkV -- restored this with r_viewmodel_quake cvar
