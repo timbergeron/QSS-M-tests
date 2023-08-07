@@ -1196,8 +1196,14 @@ cmd_function_t* Cmd_FindCommand (const char* cmd_name)
 	cmd_function_t* cmd;
 
 	for (cmd = cmd_functions; cmd; cmd = cmd->next)
-		if (!q_strcasecmp(cmd_name, cmd->name))
+	{
+		if (!q_strcasecmp (cmd_name, cmd->name))
+		{
+			if (cmd->srctype != src_command)	// these commands only exist in certain situations... so pretend they don't exist here.
+				continue;
 			return cmd;
+		}
+	}
 
 	return NULL;
 }
