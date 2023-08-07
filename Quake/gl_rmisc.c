@@ -54,25 +54,30 @@ extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
 /*
 ===============
-Tracer_Completion_f -- woods #iwtabcomplete
+Tracer_Completion_f -- woods
 ===============
 */
 static void Tracer_Completion_f (cvar_t* cvar, const char* partial)
 {
-	const char* item_artifacts[] = {
-		"armor1", "armor2", "armor3", "button", "cells", "changelevel", "comp_hum", "demon1", "dog", "door",
-		"drip", "drone", "enforcer", "envirosuit", "grenadelauncher", "health", "hell_knight", "intermission",
-		"invisibility", "invulnerability", "key1", "key2", "knight", "light", "lightning", "monster_army", "nailgun",
-		"ogre", "oldone", "path_corner", "player_coop", "player_deathmatch", "player_start", "rocketlauncher",
-		"rockets", "shalrath", "shambler", "shells", "spikes", "super_damage", "supernailgun", "supershotgun",
-		"swamp1", "swamp2", "tarbaby", "teleport", "teleport_destination", "trigger_changelevel", "trigger_counter",
-		"trigger_multiple", "trigger_once", "trigger_secret", "wizard ", "zombie "
-	};
-
 	int i;
+	edict_t* ed;
 
-	for (i = 0; i < sizeof(item_artifacts) / sizeof(char*); ++i)
-		Con_AddToTabList (item_artifacts[i], partial, NULL);
+	qcvm_t* oldvm;
+	oldvm = qcvm;
+	PR_SwitchQCVM (NULL);
+	PR_SwitchQCVM (&sv.qcvm);
+	for (i = 0, ed = NEXT_EDICT (qcvm->edicts); i < qcvm->num_edicts; i++, ed = NEXT_EDICT (ed))
+	{
+		if (ed->free) continue;
+
+		const char* classname = PR_GetString (ed->v.classname);
+		classname = PR_GetString (ed->v.classname);
+		if (*classname)
+			Con_AddToTabList (classname, partial, "#");
+	}
+
+	PR_SwitchQCVM (NULL);
+	PR_SwitchQCVM (oldvm);
 }
 
 /*
