@@ -3240,6 +3240,7 @@ static void COM_Game_f (void)
 		ExtraMaps_NewGame ();
 		Host_Resetdemos ();
 		DemoList_Rebuild ();
+		SkyList_Rebuild (); // woods #skylist
 
 		Con_Printf("\"game\" changed to \"%s\"\n", COM_GetGameNames(true));
 

@@ -1467,6 +1467,7 @@ void Host_Init (void)
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
 		DemoList_Init (); //ericw
+		SkyList_Init (); // woods #skylist
 		ExecList_Init(); // woods #execlist
 		ServerList_Init(); // woods #serverlist
 		FolderList_Init(); // woods #folderlist

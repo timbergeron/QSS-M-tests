@@ -1421,6 +1421,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "record",					CompleteFileList,		&demolist },
 	{ "playdemo",				CompleteFileList,		&demolist },
 	{ "timedemo",				CompleteFileList,		&demolist },
+	{ "sky",					CompleteFileList,		&skylist },
 	{ "exec",					CompleteFileList,		&execlist },
 	{ "connect",				CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },

@@ -759,6 +759,117 @@ void DemoList_Init (void)
 	}
 }
 
+//==============================================================================
+//woods -- sky list management #skylist
+//==============================================================================
+
+filelist_item_t* skylist;
+
+static void SkyList_Clear (void)
+{
+	FileList_Clear (&skylist);
+}
+
+void SkyList_Rebuild(void)
+{
+	SkyList_Clear ();
+	SkyList_Init ();
+}
+
+int SkyhasValidExtension (char* filename) 
+{
+	size_t len = strlen(filename);
+	return (len > 2 &&
+		(!strcmp(filename + len - 6, "bk.tga") ||
+			!strcmp(filename + len - 6, "bk.png") ||
+			!strcmp(filename + len - 6, "bk.jpg") ||
+			!strcmp(filename + len - 8, "bk.dds")));
+}
+
+void SkyList_Recurse(const char* basePath)
+{
+#ifdef _WIN32
+	char filestring[MAX_OSPATH], newBasePath[MAX_OSPATH], fullSkyName[MAX_OSPATH], skyname[32];
+	WIN32_FIND_DATA fdat;
+	HANDLE fhnd;
+	q_snprintf(filestring, sizeof(filestring), "%s/*", basePath);
+	fhnd = FindFirstFile(filestring, &fdat);
+	if (fhnd == INVALID_HANDLE_VALUE)
+		return;
+	do
+	{
+		if (fdat.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY && strcmp(fdat.cFileName, ".") != 0 && strcmp(fdat.cFileName, "..") != 0) {
+			q_snprintf(newBasePath, sizeof(newBasePath), "%s/%s", basePath, fdat.cFileName);
+			SkyList_Recurse (newBasePath);
+		}
+		else if (SkyhasValidExtension(fdat.cFileName)) {
+			COM_StripExtension(fdat.cFileName, skyname, sizeof(skyname));
+			skyname[strlen(skyname) - 2] = '\0'; // remove "bk" part
+			char* lastSlash = strrchr(basePath, '/');
+			const char* parentDirectory = lastSlash ? lastSlash + 1 : basePath;
+			if (strcmp(parentDirectory, "env") != 0)
+				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s/%s", parentDirectory, skyname);
+			else
+				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s", skyname);
+			FileList_Add (fullSkyName, &skylist);
+		}
+	} while (FindNextFile(fhnd, &fdat));
+	FindClose(fhnd);
+#else
+	char newBasePath[MAX_OSPATH], fullSkyName[MAX_OSPATH], skyname[32];
+	DIR* dir_p = opendir(basePath);
+	struct dirent* dir_t;
+	if (dir_p == NULL)
+		return;
+	while ((dir_t = readdir(dir_p)) != NULL)
+	{
+		if (dir_t->d_type == DT_DIR && strcmp(dir_t->d_name, ".") != 0 && strcmp(dir_t->d_name, "..") != 0) {
+			q_snprintf(newBasePath, sizeof(newBasePath), "%s/%s", basePath, dir_t->d_name);
+			SkyList_Recurse (newBasePath);
+		}
+		else if (SkyhasValidExtension (dir_t->d_name)) {
+			COM_StripExtension (dir_t->d_name, skyname, sizeof(skyname));
+			skyname[strlen(skyname) - 2] = '\0'; // remove "bk" part
+			char* lastSlash = strrchr(basePath, '/');
+			const char* parentDirectory = lastSlash ? lastSlash + 1 : basePath;			if (strcmp(parentDirectory, "env") != 0)
+				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s/%s", parentDirectory, skyname);
+			else
+				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s", skyname);
+			FileList_Add (fullSkyName, &skylist);
+		}
+	}
+	closedir(dir_p);
+#endif
+}
+
+void SkyList_Init (void)
+{
+	searchpath_t* search;
+	char filestring[MAX_OSPATH];
+	for (search = com_searchpaths; search; search = search->next)
+	{
+		if (!search->pack) //directory
+		{
+			q_snprintf(filestring, sizeof(filestring), "%s/gfx/env", search->filename);
+			SkyList_Recurse (filestring);
+		}
+		else //pakfile
+		{
+			pack_t* pak;
+			int i;
+			for (i = 0, pak = search->pack; i < pak->numfiles; i++)
+			{
+				if (SkyhasValidExtension (pak->files[i].name)) {
+					char skyname[32];
+					COM_StripExtension (pak->files[i].name, skyname, sizeof(skyname));
+					skyname[strlen(skyname) - 2] = '\0'; // remove "bk" part
+					FileList_Add (skyname, &skylist);
+				}
+			}
+		}
+	}
+}
+
 /*
 ==================
 Host_Mods_f -- johnfitz

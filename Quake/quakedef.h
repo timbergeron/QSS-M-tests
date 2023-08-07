@@ -382,6 +382,7 @@ typedef struct filelist_item_s
 extern filelist_item_t	*modlist;
 extern filelist_item_t	*extralevels;
 extern filelist_item_t	*demolist;
+extern filelist_item_t  *skylist; // woods #skylist
 extern filelist_item_t	*execlist; // woods #execlist
 extern filelist_item_t  *serverlist; // woods #serverlist
 extern filelist_item_t*	 folderlist; // woods #folderlist
@@ -417,10 +418,12 @@ void DemoList_Init (void);
 void ExecList_Init(void);
 void ServerList_Init(void); // woods #serverlist
 void FolderList_Init (void); // woods #folderlist
+void SkyList_Init (void); // woods #folderlist
 
 
 void ExtraMaps_NewGame (void);
 void DemoList_Rebuild (void);
+void SkyList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
