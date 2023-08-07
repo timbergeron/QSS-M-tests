@@ -914,6 +914,63 @@ void Cmd_If_f(void)
 
 /*
 ============
+Random_f -- woods #randomcmd
+============
+*/
+void Random_f (void)
+{
+	const int CMD_NAME_ARG = 1;
+	int numArgs = Cmd_Argc();
+	int selectedNum;
+	int i;
+	char sayCommand[MAXCMDLINE];
+	char argsString[MAXCMDLINE] = "";
+
+	if (numArgs <= CMD_NAME_ARG + 1) // Command name + at least one option
+	{
+		Con_Printf ("\nusage: random <option1> <option2> ... <optionN>\n\n");
+		return;
+	}
+
+	// select a random argument number
+	selectedNum = CMD_NAME_ARG + (rand() % (numArgs - CMD_NAME_ARG));
+	const char* selectedArg = Cmd_Argv (selectedNum);
+
+	// construct a string with all the arguments
+	for (i = CMD_NAME_ARG; i < numArgs; i++)
+	{
+		const char* arg = Cmd_Argv(i);
+
+		if (q_strlcat(argsString, arg, sizeof(argsString)) >= sizeof(argsString))
+		{
+			Con_Printf ("\nToo many arguments for random command.\n\n");
+			return;
+		}
+
+		if (i < numArgs - 1)
+		{
+			if (q_strlcat(argsString, ", ", sizeof(argsString)) >= sizeof(argsString))
+			{
+				Con_Printf ("\ntoo many arguments for random command.\n\n");
+				return;
+			}
+		}
+	}
+
+	if (cls.state == ca_connected)
+	{
+		snprintf (sayCommand, sizeof(sayCommand), "say randomize: %s\n", argsString);
+		Cbuf_AddText (sayCommand);
+
+		snprintf (sayCommand, sizeof(sayCommand), "say result: %s\n", selectedArg);
+		Cbuf_AddText (sayCommand);
+	}
+	else
+		Con_Printf ("result: ^m%s\n", selectedArg);
+}
+
+/*
+============
 Cmd_Init
 ============
 */
@@ -939,6 +996,7 @@ void Cmd_Init (void)
 	Cmd_AddCommand("aliaslist", Alias_List_f); // woods #aliaslist
 	Cmd_AddCommand("history", Cmd_History_f); // woods #history
 	Cmd_AddCommand ("if", Cmd_If_f); // woods #if
+	Cmd_AddCommand ("random", Random_f); // woods #randomcmd
 
 	Cvar_RegisterVariable (&cl_nopext);
 	Cvar_RegisterVariable (&cmd_warncmd);
