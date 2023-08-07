@@ -836,6 +836,84 @@ void Alias_List_f(void)
 
 /*
 ============
+Cmd_If_f -- woods #if
+============
+*/
+void Cmd_If_f(void)
+{
+	cvar_t* cvar;
+	char command[MAXCMDLINE];
+	char* cmd, * next_cmd;
+	int i;
+	float value;
+	enum { CHECK_NONZERO, CHECK_EQUAL, CHECK_NOT_EQUAL, CHECK_LESS, CHECK_GREATER, CHECK_LESS_EQUAL, CHECK_GREATER_EQUAL } check_type = CHECK_NONZERO;
+
+	if (Cmd_Argc() < 3)
+	{
+		Con_Printf("\nif <cvar> [operator <value>] <command(s)>: execute command(s) based on the comparison of cvar to <value>\n\nsupported operators: ==, !=, <, >, <=, >=. if no operator is provided, non-zero cvar will trigger the command(s)\n\n");
+		return;
+	}
+
+	cvar = Cvar_FindVar(Cmd_Argv(1));
+	if (!cvar)
+	{
+		Con_Printf("if: cvar %s not found\n", Cmd_Argv(1));
+		return;
+	}
+
+	if (Cmd_Argc() > 3)
+	{
+		if (strcmp(Cmd_Argv(2), "==") == 0)
+			check_type = CHECK_EQUAL;
+		else if (strcmp(Cmd_Argv(2), "!=") == 0)
+			check_type = CHECK_NOT_EQUAL;
+		else if (strcmp(Cmd_Argv(2), "<") == 0)
+			check_type = CHECK_LESS;
+		else if (strcmp(Cmd_Argv(2), ">") == 0)
+			check_type = CHECK_GREATER;
+		else if (strcmp(Cmd_Argv(2), "<=") == 0)
+			check_type = CHECK_LESS_EQUAL;
+		else if (strcmp(Cmd_Argv(2), ">=") == 0)
+			check_type = CHECK_GREATER_EQUAL;
+
+		value = atof(Cmd_Argv(3));
+	}
+
+	if ((check_type == CHECK_NONZERO && cvar->value) ||
+		(check_type == CHECK_EQUAL && cvar->value == value) ||
+		(check_type == CHECK_NOT_EQUAL && cvar->value != value) ||
+		(check_type == CHECK_LESS && cvar->value < value) ||
+		(check_type == CHECK_GREATER && cvar->value > value) ||
+		(check_type == CHECK_LESS_EQUAL && cvar->value <= value) ||
+		(check_type == CHECK_GREATER_EQUAL && cvar->value >= value))
+	{
+		memset(command, 0, sizeof(command));
+		for (i = (check_type != CHECK_NONZERO) ? 4 : 2; i < Cmd_Argc(); i++)
+		{
+			q_strlcat(command, Cmd_Argv(i), sizeof(command));
+			if (i != Cmd_Argc() - 1)
+			{
+				q_strlcat(command, " ", sizeof(command));  // preserve spaces between arguments
+			}
+		}
+
+		cmd = strtok(command, ";");
+		while (cmd != NULL)
+		{
+			next_cmd = strtok(NULL, ";");
+			Cbuf_AddText(cmd);
+			Cbuf_AddText("\n");  // new line character to signify end of command
+			cmd = next_cmd;
+			if (next_cmd == NULL) // checking if strtok returned NULL
+			{
+				break;
+			}
+		}
+	}
+}
+
+/*
+============
 Cmd_Init
 ============
 */
@@ -860,6 +938,7 @@ void Cmd_Init (void)
 	Cmd_AddCommand("printtxt", Cmd_PrintTxt_f);
 	Cmd_AddCommand("aliaslist", Alias_List_f); // woods #aliaslist
 	Cmd_AddCommand("history", Cmd_History_f); // woods #history
+	Cmd_AddCommand ("if", Cmd_If_f); // woods #if
 
 	Cvar_RegisterVariable (&cl_nopext);
 	Cvar_RegisterVariable (&cmd_warncmd);
