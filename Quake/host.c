@@ -1469,6 +1469,7 @@ void Host_Init (void)
 		DemoList_Init (); //ericw
 		SkyList_Init (); // woods #skylist
 		ExecList_Init(); // woods #execlist
+		ParticleList_Init (); // woods #particlelist
 		ServerList_Init(); // woods #serverlist
 		FolderList_Init(); // woods #folderlist
 		VID_Init ();

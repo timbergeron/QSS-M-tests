@@ -3375,6 +3375,21 @@ static qboolean P_ImportEffectInfo_Name(char *config)
 #endif
 
 /*
+================
+Particles_Completion_f -- woods #particlelist
+================
+*/
+void Particles_Completion_f (cvar_t* cvar, const char* partial)
+{
+	filelist_item_t* current = particlelist;
+
+	while (current != NULL) {
+		Con_AddToTabList(current->name, partial, NULL);
+		current = current->next;
+	}
+}
+
+/*
 ===============
 R_InitParticles
 ===============
@@ -3388,6 +3403,7 @@ void PScript_InitParticles (void)
 #endif
 	Cvar_RegisterVariable(&r_decal_noperpendicular);
 	Cvar_RegisterVariable(&r_particledesc);
+	Cvar_SetCompletion (&r_particledesc, &Particles_Completion_f); // woods #particlelist
 	Cvar_RegisterVariable(&r_part_rain_quantity);
 	Cvar_RegisterVariable(&r_particle_tracelimit);
 	Cvar_RegisterVariable(&r_part_sparks);

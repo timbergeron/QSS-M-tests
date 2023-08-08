@@ -384,6 +384,7 @@ extern filelist_item_t	*extralevels;
 extern filelist_item_t	*demolist;
 extern filelist_item_t  *skylist; // woods #skylist
 extern filelist_item_t	*execlist; // woods #execlist
+extern filelist_item_t  *particlelist; // woods #particlelist
 extern filelist_item_t  *serverlist; // woods #serverlist
 extern filelist_item_t*	 folderlist; // woods #folderlist
 
@@ -416,6 +417,7 @@ void ExtraMaps_Init (void);
 void Modlist_Init (void);
 void DemoList_Init (void);
 void ExecList_Init(void);
+void ParticleList_Init (void); // woods #particlelist
 void ServerList_Init(void); // woods #serverlist
 void FolderList_Init (void); // woods #folderlist
 void SkyList_Init (void); // woods #folderlist
@@ -423,6 +425,7 @@ void SkyList_Init (void); // woods #folderlist
 
 void ExtraMaps_NewGame (void);
 void DemoList_Rebuild (void);
+void ParticleList_Rebuild(void);
 void SkyList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
 

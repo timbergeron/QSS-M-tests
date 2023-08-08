@@ -675,6 +675,106 @@ void ExecList_Init(void)
 }
 
 //==============================================================================
+// woods -- r_particledesc completion #particlelist
+//==============================================================================
+
+filelist_item_t* particlelist;
+
+static void ParticleList_Clear(void)
+{
+	FileList_Clear (&particlelist);
+}
+
+void ParticleList_Rebuild (void)
+{
+	ParticleList_Clear ();
+	ParticleList_Init ();
+}
+
+void ParticleList_Init (void)
+{
+#ifdef _WIN32
+	WIN32_FIND_DATA	fdat;
+	HANDLE		fhnd;
+#else
+	DIR* dir_p;
+	struct dirent* dir_t;
+#endif
+	char		filestring[MAX_OSPATH];
+	char		cfgname[32];
+	char		cfgnamedir[32];
+	searchpath_t* search;
+	pack_t* pak;
+	int		i;
+
+	FileList_Add ("classic", &particlelist);
+
+	for (search = com_searchpaths; search; search = search->next)
+	{
+		if (!search->pack) //directory
+		{
+#ifdef _WIN32
+
+
+			q_snprintf(filestring, sizeof(filestring), "%s/particles/*.cfg", search->filename);
+			fhnd = FindFirstFile(filestring, &fdat);
+			if (fhnd != INVALID_HANDLE_VALUE)
+			{
+				do
+				{
+					strcpy(cfgname, fdat.cFileName);
+					COM_StripExtension(cfgname, cfgname, sizeof(cfgname));
+					sprintf(cfgnamedir, "%s", cfgname);
+					FileList_Add(cfgnamedir, &particlelist);
+				} while (FindNextFile(fhnd, &fdat));
+				FindClose(fhnd);
+			}
+#else
+			q_snprintf(filestring, sizeof(filestring), "%s/particles/", search->filename);
+			dir_p = opendir(filestring);
+			if (dir_p != NULL)
+			{
+
+				while ((dir_t = readdir(dir_p)) != NULL)
+				{
+					if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "cfg") != 0)
+						continue;
+
+					strcpy(cfgname, dir_t->d_name);
+					COM_StripExtension(cfgname, cfgname, sizeof(cfgname));
+					sprintf(cfgnamedir, "%s", cfgname);
+					FileList_Add(cfgnamedir, &particlelist);
+				}
+				closedir(dir_p);
+			}
+#endif
+		}
+		else //pakfile
+		{
+			for (i = 0, pak = search->pack; i < pak->numfiles; i++)
+			{
+				const char* pakfilename = pak->files[i].name;
+
+				if (!strcmp(COM_FileGetExtension (pakfilename), "cfg") && strstr (pakfilename, "particles"))
+				{
+					COM_StripExtension(pakfilename, cfgname, sizeof(cfgname));
+
+					const char* particlePrefix = "particles/";
+					char* found = strstr(cfgname, particlePrefix);
+					if (found != NULL)
+					{
+						memmove (found, found + strlen (particlePrefix), strlen (found) - strlen (particlePrefix) + 1);
+					}
+
+					FileList_Add (cfgname, &particlelist);
+				}
+			}
+
+		}
+	}
+}
+
+//==============================================================================
 //ericw -- demo list management
 //==============================================================================
 
