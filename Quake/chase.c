@@ -23,9 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
-cvar_t	chase_back = {"chase_back", "100", CVAR_NONE};
-cvar_t	chase_up = {"chase_up", "16", CVAR_NONE};
-cvar_t	chase_right = {"chase_right", "0", CVAR_NONE};
+cvar_t	chase_back = {"chase_back", "90", CVAR_ARCHIVE};
+cvar_t	chase_up = {"chase_up", "30", CVAR_ARCHIVE };
+cvar_t	chase_right = {"chase_right", "0", CVAR_ARCHIVE };
 cvar_t	chase_active = {"chase_active", "0", CVAR_NONE};
 
 /*
@@ -249,11 +249,11 @@ void Chase_UpdateForDrawing (void)
 
 	// calc ideal camera location before checking for walls
 	for (i=0 ; i<3 ; i++)
-		ideal[i] = cl.viewent.origin[i]
+		ideal[i] = cl.entities[cl.viewentity].origin[i]
 		- forward[i]*chase_back.value
 		+ right[i]*chase_right.value;
 		//+ up[i]*chase_up.value;
-	ideal[2] = cl.viewent.origin[2] + chase_up.value;
+	ideal[2] = cl.entities[cl.viewentity].origin[2] + chase_up.value;
 
 	// make sure camera is not in or behind a wall
 	TraceLine2(r_refdef.vieworg, ideal, temp); // woods (Qrack) #betterchase - change to 2
@@ -267,8 +267,8 @@ void Chase_UpdateForDrawing (void)
 	VectorCopy (ideal, r_refdef.vieworg);
 
 	// find the spot the player is looking at
-	VectorMA (cl.viewent.origin, 1<<20, forward, temp);
-	TraceLine2 (cl.viewent.origin, temp, crosshair); // woods (Qrack) #betterchase
+	VectorMA (cl.entities[cl.viewentity].origin, 1<<20, forward, temp);
+	TraceLine2 (cl.entities[cl.viewentity].origin, temp, crosshair); // woods (Qrack) #betterchase
 
 	// calculate camera angles to look at the same spot
 	VectorSubtract (crosshair, r_refdef.vieworg, temp);
