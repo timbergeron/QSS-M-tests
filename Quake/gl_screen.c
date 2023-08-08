@@ -2097,18 +2097,19 @@ LaserSight - port from quakespasm-shalrathy / qrack --  woods #laser
 void LaserSight (void)
 {
 	if (cl.viewent.model->name == NULL || cl.intermission || qeintermission || scr_viewsize.value >= 130 || 
-		(countdown && draw) || (qeintermission && draw) || cl.stats[STAT_HEALTH] <= 0) //R00k: dont show laserpoint when observer!
+		(countdown && draw) || (qeintermission && draw) || cl.stats[STAT_HEALTH] <= 0 || 
+		!strcmp(cl.viewent.model->name, "progs/v_axe.mdl") || chase_active.value) //R00k: dont show laserpoint when observer!
 	{
 		return;
 	}
 
-	vec3_t	start, forward, right, up, crosshair, wall;
-	float point1[3];
+	vec3_t	start, forward, right, up, crosshair, wall, origin;
 
 	// copy origin to start, offset it correctly
 
 	AngleVectors(r_refdef.viewangles, forward, right, up);
 	VectorCopy(cl.entities[cl.viewentity].origin, start);
+	VectorCopy(cl.entities[cl.viewentity].origin, origin);
 	start[2] += 16;//QuakeC uses + '0 0 16' for gun aim.
 
 	// find the spot the player is looking at
@@ -2122,22 +2123,31 @@ void LaserSight (void)
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 
-	// set point 1 to players position
-	point1[0] = cl.entities[cl.viewentity].origin[0];
-	point1[1] = cl.entities[cl.viewentity].origin[1];
-	point1[2] = cl.entities[cl.viewentity].origin[2];
+	glColor4f(0.0, 1.0, 0.0, gl_laserpoint_alpha.value); // draw green line
 
-	wall[2] += -8.5; // adjust for relative crosshair
+	if (gl_laserpoint.value) 
+	{
+		glLineWidth(3.0f);
+		glBegin(GL_LINES);
+		if (gl_laserpoint.value == 2) // straight line
+			glVertex3f(crosshair[0], crosshair[1], crosshair[2]);
+		else // straight line, variable crosshair
+			glVertex3f(wall[0], wall[1], wall[2]);
+		glVertex3f(origin[0], origin[1], origin[2]);
+		glEnd();
+		glLineWidth(1.0f);
 
-	// draw green line
-	glColor4f(0.0, 1.0, 0.0, gl_laserpoint_alpha.value);
-	glBegin(GL_LINES);
-	if (gl_laserpoint.value == 2)
-		glVertex3f(crosshair[0], crosshair[1], crosshair[2]);
-	else
-		glVertex3f(wall[0], wall[1], wall[2]);
-	glVertex3f(point1[0], point1[1], point1[2]);
-	glEnd();
+		if (gl_laserpoint.value == 1)
+		{
+			glPointSize(12.0f); // set the size of the point
+			glBegin(GL_POINTS);
+			glVertex3f(wall[0], wall[1], wall[2]);
+			glEnd();
+			glPointSize(1.0f);
+
+			PScript_RunParticleEffectTypeString(wall, NULL, 1, "laserpoint"); // particle cfg "r_part laserpoint" for dot on wall
+		}
+	}
 
 	glColor4f(1, 1, 1, 1);
 	glEnable(GL_TEXTURE_2D);
@@ -2145,10 +2155,7 @@ void LaserSight (void)
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	GL_PolygonOffset(OFFSET_NONE);
 	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
-
-	if (gl_laserpoint.value == 1)
-		PScript_RunParticleEffectTypeString(wall, NULL, 1, "laserpoint"); // particle cfg "r_part laserpoint" for dot on wall
+	glDisable(GL_BLEND);		
 }
 
 //=============================================================================
