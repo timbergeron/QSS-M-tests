@@ -686,6 +686,7 @@ static qboolean Key_IsWordSeparator(char c) // woods (ironwail)
 	switch (c)
 	{
 	case ' ':
+	case '_':
 	case '\t':
 	case ';':
 		return true;
@@ -741,9 +742,15 @@ void Key_Console (int key)
 		if (cls.state == ca_connected && !CheckForCommand() && (cl_say.value == 1 || cl_say.value == 2 || (cl_say.value == 3 && key_lines[edit_line][1] == ' '))) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
 		{
 			if (keydown[K_CTRL])
+			{
 				Cbuf_AddText("say_team ");
+				key_tabhint[0] = '\0';
+			}
 			else
+			{
 				Cbuf_AddText("say ");
+				key_tabhint[0] = '\0';
+			}
 		}
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
