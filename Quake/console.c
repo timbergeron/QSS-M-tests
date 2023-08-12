@@ -1405,6 +1405,8 @@ static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods 
 	return true;
 }
 
+qboolean CompleteImageList (const char* partial, void* unused); // woods
+
 typedef struct arg_completion_type_s // woods #iwtabcomplete
 {
 	const char* command;
@@ -1425,6 +1427,8 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "exec",					CompleteFileList,		&execlist },
 	{ "connect",				CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },
+	{ "imagelist",				CompleteImageList,		NULL },
+	{ "imagedump",				CompleteImageList,		NULL },
 	{ "bind",					CompleteBindKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
 };

@@ -332,6 +332,22 @@ static void TexMgr_Anisotropy_f (cvar_t *var)
 
 /*
 ===============
+CompleteImageList -- woods -- tab completion for imagelist/imagedump -- iw 
+===============
+*/
+qboolean CompleteImageList (const char* partial, void* unused)
+{
+	gltexture_t* glt;
+
+	for (glt = active_gltextures; glt; glt = glt->next)
+		if (Con_Match(glt->name, partial))
+			Con_AddToTabList(glt->name, partial, NULL);
+
+	return true;
+}
+
+/*
+===============
 TexMgr_Imagelist_f -- report loaded textures
 ===============
 */
