@@ -36,6 +36,8 @@ The engine has a few builtins.
 #include "glquake.h"//hack
 #endif
 
+extern cvar_t r_drawflame; // woods #drawflame
+
 #define frandom() (rand()*(1.0f/RAND_MAX))
 #define crandom() (rand()*(2.0f/RAND_MAX)-1.0f)
 #define hrandom() (rand()*(1.0f/RAND_MAX)-0.5f)
@@ -888,6 +890,10 @@ void PScript_UpdateModelEffects(qmodel_t *mod)
 	mod->traileffect = P_INVALID;
 	for(ae = associatedeffect; ae; ae = ae->next)
 	{
+		if (!r_drawflame.value) // woods #drawflame
+			if (!strcmp(mod->name, "progs/flame.mdl") || !strcmp(mod->name, "progs/flame2.mdl"))
+				continue;
+
 		if (!strcmp(ae->mname, mod->name))
 		{
 			switch(ae->type)

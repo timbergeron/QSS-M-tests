@@ -49,6 +49,7 @@ cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates 
 
 extern cvar_t trace_any; // woods #tracers
 extern cvar_t trace_any_contains; // woods #tracers
+extern cvar_t r_drawflame; // woods #drawflame
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
@@ -194,6 +195,16 @@ float GL_WaterAlphaForSurface (msurface_t *fa)
 }
 
 /*
+====================
+ClearParticles_f -- woods #drawflame
+====================
+*/
+static void ClearParticles_f (cvar_t* var)
+{
+	PScript_ClearParticles ();
+}
+
+/*
 ===============
 R_Init
 ===============
@@ -217,6 +228,8 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_novis);
 	Cvar_RegisterVariable (&r_speeds);
 	Cvar_RegisterVariable (&r_pos);
+	Cvar_RegisterVariable (&r_drawflame); // woods #drawflame
+	Cvar_SetCallback (&r_drawflame, ClearParticles_f); // woods #drawflame
 
 	Cvar_RegisterVariable (&gl_finish);
 	Cvar_RegisterVariable (&gl_clear);

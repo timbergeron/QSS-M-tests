@@ -116,6 +116,7 @@ cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 
 cvar_t	trace_any = {"trace_any","0",CVAR_NONE}; // woods #tracers
 cvar_t	trace_any_contains = {"trace_any_contains","item_artifact_super_damage",CVAR_NONE}; // woods #tracers
+cvar_t	r_drawflame = {"r_drawflame","1",CVAR_ARCHIVE}; // woods #drawflame
 
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
@@ -705,6 +706,10 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 			continue;
 		if (!currententity->model || currententity->model->needload)
 			continue;
+
+		if (!r_drawflame.value) // woods
+			if (!strcmp(currententity->model->name, "progs/flame.mdl") || !strcmp(currententity->model->name, "progs/flame2.mdl"))
+				continue;
 
 		switch (currententity->model->type)
 		{
