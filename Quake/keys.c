@@ -1149,15 +1149,45 @@ void Key_Message (int key)
 		return;
 
 	case K_BACKSPACE:
-		if (chat_bufferlen)
-			chat_buffer[--chat_bufferlen] = 0;
-		return;
-	}
+		if (keydown[K_CTRL]) // woods delete entire words
+		{
+			int startPos = chat_bufferlen;
+			// move the cursor to the left, stopping at word boundaries
+			while (startPos > 0 && Key_IsWordSeparator (chat_buffer[startPos - 1]))
+				startPos--;
+			while (startPos > 0 && !Key_IsWordSeparator (chat_buffer[startPos - 1]))
+				startPos--;
 
-	if (keydown[K_CTRL] && key == 'v') // woods zircon (baker)
-	{
-		PasteToMessage ();
+			// Update buffer length
+			chat_bufferlen = startPos;
+			chat_buffer[chat_bufferlen] = '\0';
+		}
+		else 
+		{
+			if (chat_bufferlen > 0) 
+			{
+				chat_bufferlen--;
+				chat_buffer[chat_bufferlen] = '\0';
+			}
+		}
 		return;
+
+	case 'U': // woods delete entire line
+	case 'u':
+		if (keydown[K_CTRL])
+		{
+			chat_buffer[0] = 0; // Clear the chat buffer
+			chat_bufferlen = 0;
+			return;
+		}
+
+	case 'V':
+	case 'v':
+		if (keydown[K_CTRL]) 
+		{
+			PasteToMessage ();
+			return;
+		}
 	}
 }
 
