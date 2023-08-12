@@ -1730,15 +1730,23 @@ void SCR_Observing(void)
 		char buf3[25];
 		const char* obs;
 		const char* observing;
-		int color;
+		int color, y;
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf2, sizeof(buf2));
 		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
-		if (scr_viewsize.value > 110)
+		y = 0;
+
+		if (scr_viewsize.value > 110 || (scr_sbar.value == 3 && sb_showscores))
 			return;
 		
+		if (scr_viewsize.value >= 110 || scr_sbar.value > 1)
+			y += 24;
+
+		if (scr_sbar.value == 3)
+			y += 34;
+
 		if (cl.intermission)
 			return;
 
@@ -1755,15 +1763,15 @@ void SCR_Observing(void)
 			if (!strcmp(obs, "chase")) // chase
 			{
 				sprintf(printtxt, "%s", observing); // print who you are observering
-				M_PrintWhite(166 - (strlen(observing)*4), 0, printtxt);
+				M_PrintWhite(166 - (strlen(observing)*4), y, printtxt);
 			}
 			else if (!strcmp(obs, "eyecam"))// eyecam
 			{
 				if (r_drawviewmodel.value)
-					Draw_Fill(152 - strlen(observing)*4, 0, (strlen(observing)*8) + 15, 9, 0, .8); // show their color
+					Draw_Fill(152 - strlen(observing)*4, y, (strlen(observing)*8) + 15, 9, 0, .8); // show their color
 				sprintf(printtxt, "%s", observing); // // print self (name), viewentity hack (eyecam thinks your are them)
-				M_PrintWhite(165-strlen(observing)*4, 0, printtxt);
-				Draw_Fill(154 - (strlen(observing)*4), 1, 7, 7, color, 1); // show their color
+				M_PrintWhite(165-strlen(observing)*4, y, printtxt);
+				Draw_Fill(154 - (strlen(observing)*4), y + 1, 7, 7, color, 1); // show their color
 			}		
 		}
 	}
