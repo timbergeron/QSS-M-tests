@@ -121,6 +121,21 @@ void M_Print (int cx, int cy, const char *str)
 	}
 }
 
+void M_DrawCharacterRGBA (int cx, int line, int num, plcolour_t c, float alpha) // woods
+{
+	Draw_CharacterRGBA (cx, line, num, c, alpha);
+}
+
+void M_PrintRGBA (int cx, int cy, const char* str, plcolour_t c, float alpha) // woods
+{
+	while (*str)
+	{
+		M_DrawCharacterRGBA (cx, cy, (*str), c, alpha);
+		str++;
+		cx += 8;
+	}
+}
+
 void M_Print2 (int cx, int cy, const char* str) // woods #speed yellow/gold numbers
 {
 	while (*str)
@@ -681,7 +696,7 @@ void M_MultiPlayer_Key (int key)
 /* SETUP MENU */
 
 static int		setup_cursor = 5; // woods 4 to 5 #namemaker
-static int		setup_cursor_table[] = {40, 56, 80, 104, 128, 166}; // woods add value, change position #namemaker #colorbar
+static int		setup_cursor_table[] = {40, 56, 72, 88, 112, 150}; // woods add value, change position #namemaker #colorbar
 
 char	namemaker_name[16]; // woods #namemaker
 qboolean namemaker_shortcut = false; // woods #namemaker
@@ -754,10 +769,13 @@ static void hsvtorgb(float inh, float s, float v, byte *out)
 	out[2] = b;
 };
 
+qboolean rgbactive; // woods
+
 void M_AdjustColour(plcolour_t *tr, int dir)
 {
 	if (keydown[K_SHIFT])
 	{
+		rgbactive = true; // woods
 		vec3_t hsv;
 		rgbtohsv(CL_PLColours_ToRGB(tr), hsv);
 
@@ -806,25 +824,29 @@ void M_DrawColorBar_Top (int x, int y, int highlight) // woods #colorbar -- mh
 	int intense = highlight * 16 + (highlight < 8 ? 11 : 4);
 
 	if (setup_top.type == 2)
-		return;
-
-	// position correctly
-	x = 64;
-
-	for (i = 0; i < 14; i++)
 	{
-		// take the approximate midpoint colour (handle backward ranges)
-		int c = i * 16 + (i < 8 ? 8 : 7);
-
-		// braw baseline colour (offset downwards a little so that it fits correctly
-		Draw_Fill(x + i * 8, y + 4, 8, 8, c, 1);
+		Draw_FillPlayer (x, y + 4, 8, 8, setup_top, 1);
 	}
+	else
+	{
+		// position correctly
+		x = 64;
 
-	// draw the highlight rectangle
-	Draw_Fill(x - 1 + highlight * 8, y + 3, 10, 10, 15, 1);
+		for (i = 0; i < 14; i++)
+		{
+			// take the approximate midpoint colour (handle backward ranges)
+			int c = i * 16 + (i < 8 ? 8 : 7);
 
-	// redraw the highlighted color at brighter intensity
-	Draw_Fill(x + highlight * 8, y + 4, 8, 8, intense, 1);
+			// braw baseline colour (offset downwards a little so that it fits correctly
+			Draw_Fill(x + i * 8, y + 4, 8, 8, c, 1);
+		}
+
+		// draw the highlight rectangle
+		Draw_Fill(x - 1 + highlight * 8, y + 3, 10, 10, 15, 1);
+
+		// redraw the highlighted color at brighter intensity
+		Draw_Fill(x + highlight * 8, y + 4, 8, 8, intense, 1);
+	}
 }
 
 void M_DrawColorBar_Bot (int x, int y, int highlight) // woods #colorbar -- mh
@@ -833,25 +855,29 @@ void M_DrawColorBar_Bot (int x, int y, int highlight) // woods #colorbar -- mh
 	int intense = highlight * 16 + (highlight < 8 ? 11 : 4);
 
 	if (setup_bottom.type == 2)
-		return;
-
-	// position correctly
-	x = 64;
-
-	for (i = 0; i < 14; i++)
 	{
-		// take the approximate midpoint colour (handle backward ranges)
-		int c = i * 16 + (i < 8 ? 8 : 7);
-
-		// braw baseline colour (offset downwards a little so that it fits correctly
-		Draw_Fill(x + i * 8, y + 4, 8, 8, c, 1);
+		Draw_FillPlayer (x, y + 4, 8, 8, setup_bottom, 1);
 	}
+	else
+	{
+		// position correctly
+		x = 64;
 
-	// draw the highlight rectangle
-	Draw_Fill(x - 1 + highlight * 8, y + 3, 10, 10, 15, 1);
+		for (i = 0; i < 14; i++)
+		{
+			// take the approximate midpoint colour (handle backward ranges)
+			int c = i * 16 + (i < 8 ? 8 : 7);
 
-	// redraw the highlighted color at brighter intensity
-	Draw_Fill(x + highlight * 8, y + 4, 8, 8, intense, 1);
+			// braw baseline colour (offset downwards a little so that it fits correctly
+			Draw_Fill(x + i * 8, y + 4, 8, 8, c, 1);
+		}
+
+		// draw the highlight rectangle
+		Draw_Fill(x - 1 + highlight * 8, y + 3, 10, 10, 15, 1);
+
+		// redraw the highlighted color at brighter intensity
+		Draw_Fill(x + highlight * 8, y + 4, 8, 8, intense, 1);
+	}
 }
 
 void M_Setup_Draw (void)
@@ -888,26 +914,29 @@ void M_Setup_Draw (void)
 	M_DrawTextBox (160, 48, 16, 1);
 	M_PrintWhite (168, 56, setup_myname); // woods change to white #namemaker
 
-	M_Print(64, 80, "Name Maker"); // woods #namemaker
+	M_Print(64, 72, "Name Maker"); // woods #namemaker
 
-	M_Print (64, 104, "Shirt -"); // woods 80 to 104 #namemaker #showcolornum
-	M_PrintWhite (126, 104, CL_PLColours_ToString(setup_top)); // woods #showcolornum
-	M_DrawColorBar_Top (64, 112, atoi(CL_PLColours_ToString(setup_top))); // woods #colorbar
-	M_Print (64, 128, "Pants -"); // woods 104 to 128 #namemaker #showcolornum
-	M_PrintWhite (126, 128, CL_PLColours_ToString(setup_bottom)); // woods #showcolornum
-	M_DrawColorBar_Bot (64, 136, atoi(CL_PLColours_ToString(setup_bottom))); // woods #colorbar
+	M_Print (64, 88, "Shirt -"); // woods 80 to 104 #namemaker #showcolornum
+	M_PrintWhite (126, 88, CL_PLColours_ToString (setup_top)); // woods #showcolornum
+	M_DrawColorBar_Top (64, 94, atoi(CL_PLColours_ToString (setup_top))); // woods #colorbar
+	M_Print (64, 112, "Pants -"); // woods 104 to 128 #namemaker #showcolornum
+	M_PrintWhite (126, 112, CL_PLColours_ToString (setup_bottom)); // woods #showcolornum
+	M_DrawColorBar_Bot (64, 118, atoi(CL_PLColours_ToString (setup_bottom))); // woods #colorbar
 
-	M_DrawTextBox (64, 166-8, 14, 1);  // woods 140 to 152 #namemaker
-	M_Print (72, 166, "Accept Changes"); // woods #colorbar
+	if (!rgbactive) // woods
+		M_PrintRGBA (64, 170, "Shift For RGB Colors", CL_PLColours_Parse ("0xffffff"), 0.6f); // woods
+
+	M_DrawTextBox (64, 142, 14, 1);  // woods 140 to 152 #namemaker
+	M_Print (72, 150, "Accept Changes"); // woods #colorbar
 
 	p = Draw_CachePic ("gfx/bigbox.lmp");
-	M_DrawTransPic (190, 87, p); // woods #colorbar
+	M_DrawTransPic (196, 77, p); // woods #colorbar
 	p = Draw_CachePic ("gfx/menuplyr.lmp");
 
 	setup_top = CL_PLColours_Parse(CL_PLColours_ToString(setup_top)); // woods menu color fix
 	setup_bottom = CL_PLColours_Parse(CL_PLColours_ToString(setup_bottom)); // woods menu color fix
 
-	M_DrawTransPicTranslate (202, 95, p, setup_top, setup_bottom); // woods #colorbar
+	M_DrawTransPicTranslate (208, 85, p, setup_top, setup_bottom); // woods #colorbar
 
 	M_DrawCharacter (56, setup_cursor_table [setup_cursor], 12+((int)(realtime*4)&1));
 
@@ -918,6 +947,7 @@ void M_Setup_Draw (void)
 		M_DrawCharacter (168 + 8*strlen(setup_myname), setup_cursor_table [setup_cursor], 10+((int)(realtime*4)&1));
 }
 
+char lastColorSelected[10]; // woods
 
 void M_Setup_Key (int k)
 {
@@ -949,6 +979,7 @@ void M_Setup_Key (int k)
 			setup_cursor = 0;
 		break;
 
+	case K_MWHEELDOWN:
 	case K_LEFTARROW:
 		if (setup_cursor < 2)
 			return;
@@ -956,6 +987,7 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 		{
 			M_AdjustColour(&setup_top, -1);
+			strncpy (lastColorSelected, CL_PLColours_ToString (setup_top), sizeof ((CL_PLColours_ToString (setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
@@ -963,11 +995,13 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
 			M_AdjustColour(&setup_bottom, -1);
+			strncpy (lastColorSelected, CL_PLColours_ToString (setup_bottom), sizeof ((CL_PLColours_ToString (setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
 		}
 		break;
+	case K_MWHEELUP:
 	case K_RIGHTARROW:
 		if (setup_cursor < 2)
 			return;
@@ -976,6 +1010,7 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 		{
 			M_AdjustColour(&setup_top, +1);
+			strncpy (lastColorSelected, CL_PLColours_ToString (setup_top), sizeof ((CL_PLColours_ToString (setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
@@ -983,6 +1018,7 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
 			M_AdjustColour(&setup_bottom, +1);
+			strncpy (lastColorSelected, CL_PLColours_ToString (setup_bottom), sizeof ((CL_PLColours_ToString (setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
@@ -1034,6 +1070,17 @@ void M_Setup_Key (int k)
 		{
 			if (strlen(setup_myname))
 				setup_myname[strlen(setup_myname)-1] = 0;
+		}
+		break;
+
+	case 'c': // woods, copy color
+	case 'C':
+		if (keydown[K_CTRL])
+		{
+			if (lastColorSelected[0] != '\0')
+				SDL_SetClipboardText (lastColorSelected);
+			else
+				SDL_SetClipboardText (CL_PLColours_ToString (setup_bottom));
 		}
 		break;
 

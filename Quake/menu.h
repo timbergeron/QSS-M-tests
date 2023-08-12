@@ -69,6 +69,8 @@ void M_Menu_Quit_f (void);
 
 void M_Print (int cx, int cy, const char *str);
 void M_Print2 (int cx, int cy, const char* str); // woods #speed yellow numbers
+void M_DrawCharacterRGBA (int cx, int line, int num, plcolour_t c, float alpha); // woods
+void M_PrintRGBA (int cx, int cy, const char* str, plcolour_t c, float alpha); // woods
 void M_PrintWhite (int cx, int cy, const char *str);
 
 void M_Draw (void);
