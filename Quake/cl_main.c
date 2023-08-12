@@ -1217,8 +1217,9 @@ void CL_RelinkEntities (void)
 	if (r_drawviewmodel.value
 		&& !chase_active.value
 		&& cl.stats[STAT_HEALTH] > 0
-		&& !(cl.items & IT_INVISIBILITY)
-		&& ent->model)
+		/* && !(cl.items & IT_INVISIBILITY)*/ // woods #ringalpha
+		&& ent->model
+		&& scr_viewsize.value < 130) // woods
 	{
 		if (cl_numvisedicts < cl_maxvisedicts)
 		{
