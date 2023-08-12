@@ -1099,6 +1099,35 @@ void Key_EndChat (void)
 	chat_buffer[0] = 0;
 }
 
+void PasteToMessage (void) // woods zircon (baker)
+{
+	char* cbd, * p;
+	if ((cbd = PL_GetClipboardData()) != 0) 
+	{
+		int i;
+		p = cbd;
+		while (*p)
+		{
+			if (*p == '\r' && *(p + 1) == '\n') { *p++ = ';'; *p++ = ' '; }
+			else if (*p == '\n' || *p == '\r' || *p == '\b') { *p++ = ';'; }
+			p++;
+		}
+
+		i = (int)strlen (cbd);
+		if (i + chat_bufferlen >= sizeof (chat_buffer))
+			i = sizeof (chat_buffer) - chat_bufferlen - 1;
+		if (i > 0)
+		{
+			int chatpos = chat_bufferlen;
+			cbd[i] = 0;
+
+			memmove (chat_buffer + chatpos + i, chat_buffer + chatpos, sizeof (chat_buffer) - chatpos - i);
+			memcpy (chat_buffer + chatpos, cbd, i);
+		}
+		chat_bufferlen = (unsigned int)strlen (chat_buffer);
+	}
+}
+
 void Key_Message (int key)
 {
 	switch (key)
@@ -1122,6 +1151,12 @@ void Key_Message (int key)
 	case K_BACKSPACE:
 		if (chat_bufferlen)
 			chat_buffer[--chat_bufferlen] = 0;
+		return;
+	}
+
+	if (keydown[K_CTRL] && key == 'v') // woods zircon (baker)
+	{
+		PasteToMessage ();
 		return;
 	}
 }
