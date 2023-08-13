@@ -50,6 +50,7 @@ cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates 
 extern cvar_t trace_any; // woods #tracers
 extern cvar_t trace_any_contains; // woods #tracers
 extern cvar_t r_drawflame; // woods #drawflame
+extern cvar_t cl_r2g; // woods r2g
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
@@ -278,6 +279,7 @@ void R_Init (void)
 
 	Cvar_RegisterVariable (&cl_damagehue);   // woods #damage
 	Cvar_RegisterVariable(&cl_autodemo);   // woods #autodemo
+	Cvar_RegisterVariable (&cl_r2g); // woods #r2g
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
 	Cvar_RegisterVariable (&r_lavaalpha);

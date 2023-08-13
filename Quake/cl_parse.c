@@ -44,6 +44,7 @@ int VID_GetCurrentDPI(void);
 extern cvar_t gl_overbright_models; // woods for f_config
 
 int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
+int grenadecache; // woods r2g
 
 extern int	maptime; // woods connected map time #maptime
 extern char videosetg[50];	// woods #q_sysinfo (qrack)
@@ -1523,6 +1524,9 @@ static void CL_ParseServerInfo (void)
 
 		if (!strcmp(str, "progs/flag.mdl")) // find the precache number #alternateflags
 			ogflagprecache = cl.model_count;
+
+		if (!strcmp(str, "progs/grenade.mdl")) // woods r2g
+			grenadecache = cl.model_count;
 	}
 
 	if (COM_FileExists("progs/ctfmodel.mdl", NULL)) // woods -> does client have alternate flag model? Quake Mission Pack 2: Dissolution of Eternity (Rogue) -- official #alternateflags
