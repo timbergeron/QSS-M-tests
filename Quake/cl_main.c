@@ -1728,18 +1728,11 @@ void CL_Viewpos_f (void)
 		(int)r_refdef.viewangles[ROLL]);
 #else
 	//player position
-<<<<<<< HEAD
-	Con_Printf ("Viewpos: (%i %i %i) %i %i %i\n",
+	q_snprintf (buf, sizeof (buf),
+		"(%i %i %i) %i %i %i",
 		(int)cl.entities[cl.viewentity].origin[0],
 		(int)cl.entities[cl.viewentity].origin[1],
 		(int)cl.entities[cl.viewentity].origin[2],
-=======
-	q_snprintf (buf, sizeof (buf),
-		"(%i %i %i) %i %i %i",
-		(int)cl_entities[cl.viewentity].origin[0],
-		(int)cl_entities[cl.viewentity].origin[1],
-		(int)cl_entities[cl.viewentity].origin[2],
->>>>>>> ec5f1258 (Add optional `copy` argument to `viewpos` command (#71))
 		(int)cl.viewangles[PITCH],
 		(int)cl.viewangles[YAW],
 		(int)cl.viewangles[ROLL]
