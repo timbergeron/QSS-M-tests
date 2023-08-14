@@ -1361,7 +1361,7 @@ void SCR_DrawMatchScores(void)
 					else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
 					{
 						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
-							snprintf(num, sizeof(num), "+%-i (%i)", diff, capdiff);
+							snprintf(num, sizeof(num), "-%-i (%i)", diff, capdiff);
 						else
 							snprintf(num, sizeof(num), "-%-i", diff);
 						M_Print(120 - (strlen(num) << 3), y + 20, num);
