@@ -84,6 +84,7 @@ void _VectorCopy (const vec3_t in, vec3_t out);
 
 int VectorCompare (const vec3_t v1, const vec3_t v2);
 vec_t VectorLength (const vec3_t v);
+float VecLength2 (vec3_t v1, vec3_t v2); // woods #chase_transparent
 void CrossProduct (const vec3_t v1, const vec3_t v2, vec3_t cross);
 float VectorNormalize (vec3_t v);		// returns vector length
 void VectorInverse (vec3_t v);
