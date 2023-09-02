@@ -268,7 +268,7 @@ void Chase_UpdateForDrawing (void)
 		alpha = bound(0, (alphadist / absdist), 1);
 
 
-		if (alpha < 1 && alpha > 0.6 || alpha < 0.09) 
+		if ((alpha < 1 && alpha > 0.6) || alpha < 0.09)
 			alpha = (alpha < 0.09) ? 0 : 1;
 
 		cl.entities[cl.viewentity].alpha = ENTALPHA_ENCODE((q_min(alpha, 1)));
