@@ -1712,6 +1712,29 @@ char* COM_TintSubstring(const char* in, const char* substr, char* out, size_t ou
 }
 
 /*
+================
+COM_TintString  --  woods (ironwail)
+================
+*/
+char* COM_TintString(const char* in, char* out, size_t outsize)
+{
+	char* ret = out;
+	if (!outsize)
+		return "";
+	--outsize;
+	while (*in && outsize > 0)
+	{
+		char c = *in++;
+		if (c > ' ')
+			c |= 0x80;
+		*out++ = c;
+		--outsize;
+	}
+	*out++ = '\0';
+	return ret;
+}
+
+/*
 spike -- this function simply says whether a filename is acceptable for downloading (used by both client+server)
 */
 qboolean COM_DownloadNameOkay(const char *filename)

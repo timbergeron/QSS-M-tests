@@ -767,6 +767,7 @@ void Key_Console (int key)
 		key_lines[edit_line][0] = ']';
 		key_lines[edit_line][1] = 0; //johnfitz -- otherwise old history items show up in the new edit line
 		key_linepos = 1;
+		key_tabhint[0] = '\0'; // woods #iwtabcomplete
 		if (cls.state == ca_disconnected)
 			SCR_UpdateScreen (); // force an update, because the command may take some time
 		if (cl_say.value == 2 || cl_say.value == 3) // woods #ezsay add leading space for mode 2

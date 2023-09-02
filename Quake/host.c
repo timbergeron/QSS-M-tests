@@ -1464,6 +1464,7 @@ void Host_Init (void)
 
 		V_Init ();
 		Chase_Init ();
+		M_Init (); // woods move this up for tab complete system #iwtabcomplete
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
 		DemoList_Init (); //ericw
@@ -1501,8 +1502,6 @@ void Host_Init (void)
 	Cbuf_AddText ("alias startmap_sp \"map start\"\n");
 	Cbuf_AddText ("alias startmap_dm \"map start\"\n");
 
-	if (cls.state != ca_dedicated)
-		M_Init ();
 	if (setjmp (host_abortserver) )
 		return;			// don't do the above twice if the following Cbuf_Execute does bad things.
 

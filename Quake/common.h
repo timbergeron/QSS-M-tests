@@ -296,6 +296,7 @@ char *va (const char *format, ...) FUNC_PRINTF(1,2);
 // does a varargs printf into a temp buffer
 
 char* COM_TintSubstring(const char* in, const char* substr, char* out, size_t outsize); // woods add filter (ironwail)
+char* COM_TintString(const char* in, char* out, size_t outsize); // woods (ironwail)
 
 unsigned COM_HashString (const char *str);
 

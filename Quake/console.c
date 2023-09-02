@@ -1523,6 +1523,9 @@ void Con_TabComplete (tabcomplete_t mode)
 	{
 		key_tabpartial[0] = '\0';
 
+		if ((key_lines[edit_line][1] == ' ')) // woods no auto hints if leading space for chatting from console
+			return;
+
 		// only show completion hint when the cursor is at the end of the line
 		if ((size_t)key_linepos >= sizeof(key_lines[edit_line]) || key_lines[edit_line][key_linepos])
 			return;
