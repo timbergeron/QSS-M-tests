@@ -690,6 +690,48 @@ void Draw_String (int x, int y, const char *str)
 }
 
 /*
+================
+Draw_StringRGBA -- woods
+================
+*/
+void Draw_StringRGBA (int x, int y, const char* str, plcolour_t c, float alpha)
+{
+	//if (y <= -8) // woods enabled for more printing options #varmatchclock
+	//	return;			// totally off screen
+
+	glEnable(GL_BLEND);
+
+	if (c.type == 2)
+		glColor4f(c.rgb[0] / 255.0, c.rgb[1] / 255.0, c.rgb[2] / 255.0, alpha);
+	else
+	{
+		byte* pal = (byte*)&d_8to24table[(c.basic << 4) + 8];
+		glColor4f(pal[0] / 255.0, pal[1] / 255.0, pal[2] / 255.0, alpha);
+	}
+
+	glDisable(GL_ALPHA_TEST);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	GL_Bind(char_texture);
+	glBegin(GL_QUADS);
+
+	while (*str)
+	{
+		if (*str != 32) //don't waste verts on spaces
+			Draw_CharacterQuad(x, y, *str);
+		str++;
+		x += 8;
+	}
+
+	glEnd();
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+	glColor4f(1, 1, 1, 1);
+}
+
+/*
 =============
 Draw_Pic -- johnfitz -- modified
 =============
