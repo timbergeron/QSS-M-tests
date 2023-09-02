@@ -68,6 +68,7 @@ cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 cvar_t  cl_rocketlight = {"cl_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
 cvar_t  cl_muzzleflash = {"cl_muzzleflash", "0", CVAR_ARCHIVE}; // woods #muzzleflash
 cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #deadbody
+cvar_t	cl_r2g = {"cl_r2g","0",CVAR_ARCHIVE}; // woods #r2g
 
 cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
 cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
@@ -103,6 +104,7 @@ void Host_ConnectToLastServer_f(void); // woods use #connectlast for smarter rec
 extern char lastconnected[3]; // woods #identify+
 extern qboolean netquakeio; // woods
 extern int retry_counter; // woods #ms
+extern int grenadecache, rocketcache; // woods #r2g
 
 void CL_ClearTrailStates(void)
 {
@@ -940,6 +942,7 @@ void CL_RelinkEntities (void)
 	dlight_t	*dl;
 	float		frametime;
 	int			modelflags;
+	qmodel_t	*model; // woods #r2g
 
 // determine partial update time
 	frac = CL_LerpPoint ();
@@ -1089,6 +1092,15 @@ void CL_RelinkEntities (void)
 		if (((ent->model->type == mod_alias) && cl.gametype == GAME_DEATHMATCH) && cl_deadbodyfilter.value)
 			if (ent->frame == 49 || ent->frame == 60 || ent->frame == 69 || ent->frame == 84 || ent->frame == 93 || ent->frame == 102)
 				continue;
+
+		if (cl_r2g.value && (ent->netstate.modelindex == rocketcache) && rocketcache != 1 && grenadecache != 1) // woods #r2g
+		{
+			model = cl.model_precache[grenadecache];
+			cl.model_precache[grenadecache]->fromrl = 1;
+			ent->model = model;
+		}
+		else
+			cl.model_precache[grenadecache]->fromrl = 0;
 
 		if (ent->effects & EF_BRIGHTLIGHT)
 		{
@@ -2050,6 +2062,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_rocketlight); // woods #rocketlight
 	Cvar_RegisterVariable (&cl_muzzleflash); // woods #muzzleflash
 	Cvar_RegisterVariable (&cl_deadbodyfilter); // woods #deadbody
+	Cvar_RegisterVariable (&cl_r2g); // woods #r2g
 
 	Cvar_RegisterVariable (&w_switch); // woods #autoweapon
 	Cvar_RegisterVariable (&b_switch); // woods #autoweapon

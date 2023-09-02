@@ -37,6 +37,7 @@ The engine has a few builtins.
 #endif
 
 extern cvar_t r_drawflame; // woods #drawflame
+extern int grenadecache; // woods #r2g
 
 #define frandom() (rand()*(1.0f/RAND_MAX))
 #define crandom() (rand()*(2.0f/RAND_MAX)-1.0f)
@@ -5462,6 +5463,10 @@ int PScript_EntParticleTrail(vec3_t oldorg, entity_t *ent, const char *name)
 	int type = PScript_FindParticleType(name);
 	if (type < 0)
 		return 1;
+
+	if (!strcmp(ent->model->name, "progs/grenade.mdl")) // woods #r2g
+		if (cl.model_precache[grenadecache]->fromrl == 1)
+			type = PScript_FindParticleType("TR_ROCKET");
 
 	AngleVectors(ent->angles, axis[0], axis[1], axis[2]);
 	return PScript_ParticleTrail(oldorg, ent->origin, type, timeinterval, ent-cl.entities, axis, &ent->trailstate);

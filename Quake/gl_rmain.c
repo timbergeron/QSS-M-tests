@@ -117,14 +117,12 @@ cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 cvar_t	trace_any = {"trace_any","0",CVAR_NONE}; // woods #tracers
 cvar_t	trace_any_contains = {"trace_any_contains","item_artifact_super_damage",CVAR_NONE}; // woods #tracers
 cvar_t	r_drawflame = {"r_drawflame","1",CVAR_ARCHIVE}; // woods #drawflame
-cvar_t	cl_r2g = {"cl_r2g","0",CVAR_ARCHIVE}; // woods #r2g
 
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
 
 int	map_ctf_flag_style; // woods #alternateflags
 extern int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
-extern int grenadecache; // woods r2g
 
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
 
@@ -716,12 +714,6 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		switch (currententity->model->type)
 		{
 			case mod_alias:
-
-				if (grenadecache && cl_r2g.value && !strcmp(currententity->model->name, "progs/missile.mdl")) // woods r2g
-				{
-						currententity->syncbase = 0;
-						currententity->model = cl.model_precache[grenadecache];
-				}
 
 				if (swapflagprecache && map_ctf_flag_style == 2 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
 				{

@@ -465,6 +465,7 @@ typedef struct qmodel_s
 	synctype_t	synctype;
 
 	int			flags;
+	int			fromrl; // woods #r2g
 
 #ifdef PSET_SCRIPT
 	int			emiteffect;		//spike -- this effect is emitted per-frame by entities with this model
