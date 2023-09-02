@@ -31,6 +31,7 @@ extern double  mpservertime;	// woods #servertime
 extern char mute[2];			// woods for mute to memory #usermute
 int	fragsort[MAX_SCOREBOARD]; // woods #scrping
 int	scoreboardlines; // woods #scrping
+extern char	lastmphost[NET_NAMELEN]; // woods
 
 #define STAT_MINUS		10	// num frame for '-' stats digit
 
@@ -389,29 +390,30 @@ void Sbar_DrawString (int x, int y, const char *str)
 ===============
 Sbar_DrawScrollString -- johnfitz
 
-scroll the string inside a glscissor region
+scroll the string inside a glscissor region -- woods added 5 pixel margins, etc
 ===============
 */
 void Sbar_DrawScrollString (int x, int y, int width, const char *str)
 {
 	float scale;
-	int len, ofs, left;
+	int strLen, totalLen, ofs, left;
 
 	scale = CLAMP (1.0f, scr_sbarscale.value, (float)glwidth / 320.0f);
-	left = x * scale;
+	left = (x + 5) * scale;
 	//if (cl.gametype != GAME_DEATHMATCH) // woods sbar now middle default
 		left += (((float)glwidth - 320.0 * scale) / 2);
 
 	glEnable (GL_SCISSOR_TEST);
-	glScissor (left, 0, width * scale, glheight);
+	glScissor (left, 0, (width - 10) * scale, glheight);
 
-	len = strlen(str)*8 + 40;
-	ofs = ((int)(realtime*30))%len;
-	Sbar_DrawString (x - ofs, y, str);
-	//Sbar_DrawCharacter (x - ofs + len - 32, y, '/'); // woods
-	//Sbar_DrawCharacter (x - ofs + len - 24, y, '/'); // woods
-	//Sbar_DrawCharacter (x - ofs + len - 16, y, '/'); // woods
-	Sbar_DrawString (x - ofs + len, y, str);
+	strLen = strlen(str) * 8;
+	totalLen = strLen + 3 * 8;  // text width + " - " divider width
+
+	ofs = ((int)(realtime * 30)) % totalLen;
+
+	Sbar_DrawString (x - ofs + 5, y, str);
+	Sbar_DrawString (x - ofs + 5 + strLen, y, " Ž ");
+	Sbar_DrawString (x - ofs + 5 + totalLen, y, str);
 
 	glDisable (GL_SCISSOR_TEST);
 }
@@ -645,10 +647,21 @@ void Sbar_SoloScoreboard (void)
 			Sbar_DrawString(160 - strlen(str) * 4, 12, str);
 		}
 
-		if (cl.levelname[0]) // woods iw 74dd336
-			q_snprintf (str, sizeof(str), "%s (%s)", cl.levelname, cl.mapname);
+		if (cl.maxclients > 1)
+		{
+			if (cl.levelname[0]) // if there's a level name
+				q_snprintf(str, sizeof(str), "%s (%s) Ž %s", cl.levelname, cl.mapname, lastmphost);
+			else
+				q_snprintf(str, sizeof(str), "%s Ž %s", cl.mapname, lastmphost);
+		}
 		else
-			q_strlcpy (str, cl.mapname, sizeof(str));
+		{ 
+			if (cl.levelname[0]) // if there's a level name
+				q_snprintf (str, sizeof(str), "%s (%s)", cl.levelname, cl.mapname);
+			else
+				q_snprintf (str, sizeof(str), "%s", cl.mapname);
+		}
+
 		len = strlen (str);
 		if (len > 40)
 			Sbar_DrawScrollString (0, 4, 320, str);
