@@ -1376,6 +1376,8 @@ void Cmd_ForwardToServer (void)
 	{
 		if (ctrlpressed && !q_strcasecmp(Cmd_Argv(0), "say")) // woods #saymodifier
 			SZ_Print(&cls.message, "say_team");
+		else if (ctrlpressed && !q_strcasecmp(Cmd_Argv(0), "say_team")) // woods #saymodifier
+			SZ_Print(&cls.message, "say");
 		else
 			SZ_Print(&cls.message, Cmd_Argv(0));
 		SZ_Print(&cls.message, " ");
