@@ -747,6 +747,8 @@ void V_CalcViewRoll (void)
 	if (cl.stats[STAT_HEALTH] <= 0)
 	{
 		r_refdef.viewangles[ROLL] = 80;	// dead view angle
+		memcpy (cl.death_location, cl.entities[cl.viewentity].origin, sizeof(vec3_t)); // woods
+
 		return;
 	}
 }
