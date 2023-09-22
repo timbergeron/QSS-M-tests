@@ -980,11 +980,11 @@ void R_DrawShadows (void)
 	{
 		currententity = cl_visedicts[i];
 
-		if (currententity->model->type != mod_alias)
+		if (!currententity->model) // woods
 			continue;
 
-		if (currententity == &cl.entities[cl.viewentity]) // woods
-			return;
+		if (currententity->model->type != mod_alias)
+			continue;
 
 		GL_DrawAliasShadow (currententity);
 	}
