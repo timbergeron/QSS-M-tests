@@ -607,6 +607,11 @@ static void CL_EntitiesDeltaed(void)
 
 			ent->msgtime = cl.mtime[0];
 
+			if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]]) // woods
+			{
+				cl.viewent.lerpflags |= LERP_RESETANIM; //don't lerp animation across model changes
+			}
+
 		// shift the known values for interpolation
 			VectorCopy (ent->msg_origins[0], ent->msg_origins[1]);
 			VectorCopy (ent->msg_angles[0], ent->msg_angles[1]);
@@ -2030,10 +2035,6 @@ static void CL_ParseClientdata (void)
 		CL_SetHudStat(STAT_NAILS, ammovals[1]);
 		CL_SetHudStat(STAT_ROCKETS, ammovals[2]);
 		CL_SetHudStat(STAT_CELLS, ammovals[3]);
-
-		// woods for death location for LOCs #pqteam
-		if (health <= 0)
-			memcpy (cl.death_location, cl.entities[cl.viewentity].origin, sizeof(vec3_t));
 	}
 
 	//johnfitz -- lerping
@@ -3331,7 +3332,7 @@ void CL_ParseServerMessage (void)
 			Host_EndGame ("Server disconnected\n");
 
 		case svc_print:
-			s = MSG_ReadString();           //   woods pq string #pqteam
+ 			s = MSG_ReadString();           //   woods pq string #pqteam
 			CL_ParseProQuakeString(s);      //   woods pq string #pqteam
 			CL_ParsePrint(s);				//   woods pq string #pqteam
 			break;
