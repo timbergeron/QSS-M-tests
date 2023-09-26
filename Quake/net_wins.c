@@ -508,8 +508,7 @@ const char *WINS_AddrToString (struct qsockaddr *addr, qboolean masked)
 		haddr = ntohl(((struct sockaddr_in *)addr)->sin_addr.s_addr);
 		if (masked)
 		{
-			sprintf(buffer, "%d.%d.%d.0/24", (haddr >> 24) & 0xff,
-					  (haddr >> 16) & 0xff, (haddr >> 8) & 0xff);
+			sprintf(buffer, "private");
 		}
 		else
 		{
