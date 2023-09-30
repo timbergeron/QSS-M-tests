@@ -3039,7 +3039,9 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			}
 			else
 			{
-				if (!strncmp(buf2, "13.", 3))
+				if (!strncmp(buf2, "14.", 3))
+					os_codename = "macOS Sonoma (2023)";
+				else if (!strncmp(buf2, "13.", 3))
 					os_codename = "macOS Ventura (2022)";
 				else if (!strncmp(buf2, "12.", 3))
 					os_codename = "macOS Monterey (2021)";
