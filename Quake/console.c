@@ -57,7 +57,7 @@ extern qboolean cl_mm2; // woods #con_mm1mute
 extern char afk_name[16]; // woods #smartafk
 
 cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
-cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
+cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_ARCHIVE}; //johnfitz
 
 cvar_t		con_filter = { "con_filter", "1", CVAR_ARCHIVE }; //johnfitz
 cvar_t		con_notifylist = { "con_notifylist", "", CVAR_ARCHIVE }; // woods #notiy
