@@ -1422,7 +1422,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 		else
 		{
 			MSG_WriteLong(&net_message, (int)(net_time - client->netconnection->connecttime));
-			MSG_WriteString(&net_message, NET_QSocketGetMaskedAddressString(client->netconnection));
+			MSG_WriteString(&net_message, "private"); // woods (r00k)
 		}
 		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 		dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
