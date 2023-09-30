@@ -1426,6 +1426,8 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "sky",					CompleteFileList,		&skylist },
 	{ "exec",					CompleteFileList,		&execlist },
 	{ "connect",				CompleteFileList,		&serverlist },
+	{ "test",					CompleteFileList,		&serverlist },
+	{ "test2",					CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },
 	{ "imagelist",				CompleteImageList,		NULL },
 	{ "imagedump",				CompleteImageList,		NULL },
