@@ -1425,6 +1425,7 @@ Sbar_DrawFace
 void Sbar_DrawFace (void)
 {
 	int	f, anim;
+	plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
 
 // PGM 01/19/97 - team color drawing
 // PGM 03/02/97 - fixed so color swatch only appears in CTF modes
@@ -1507,8 +1508,8 @@ void Sbar_DrawFace (void)
 		anim = 0;
 	Sbar_DrawPic (112, 0, sb_faces[f][anim]);
 
-	if (cl.time <= cl.faceanimtime) // woods for damagehue on sbar face
- 	Draw_Fill(112, 24, 24, 25, 25, .2);
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value && cl_damagehuecolor.value) // woods for damagehue on sbar face
+ 		Draw_FillPlayer(112, 24, 24, 25, color, .2);
 }
 
 /*
@@ -1719,6 +1720,8 @@ void Sbar_Draw (void)
 
 	if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // qe hud does not use 'traditional sbar' #qehud
 	{
+		plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
+		
 		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 
 		// armor
@@ -1765,8 +1768,8 @@ void Sbar_Draw (void)
 		// face
 		Sbar_DrawPic(18, 140, Sbar_FacePic());
 
-		if (cl.time <= cl.faceanimtime) // woods for damagehue on sbar face
-			Draw_Fill (18, 163, 24, 25, 24, .2);
+		if (cl.time <= cl.faceanimtime && cl_damagehue.value && cl_damagehuecolor.value) // woods for damagehue on sbar face
+			Draw_FillPlayer (18, 163, 24, 25, color, .2);
 
 		// health
 

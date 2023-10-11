@@ -277,6 +277,7 @@ void R_Init (void)
 	//johnfitz
 
 	Cvar_RegisterVariable (&cl_damagehue);   // woods #damage
+	Cvar_RegisterVariable (&cl_damagehuecolor);   // woods #damage
 	Cvar_RegisterVariable(&cl_autodemo);   // woods #autodemo
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix

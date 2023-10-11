@@ -1091,6 +1091,9 @@ void R_SetupAliasLighting (entity_t	*e)
 	float		radiansangle;
 	float		*origin;
 
+	plcolour_t dhvalue = CL_PLColours_Parse(cl_damagehuecolor.string); // woods #damage
+	byte* dhuecolor = CL_PLColours_ToRGB(&dhvalue); // woods #damage
+
 	if (!r_refdef.drawworld)
 		lightcolor[0] = lightcolor[1] = lightcolor[2] = 255;
 	else
@@ -1182,54 +1185,58 @@ void R_SetupAliasLighting (entity_t	*e)
 		}
 	}
 	
-	// begin woods for orange hue damage taken #damage
+	// begin woods for hue damage taken #damage
 
 	if (cl.time <= cl.faceanimtime && cl_damagehue.value)
 		if (e == &cl.viewent)
 		{
 			{
-				lightcolor[0] = 169;
-				lightcolor[1] = 114;
-				lightcolor[2] = 64;
+ 				lightcolor[0] = dhuecolor[0];
+				lightcolor[1] = dhuecolor[1];
+				lightcolor[2] = dhuecolor[2];
 			}
 		}
 
-	// end woods for red damage taken
+	// end woods for damage taken
 
 	// begin woods add hue to gun model with powerups
 
-	if ((cl.gametype == GAME_DEATHMATCH) && r_coloredpowerupglow.value)
-	{
-		if (cl.items & IT_QUAD)
-			if (e == &cl.viewent)
-			{
+	if (!(cl.time <= cl.faceanimtime && cl_damagehue.value))
+	{ 
+		if ((cl.gametype == GAME_DEATHMATCH) && r_coloredpowerupglow.value)
+		{
+			if (cl.items & IT_QUAD)
+				if (e == &cl.viewent)
 				{
-					lightcolor[0] = 50;
-					lightcolor[1] = 50;
-					lightcolor[2] = 121;
+					{
+						lightcolor[0] = 50;
+						lightcolor[1] = 50;
+						lightcolor[2] = 121;
+					}
 				}
-			}
 
-		if (cl.items & IT_INVULNERABILITY)
-			if (e == &cl.viewent)
-			{
+			if (cl.items & IT_INVULNERABILITY)
+				if (e == &cl.viewent)
 				{
-					lightcolor[0] = 131;
-					lightcolor[1] = 73;
-					lightcolor[2] = 73;
+					{
+						lightcolor[0] = 131;
+						lightcolor[1] = 73;
+						lightcolor[2] = 73;
+					}
 				}
-			}
 
-		if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
-			if (e == &cl.viewent)
-			{
+			if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
+				if (e == &cl.viewent)
 				{
-					lightcolor[0] = 211;
-					lightcolor[1] = 113;
-					lightcolor[2] = 194;
+					{
+						lightcolor[0] = 211;
+						lightcolor[1] = 113;
+						lightcolor[2] = 194;
+					}
 				}
-			}
+		}
 	}
+
 	// end woods add hue to gun model with powerups
 
 	// clamp lighting so it doesn't overbright as much (96)
