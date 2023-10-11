@@ -770,6 +770,7 @@ static void hsvtorgb(float inh, float s, float v, byte *out)
 };
 
 qboolean rgbactive; // woods
+qboolean colordelta; // woods
 
 void M_AdjustColour(plcolour_t *tr, int dir)
 {
@@ -896,7 +897,7 @@ void M_Setup_Draw (void)
 			flyme = false;
 	}
 
-	if (!chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+	if (!chase_active.value && !cls.demoplayback && host_initialized && !flyme && cls.state == ca_connected) // woods #3rdperson
 	{
 		chasewasnotactive = true;
 		Cbuf_AddText("chase_active 1\n");
@@ -961,6 +962,11 @@ void M_Setup_Key (int k)
 			chasewasnotactive = false;
 			Cbuf_AddText("chase_active 0\n");
 		}
+		if (colordelta)
+		{
+			colordelta = false;
+			Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_oldtop), CL_PLColours_ToString(setup_oldbottom)));
+		}
 	case K_BBUTTON:
 		M_Menu_MultiPlayer_f ();
 		break;
@@ -987,18 +993,22 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 		{
 			M_AdjustColour(&setup_top, -1);
-			strncpy (lastColorSelected, CL_PLColours_ToString (setup_top), sizeof ((CL_PLColours_ToString (setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
 			M_AdjustColour(&setup_bottom, -1);
-			strncpy (lastColorSelected, CL_PLColours_ToString (setup_bottom), sizeof ((CL_PLColours_ToString (setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		break;
 	case K_MWHEELUP:
@@ -1013,7 +1023,10 @@ void M_Setup_Key (int k)
 			strncpy (lastColorSelected, CL_PLColours_ToString (setup_top), sizeof ((CL_PLColours_ToString (setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
@@ -1021,7 +1034,10 @@ void M_Setup_Key (int k)
 			strncpy (lastColorSelected, CL_PLColours_ToString (setup_bottom), sizeof ((CL_PLColours_ToString (setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		break;
 
