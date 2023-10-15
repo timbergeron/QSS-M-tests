@@ -1606,9 +1606,17 @@ static void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 
 		if (Mod_ParseWorldspawnKey(loadmodel, "lightmap_scale", scalebuf, sizeof(scalebuf)))
 		{
-			i = atoi(scalebuf);
-			for(defaultshift = 0; i > 1; defaultshift++)
-				i >>= 1;
+			char *e;
+			i = strtol(scalebuf, &e, 10);
+			if (i < 0 || *e)
+				Con_Warning("Incorrect value for lightmap_scale field - %s - should be texels-per-luxel (and power-of-two), use 16 to match vanilla quake.\n", scalebuf);
+			else if (i == 0)
+				;	//silently use default when its explicitly set to 0 or empty. a bogus value but oh well.
+			else
+			{
+				for(defaultshift = 0; i > 1; defaultshift++)
+					i >>= 1;
+			}
 		}
 	}
 
