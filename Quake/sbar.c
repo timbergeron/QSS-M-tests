@@ -2126,6 +2126,9 @@ void Sbar_DeathmatchOverlay (void)
 
 		if (cl.modtype == 1 || cl.modtype == 4) // woods -- dynamic status flash scoreboard label if not ready #smartstatus
 		{
+			if (!cl.teamgame)
+				notready = false;
+			
 			if (strstr(s->name, "ׂובהש") || strstr(s->name, "Ready"))
 				oneready = true;
 			
