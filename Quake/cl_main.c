@@ -105,6 +105,7 @@ extern char lastconnected[3]; // woods #identify+
 extern qboolean netquakeio; // woods
 extern int retry_counter; // woods #ms
 extern int grenadecache, rocketcache; // woods #r2g
+extern qboolean pausedprint; // woods
 
 void CL_ClearTrailStates(void)
 {
@@ -239,6 +240,7 @@ void CL_Disconnect (void)
 
 	if (cl.modtype == 1 || cl.modtype == 4)
 		Cbuf_AddText("setinfo observing off\n"); // woods
+	pausedprint = false;  // woods
 }
 
 void CL_Disconnect_f (void)

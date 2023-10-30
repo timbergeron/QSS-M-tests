@@ -1977,10 +1977,10 @@ void SCR_DrawPause2(void)
 
 	pic = Draw_CachePic("gfx/pause.lmp");
 
-	if (cl.match_pause_time > 0 || pausedprint)
+	if ((cl.match_pause_time > 0 && !cls.demoplayback) || pausedprint)
 		Draw_Pic((320 - pic->width) / 2, (240 - 48 - pic->height) / 2, pic); //johnfitz -- stretched menus
 
-	if ((cl.match_pause_time > 0 || pausedprint) && scr_hints.value)
+	if (((cl.match_pause_time > 0 && !cls.demoplayback) || pausedprint) && scr_hints.value)
 	{
 		GL_SetCanvas(CANVAS_HINT);
 
