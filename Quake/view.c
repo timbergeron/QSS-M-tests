@@ -39,6 +39,8 @@ cvar_t	scr_ofsz = {"scr_ofsz","0", CVAR_NONE};
 
 cvar_t	cl_rollspeed = {"cl_rollspeed", "200", CVAR_ARCHIVE};
 cvar_t	cl_rollangle = {"cl_rollangle", "2.0", CVAR_ARCHIVE};
+cvar_t	cl_screenangle = { "cl_screenangle", "0", CVAR_ARCHIVE}; // woods #screenangle
+cvar_t	cl_screenangle_speed = { "cl_screenangle_speed", "10", CVAR_ARCHIVE}; // woods #screenangle
 
 cvar_t	cl_bob = {"cl_bob","0.02", CVAR_ARCHIVE};
 cvar_t	cl_bobcycle = {"cl_bobcycle","0.6", CVAR_ARCHIVE};
@@ -722,6 +724,33 @@ void V_AddIdle (void)
 	r_refdef.viewangles[YAW] += v_idlescale.value * sin(cl.time*v_iyaw_cycle.value) * v_iyaw_level.value;
 }
 
+// woods #screenangle (kilomile -- bloodrails)
+
+float lerp(float a, float b, float alpha)
+{
+	return a + alpha * (b - a);
+}
+
+float lerp_alpha = 0;
+qboolean isTransitioning = false;
+float previousRoll = 0;  // this will store the starting roll value for the lerp
+
+void OnClScreenAngleChanged (void) // woods #screenangle
+{
+	lerp_alpha = 0;
+	isTransitioning = true;
+	previousRoll = r_refdef.viewangles[ROLL];
+}
+
+/*
+====================
+OnClScreenAngleChanged_f -- woods #screenangle
+====================
+*/
+static void OnClScreenAngleChanged_f (cvar_t* var)
+{
+	OnClScreenAngleChanged();
+}
 
 /*
 ==============
@@ -750,6 +779,21 @@ void V_CalcViewRoll (void)
 		memcpy (cl.death_location, cl.entities[cl.viewentity].origin, sizeof(vec3_t)); // woods
 
 		return;
+	}
+
+	if (isTransitioning) // woods #screenangle lerp transition
+	{
+		r_refdef.viewangles[ROLL] = lerp(previousRoll, cl_screenangle.value, lerp_alpha);
+		lerp_alpha += host_frametime * cl_screenangle_speed.value;  // adjust this value to control the speed of the transition
+
+		if (lerp_alpha >= 1) 
+		{
+			r_refdef.viewangles[ROLL] = cl_screenangle.value;  // ensure it's set to the exact target value
+			isTransitioning = false;  // stop the transition
+		}
+	}
+	else {
+		r_refdef.viewangles[ROLL] = cl_screenangle.value; // state when not transitioning
 	}
 }
 
@@ -1009,6 +1053,9 @@ void V_Init (void)
 	Cvar_RegisterVariable (&scr_ofsz);
 	Cvar_RegisterVariable (&cl_rollspeed);
 	Cvar_RegisterVariable (&cl_rollangle);
+	Cvar_RegisterVariable (&cl_screenangle); // woods #screenangle
+	Cvar_SetCallback (&cl_screenangle, OnClScreenAngleChanged_f); // woods #screenangle
+	Cvar_RegisterVariable (&cl_screenangle_speed); // woods #screenangle
 	Cvar_RegisterVariable (&cl_bob);
 	Cvar_RegisterVariable (&cl_bobcycle);
 	Cvar_RegisterVariable (&cl_bobup);
