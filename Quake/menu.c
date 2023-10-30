@@ -3535,6 +3535,7 @@ static struct
 	{"help", M_Menu_Help_f},
 	{"menu_quit", M_Menu_Quit_f},
 	{"menu_credits", M_Menu_Credits_f}, // needed by the 2021 re-release
+	{"namemaker", M_Shortcut_NameMaker_f}, // woods
 };
 
 //=============================================================================
@@ -3668,7 +3669,6 @@ void M_Init (void)
 	Cmd_AddCommand ("togglemenu", M_ToggleMenu_f);
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
-	Cmd_AddCommand ("namemaker", M_Shortcut_NameMaker_f); // woods #namemaker
 
 	if (!MQC_Init())
 		MQC_Shutdown();

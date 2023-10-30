@@ -1464,7 +1464,6 @@ void Host_Init (void)
 
 		V_Init ();
 		Chase_Init ();
-		M_Init (); // woods move this up for tab complete system #iwtabcomplete
 		ExtraMaps_Init (); //johnfitz
 		Modlist_Init (); //johnfitz
 		DemoList_Init (); //ericw
@@ -1484,6 +1483,7 @@ void Host_Init (void)
 		BGM_Init();
 		Sbar_Init ();
 		CL_Init ();
+		M_Init(); // woods move this up for tab complete system #iwtabcomplete
 	}
 
 	LOC_Init (); // for 2021 rerelease support.
