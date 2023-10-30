@@ -1097,12 +1097,20 @@ void CL_RelinkEntities (void)
 
 		if (cl_r2g.value && (ent->netstate.modelindex == rocketcache) && rocketcache != 1 && grenadecache != 1) // woods #r2g
 		{
-			model = cl.model_precache[grenadecache];
-			cl.model_precache[grenadecache]->fromrl = 1;
-			ent->model = model;
+			if (grenadecache >= 0 && grenadecache < sizeof(cl.model_precache) / sizeof(cl.model_precache[0]) && cl.model_precache[grenadecache])
+			{
+				model = cl.model_precache[grenadecache];
+				cl.model_precache[grenadecache]->fromrl = 1;
+				ent->model = model;
+			}
 		}
 		else
-			cl.model_precache[grenadecache]->fromrl = 0;
+		{
+			if (grenadecache >= 0 && grenadecache < sizeof(cl.model_precache) / sizeof(cl.model_precache[0]) && cl.model_precache[grenadecache])
+			{
+				cl.model_precache[grenadecache]->fromrl = 0;
+			}
+		}
 
 		if (ent->effects & EF_BRIGHTLIGHT)
 		{
