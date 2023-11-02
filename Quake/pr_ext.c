@@ -2547,8 +2547,8 @@ static void PF_getsurfacepointattribute(void)
 			G_FLOAT(OFS_RETURN+2) = 0;
 			break;
 		case SPA_LIGHTMAP0_TEXCOORDS: //lmst coord, not actually very useful
-			G_FLOAT(OFS_RETURN+0) = (DotProduct(v->position, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3] - fa->texturemins[0] + (fa->light_s+.5)*(1<<fa->lmshift)) / (LMBLOCK_WIDTH*(1<<fa->lmshift));
-			G_FLOAT(OFS_RETURN+1) = (DotProduct(v->position, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3] - fa->texturemins[1] + (fa->light_t+.5)*(1<<fa->lmshift)) / (LMBLOCK_HEIGHT*(1<<fa->lmshift));
+			G_FLOAT(OFS_RETURN+0) = (DotProduct(v->position, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3] + fa->light_s) / LMBLOCK_WIDTH;
+			G_FLOAT(OFS_RETURN+1) = (DotProduct(v->position, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3] + fa->light_t) / LMBLOCK_HEIGHT;
 			G_FLOAT(OFS_RETURN+2) = 0;
 			break;
 		case SPA_LIGHTMAP0_COLOR: //colour

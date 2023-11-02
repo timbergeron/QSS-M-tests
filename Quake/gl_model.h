@@ -139,11 +139,12 @@ typedef struct msurface_s
 	int			firstedge;	// look up in model->surfedges[], negative numbers
 	int			numedges;	// are backwards edges
 
-	short		texturemins[2];
 	short		extents[2];
 
+	vec4_t		lmvecs[2];
+	float		lmvecscale[2];	//so dlights spread the correct distance despite texture scaling.
+
 	int			light_s, light_t;	// gl lightmap coordinates
-	unsigned char lmshift;
 
 	glpoly_t	*polys;				// multiple if warped
 	struct	msurface_s	*texturechain;

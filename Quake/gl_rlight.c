@@ -238,11 +238,11 @@ start:
 		for (j=0 ; j<3 ; j++)
 			impact[j] = lightorg[j] - surf->plane->normal[j]*dist;
 		// clamp center of light to corner and check brightness
-		l = DotProduct (impact, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3] - surf->texturemins[0];
-		s = l+0.5;if (s < 0) s = 0;else if (s > surf->extents[0]) s = surf->extents[0];
+		l = DotProduct (impact, surf->lmvecs[0]) + surf->lmvecs[0][3];
+		s = l;if (s < 0) s = 0;else if (s > surf->extents[0]) s = surf->extents[0];
 		s = l - s;
-		l = DotProduct (impact, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3] - surf->texturemins[1];
-		t = l+0.5;if (t < 0) t = 0;else if (t > surf->extents[1]) t = surf->extents[1];
+		l = DotProduct (impact, surf->lmvecs[1]) + surf->lmvecs[1][3];
+		t = l;if (t < 0) t = 0;else if (t > surf->extents[1]) t = surf->extents[1];
 		t = l - t;
 		// compare to minimum light
 		if ((s*s+t*t+dist*dist) < maxdist)
@@ -359,6 +359,7 @@ loc0:
 		{
 			float sfront, sback, dist;
 			vec3_t raydelta;
+			double dsfrac, dtfrac;
 
 			if (surf->flags & SURF_DRAWTILED)
 				continue;	// no lightmaps
@@ -366,17 +367,17 @@ loc0:
 		// ericw -- added double casts to force 64-bit precision.
 		// Without them the zombie at the start of jam3_ericw.bsp was
 		// incorrectly being lit up in SSE builds.
-			ds = (int) ((double) DoublePrecisionDotProduct (mid, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3]);
-			dt = (int) ((double) DoublePrecisionDotProduct (mid, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3]);
-
-			if (ds < surf->texturemins[0] || dt < surf->texturemins[1])
+			dsfrac = DoublePrecisionDotProduct (mid, surf->lmvecs[0]) + surf->lmvecs[0][3];
+			dtfrac = DoublePrecisionDotProduct (mid, surf->lmvecs[1]) + surf->lmvecs[1][3];
+			if (dsfrac < 0 || dtfrac < 0)
 				continue;
 
-			ds -= surf->texturemins[0];
-			dt -= surf->texturemins[1];
-
-			if (ds > surf->extents[0] || dt > surf->extents[1])
+			if (dsfrac > surf->extents[0] || dtfrac > surf->extents[1])
 				continue;
+			ds = dsfrac;
+			dt = dtfrac;
+			dsfrac -= ds;
+			dtfrac -= dt;
 
 			if (surf->plane->type < 3)
 			{
@@ -406,7 +407,7 @@ loc0:
 			if (dist < *maxdist)
 			{
 				// LordHavoc: enhanced to interpolate lighting
-				int maps, line3, dsfrac = ds & 15, dtfrac = dt & 15, r00 = 0, g00 = 0, b00 = 0, r01 = 0, g01 = 0, b01 = 0, r10 = 0, g10 = 0, b10 = 0, r11 = 0, g11 = 0, b11 = 0;
+				int maps, line3, r00 = 0, g00 = 0, b00 = 0, r01 = 0, g01 = 0, b01 = 0, r10 = 0, g10 = 0, b10 = 0, r11 = 0, g11 = 0, b11 = 0;
 				float scale, e;
 
 				if (cl.worldmodel->flags & MOD_HDRLIGHTING)
@@ -418,8 +419,8 @@ loc0:
 						1.0/(1<<8),		1.0/(1<<7),		1.0/(1<<6),		1.0/(1<<5),		1.0/(1<<4),		1.0/(1<<3),		1.0/(1<<2),		1.0/(1<<1),
 						1.0,			1.0*(1<<1),		1.0*(1<<2),		1.0*(1<<3),		1.0*(1<<4),		1.0*(1<<5),		1.0*(1<<6),		1.0*(1<<7),
 					};
-					uint32_t *lightmap = (uint32_t*)surf->samples + ((dt>>surf->lmshift) * ((surf->extents[0]>>surf->lmshift)+1) + (ds>>surf->lmshift));
-					line3 = ((surf->extents[0]>>surf->lmshift)+1);
+					uint32_t *lightmap = (uint32_t*)surf->samples + (dt * (surf->extents[0]+1) + ds);
+					line3 = (surf->extents[0]+1);
 					for (maps = 0;maps < MAXLIGHTMAPS && surf->styles[maps] != INVALID_LIGHTSTYLE;maps++)
 					{
 						scale = (1<<7) * (float) d_lightstylevalue[surf->styles[maps]] * 1.0f / 256.0f;
@@ -427,13 +428,13 @@ loc0:
 						e = rgb9e5tab[lightmap[      1]>>27] * scale;r01 += ((lightmap[      1]>> 0)&0x1ff) * e;g01 += ((lightmap[      1]>> 9)&0x1ff) * e;b01 += ((lightmap[      1]>> 9)&0x1ff) * e;
 						e = rgb9e5tab[lightmap[line3+0]>>27] * scale;r10 += ((lightmap[line3+0]>> 0)&0x1ff) * e;g10 += ((lightmap[line3+0]>> 9)&0x1ff) * e;b10 += ((lightmap[line3+0]>> 9)&0x1ff) * e;
 						e = rgb9e5tab[lightmap[line3+1]>>27] * scale;r11 += ((lightmap[line3+1]>> 0)&0x1ff) * e;g11 += ((lightmap[line3+1]>> 9)&0x1ff) * e;b11 += ((lightmap[line3+1]>> 9)&0x1ff) * e;
-						lightmap += ((surf->extents[0]>>surf->lmshift)+1) * ((surf->extents[1]>>surf->lmshift)+1);
+						lightmap += (surf->extents[0]+1) * (surf->extents[1]+1);
 					}
 				}
 				else
 				{
-					byte *lightmap = (byte*)surf->samples + ((dt>>surf->lmshift) * ((surf->extents[0]>>surf->lmshift)+1) + (ds>>surf->lmshift))*3; // LordHavoc: *3 for color
-					line3 = ((surf->extents[0]>>surf->lmshift)+1)*3;
+					byte *lightmap = (byte*)surf->samples + (dt * (surf->extents[0]+1) + ds)*3; // LordHavoc: *3 for color
+					line3 = (surf->extents[0]+1)*3;
 					for (maps = 0;maps < MAXLIGHTMAPS && surf->styles[maps] != INVALID_LIGHTSTYLE;maps++)
 					{
 						scale = (float) d_lightstylevalue[surf->styles[maps]] * 1.0f / 256.0f;
@@ -441,13 +442,13 @@ loc0:
 						r01 += (float) lightmap[      3] * scale;g01 += (float) lightmap[      4] * scale;b01 += (float) lightmap[5] * scale;
 						r10 += (float) lightmap[line3+0] * scale;g10 += (float) lightmap[line3+1] * scale;b10 += (float) lightmap[line3+2] * scale;
 						r11 += (float) lightmap[line3+3] * scale;g11 += (float) lightmap[line3+4] * scale;b11 += (float) lightmap[line3+5] * scale;
-						lightmap += ((surf->extents[0]>>surf->lmshift)+1) * ((surf->extents[1]>>surf->lmshift)+1)*3; // LordHavoc: *3 for colored lighting
+						lightmap += (surf->extents[0]+1) * (surf->extents[1]+1)*3; // LordHavoc: *3 for colored lighting
 					}
 				}
 
-				color[0] += (float) ((int) ((((((((r11-r10) * dsfrac) >> 4) + r10)-((((r01-r00) * dsfrac) >> 4) + r00)) * dtfrac) >> 4) + ((((r01-r00) * dsfrac) >> 4) + r00)));
-				color[1] += (float) ((int) ((((((((g11-g10) * dsfrac) >> 4) + g10)-((((g01-g00) * dsfrac) >> 4) + g00)) * dtfrac) >> 4) + ((((g01-g00) * dsfrac) >> 4) + g00)));
-				color[2] += (float) ((int) ((((((((b11-b10) * dsfrac) >> 4) + b10)-((((b01-b00) * dsfrac) >> 4) + b00)) * dtfrac) >> 4) + ((((b01-b00) * dsfrac) >> 4) + b00)));
+				color[0] += (float) ((int) ((((((r11-r10) * dsfrac) + r10)-(((r01-r00) * dsfrac) + r00)) * dtfrac) + (((r01-r00) * dsfrac) + r00)));
+				color[1] += (float) ((int) ((((((g11-g10) * dsfrac) + g10)-(((g01-g00) * dsfrac) + g00)) * dtfrac) + (((g01-g00) * dsfrac) + g00)));
+				color[2] += (float) ((int) ((((((b11-b10) * dsfrac) + b10)-(((b01-b00) * dsfrac) + b00)) * dtfrac) + (((b01-b00) * dsfrac) + b00)));
 			}
 			return true; // success
 		}
