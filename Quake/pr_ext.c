@@ -9069,6 +9069,7 @@ void PR_DumpPlatform_f(void)
 		fprintf(f, "const float EF_MUZZLEFLASH = %i;\n", EF_MUZZLEFLASH);
 		fprintf(f, "const float EF_BRIGHTLIGHT = %i;\n", EF_BRIGHTLIGHT);
 		fprintf(f, "const float EF_DIMLIGHT = %i;\n", EF_DIMLIGHT);
+		fprintf(f, "const float EF_ADDITIVE = %i;\n", EF_ADDITIVE);
 		fprintf(f, "const float EF_BLUE = %i;\n", EF_BLUE);
 		fprintf(f, "const float EF_RED = %i;\n", EF_RED);
 		fprintf(f, "const float EF_FULLBRIGHT = %i;\n", EF_FULLBRIGHT);
