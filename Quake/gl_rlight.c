@@ -294,7 +294,262 @@ void R_PushDlights (void)
 /*
 =============================================================================
 
-LIGHT SAMPLING
+BSPX LIGHTGRID LOADING + SAMPLING
+
+=============================================================================
+*/
+extern char	loadname[];	// for hunk tags. yuck yuck yuck.
+extern cvar_t	mod_lightgrid;	//for testing/debugging
+typedef struct
+{
+	vec3_t gridscale;
+	unsigned int count[3];
+	vec3_t mins;
+	unsigned int styles;
+
+	unsigned int rootnode;
+
+	unsigned int numnodes;
+	struct bspxlgnode_s
+	{	//this uses an octtree to trim samples.
+		int mid[3];
+		unsigned int child[8];
+#define LGNODE_LEAF		(1u<<31)
+#define LGNODE_MISSING	(1u<<30)
+	} *nodes;
+	unsigned int numleafs;
+	struct bspxlgleaf_s
+	{
+		int mins[3];
+		int size[3];
+		struct bspxlgsamp_s
+		{
+			struct
+			{
+				byte style;
+				byte rgb[3];
+			} map[4];
+		} *rgbvalues;
+	} *leafs;
+} bspxlightgrid_t;
+struct rctx_s {byte *data; int ofs, size;};
+static byte ReadByte(struct rctx_s *ctx)
+{
+	if (ctx->ofs >= ctx->size)
+	{
+		ctx->ofs++;
+		return 0;
+	}
+	return ctx->data[ctx->ofs++];
+}
+static int ReadInt(struct rctx_s *ctx)
+{
+	int r = (int)ReadByte(ctx)<<0;
+		r|= (int)ReadByte(ctx)<<8;
+		r|= (int)ReadByte(ctx)<<16;
+		r|= (int)ReadByte(ctx)<<24;
+	return r;
+}
+static float ReadFloat(struct rctx_s *ctx)
+{
+	union {float f; int i;} u;
+	u.i = ReadInt(ctx);
+	return u.f;
+}
+void BSPX_LightGridLoad(qmodel_t *model, void *lgdata, size_t lgsize)
+{
+	vec3_t step, mins;
+	int size[3];
+	bspxlightgrid_t *grid;
+	unsigned int numstyles, numnodes, numleafs, rootnode;
+	unsigned int nodestart, leafsamps = 0, i, j, k, s;
+	struct bspxlgsamp_s *samp;
+	struct rctx_s ctx = {0};
+	ctx.data = lgdata;
+	ctx.size = lgsize;
+	model->lightgrid = NULL;
+	if (!ctx.data)
+		return;
+
+	for (j = 0; j < 3; j++)
+		step[j] = ReadFloat(&ctx);
+	for (j = 0; j < 3; j++)
+		size[j] = ReadInt(&ctx);
+	for (j = 0; j < 3; j++)
+		mins[j] = ReadFloat(&ctx);
+
+	numstyles = ReadByte(&ctx);	//urgh, misaligned the entire thing
+	rootnode = ReadInt(&ctx);
+	numnodes = ReadInt(&ctx);
+	nodestart = ctx.ofs;
+	ctx.ofs += (3+8)*4*numnodes;
+	numleafs = ReadInt(&ctx);
+	for (i = 0; i < numleafs; i++)
+	{
+		unsigned int lsz[3];
+		ctx.ofs += 3*4;
+		for (j = 0; j < 3; j++)
+			lsz[j] = ReadInt(&ctx);
+		j = lsz[0]*lsz[1]*lsz[2];
+		leafsamps += j;
+		while (j --> 0)
+		{	//this loop is annonying, memcpy dreams...
+			s = ReadByte(&ctx);
+			if (s == 255)
+				continue;
+			ctx.ofs += s*4;
+		}
+	}
+
+	grid = Hunk_AllocName(sizeof(*grid) + sizeof(*grid->leafs)*numleafs + sizeof(*grid->nodes)*numnodes + sizeof(struct bspxlgsamp_s)*leafsamps, loadname);
+//	memset(grid, 0xcc, sizeof(*grid) + sizeof(*grid->leafs)*numleafs + sizeof(*grid->nodes)*numnodes + sizeof(struct bspxlgsamp_s)*leafsamps);
+	grid->leafs = (void*)(grid+1);
+	grid->nodes = (void*)(grid->leafs + numleafs);
+	samp = (void*)(grid->nodes+numnodes);
+
+	for (j = 0; j < 3; j++)
+		grid->gridscale[j] = 1/step[j];	//prefer it as a multiply
+	VectorCopy(mins, grid->mins);
+	VectorCopy(size, grid->count);
+	grid->numnodes = numnodes;
+	grid->numleafs = numleafs;
+	grid->rootnode = rootnode;
+	(void)numstyles;
+
+	//rewind to the nodes. *sigh*
+	ctx.ofs = nodestart;
+	for (i = 0; i < numnodes; i++)
+	{
+		for (j = 0; j < 3; j++)
+			grid->nodes[i].mid[j] = ReadInt(&ctx);
+		for (j = 0; j < 8; j++)
+			grid->nodes[i].child[j] = ReadInt(&ctx);
+	}
+	ctx.ofs += 4;
+	for (i = 0; i < numleafs; i++)
+	{
+		for (j = 0; j < 3; j++)
+			grid->leafs[i].mins[j] = ReadInt(&ctx);
+		for (j = 0; j < 3; j++)
+			grid->leafs[i].size[j] = ReadInt(&ctx);
+
+		grid->leafs[i].rgbvalues = samp;
+
+		j = grid->leafs[i].size[0]*grid->leafs[i].size[1]*grid->leafs[i].size[2];
+		while (j --> 0)
+		{
+			s = ReadByte(&ctx);
+			if (s == 0xff)
+				memset(samp, 0xff, sizeof(*samp));
+			else
+			{
+				for (k = 0; k < s; k++)
+				{
+					if (k >= 4)
+						ReadInt(&ctx);
+					else
+					{
+						samp->map[k].style = ReadByte(&ctx);
+						samp->map[k].rgb[0] = ReadByte(&ctx);
+						samp->map[k].rgb[1] = ReadByte(&ctx);
+						samp->map[k].rgb[2] = ReadByte(&ctx);
+					}
+				}
+				for (; k < 4; k++)
+				{
+					samp->map[k].style = (byte)~0u;
+					samp->map[k].rgb[0] =
+					samp->map[k].rgb[1] =
+					samp->map[k].rgb[2] = 0;
+				}
+			}
+			samp++;
+		}
+	}
+
+	if (ctx.ofs != ctx.size)
+		grid = NULL;
+
+	model->lightgrid = (void*)grid;
+}
+static int BSPX_LightGridSingleValue(bspxlightgrid_t *grid, int x, int y, int z, float w, vec3_t res_diffuse)
+{
+	int i;
+	unsigned int node;
+	struct bspxlgsamp_s *samp;
+	float lev;
+
+	node = grid->rootnode;
+	while (!(node & LGNODE_LEAF))
+	{
+		struct bspxlgnode_s *n;
+		if (node & LGNODE_MISSING)
+			return 0;	//failure
+		n = grid->nodes + node;
+		node = n->child[
+				((x>=n->mid[0])<<2)|
+				((y>=n->mid[1])<<1)|
+				((z>=n->mid[2])<<0)];
+	}
+
+	{
+		struct bspxlgleaf_s *leaf = &grid->leafs[node & ~LGNODE_LEAF];
+		x -= leaf->mins[0];
+		y -= leaf->mins[1];
+		z -= leaf->mins[2];
+		if (x >= leaf->size[0] ||
+			y >= leaf->size[1] ||
+			z >= leaf->size[2])
+			return 0;	//sample we're after is out of bounds...
+
+		i = x + leaf->size[0]*(y + leaf->size[1]*z);
+		samp = leaf->rgbvalues + i;
+
+		w *= (1/256.0);
+
+		//no hdr support
+		for (i = 0; i < countof(samp->map); i++)
+		{
+			if (samp->map[i].style == ((byte)(~0u)))
+				break;	//no more
+			lev = d_lightstylevalue[samp->map[i].style]*w;
+			res_diffuse[0] += samp->map[i].rgb[0] * lev;
+			res_diffuse[1] += samp->map[i].rgb[1] * lev;
+			res_diffuse[2] += samp->map[i].rgb[2] * lev;
+		}
+	}
+	return 1;
+}
+static void BSPX_LightGridValue(bspxlightgrid_t *grid, const vec3_t point, vec3_t res_diffuse)
+{
+	int i, tile[3];
+	float s, w. frac[3];
+
+	res_diffuse[0] = res_diffuse[1] = res_diffuse[2] = 0; //assume worst
+
+	for (i = 0; i < 3; i++)
+	{
+		tile[i] = floor((point[i] - grid->mins[i]) * grid->gridscale[i]);
+		frac[i] = (point[i] - grid->mins[i]) * grid->gridscale[i] - tile[i];
+	}
+
+	for (i = 0, s = 0; i < 8; i++)
+	{
+		w =	((i&1)?frac[0]:1-frac[0])
+		  * ((i&2)?frac[1]:1-frac[1])
+		  * ((i&4)?frac[2]:1-frac[2]);
+		s += w*BSPX_LightGridSingleValue(grid,	tile[0]+!!(i&1),
+												tile[1]+!!(i&2),
+												tile[2]+!!(i&4), w, res_diffuse);
+	}
+	if (s)
+		VectorScale(res_diffuse, 1.0/s, res_diffuse);	//average the successful ones
+}
+
+/*
+=============================================================================
+
+LEGACY LIGHT SAMPLING
 
 =============================================================================
 */
@@ -474,11 +729,16 @@ int R_LightPoint (vec3_t p)
 		return 255;
 	}
 
-	end[0] = p[0];
-	end[1] = p[1];
-	end[2] = p[2] - maxdist;
+	if (cl.worldmodel->lightgrid && mod_lightgrid.value)
+		BSPX_LightGridValue(cl.worldmodel->lightgrid, p, lightcolor);
+	else
+	{
+		end[0] = p[0];
+		end[1] = p[1];
+		end[2] = p[2] - maxdist;
 
-	lightcolor[0] = lightcolor[1] = lightcolor[2] = 0;
-	RecursiveLightPoint (lightcolor, cl.worldmodel->nodes, p, p, end, &maxdist);
+		lightcolor[0] = lightcolor[1] = lightcolor[2] = 0;
+		RecursiveLightPoint (lightcolor, cl.worldmodel->nodes, p, p, end, &maxdist);
+	}
 	return ((lightcolor[0] + lightcolor[1] + lightcolor[2]) * (1.0f / 3.0f));
 }

@@ -44,6 +44,7 @@ static cvar_t	external_ents = {"external_ents", "1", CVAR_ARCHIVE};
 cvar_t	gl_load24bit = {"gl_load24bit", "1", CVAR_ARCHIVE};
 static cvar_t	mod_ignorelmscale = {"mod_ignorelmscale", "0"};
 static cvar_t	mod_lightscale_broken = {"mod_lightscale_broken", "1"};	//match vanilla's brokenness bug with dlights and scaled textures. decoupled_lm bypasses this obviously buggy setting because zomgletmefixstuffffs
+cvar_t	mod_lightgrid = {"mod_lightgrid", "1"};	//mostly for debugging, I dunno. just leave it set to 1.
 cvar_t	r_replacemodels = {"r_replacemodels", "", CVAR_ARCHIVE};
 static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
@@ -74,6 +75,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&r_replacemodels);
 	Cvar_RegisterVariable (&mod_ignorelmscale);
 	Cvar_RegisterVariable (&mod_lightscale_broken);
+	Cvar_RegisterVariable (&mod_lightgrid);
 
 	Cmd_AddCommand ("mcache", Mod_Print);
 
@@ -1638,6 +1640,11 @@ static void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 			if (lumpsize != sizeof(*lmstyle8)*stylesperface*count)
 				lmstyle8 = NULL;
 		}
+	}
+
+	{
+		void *lglump = Q1BSPX_FindLump("LIGHTGRID_OCTREE", &lumpsize);
+		BSPX_LightGridLoad(loadmodel, lglump, lumpsize);
 	}
 
 	loadmodel->surfaces = out;
