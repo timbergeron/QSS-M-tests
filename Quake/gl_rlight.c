@@ -523,7 +523,7 @@ static int BSPX_LightGridSingleValue(bspxlightgrid_t *grid, int x, int y, int z,
 static void BSPX_LightGridValue(bspxlightgrid_t *grid, const vec3_t point, vec3_t res_diffuse)
 {
 	int i, tile[3];
-	float s, w. frac[3];
+	float s, w, frac[3];
 
 	res_diffuse[0] = res_diffuse[1] = res_diffuse[2] = 0; //assume worst
 
