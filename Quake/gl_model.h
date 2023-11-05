@@ -573,5 +573,6 @@ byte	*Mod_LeafPVS (mleaf_t *leaf, qmodel_t *model);
 byte	*Mod_NoVisPVS (qmodel_t *model);
 
 void Mod_SetExtraFlags (qmodel_t *mod);
+void BSPX_LightGridLoad(qmodel_t *model, void *lgdata, size_t lgsize);
 
 #endif	/* GL_MODEL_H */
