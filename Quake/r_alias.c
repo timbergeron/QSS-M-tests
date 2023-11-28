@@ -27,6 +27,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
 extern cvar_t scr_fov, cl_gun_fovscale; // woods #zoom (ironwail)
 extern cvar_t r_coloredpowerupglow; // woods
+extern cvar_t gl_overbright_models_alpha; // woods #obmodelslist
+extern cvar_t gl_overbright_models_list; // woods #obmodelslist
+
+qboolean nameInList(const char* list, const char* name); // woods #obmodelslist
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
 
@@ -1162,12 +1166,12 @@ void R_SetupAliasLighting (entity_t	*e)
 			}
 		}
 
-		// woods added minlight for all models to avoid colored lighting blinding
+		// woods added minlight for models on list to avoid colored lighting blinding #obmodelslist
 		if (gl_overbright_models.value == 2)
 		{
-			if (e->model)
+			if (e->model && (nameInList(gl_overbright_models_list.string, e->model->name)))
 			{
-				add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				add = 2500.0f * gl_overbright_models_alpha.value - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 				if (add > 0.0f)
 				{
 					lightcolor[0] += add / 3.0f;
@@ -1177,12 +1181,12 @@ void R_SetupAliasLighting (entity_t	*e)
 			}
 		}
 
-		// woods added minlight for all models to avoid colored lighting blinding (but keep viewmodel lighting)
-		if (gl_overbright_models.value == 3)
+		// woods added minlight for all models to avoid colored lighting blinding (but keep viewmodel lighting) #obmodelslist
+		if (gl_overbright_models.value == 3 && nameInList(gl_overbright_models_list.string, e->model->name))
 		{
 			if ((e->model) && (e != &cl.viewent))
 			{
-				add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				add = 2000.0f * gl_overbright_models_alpha.value - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 				if (add > 0.0f)
 				{
 					lightcolor[0] += add / 3.0f;

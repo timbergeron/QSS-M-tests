@@ -34,6 +34,8 @@ extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_overbright;
 extern cvar_t gl_overbright_models;
+extern cvar_t gl_overbright_models_alpha; // woods #obmodelslist
+extern cvar_t gl_overbright_models_list; // woods #obmodelslist
 extern cvar_t r_waterwarp;
 extern cvar_t r_oldskyleaf;
 extern cvar_t r_drawworld;
@@ -268,6 +270,8 @@ void R_Init (void)
 	Cvar_SetCallback (&gl_fullbrights, GL_Fullbrights_f);
 	Cvar_SetCallback (&gl_overbright, GL_Overbright_f);
 	Cvar_RegisterVariable (&gl_overbright_models);
+	Cvar_RegisterVariable (&gl_overbright_models_alpha); // woods #obmodelslist
+	Cvar_RegisterVariable (&gl_overbright_models_list); // woods #obmodelslist
 	Cvar_RegisterVariable (&r_lerpmodels);
 	Cvar_RegisterVariable (&r_lerpmove);
 	Cvar_RegisterVariable (&r_nolerp_list);
