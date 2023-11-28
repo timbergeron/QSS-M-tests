@@ -3000,6 +3000,18 @@ qboolean COM_GameDirMatches(const char *tdirs)
 	return false;
 }
 
+static void COM_AddGameDirectory(const char* dir); // woods #pakdirs
+
+qboolean AddHashedDirectories(void* ctx, const char* fname, time_t mtime, size_t fsize, searchpath_t* spath)
+{
+	if (*fname == '#') // Checking if the directory starts with #
+	{
+		const char* combinedName = va("%s/%s", GAMENAME, fname);
+		COM_AddGameDirectory(combinedName);
+	}
+	return true; // Return true to continue processing
+}
+
 /*
 =================
 COM_AddGameDirectory -- johnfitz -- modified based on topaz's tutorial
@@ -3127,6 +3139,8 @@ _add_path:
 		COM_ListSystemFiles(searchdir, com_gamedir, "pak", COM_AddEnumeratedPackage);
 		COM_ListSystemFiles(searchdir, com_gamedir, "pk3", COM_AddEnumeratedPackage);
 	}
+
+	COM_ListFiles(NULL, searchdir, "#*", AddHashedDirectories); // woods #pakdirs
 
 	// then finally link the directory to the search path
 	//spike -- moved this last (also explicitly blocked loading progs.dat from system paths when running the demo)
