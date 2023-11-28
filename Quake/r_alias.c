@@ -944,6 +944,14 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata
 		else
 			e->lerp.state.lerptime = 0.1;
 
+		if (e->lerpflags & LERP_WRESET) // woods #wplerp weapon change reset
+		{
+			e->lerp.state.lerpstart = 0;
+			e->lerp.state.previouspose = 0;
+			e->lerp.state.currentpose = 0;
+			e->lerpflags -= LERP_WRESET;
+		}
+
 		if (e->lerpflags & LERP_RESETANIM) //kill any lerp in progress
 		{
 			e->lerp.state.lerpstart = 0;

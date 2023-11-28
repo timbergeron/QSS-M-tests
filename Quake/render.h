@@ -45,6 +45,8 @@ typedef struct efrag_s
 #define LERP_RESETMOVE	(1<<3) //disable movement lerping until next origin/angles change
 #define LERP_FINISH		(1<<4) //use lerpfinish time from server update instead of assuming interval of 0.1
 #define LERP_EXPLICIT	(1<<5) //for csqc, using explicit frame1/2+frac+times
+#define LERP_WRESET		(1<<6) //woods weapon change complete reset #wplerp
+
 //johnfitz
 
 typedef struct entity_s

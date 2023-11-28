@@ -609,7 +609,7 @@ static void CL_EntitiesDeltaed(void)
 
 			if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]]) // woods
 			{
-				cl.viewent.lerpflags |= LERP_RESETANIM; //don't lerp animation across model changes
+				cl.viewent.lerpflags |= LERP_WRESET; // woods #wplerp don't lerp animation across model changes
 			}
 
 		// shift the known values for interpolation
