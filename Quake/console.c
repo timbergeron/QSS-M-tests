@@ -1408,7 +1408,7 @@ static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods 
 static qboolean CompleteViewpos (const char* partial, void* unused) // woods
 {
 	if (Cmd_Argc() != 2)
-		return;
+		return false;
 	Con_AddToTabList("copy", partial, NULL);
 
 	return true;
