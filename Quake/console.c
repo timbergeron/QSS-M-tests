@@ -1405,6 +1405,15 @@ static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods 
 	return true;
 }
 
+static qboolean CompleteViewpos (const char* partial, void* unused) // woods
+{
+	if (Cmd_Argc() != 2)
+		return;
+	Con_AddToTabList("copy", partial, NULL);
+
+	return true;
+}
+
 qboolean CompleteImageList (const char* partial, void* unused); // woods
 
 typedef struct arg_completion_type_s // woods #iwtabcomplete
@@ -1433,6 +1442,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "imagedump",				CompleteImageList,		NULL },
 	{ "bind",					CompleteBindKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
+	{ "viewpos",				CompleteViewpos,		NULL },
 };
 
 static const int num_arg_completion_types =
