@@ -2122,7 +2122,7 @@ void LaserSight (void)
 
 	// find the spot the player is looking at
 	VectorMA(start, 4096, forward, crosshair);
-	TraceLine(start, crosshair, wall);
+	TraceLine(start, crosshair, 0, wall);
 
 	glDisable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

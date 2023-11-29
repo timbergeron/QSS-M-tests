@@ -370,6 +370,9 @@
 		93C700622944122600FDFB9D /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libopus.a; path = libs_universal/libopus.a; sourceTree = "<group>"; };
 		B021C20714A5FF7E003F18D6 /* cfgfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cfgfile.c; path = ../Quake/cfgfile.c; sourceTree = SOURCE_ROOT; };
 		B021C20814A5FF7E003F18D6 /* cfgfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cfgfile.h; path = ../Quake/cfgfile.h; sourceTree = SOURCE_ROOT; };
+		CE9FFE452AF78E4B00E53854 /* pmove.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmove.c; path = ../Quake/pmove.c; sourceTree = "<group>"; };
+		CE9FFE462AF78E4B00E53854 /* pmove.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pmove.h; path = ../Quake/pmove.h; sourceTree = "<group>"; };
+		CE9FFE472AF78E4B00E53854 /* pmovetst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmovetst.c; path = ../Quake/pmovetst.c; sourceTree = "<group>"; };
 		F5F5DE80017CB4370103A810 /* libmikmod.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmikmod.dylib; path = codecs/lib/libmikmod.dylib; sourceTree = "<group>"; };
 		FD07DF922782B4CB005CB9D9 /* iplog.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = iplog.h; path = ../Quake/iplog.h; sourceTree = "<group>"; };
 		FD07DF932782B4E3005CB9D9 /* iplog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = iplog.c; path = ../Quake/iplog.c; sourceTree = "<group>"; };
@@ -543,6 +546,8 @@
 				668A0111277D0BE8009D9427 /* mdfour.c */,
 				483A78190D2EEA5400CB2E4C /* menu.c */,
 				48895DB80D4914A000849ABF /* pl_osx.m */,
+				CE9FFE452AF78E4B00E53854 /* pmove.c */,
+				CE9FFE472AF78E4B00E53854 /* pmovetst.c */,
 				483A781A0D2EEA5400CB2E4C /* pr_cmds.c */,
 				483A781B0D2EEA5400CB2E4C /* pr_edict.c */,
 				483A781C0D2EEA5400CB2E4C /* pr_exec.c */,
@@ -665,6 +670,7 @@
 				483A77EB0D2EE97700CB2E4C /* mathlib.h */,
 				483A77EC0D2EE97700CB2E4C /* menu.h */,
 				4846EB500D329BEB00A108DE /* platform.h */,
+				CE9FFE462AF78E4B00E53854 /* pmove.h */,
 				483A77ED0D2EE97700CB2E4C /* pr_comp.h */,
 				483A77EE0D2EE97700CB2E4C /* progdefs.h */,
 				483A77EF0D2EE97700CB2E4C /* progs.h */,
@@ -841,6 +847,7 @@
 				664D989119CF6B78000D395C /* common.c in Sources */,
 				664D989219CF6B78000D395C /* console.c in Sources */,
 				664D989319CF6B78000D395C /* crc.c in Sources */,
+				CE9FFE482AF78E4B00E53854 /* pmove.c in Sources */,
 				664D989419CF6B78000D395C /* cvar.c in Sources */,
 				664D989519CF6B78000D395C /* host_cmd.c in Sources */,
 				664D989619CF6B78000D395C /* host.c in Sources */,
@@ -914,6 +921,7 @@
 				664D98D319CF6B78000D395C /* snd_vorbis.c in Sources */,
 				664D98D419CF6B78000D395C /* snd_wave.c in Sources */,
 				664D98D519CF6B78000D395C /* snd_mp3.c in Sources */,
+				CE9FFE492AF78E4B00E53854 /* pmovetst.c in Sources */,
 				664D98D619CF6B78000D395C /* snd_mikmod.c in Sources */,
 				668A0113277D0BE8009D9427 /* mdfour.c in Sources */,
 				85AC9B2C2A70521E00228EF3 /* pmove.c in Sources */,

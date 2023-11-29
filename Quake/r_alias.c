@@ -1407,6 +1407,11 @@ void R_DrawAliasModel (entity_t *e)
 	}
 	else if (alphatest)
 		glEnable (GL_ALPHA_TEST);
+	if (e->effects & EF_ADDITIVE)
+	{
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE);
+		glEnable(GL_BLEND);
+	}
 
 	//
 	// set up lighting
@@ -1683,6 +1688,8 @@ cleanup:
 	glColor3f(1,1,1);
 	if (e->eflags & EFLAGS_VIEWMODEL)
 		glDepthRange (0, 1);
+	if (e->effects & EF_ADDITIVE)
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glPopMatrix ();
 }
 
