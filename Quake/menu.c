@@ -993,6 +993,7 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 		{
 			M_AdjustColour(&setup_top, -1);
+			strncpy(lastColorSelected, CL_PLColours_ToString(setup_top), sizeof((CL_PLColours_ToString(setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 				{
@@ -1003,6 +1004,7 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
 			M_AdjustColour(&setup_bottom, -1);
+			strncpy(lastColorSelected, CL_PLColours_ToString(setup_bottom), sizeof((CL_PLColours_ToString(setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
 				{
@@ -1097,6 +1099,7 @@ void M_Setup_Key (int k)
 				SDL_SetClipboardText (lastColorSelected);
 			else
 				SDL_SetClipboardText (CL_PLColours_ToString (setup_bottom));
+			S_LocalSound ("misc/menu2.wav");
 		}
 		break;
 
