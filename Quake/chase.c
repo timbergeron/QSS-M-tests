@@ -255,6 +255,8 @@ void Chase_UpdateForDrawing (void)
 	int		i;
 	vec3_t	forward, up, right;
 	vec3_t	ideal, crosshair, temp;
+	float	alpha = 1, alphadist = 1;
+	float	absdist;
 
 	AngleVectors (cl.lerpangles, forward, right, up); // woods added lerpangles for #smoothcam
 
@@ -276,11 +278,6 @@ void Chase_UpdateForDrawing (void)
 	VectorMA (r_refdef.vieworg, 1<<20, forward, temp);
 	TraceLine (r_refdef.vieworg, temp, 0, crosshair);
 
-	/*
-	
-	float	alpha = 1, alphadist = 1;
-	float	absdist;
-	
 	if (VectorLength(temp) != 0)
 	{	alphadist = VecLength2(r_refdef.vieworg, ideal); // chase_transparent from Qrack
 		absdist = abs(chase_back.value);
@@ -291,11 +288,8 @@ void Chase_UpdateForDrawing (void)
 			alpha = (alpha < 0.09) ? 0 : 1;
 
 		cl.entities[cl.viewentity].alpha = ENTALPHA_ENCODE((q_min(alpha, 1)));
-
-		LerpVector(r_refdef.vieworg, temp, 0.666f, ideal); // woods --> R00k, this prevents the camera from poking into the wall by capping the traceline.
 	}
-	*/
-
+	
 	// place camera
 	VectorCopy (ideal, r_refdef.vieworg);
 
