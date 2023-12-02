@@ -2508,11 +2508,17 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
 				}
-				if ((strstr(string, "νατγθ μεξητθ") || (strstr(string, "match length"))))  // woods vote match length auto vote yes
+
+				char qfmatchlength[13] = { 237, 225, 244, 227, 232, 32, 236, 229, 238, 231, 244, 232,'\0' }; // woods -- quake font red 'match length'
+
+				if ((strstr(string, qfmatchlength) || (strstr(string, "match length"))))  // woods vote match length auto vote yes
 				{
 					Cbuf_AddText("impulse 115\n");
 				}
-				if (!strncmp(string, "ΓμαξÒιξη", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
+
+				char qfClanRing[9] = { 195, 236, 225, 238, 210, 233, 238, 231, '\0' }; // woods -- quake font red 'ClanRing'
+
+				if (!strncmp(string, qfClanRing, 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
 					if (COM_FileExists("dm.cfg", NULL))

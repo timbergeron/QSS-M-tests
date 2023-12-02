@@ -649,10 +649,12 @@ void Sbar_SoloScoreboard (void)
 
 		if (cl.maxclients > 1)
 		{
+			char qfylwdot[2] = { 133, '\0' }; // woods  -- quake font yellow dot
+
 			if (cl.levelname[0]) // if there's a level name
-				q_snprintf(str, sizeof(str), "%s (%s)  %s", cl.levelname, cl.mapname, lastmphost);
+				q_snprintf(str, sizeof(str), "%s (%s) %s %s", cl.levelname, cl.mapname, qfylwdot, lastmphost);
 			else
-				q_snprintf(str, sizeof(str), "%s  %s", cl.mapname, lastmphost);
+				q_snprintf(str, sizeof(str), "%s %s %s", cl.mapname, qfylwdot, lastmphost);
 		}
 		else
 		{ 
@@ -2124,18 +2126,20 @@ void Sbar_DeathmatchOverlay (void)
 		if (!s->name[0])
 			continue;
 
+		char qfReady[6] = { 210, 229, 225, 228, 249, '\0' }; // quake font red 'Ready'
+
 		if (cl.modtype == 1 || cl.modtype == 4) // woods -- dynamic status flash scoreboard label if not ready #smartstatus
 		{
 			if (!cl.teamgame)
 				notready = false;
 			
-			if (strstr(s->name, "Òåáäù") || strstr(s->name, "Ready"))
+			if (strstr(s->name, qfReady) || strstr(s->name, "Ready"))
 				oneready = true;
 			
-			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (!strstr(s->name, "Òåáäù") || !strstr(s->name, "Ready")))
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (!strstr(s->name, qfReady) || !strstr(s->name, "Ready")))
 				notready = true;
 
-			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (strstr(s->name, "Òåáäù") || strstr(s->name, "Ready")))
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (strstr(s->name, qfReady) || strstr(s->name, "Ready")))
 				notready = false;
 		}
 

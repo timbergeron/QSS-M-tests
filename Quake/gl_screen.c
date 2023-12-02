@@ -215,18 +215,27 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	
 	if (cl.modtype == 4) // woods #qeintermission
 	{ 
-		if (strstr(str, "÷ÔÙÂ") || strstr(str, "‘ƒÕ") || (strstr(str, "Õ·Ù„Ë") && strstr(str, "”ıÌÌ·Ú˘"))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
+		char qfVote[5] = { 214, 239, 244, 229, '\0' }; // quake font red 'Vote'
+		char qfTDM[4] = { 212, 196, 205, '\0' }; // quake font red 'TDM'
+		char qfMatch[6] = { 205, 225, 244, 227, 232, '\0' }; // quake font red 'Match'
+		char qfSummary[8] = { 211, 245, 237, 237, 225, 242, 249, '\0' }; // quake font red 'Summary'
+
+		if (strstr(str, qfVote) || strstr(str, qfTDM) || (strstr(str, qfMatch) && strstr(str, qfSummary))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
 			qeintermission = true;
 		else
 			qeintermission = false;
 	}
 
-	if (strstr(str, "„ÔıÓÙ‰Ô˜Ó∫")) // woods #clearcrxcountdown (countdown)
+	char qfcountdown[11] = { 227, 239, 245, 238, 244, 228, 239, 247, 238, 186, '\0' }; // woods -- quake font red 'countdown:'
+
+	if (strstr(str, qfcountdown)) // woods #clearcrxcountdown (countdown)
 		countdown = true;
 	else
 		countdown = false;
 
-	if ((strstr(str, "–¡’”≈ƒ")) || (strstr(str, "PAUSED"))) // #showpaused
+	char qfPAUSED[7] = { 208, 193, 213, 211, 197, 196, '\0' }; // woods -- quake font red 'PAUSED'
+
+	if ((strstr(str, qfPAUSED)) || (strstr(str, "PAUSED"))) // #showpaused
 	{
 		pausedprint = true; // woods #qssmhints
 		return;
@@ -236,7 +245,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 // woods for center print filter  -> this is #flagstatus
 // ===============================
 
- // begin woods for flagstatus parsing --  ‚ = blue abandoned, Ú = red abandoned, r = taken, b = taken
+ // begin woods for flagstatus parsing for legacy mods without infokeys
 
 	const char* blueflag;
 	char buf[10];
@@ -246,36 +255,44 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	{ 
 		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
-		if (!strpbrk(str, "Äùùù")) // cdmod MOD print
+		char qfleftbrnbigbrkt[2] = { 128, '\0' }; // quake font left bigger brown bracket
+
+		char qfrbrnsep[3] = { 114, 158, '\0' }; // regular font 'r' + quake font brown spacer -- RED TAKEN
+		char qfbrrtbrnbrkt[3] = { 98, 159, '\0' }; // regular font 'b' + quake font brown right smaller bracket -- BLUE TAKEN
+
+		char qfredrbrnsep[3] = { 242, 158, '\0' }; // quake font red 'r' + quake font brown spacer -- RED ABANDONED
+		char qfredbrrtbrnbrkt[3] = { 226, 159, '\0' }; // quake font red 'b' + quake font brown right smaller bracket -- BLUE ABANDONED
+
+		if (!strpbrk(str, qfleftbrnbigbrkt)) // crmod MOD print
 		{
 			// RED
 
-			if (strstr(str, "rû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red taken
+			if (strstr(str, qfrbrnsep) && !strstr(str, qfbrrtbrnbrkt) && !strstr(str, qfredbrrtbrnbrkt)) // red taken
 				strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
 
-			if (strstr(str, "Úû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red abandoned
+			if (strstr(str, qfredrbrnsep) && !strstr(str, qfbrrtbrnbrkt) && !strstr(str, qfredbrrtbrnbrkt)) // red abandoned
 				strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
 
 		// BLUE
 
-			if (strstr(str, "bü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue taken
+			if (strstr(str, qfbrrtbrnbrkt) && !strstr(str, qfrbrnsep) && !strstr(str, qfredrbrnsep)) // blue taken
 				strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
 
-			if (strstr(str, "‚ü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue abandoned
+			if (strstr(str, qfredbrrtbrnbrkt) && !strstr(str, qfrbrnsep) && !strstr(str, qfredrbrnsep)) // blue abandoned
 				strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
 
 		// RED & BLUE
 
-			if ((strstr(str, "bü")) && (strstr(str, "rû"))) //  blue & red taken
+			if ((strstr(str, qfbrrtbrnbrkt)) && (strstr(str, qfrbrnsep))) //  blue & red taken
 				strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
 
-			if ((strstr(str, "‚ü")) && (strstr(str, "Úû"))) // blue & red abandoned
+			if ((strstr(str, qfredbrrtbrnbrkt)) && (strstr(str, qfredrbrnsep))) // blue & red abandoned
 				strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
 
-			if ((strstr(str, "‚ü")) && (strstr(str, "rû"))) // blue abandoned, red taken
+			if ((strstr(str, qfredbrrtbrnbrkt)) && (strstr(str, qfrbrnsep))) // blue abandoned, red taken
 				strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
 
-			if ((strstr(str, "bü")) && (strstr(str, "Úû"))) // red abandoned, blue taken
+			if ((strstr(str, qfbrrtbrnbrkt)) && (strstr(str, qfredrbrnsep))) // red abandoned, blue taken
 				strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
 		}
 	}
@@ -286,11 +303,28 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 		return;
 
 	if (!strcmp(str, "Your team captured the flag!\n") ||
-		!strcmp(str, "Your flag was captured!\n") ||
-		!strcmp(str, "Enemy ÊÏ·Á has been returned to base!") ||
-		!strcmp(str, "Your ∆Ã¡« has been taken!") ||
-		!strcmp(str, "Your team has the enemy ∆Ã¡«!") ||
-		!strcmp(str, "Your ÊÏ·Á has been returned to base!"))
+		!strcmp(str, "Your flag was captured!\n"))
+		return;
+
+	char qfflag[5] = { 230, 236, 225, 231, '\0' }; // woods  -- quake font red lowercase 'flag'
+	char qfupFLAG[5] = { 198, 204, 193, 199, '\0' }; // woods -- quake font red uppercase 'FLAG'
+
+	char fgmsgbuffer[42];
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Enemy %s has been returned to base!", qfflag);
+	if (!strcmp(str, fgmsgbuffer))
+		return;
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Your %s has been taken!", qfupFLAG);
+	if (!strcmp(str, fgmsgbuffer))
+		return;
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Your team has the enemy %s!", qfupFLAG);
+	if (!strcmp(str, fgmsgbuffer))
+		return;
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Your %s has been returned to base!", qfflag);
+	if (!strcmp(str, fgmsgbuffer))
 		return;
 
 	if (*str != '/' && cl.intermission)

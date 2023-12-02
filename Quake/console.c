@@ -660,7 +660,9 @@ static void Con_Print (const char *txt)
 
 			sprintf(namewithcolon, "%s: ", cl_name.string); // "woods: "
 
-			if (strstr(txt, "στατιστιγσ") || strstr(txt, "match starting") || strstr(txt, "End of match"))
+			char statistics[11] = { 243, 244, 225, 244, 233, 243, 244, 233, 227, 243, '\0' }; // woods -- quake font red 'statistics'
+
+			if (strstr(txt, statistics) || strstr(txt, "match starting") || strstr(txt, "End of match"))
 				matchstats = true;
 			if (strstr(txt, "The match is over"))
 				matchstats = false;
