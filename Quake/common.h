@@ -232,6 +232,7 @@ extern int q_strncasecmp (const char *s1, const char *s2, size_t n);
 
 /* locale-insensitive natural string comparison function */
 int q_strnaturalcmp (const char* s1, const char* s2); // woods #iwtabcomplete
+int q_sortdemos (const char* s1, const char* s2); // woods #demolistsort
 
 /* locale-insensitive case-insensitive alternative to strstr */
 extern char *q_strcasestr(const char *haystack, const char *needle);

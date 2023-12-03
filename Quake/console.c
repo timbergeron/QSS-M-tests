@@ -1181,6 +1181,7 @@ char key_tabpartial[MAXCMDLINE];
 typedef struct tab_s
 {
 	const char	*name;
+	char date[20]; // woods #demolistsort
 	const char	*type;
 	struct tab_s	*next;
 	struct tab_s	*prev;
@@ -1213,7 +1214,7 @@ tablist is a doubly-linked loop, alphabetized by name
 static char	bash_partial[80];
 static qboolean	bash_singlematch;
 
-void Con_AddToTabList (const char* name, const char* partial, const char* type) // woods #iwtabcomplete
+void Con_AddToTabList (const char* name, const char* partial, const char* type, const char* param) // woods #iwtabcomplete -- added extra arg for dynamic list type (ie demo vs sky/map etc) #demolistsort
 {
 	tab_t* t, * insert;
 	char* i_bash, * i_bash2;
@@ -1222,6 +1223,8 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 
 	if (!Con_Match (name, partial))
 		return;
+
+	int FileIsDemo = (param != NULL); // woods #demolistsort
 
 	if (!*bash_partial && bash_singlematch)
 	{
@@ -1264,6 +1267,11 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 	t->name = (const char*)(t + 1);
 	t->type = type;
 	t->count = 1;
+	if (param)
+	{
+		strncpy(t->date, param, sizeof(t->date) - 1); // Copy the date
+		t->date[sizeof(t->date) - 1] = '\0'; // Ensure null termination
+	}
 
 	if (!tablist) //create list
 	{
@@ -1271,7 +1279,7 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 		t->next = t;
 		t->prev = t;
 	}
-	else if (q_strnaturalcmp (name, tablist->name) < 0) //insert at front
+	else if (FileIsDemo ? (q_sortdemos(param, tablist->date) < 0) : (q_strnaturalcmp(name, tablist->name) < 0)) // Insert at front -- woods #demolistsort
 	{
 		t->next = tablist;
 		t->prev = tablist->prev;
@@ -1284,7 +1292,7 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 		insert = tablist;
 		do
 		{
-			int cmp = q_strnaturalcmp (name, insert->name);
+			int cmp = FileIsDemo ? q_sortdemos(t->date, insert->date) : q_strnaturalcmp(name, insert->name);  // woods #demolistsort
 			if (!cmp && !strcmp(name, insert->name)) // avoid duplicates
 			{
 				Hunk_FreeToLowMark (mark);
@@ -1369,7 +1377,15 @@ static qboolean CompleteFileList (const char* partial, void* param) // woods #iw
 {
 	filelist_item_t* file, ** list = (filelist_item_t**)param;
 	for (file = *list; file; file = file->next)
-		Con_AddToTabList (file->name, partial, NULL);
+		Con_AddToTabList (file->name, partial, NULL, NULL);
+	return true;
+}
+
+static qboolean CompleteFileListDemo (const char* partial, void* param) // woods #iwtabcomplete #demolistsort
+{
+	filelist_item_t* file, ** list = (filelist_item_t**)param;
+	for (file = *list; file; file = file->next)
+		Con_AddToTabList (file->name, partial, NULL, file->date);
 	return true;
 }
 
@@ -1384,7 +1400,7 @@ static qboolean CompleteBindKeys (const char* partial, void* unused) // woods #i
 	{
 		const char* name = Key_KeynumToString(i);
 		if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
-			Con_AddToTabList (name, partial, keybindings[0][i]);
+			Con_AddToTabList (name, partial, keybindings[0][i], NULL); // #demolistsort add arg
 	}
 
 	return true;
@@ -1400,7 +1416,7 @@ static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods 
 		{
 			const char* name = Key_KeynumToString(i);
 			if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
-				Con_AddToTabList (name, partial, keybindings[0][i]);
+				Con_AddToTabList (name, partial, keybindings[0][i], NULL); // #demolistsort add arg
 		}
 	}
 
@@ -1411,7 +1427,7 @@ static qboolean CompleteViewpos (const char* partial, void* unused) // woods
 {
 	if (Cmd_Argc() != 2)
 		return false;
-	Con_AddToTabList("copy", partial, NULL);
+	Con_AddToTabList("copy", partial, NULL, NULL); // #demolistsort add arg
 
 	return true;
 }
@@ -1431,9 +1447,9 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "maps",					CompleteFileList,		&extralevels },
 	{ "changelevel",			CompleteFileList,		&extralevels },
 	{ "game",					CompleteFileList,		&modlist },
-	{ "record",					CompleteFileList,		&demolist },
-	{ "playdemo",				CompleteFileList,		&demolist },
-	{ "timedemo",				CompleteFileList,		&demolist },
+	{ "record",					CompleteFileListDemo,	&demolist },
+	{ "playdemo",				CompleteFileListDemo,	&demolist },
+	{ "timedemo",				CompleteFileListDemo,	&demolist },
 	{ "sky",					CompleteFileList,		&skylist },
 	{ "exec",					CompleteFileList,		&execlist },
 	{ "connect",				CompleteFileList,		&serverlist },
@@ -1508,15 +1524,15 @@ static void BuildTabList (const char* partial)
 	cvar = Cvar_FindVarAfter("", CVAR_NONE);
 	for (; cvar; cvar=cvar->next)
 		if (q_strcasestr (cvar->name, partial))
-			Con_AddToTabList (cvar->name, partial, "cvar");
+			Con_AddToTabList (cvar->name, partial, "cvar", NULL); // #demolistsort add arg
 
 	for (cmd=cmd_functions; cmd; cmd=cmd->next)
 		if (cmd->srctype != src_server && q_strcasestr(cmd->name, partial) && !Cmd_IsReservedName(cmd->name))
-			Con_AddToTabList (cmd->name, partial, "command");
+			Con_AddToTabList (cmd->name, partial, "command", NULL); // #demolistsort add arg
 
 	for (alias=cmd_alias; alias; alias=alias->next)
 		if (q_strcasestr (alias->name, partial))
-			Con_AddToTabList (alias->name, partial, "alias");
+			Con_AddToTabList (alias->name, partial, "alias", NULL); // #demolistsort add arg
 }
 
 /*

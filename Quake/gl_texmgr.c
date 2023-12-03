@@ -51,8 +51,6 @@ unsigned int d_8to24table_conchars[256];
 
 static void TexMgr_ColormapTexture_Free(struct gltexture_s *basetex);
 
-void FileList_Add (const char* name, filelist_item_t** list); // woods #texturemode
-
 static struct
 {
 	const char *formatname;	//full name
@@ -251,9 +249,9 @@ static void TexMgr_TextureMode_Completion_f (cvar_t* cvar, const char* partial)
 	for (i = 0; i < NUM_GLMODES; i++)
 	{
 		if (glmodes[i].name1 == NULL)
-			Con_AddToTabList(glmodes[i].name2, partial, NULL);
+			Con_AddToTabList(glmodes[i].name2, partial, NULL, NULL); // #demolistsort add arg
 		else
-			Con_AddToTabList(glmodes[i].name1, partial, NULL);
+			Con_AddToTabList(glmodes[i].name1, partial, NULL, NULL); // #demolistsort add arg
 	}
 }
 
@@ -347,7 +345,7 @@ qboolean CompleteImageList (const char* partial, void* unused)
 
 	for (glt = active_gltextures; glt; glt = glt->next)
 		if (Con_Match(glt->name, partial))
-			Con_AddToTabList(glt->name, partial, NULL);
+			Con_AddToTabList(glt->name, partial, NULL, NULL); // #demolistsort add arg
 
 	return true;
 }

@@ -75,7 +75,7 @@ static void Tracer_Completion_f (cvar_t* cvar, const char* partial)
 		const char* classname = PR_GetString (ed->v.classname);
 		classname = PR_GetString (ed->v.classname);
 		if (*classname)
-			Con_AddToTabList (classname, partial, "#");
+			Con_AddToTabList (classname, partial, "#", NULL); // #demolistsort add arg
 	}
 
 	PR_SwitchQCVM (NULL);

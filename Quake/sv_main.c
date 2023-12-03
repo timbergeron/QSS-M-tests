@@ -1529,7 +1529,7 @@ void Extralevels_Completion_f (cvar_t* cvar, const char* partial)
 	filelist_item_t* current = extralevels;
 
 	while (current != NULL) {
-		Con_AddToTabList (current->name, partial, NULL);
+		Con_AddToTabList (current->name, partial, NULL, NULL); // #demolistsort add arg
 		current = current->next;
 	}
 }

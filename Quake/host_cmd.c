@@ -26,6 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "arch_def.h" // woods for #iplog
 #include "net_sys.h" // woods for #iplog
 #include "net_defs.h" // woods for #iplog
+#include <time.h> // woods #demolistsort
+#include <sys/stat.h> // woods #demolistsort
 #ifndef _WIN32
 #include <dirent.h>
 #endif
@@ -76,7 +78,7 @@ void Host_Quit_f (void)
 FileList_Add
 ==================
 */
-void FileList_Add (const char *name, filelist_item_t **list) // woods remove static #texturemode
+static void FileList_Add (const char *name, const char* date, filelist_item_t **list) // woods #demolistsort add arg
 {
 	filelist_item_t	*item,*cursor,*prev;
 
@@ -89,6 +91,8 @@ void FileList_Add (const char *name, filelist_item_t **list) // woods remove sta
 
 	item = (filelist_item_t *) Z_Malloc(sizeof(filelist_item_t));
 	q_strlcpy (item->name, name, sizeof(item->name));
+	if (date)
+		q_strlcpy(item->date, date, sizeof(item->date)); // woods #demolistsort add arg
 
 	// insert each entry in alphabetical order
 	if (*list == NULL ||
@@ -127,7 +131,7 @@ filelist_item_t	*extralevels;
 
 static void ExtraMaps_Add (const char *name)
 {
-	FileList_Add(name, &extralevels);
+	FileList_Add(name, NULL, &extralevels); // woods #demolistsort add arg
 }
 
 void ExtraMaps_Init (void)
@@ -268,7 +272,7 @@ static void Host_Maps_f (void)
 
 			snprintf(combined, sizeof(combined), "%s%s%s", level->name, space_str, mapdesc);
 
-			FileList_Add(combined, &levelwithdesc);
+			FileList_Add(combined, NULL, &levelwithdesc); // woods #demolistsort add arg
 		}
 		free(space_str);
 	}
@@ -320,7 +324,7 @@ filelist_item_t* folderlist;
 
 static void FolderList_Add(const char* name)
 {
-	FileList_Add(name, &folderlist);
+	FileList_Add(name, NULL, &folderlist); // woods #demolistsort add arg
 }
 
 #ifdef _WIN32
@@ -389,7 +393,7 @@ filelist_item_t	*modlist;
 
 static void Modlist_Add (const char *name)
 {
-	FileList_Add(name, &modlist);
+	FileList_Add(name, NULL, &modlist); // woods #demolistsort add arg
 }
 
 #ifdef _WIN32
@@ -494,7 +498,7 @@ void ServerList_Init(void)
 			}
 		}
 
-		FileList_Add(buffer, &serverlist);
+		FileList_Add(buffer, NULL, &serverlist); // woods #demolistsort add arg
 	}
 	fclose(file);
 }
@@ -531,7 +535,7 @@ void ExecList_Init(void)
 			do
 			{
 				strcpy(cfgname, fdat.cFileName);
-				FileList_Add(cfgname, &execlist);
+				FileList_Add(cfgname, NULL, &execlist); // woods #demolistsort add arg
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 		}
@@ -544,7 +548,7 @@ void ExecList_Init(void)
 			{
 				strcpy(cfgname, fdat.cFileName);
 				sprintf(cfgnamedir, "aliases/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 		}
@@ -557,7 +561,7 @@ void ExecList_Init(void)
 			{
 				strcpy(cfgname, fdat.cFileName);
 				sprintf(cfgnamedir, "names/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 		}
@@ -570,7 +574,7 @@ void ExecList_Init(void)
 			{
 				strcpy(cfgname, fdat.cFileName);
 				sprintf(cfgnamedir, "backups/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 		}
@@ -583,7 +587,7 @@ void ExecList_Init(void)
 			{
 				strcpy(cfgname, fdat.cFileName);
 				sprintf(cfgnamedir, "configs/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 		}
@@ -598,7 +602,7 @@ void ExecList_Init(void)
 					continue;
 
 				strcpy(cfgname, dir_t->d_name);
-				FileList_Add(cfgname, &execlist);
+				FileList_Add(cfgname, NULL, &execlist); // woods #demolistsort add arg
 			}
 			closedir(dir_p);
 		}
@@ -616,7 +620,7 @@ void ExecList_Init(void)
 
 				strcpy(cfgname, dir_t->d_name);
 				sprintf(cfgnamedir, "aliases/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			}
 			closedir(dir_p);
 		}
@@ -633,7 +637,7 @@ void ExecList_Init(void)
 
 				strcpy(cfgname, dir_t->d_name);
 				sprintf(cfgnamedir, "names/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			}
 			closedir(dir_p);
 		}
@@ -649,7 +653,7 @@ void ExecList_Init(void)
 
 				strcpy(cfgname, dir_t->d_name);
 				sprintf(cfgnamedir, "configs/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			}
 			closedir(dir_p);
 		}
@@ -666,7 +670,7 @@ void ExecList_Init(void)
 
 				strcpy(cfgname, dir_t->d_name);
 				sprintf(cfgnamedir, "backups/%s", cfgname);
-				FileList_Add(cfgnamedir, &execlist);
+				FileList_Add(cfgnamedir, NULL, &execlist); // woods #demolistsort add arg
 			}
 			closedir(dir_p);
 	}
@@ -707,7 +711,7 @@ void ParticleList_Init (void)
 	pack_t* pak;
 	int		i;
 
-	FileList_Add ("classic", &particlelist);
+	FileList_Add ("classic", NULL, &particlelist); // woods #demolistsort add arg
 
 	for (search = com_searchpaths; search; search = search->next)
 	{
@@ -725,7 +729,7 @@ void ParticleList_Init (void)
 					strcpy(cfgname, fdat.cFileName);
 					COM_StripExtension(cfgname, cfgname, sizeof(cfgname));
 					sprintf(cfgnamedir, "%s", cfgname);
-					FileList_Add(cfgnamedir, &particlelist);
+					FileList_Add(cfgnamedir, NULL, &particlelist); // woods #demolistsort add arg
 				} while (FindNextFile(fhnd, &fdat));
 				FindClose(fhnd);
 			}
@@ -743,7 +747,7 @@ void ParticleList_Init (void)
 					strcpy(cfgname, dir_t->d_name);
 					COM_StripExtension(cfgname, cfgname, sizeof(cfgname));
 					sprintf(cfgnamedir, "%s", cfgname);
-					FileList_Add(cfgnamedir, &particlelist);
+					FileList_Add(cfgnamedir, NULL, &particlelist); // woods #demolistsort add arg
 				}
 				closedir(dir_p);
 			}
@@ -766,7 +770,7 @@ void ParticleList_Init (void)
 						memmove (found, found + strlen (particlePrefix), strlen (found) - strlen (particlePrefix) + 1);
 					}
 
-					FileList_Add (cfgname, &particlelist);
+					FileList_Add (cfgname, NULL, &particlelist); // woods #demolistsort add arg
 				}
 			}
 
@@ -796,14 +800,18 @@ void DemoList_Init (void)
 {
 #ifdef _WIN32
 	WIN32_FIND_DATA	fdat;
+	SYSTEMTIME stUTC, stLocal;
 	HANDLE		fhnd;
 #else
 	DIR		*dir_p;
 	struct dirent	*dir_t;
+	struct stat file_stat;
+	struct tm* tm;
 #endif
 	char		filestring[MAX_OSPATH];
-	char		demname[32];
+	char		demname[50];
 	char		ignorepakdir[32];
+	char		dateStr[20]; // To store the date string
 	searchpath_t	*search;
 	pack_t		*pak;
 	int		i;
@@ -823,8 +831,17 @@ void DemoList_Init (void)
 				continue;
 			do
 			{
+				// Convert the last-write time to local time
+				FileTimeToSystemTime(&fdat.ftLastWriteTime, &stUTC);
+				SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal);
+
+				// Build a string showing the date
+				sprintf(dateStr, "%04d-%02d-%02d %02d:%02d:%02d",
+					stLocal.wYear, stLocal.wMonth, stLocal.wDay,
+					stLocal.wHour, stLocal.wMinute, stLocal.wSecond);
+
 				COM_StripExtension(fdat.cFileName, demname, sizeof(demname));
-				FileList_Add (demname, &demolist);
+				FileList_Add (demname, dateStr, &demolist);
 			} while (FindNextFile(fhnd, &fdat));
 			FindClose(fhnd);
 #else
@@ -836,8 +853,31 @@ void DemoList_Init (void)
 			{
 				if (q_strcasecmp(COM_FileGetExtension(dir_t->d_name), "dem") != 0)
 					continue;
+
+				char fullpath[MAX_OSPATH];
+				snprintf(fullpath, sizeof(fullpath), "%s%s", filestring, dir_t->d_name);
+
+				if (stat(fullpath, &file_stat) == 0)
+				{
+					tm = localtime(&file_stat.st_mtime);
+					if (tm) { // Check for NULL
+						snprintf(dateStr, sizeof(dateStr), "%04d-%02d-%02d %02d:%02d:%02d",
+							tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+							tm->tm_hour, tm->tm_min, tm->tm_sec);
+					}
+					else {
+						strncpy(dateStr, "Unknown Date", sizeof(dateStr) - 1);
+						dateStr[sizeof(dateStr) - 1] = '\0'; // Ensure null termination
+					}
+				}
+				else
+				{
+					strncpy(dateStr, "Unknown Date", sizeof(dateStr) - 1);
+					dateStr[sizeof(dateStr) - 1] = '\0'; // Ensure null termination
+		}
+
 				COM_StripExtension(dir_t->d_name, demname, sizeof(demname));
-				FileList_Add (demname, &demolist);
+				FileList_Add (demname, dateStr, &demolist);
 			}
 			closedir(dir_p);
 #endif
@@ -851,7 +891,7 @@ void DemoList_Init (void)
 					if (!strcmp(COM_FileGetExtension(pak->files[i].name), "dem"))
 					{
 						COM_StripExtension(pak->files[i].name, demname, sizeof(demname));
-						FileList_Add (demname, &demolist);
+						FileList_Add (demname, "Unknown Date", &demolist);
 					}
 				}
 			}
@@ -911,7 +951,7 @@ void SkyList_Recurse(const char* basePath)
 				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s/%s", parentDirectory, skyname);
 			else
 				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s", skyname);
-			FileList_Add (fullSkyName, &skylist);
+			FileList_Add (fullSkyName, NULL, &skylist); // woods #demolistsort add arg
 		}
 	} while (FindNextFile(fhnd, &fdat));
 	FindClose(fhnd);
@@ -935,7 +975,7 @@ void SkyList_Recurse(const char* basePath)
 				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s/%s", parentDirectory, skyname);
 			else
 				q_snprintf(fullSkyName, sizeof(fullSkyName), "%s", skyname);
-			FileList_Add (fullSkyName, &skylist);
+			FileList_Add (fullSkyName, NULL, &skylist); // woods #demolistsort add arg
 		}
 	}
 	closedir(dir_p);
@@ -963,7 +1003,7 @@ void SkyList_Init (void)
 					char skyname[32];
 					COM_StripExtension (pak->files[i].name, skyname, sizeof(skyname));
 					skyname[strlen(skyname) - 2] = '\0'; // remove "bk" part
-					FileList_Add (skyname, &skylist);
+					FileList_Add (skyname, NULL, &skylist); // woods #demolistsort add arg
 				}
 			}
 		}

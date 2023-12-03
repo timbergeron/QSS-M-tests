@@ -219,6 +219,58 @@ skip_prefix:
 	return q_toupper(*s1) - q_toupper(*s2);
 }
 
+int char_to_int (const char* str, int len) // woods #demolistsort
+{
+	int result = 0;
+	for (int i = 0; i < len; ++i) 
+	{
+		if (!isdigit(str[i])) return -1;  // Invalid character for conversion
+		result = result * 10 + (str[i] - '0');
+	}
+	return result;
+}
+
+int find_and_parse_date_time (const char* str, int* year, int* month, int* day, int* hour, int* min, int* sec) // woods #demolistsort
+{
+	// Ensure the string is in the expected format "YYYY-MM-DD HH:MM:SS"
+	if (strlen(str) != 19) return 0;
+
+	*year = char_to_int(str, 4);
+	*month = char_to_int(str + 5, 2);
+	*day = char_to_int(str + 8, 2);
+	*hour = char_to_int(str + 11, 2);
+	*min = char_to_int(str + 14, 2);
+	*sec = char_to_int(str + 17, 2);
+
+	if (*year == -1 || *month == -1 || *day == -1 || *hour == -1 || *min == -1 || *sec == -1) {
+		return 0;  // Parsing failed
+	}
+	return 1;  // Successful parsing
+}
+
+int q_sortdemos (const char* s1, const char* s2) // woods #demolistsort
+{
+	int year1, month1, day1, hour1, min1, sec1;
+	int year2, month2, day2, hour2, min2, sec2;
+
+	int s1_has_datetime = find_and_parse_date_time(s1, &year1, &month1, &day1, &hour1, &min1, &sec1);
+	int s2_has_datetime = find_and_parse_date_time(s2, &year2, &month2, &day2, &hour2, &min2, &sec2);
+
+	if (s1_has_datetime && s2_has_datetime) 
+	{
+		// Compare each component starting from the year down to the second
+		if (year1 != year2) return year1 - year2;  // Oldest year first
+		if (month1 != month2) return month1 - month2;  // Oldest month first
+		if (day1 != day2) return day1 - day2;  // Oldest day first
+		if (hour1 != hour2) return hour1 - hour2;  // Oldest hour first
+		if (min1 != min2) return min1 - min2;  // Oldest minute first
+		return sec1 - sec2;  // Oldest second first
+	}
+
+	// If one or both strings don't contain valid dates, use a fallback comparison
+	return strcmp(s1, s2);
+}
+
 char* Q_strnset(char* str, int c, size_t n) // woods
 {
 	size_t i;
