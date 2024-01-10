@@ -4247,45 +4247,47 @@ int COM_Seconds(int seconds)
 Write_Log -- woods -- write an arg to a log  // woods #serverlist
 ================
 */
-void Write_Log (const char* log_message, char* filename)
+void Write_Log (const char* log_message, const char* filename)
 {
 	char line[256];
-	int found = 0, i;
+	int found = 0;
 	char fname[MAX_OSPATH];
 
-	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, filename);
+	// Construct the full path of the file
+	strncpy(fname, com_basedir, MAX_OSPATH - 1);
+	fname[MAX_OSPATH - 1] = '\0';  // Ensure null termination
+	strncat(fname, "/id1/backups/", MAX_OSPATH - strlen(fname) - 1);
+	strncat(fname, filename, MAX_OSPATH - strlen(fname) - 1);
 
-	// Open the log file in read mode
+	// Open the file in append+read mode
 	FILE* log_file = fopen(fname, "a+");
-
-	if (!log_file)
+	if (!log_file) 
+	{
+		Con_DPrintf("Write_Log: Unable to open file %s for reading\n", fname);
 		return;
+	}
 
-	// Check if the file exists
-	if (log_file) {
-		// Iterate through each line of the file
-		while (fgets(line, sizeof(line), log_file)) {
-			// Check if the log message already exists in the file
+	// Go to the beginning of the file for reading
+	rewind(log_file);
 
-			for (i = 0;; i++) {
-				if (line[i] == '\n') {
-					line[i] = '\0';
-					break;
-				}
-			}
+	// Iterate through each line of the file
+	while (fgets(line, sizeof(line), log_file))
+	{
+		// Trim newline character
+		line[strcspn(line, "\n")] = 0;
 
-			if (strcmp(line, log_message) == 0) {
-				found = 1;
-				break;
-			}
+		// Check if the log message already exists in the file
+		if (strcmp(line, log_message) == 0) 
+		{
+			found = 1;
+			break;
 		}
-		fclose(log_file);
 	}
 
 	// If the log message does not already exist in the file, write it
 	if (!found) {
-		log_file = fopen(fname, "a");
 		fprintf(log_file, "%s\n", log_message);
-		fclose(log_file);
 	}
+
+	fclose(log_file);
 }
