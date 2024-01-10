@@ -1583,7 +1583,7 @@ void SZ_Print (sizebuf_t *buf, const char *data)
 
 /*
 ============
-COM_SkipPath
+COM_SkipPath -- woods #texturepointer
 ============
 */
 const char *COM_SkipPath (const char *pathname)
@@ -1625,6 +1625,25 @@ void COM_StripExtension (const char *in, char *out, size_t outsize)
 	}
 	if (length > 0)
 		out[length] = '\0';
+}
+
+/*
+============
+COM_SkipColon -- woods #texturepointer
+============
+*/
+const char* COM_SkipColon (const char* str)
+{
+	const char* last;
+
+	last = str;
+	while (*str)
+	{
+		if (*str == ':')
+			last = str + 1;
+		str++;
+	}
+	return last;
 }
 
 /*

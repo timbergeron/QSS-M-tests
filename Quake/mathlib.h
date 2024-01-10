@@ -104,6 +104,9 @@ void Matrix4_ProjectionMatrix(float fovx, float fovy, float neard, float fard, q
 void FloorDivMod (double numer, double denom, int *quotient,
 		int *rem);
 fixed16_t Invert24To16(fixed16_t val);
+vec_t DistanceBetween2Points(vec3_t v1, vec3_t v2); // woods #texturepointer
+void VectorAverage(vec3_t v1, vec3_t v2, vec3_t out); // woods #texturepointer
+void VectorExtendLimits(vec3_t newvalue, vec3_t minlimit, vec3_t maxlimit); // woods #texturepointer
 int GreatestCommonDivisor (int i1, int i2);
 
 void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up);

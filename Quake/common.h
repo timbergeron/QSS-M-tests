@@ -282,6 +282,7 @@ void COM_InitArgv (int argc, char **argv);
 void COM_InitFilesystem (void);
 
 const char *COM_SkipPath (const char *pathname);
+const char *COM_SkipColon (const char* str); // woods #texturepointer
 void COM_StripExtension (const char *in, char *out, size_t outsize);
 void COM_FileBase (const char *in, char *out, size_t outsize);
 void COM_AddExtension (char *path, const char *extension, size_t len);

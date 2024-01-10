@@ -98,6 +98,8 @@ Uint32 HintTimer_Callback(Uint32 interval, void* param); // woods #qssmhints
 void Print_Hints_f(void); // woods #qssmhints
 extern qboolean netquakeio; // woods
 
+void TexturePointer_Draw(void); // woods #texturepointer
+
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
@@ -2870,6 +2872,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawSpeed (); // woods #speed
 		SCR_Mute (); // woods #usermute
 		SCR_Observing (); // woods
+		TexturePointer_Draw (); // woods #texturepointer
 		SCR_DrawConsole ();
 		M_Draw ();
 	}

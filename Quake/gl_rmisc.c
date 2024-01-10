@@ -54,6 +54,8 @@ extern cvar_t r_drawflame; // woods #drawflame
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 
+void TexturePointer_Init (void); // woods #texturepointer
+
 /*
 ===============
 Tracer_Completion_f -- woods
@@ -297,6 +299,8 @@ void R_Init (void)
 	PScript_InitParticles();
 #endif
 	R_SetClearColor_f (&r_clearcolor); //johnfitz
+
+	TexturePointer_Init (); // woods #texturepointer
 
 	Sky_Init (); //johnfitz
 	Fog_Init (); //johnfitz

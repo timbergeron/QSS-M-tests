@@ -1130,6 +1130,11 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (scr_vrect.width/-2/s, scr_vrect.width/2/s, scr_vrect.height/2/s, scr_vrect.height/-2/s, -99999, 99999);
 		glViewport (scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
 		break;
+	case CANVAS_CROSSHAIR2: //0,0 is center of viewport -- woods #texturepointer
+		s = CLAMP(1.0f, scr_conscale.value, 10.0f);
+		glOrtho(scr_vrect.width / -2 / s, scr_vrect.width / 2 / s, scr_vrect.height / 2 / s, scr_vrect.height / -2 / s, -99999, 99999);
+		glViewport(scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
+		break;
 	case CANVAS_MATCHCLOCK: //0,0 is center of viewport // woods #varmatchclock
 		s = CLAMP (1.0, scr_matchclockscale.value, 10.0);
 		glOrtho(scr_vrect.width / -2 / s, scr_vrect.width / 2 / s, scr_vrect.height / 2 / s, scr_vrect.height / -2 / s, -99999, 99999);

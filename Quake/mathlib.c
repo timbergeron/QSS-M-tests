@@ -622,6 +622,37 @@ fixed16_t Invert24To16(fixed16_t val)
 			(((double)0x10000 * (double)0x1000000 / (double)val) + 0.5);
 }
 
+vec_t DistanceBetween2Points(vec3_t v1, vec3_t v2) // woods #texturepointer
+{
+	vec3_t	v3;
+	float	length;
+
+	VectorSubtract(v1, v2, v3);
+
+	length = v3[0] * v3[0] + v3[1] * v3[1] + v3[2] * v3[2];
+	return sqrt(length);
+}
+
+void VectorAverage(vec3_t v1, vec3_t v2, vec3_t out) // woods #texturepointer
+{
+	VectorAdd(v1, v2, out);
+	out[0] /= 2;
+	out[1] /= 2;
+	out[2] /= 2;
+}
+
+void VectorExtendLimits(vec3_t newvalue, vec3_t minlimit, vec3_t maxlimit) // woods #texturepointer
+{
+	int i;
+
+	for (i = 0; i < 3; i++)
+	{
+		if (newvalue[i] < minlimit[i])	minlimit[i] = newvalue[i];
+		if (newvalue[i] > maxlimit[i])	maxlimit[i] = newvalue[i];
+	}
+
+}
+
 /*
 ===================
 Various 4*4 matrix functions.

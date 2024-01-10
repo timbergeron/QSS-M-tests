@@ -959,6 +959,378 @@ void R_ShowTris (void)
 
 /*
 ================
+ tool_texturepointer -- woods -- fitzquake markv r15 (baker) #texturepointer
+================
+*/
+
+static vec3_t collision_spot;
+qboolean texturepointer_on;
+
+
+typedef struct
+{
+	char			texturename[16]; // WAD sizeof name is 16, so maxlength of a texture is 15.
+	gltexture_t* glt;
+	const char* explicit_name;
+	const char* short_name;
+	int				width;
+	int				height;
+	entity_t* ent;
+	msurface_t* surf;
+	float			distance;
+} texturepointer_t;
+
+static texturepointer_t texturepointer;
+
+void TexturePointer_Reset (void)
+{
+	memset(&texturepointer, 0, sizeof(texturepointer_t));
+}
+
+static void Texture_Pointer_f (void)
+{
+	switch (Cmd_Argc())
+	{
+	case 2:
+		texturepointer_on = !!Q_atoi(Cmd_Argv(1));
+		break;
+	case 1:
+		texturepointer_on = !texturepointer_on;
+		break;
+	}
+
+	TexturePointer_Reset();
+	Con_Printf("texture pointer is %s\n", texturepointer_on ? "^mON" : "^mOFF");
+}
+
+void TexturePointer_Init (void)
+{
+	Cmd_AddCommand("tool_texturepointer", Texture_Pointer_f);
+}
+
+void TexturePointer_CheckChange (texturepointer_t* test)
+{	
+	// This next IF checks if there is a surface and if the name is different than before ...
+ 	if (test->surf && strcmp(test->surf->texinfo->texture->name, texturepointer.texturename))
+	{
+		// Change of texture
+//		Con_Printf ("Texture changed from %s to %s\n", texturepointer.texturename, test->surf->texinfo->texture->name);
+		q_strlcpy(texturepointer.texturename, test->surf->texinfo->texture->name, 16 /* WAD sizeof name */);
+		texturepointer.glt = test->surf->texinfo->texture->gltexture;
+
+		
+		// Is water or lava, redirect to that glt
+		//if (!texturepointer.glt && test->surf->texinfo->texture->warpimage)
+		//	texturepointer.glt = test->surf->texinfo->texture->warpimage;
+
+		/// Probably sky ...
+		if (!texturepointer.glt)
+		{
+			texturepointer.explicit_name = texturepointer.texturename; //texturepointer.surf->texinfo->texture->name;
+			texturepointer.short_name = texturepointer.texturename;
+		//	texturepointer.width = texturepointer.surf->texinfo->texture->width;
+		//	texturepointer.height = texturepointer.surf->texinfo->texture->height;
+
+		}
+		else
+		{
+			texturepointer.explicit_name = texturepointer.glt->name;
+			texturepointer.short_name = COM_SkipColon(texturepointer.explicit_name);
+		//	texturepointer.width = texturepointer.glt->source_width;
+		//	texturepointer.height = texturepointer.glt->source_height;
+		}
+
+	}
+	texturepointer.surf = test->surf;
+	texturepointer.ent = test->ent;
+}
+
+msurface_t* SurfacePoint_NodeCheck_Recursive (mnode_t* node, vec3_t start, vec3_t end)
+{
+	float		front, back, frac;
+	vec3_t		mid;
+	msurface_t* surf = NULL;
+
+	// RecursiveLightPoint wouldn't exit here, btw.  We do
+	// Baker: investigate in future why this can happen ...
+	if (!node)
+		return NULL; // I think it is because we pass brush models to it
+					  // Or maybe because we pass sky and water too?
+
+loc0:
+	// didn't hit anything (CONTENTS_EMPTY or CONTENTS_WATER, etc.)
+	// Baker: special contents ... I'm not sure this should be a fail here except if contents empty
+	// Like do: node->contents == CONTENTS_EMPTY or  CONTENTS_SOLID return;
+	// However, seems to work perfect!
+	if (node->contents < 0)
+		return NULL;		// didn't hit anything
+
+// calculate mid point
+	if (node->plane->type < 3)
+	{
+		front = start[node->plane->type] - node->plane->dist;
+		back = end[node->plane->type] - node->plane->dist;
+	}
+	else
+	{
+		front = DotProduct(start, node->plane->normal) - node->plane->dist;
+		back = DotProduct(end, node->plane->normal) - node->plane->dist;
+	}
+
+	// LordHavoc: optimized recursion
+	if ((back < 0) == (front < 0))
+	{
+		node = node->children[front < 0];
+		goto loc0;
+	}
+
+	frac = front / (front - back);
+	mid[0] = start[0] + (end[0] - start[0]) * frac;
+	mid[1] = start[1] + (end[1] - start[1]) * frac;
+	mid[2] = start[2] + (end[2] - start[2]) * frac;
+
+	// go down front side
+	surf = SurfacePoint_NodeCheck_Recursive(node->children[front < 0], start, mid);
+	if (surf)
+	{
+		return surf; // hit something
+	}
+	else
+	{
+		// Didn't hit anything so ...
+
+		int		i;
+		surf = cl.worldmodel->surfaces + node->firstsurface;
+
+		// check for impact on this node
+		// Baker: Apparently we need this if the for loop below fails
+		VectorCopy(mid, collision_spot);
+
+		for (i = 0;i < node->numsurfaces;i++, surf++)
+		{
+			// light would check if SURF_DRAWTILED (no lightmaps), but we want for texture pointer
+			//if (surf->flags & SURF_DRAWTILED)
+			//	continue; // no lightmaps
+
+			double dsfrac, dtfrac;
+
+			dsfrac = DoublePrecisionDotProduct(mid, surf->lmvecs[0]) + surf->lmvecs[0][3];
+			dtfrac = DoublePrecisionDotProduct(mid, surf->lmvecs[1]) + surf->lmvecs[1][3];
+			if (dsfrac < 0 || dtfrac < 0)
+				continue;
+
+			if (dsfrac > surf->extents[0] || dtfrac > surf->extents[1])
+				continue;
+
+			// At this point we have a collision with this surface.
+			// Set return variables
+			VectorCopy(mid, collision_spot);
+			return surf; // success
+		}
+
+		// go down back side
+		return SurfacePoint_NodeCheck_Recursive(node->children[front >= 0], mid, end);
+	}
+}
+
+static texturepointer_t SurfacePoint (vec3_t startpoint, vec3_t endpoint)
+{
+	float collision_distance;
+	texturepointer_t best = { 0 };
+	int			i;
+
+	msurface_t* collision_surf = SurfacePoint_NodeCheck_Recursive (cl.worldmodel->nodes, startpoint, endpoint);
+
+	if (collision_surf)
+	{
+		collision_distance = DistanceBetween2Points (startpoint, collision_spot);
+
+		best.ent = NULL;
+		best.surf = collision_surf;
+		best.distance = collision_distance;
+	}
+
+	// Now check for hit with world submodels
+	for (i = 0; i < cl_numvisedicts; i++)	// 0 is player.
+	{
+		// Note that this ONLY collides with visible entities!
+		entity_t* pe = cl_visedicts[i];
+		vec3_t		adjusted_startpoint, adjusted_endpoint, adjusted_net;
+
+		if (!pe->model)
+			continue;   // no model for ent
+
+		if (!(pe->model->surfaces == cl.worldmodel->surfaces))
+			continue;	// model isnt part of world (i.e. no health boxes or what not ...)
+
+		// Baker: We need to adjust the point locations for entity origin
+
+		VectorSubtract(startpoint, pe->origin, adjusted_startpoint);
+		VectorSubtract(endpoint, pe->origin, adjusted_endpoint);
+		VectorSubtract(startpoint, adjusted_startpoint, adjusted_net);
+
+		// Make further adjustments if entity is rotated
+		if (pe->angles[0] || pe->angles[1] || pe->angles[2])
+		{
+			vec3_t f, r, u, temp;
+			AngleVectors(pe->angles, f, r, u);	// split entity angles to forward, right, up
+
+			VectorCopy(adjusted_startpoint, temp);
+			adjusted_startpoint[0] = DotProduct(temp, f);
+			adjusted_startpoint[1] = -DotProduct(temp, r);
+			adjusted_startpoint[2] = DotProduct(temp, u);
+
+			VectorCopy(adjusted_endpoint, temp);
+			adjusted_endpoint[0] = DotProduct(temp, f);
+			adjusted_endpoint[1] = -DotProduct(temp, r);
+			adjusted_endpoint[2] = DotProduct(temp, u);
+		}
+
+		collision_surf = SurfacePoint_NodeCheck_Recursive(pe->model->nodes + pe->model->hulls[0].firstclipnode /*pe->model->nodes*/, adjusted_startpoint, adjusted_endpoint);
+
+		if (collision_surf)
+		{
+			// Baker: We have to add the origin back into the results here!
+			VectorAdd(collision_spot, adjusted_net, collision_spot);
+
+			collision_distance = DistanceBetween2Points(startpoint, collision_spot);
+
+			if (!best.surf || collision_distance < best.distance)
+			{
+				// New best
+				best.ent = pe;
+				best.surf = collision_surf;
+				best.distance = collision_distance;
+			}
+
+		}
+		// On to next entity ..
+	}
+
+	return best;
+}
+
+// Determine start and end test and run function to get closest collision surface.
+texturepointer_t TexturePointer_SurfacePoint (void)
+{
+	vec3_t startingpoint, endingpoint, forward, up, right;
+
+	// r_refdef.vieworg/viewangles is the camera position
+	VectorCopy(r_refdef.vieworg, startingpoint);
+
+	// Obtain the forward vector
+	AngleVectors(r_refdef.viewangles, forward, right, up);
+
+	// Walk it forward by 4096 units
+	VectorMA(startingpoint, 4096, forward, endingpoint);
+
+	// There is no assurance anything will be hit (i.e. noclip outside map looking at void)
+	return SurfacePoint(startingpoint, endingpoint);
+}
+
+extern qboolean	qeintermission; // woods
+
+void TexturePointer_Draw (void)
+{
+	if (cl.intermission || qeintermission || scr_viewsize.value >= 130)
+		return;
+
+	if (texturepointer_on && cls.signon == SIGNONS && cl.worldmodel && texturepointer.surf)
+	{
+		//const char* drawstring1 = va("\bTexture:\b %s", texturepointer.short_name);
+		//const char* drawstring2 = va("\b  %i x %i px", texturepointer.width, texturepointer.height);
+
+		GL_SetCanvas(CANVAS_CROSSHAIR2);
+
+		char texturename[MAX_OSPATH];
+
+		if (strstr(texturepointer.short_name, "textures/"))
+			q_snprintf(texturename, sizeof(texturename), "external: %s", texturepointer.short_name);
+		else
+			q_snprintf(texturename, sizeof(texturename), "%s", texturepointer.short_name);
+
+		Draw_String(0 - (strlen(texturename) * 4), 20, texturename);
+	}
+}
+
+Point3D R_EmitSurfaceHighlight (entity_t* enty, msurface_t* surf, vec4_t color, int style)
+{
+	Point3D center;
+	float* verts = surf->polys->verts[0];
+
+	vec3_t mins = { 99999,  99999,  99999 };
+	vec3_t maxs = { -99999, -99999, -99999 };
+	int i;
+
+	if (enty)
+	{
+		glPushMatrix();
+		R_RotateForEntity(enty->origin, enty->angles, enty->netstate.scale);
+	}
+
+	if (style == OUTLINED_POLYGON)	// Set to lines
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glDisable(GL_CULL_FACE);
+	glColor4f(color[0], color[1], color[2], color[3]);
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+
+	glBegin(GL_POLYGON);
+
+	// Draw polygon while collecting information for the center.
+	for (i = 0; i < surf->polys->numverts; i++, verts += VERTEXSIZE)
+	{
+		VectorExtendLimits(verts, mins, maxs);
+		glVertex3fv(verts);
+	}
+	glEnd();
+
+	glEnable(GL_TEXTURE_2D);
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	glEnable(GL_CULL_FACE);
+	glColor4f(1, 1, 1, 1);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+
+	if (style == OUTLINED_POLYGON)	// Set to lines
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	if (enty)
+		glPopMatrix();
+
+	// Calculate the center
+	VectorAverage(mins, maxs, center.vec3);
+
+	return center;
+}
+
+void TexturePointer_Think (void)
+{
+	texturepointer_t test;
+
+	if (!texturepointer_on || !cl.worldmodel || cls.signon < SIGNONS)
+		return;
+
+	if (cl.intermission || qeintermission || scr_viewsize.value >= 130)
+		return;
+
+	test = TexturePointer_SurfacePoint();
+
+	if (test.surf)
+	{
+		//const vec4_t linecolor = {1,1,1,1};
+		vec4_t color = { 1, 0, 0, sin(realtime * 3) * 0.125f + 0.25 };
+ 		TexturePointer_CheckChange(&test);
+
+		R_EmitSurfaceHighlight (texturepointer.ent, texturepointer.surf, color, FILLED_POLYGON);
+	}
+}
+
+/*
+================
 R_DrawShadows
 ================
 */
@@ -1135,6 +1507,8 @@ void R_RenderScene (void)
 		LaserSight (); // woods #laser
 
 	R_ShowTris (); //johnfitz
+
+	TexturePointer_Think (); // woods #texturepointer
 
 	R_ShowBoundingBoxes (); //johnfitz
 
