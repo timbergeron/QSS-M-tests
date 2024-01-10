@@ -2222,7 +2222,9 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	SCR_UpdateScreen ();
 	start_time = net_time;
 
-	for (reps = 0; reps < 3; reps++)
+	const int totalAttempts = 3; // woods
+
+	for (reps = 0; reps < totalAttempts; reps++) // woods
 	{
 		SZ_Clear(&net_message);
 		// save space for the header, filled in later
@@ -2331,8 +2333,12 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 		if (ret)
 			break;
 
-		Con_SafePrintf("still trying...\n");
-		SCR_UpdateScreen ();
+		int attemptsLeft = totalAttempts - reps - 1;
+		if (attemptsLeft > 0)
+		{
+			Con_SafePrintf("still trying... (%d attempts left)\n", attemptsLeft);
+			SCR_UpdateScreen ();
+		}
 		start_time = SetNetTime();
 	}
 
