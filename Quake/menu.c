@@ -94,8 +94,8 @@ char		m_return_reason [32];
 
 #define StartingGame	(m_multiplayer_cursor == 1)
 #define JoiningGame		(m_multiplayer_cursor == 0)
-#define	IPXConfig		(m_net_cursor == 0)
-#define	TCPIPConfig		(m_net_cursor == 1)
+//#define	IPXConfig		(m_net_cursor == 1) // woods #skipipx
+#define	TCPIPConfig		(m_net_cursor == 0)
 
 void M_ConfigureNetSubsystem(void);
 
@@ -677,12 +677,12 @@ void M_MultiPlayer_Key (int key)
 		{
 		case 0:
 			if (ipxAvailable || ipv4Available || ipv6Available)
-				M_Menu_Net_f ();
+				M_Menu_LanConfig_f (); // woods #skipipx
 			break;
 
 		case 1:
 			if (ipxAvailable || ipv4Available || ipv6Available)
-				M_Menu_Net_f ();
+				M_Menu_LanConfig_f (); // woods #skipipx
 			break;
 
 		case 2:
@@ -2674,10 +2674,10 @@ void M_LanConfig_Draw (void)
 		startJoin = "New Game";
 	else
 		startJoin = "Join Game";
-	if (IPXConfig)
+	/*if (IPXConfig) // woods #skipipx
 		protocol = "IPX";
-	else
-		protocol = "TCP/IP";
+	else*/
+	protocol = "TCP/IP";
 	M_Print (basex, 32, va ("%s - %s", startJoin, protocol));
 	basex += 8;
 
@@ -2777,7 +2777,7 @@ void M_LanConfig_Key (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_Net_f ();
+		M_Menu_MultiPlayer_f (); // woods #skipipx
 		break;
 
 	case K_UPARROW:
@@ -3289,7 +3289,7 @@ void M_GameOptions_Key (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_Net_f ();
+		M_Menu_MultiPlayer_f (); // woods #skipipx
 		break;
 
 	case K_UPARROW:
@@ -3967,7 +3967,7 @@ void M_ConfigureNetSubsystem(void)
 // enable/disable net systems to match desired config
 	Cbuf_AddText ("stopdemo\n");
 
-	if (IPXConfig || TCPIPConfig)
+	if (/*IPXConfig || */TCPIPConfig) // woods #skipipx
 		net_hostport = lanConfig_port;
 }
 
