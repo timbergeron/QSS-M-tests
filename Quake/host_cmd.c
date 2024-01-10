@@ -811,7 +811,7 @@ void DemoList_Init (void)
 	char		filestring[MAX_OSPATH];
 	char		demname[50];
 	char		ignorepakdir[32];
-	char		dateStr[20]; // To store the date string
+	char		dateStr[80]; // To store the date string
 	searchpath_t	*search;
 	pack_t		*pak;
 	int		i;
@@ -855,7 +855,17 @@ void DemoList_Init (void)
 					continue;
 
 				char fullpath[MAX_OSPATH];
-				snprintf(fullpath, sizeof(fullpath), "%s%s", filestring, dir_t->d_name);
+
+				// Calculate the lengths
+				size_t filestring_len = strlen(filestring);
+
+				// Truncate dir_t->d_name to fit into fullpath
+				size_t max_dname_len = MAX_OSPATH - filestring_len - 1; // Subtract 1 for null terminator
+				char truncated_dname[max_dname_len + 1]; // +1 for null terminator
+				strncpy(truncated_dname, dir_t->d_name, max_dname_len);
+				truncated_dname[max_dname_len] = '\0'; // Ensure null termination
+
+				snprintf(fullpath, sizeof(fullpath), "%s%s", filestring, truncated_dname);
 
 				if (stat(fullpath, &file_stat) == 0)
 				{
