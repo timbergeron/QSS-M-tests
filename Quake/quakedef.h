@@ -445,6 +445,15 @@ extern qboolean		isDedicated;
 
 extern int		minimum_memory;
 
+typedef struct // woods - #speedometer
+{
+	float speed;
+	float jump_smove, jump_fmove;	// inputs right before last jump.
+
+} speed_info_t;
+
+extern speed_info_t speed_info; // woods - #speedometer
+
 #define bound(a,b,c) ((a) >= (c) ? (a) : \
 					(b) < (a) ? (a) : (b) > (c) ? (c) : (b)) // woods #configprint
 

@@ -1962,7 +1962,7 @@ void Sbar_Draw (void)
 		{
 			GL_SetCanvas(CANVAS_SBAR2);
 
-			y = 19;
+			y = 209;
 
 			if (!scr_showspeed.value && strcmp(mute, "y")) // by itself
 					x = 24;
@@ -1988,9 +1988,9 @@ void Sbar_Draw (void)
 				x = 320;
 
 			if (scr_viewsize.value <= 100)
-				y = -6;
+				y = 184;
 			else if (scr_viewsize.value == 110)
-				y = 19;
+				y = 209;
 			else
 				return;
 		}

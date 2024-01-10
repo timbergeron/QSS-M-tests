@@ -1115,10 +1115,10 @@ void GL_SetCanvas (canvastype newcanvas)
 			glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 48*s);
 		}
 		break;
-	case CANVAS_SBAR2: // woods #speed
+	case CANVAS_SBAR2: // woods #speed #speedometer
 		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
-		glOrtho (0, 320, 80, 0, -99999, 99999);
-		glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 80*s);
+		glOrtho (0, 320, 270, 0, -99999, 99999);
+		glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 270*s);
 		break;
 	case CANVAS_IBAR_QW: //split for cleaner QW hud support // woods #sbarstyles
         s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);

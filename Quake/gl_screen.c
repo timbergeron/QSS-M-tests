@@ -117,6 +117,7 @@ cvar_t		scr_clock = {"scr_clock", "0", CVAR_ARCHIVE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_ARCHIVE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_ARCHIVE};  // woods #matchhud
 cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_ARCHIVE}; // woods #speed
+cvar_t		scr_showspeed_y = {"scr_showspeed_y", "176", CVAR_ARCHIVE}; // woods - #speedometer
 cvar_t		scr_matchclock = {"scr_matchclock", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
@@ -777,6 +778,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
 	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
 	Cvar_RegisterVariable (&scr_showspeed); // woods #speed
+	Cvar_RegisterVariable (&scr_showspeed_y); // woods #speedometer
 	Cvar_RegisterVariable (&scr_matchclock); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_y); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_x); // woods #varmatchclock
@@ -1620,6 +1622,85 @@ void SCR_ShowFlagStatus(void)
 
 /*
 ==============
+SCR_Speedometer -- woods #speedometer (https://github.com/matthewearl/quakespasm f4411f0 from joequake)
+==============
+*/
+void SCR_Speedometer(void)
+{
+	float speed;
+	vec3_t vel;
+	int bad_jump = 0;
+	static float maxspeed = 0, display_speed = -1;
+	static double lastrealtime = 0;
+
+	int	x, bg_color;
+	float speedunits;
+	char st[8];
+	float alpha = 0.5;
+	int y = scr_showspeed_y.value;
+
+	if (cl.intermission || qeintermission || scr_viewsize.value >= 120)
+		return;
+
+	GL_SetCanvas(CANVAS_SBAR2);
+
+	if (lastrealtime > realtime)
+	{
+		lastrealtime = 0;
+		display_speed = -1;
+		maxspeed = 0;
+	}
+
+	VectorCopy(cl.velocity, vel);
+	vel[2] = 0;
+	speed = VectorLength(vel);
+
+	if (speed > maxspeed)
+		maxspeed = speed;
+
+	if (sv.active && speed_info.speed >= 0)
+	{
+		display_speed = speed_info.speed;
+		bad_jump = speed_info.jump_fmove == 0 || speed_info.jump_smove == 0;
+	}
+
+	// draw
+
+	if (display_speed >= 0)
+	{
+		sprintf(st, "%3d", (int)display_speed);
+
+		x = 80;
+
+		bg_color = (bad_jump && scr_showspeed.value > 2) ? 251 : 10;
+		Draw_Fill(x, y - 1, 160, 1, bg_color, alpha);
+		Draw_Fill(x, y + 9, 160, 1, bg_color, alpha);
+		Draw_Fill(x, y, 160, 9, 52, 0.9);
+
+		speedunits = display_speed;
+		if (display_speed <= 500)
+		{
+			Draw_Fill(x, y, (int)(display_speed / 3.125), 9, 100, alpha);
+		}
+		else
+		{
+			while (speedunits > 500)
+				speedunits -= 500;
+			Draw_Fill(x, y, (int)(speedunits / 3.125), 9, 68, alpha);
+		}
+		Draw_String(x + 36 - (strlen(st) * 8), y, st);
+	}
+
+	if (realtime - lastrealtime >= 0.0)
+	{
+		lastrealtime = realtime;
+		display_speed = maxspeed;
+		maxspeed = 0;
+	}
+}
+
+/*
+==============
 SCR_DrawSpeed -- woods #speed
 ==============
 */
@@ -1644,14 +1725,14 @@ void SCR_DrawSpeed (void)
 		y = 0;
 
 		if (scr_viewsize.value <= 100)
-			y = 18;
+			y = 208;
 		else if (scr_viewsize.value == 110)
-			y = 43;
+			y = 233;
 		if (scr_sbar.value == 2)
-			y = 43;
+			y = 233;
 	}
 
-	if (scr_showspeed.value && !cl.intermission) {
+	if (scr_showspeed.value == 1 && !cl.intermission) {
 		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
 		float	speed = VectorLength(vel);
 
@@ -1666,6 +1747,10 @@ void SCR_DrawSpeed (void)
 					M_PrintWhite(x, y, st);  // white
 		}
 	}
+
+	if (scr_showspeed.value > 1)
+		SCR_Speedometer (); // woods #speedometer
+
 }
 
 /*
@@ -1716,14 +1801,14 @@ void SCR_Mute(void)
 			y = 0;
 
 			if (scr_viewsize.value <= 100)
-				y = 18;
+				y = 208;
 			else if (scr_viewsize.value == 110)
-				y = 43;
+				y = 233;
 			else
 				return;
 			if (scr_sbar.value == 2)
 			{ 
-				y = 43;
+				y = 233;
 
 				if (!scr_showspeed.value || !cls.demoplayback)
 					x = 0;
@@ -1770,7 +1855,7 @@ void SCR_Observing(void)
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
-		y = 0;
+		y = 190;
 
 		if (scr_viewsize.value > 110 || (scr_sbar.value == 3 && sb_showscores))
 			return;

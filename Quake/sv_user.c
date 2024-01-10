@@ -47,6 +47,8 @@ cvar_t	sv_nqplayerphysics = {"sv_nqplayerphysics", "1", CVAR_ARCHIVE}; //spike. 
 
 qboolean SV_RunThink (edict_t *ent);
 
+speed_info_t speed_info = { -1, -1, -1 }; // woods #speedometer
+
 /*
 ===============
 SV_SetIdealPitch
@@ -328,6 +330,23 @@ void SV_NoclipMove (void)
 	}
 }
 
+static void SV_UpdateSpeedInfo (void) // woods #speedometer
+{
+	float fmove, smove;
+
+	fmove = cmd.forwardmove;
+	smove = cmd.sidemove;
+
+	// If jumping record whether directional keys pressed, to indicate a bad power bunny hop.
+	if (onground && sv_player->v.button2)
+	{
+ 		speed_info.jump_fmove = fmove;
+		speed_info.jump_smove = smove;
+	}
+
+	speed_info.speed = sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+}
+
 /*
 ===================
 SV_AirMove
@@ -441,6 +460,8 @@ void SV_ClientThink (void)
 	else
 		SV_AirMove ();
 	//johnfitz
+
+	SV_UpdateSpeedInfo (); // woods #speedometer
 }
 
 
