@@ -31,6 +31,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <unistd.h>
 #endif
 
+#include <curl/curl.h> // woods #webdl
+#include "cfgfile.h" // woods #webdl
+
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
 
@@ -77,6 +80,8 @@ cvar_t  f_status = {"f_status", "on", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #f
 cvar_t  cl_ambient = {"cl_ambient", "1", CVAR_ARCHIVE}; // woods #stopsound
 cvar_t  r_coloredpowerupglow = {"r_coloredpowerupglow", "1", CVAR_ARCHIVE}; // woods
 cvar_t  cl_bobbing = {"cl_bobbing", "0", CVAR_ARCHIVE}; // woods (joequake #weaponbob)
+cvar_t	cl_web_download_url = {"cl_web_download_url", "q1tools.github.io", CVAR_ARCHIVE}; // woods #webdl
+cvar_t	cl_web_download_url2 = { "cl_web_download_url2", "maps.quakeworld.nu/all", CVAR_ARCHIVE }; // woods #webdl
 
 client_static_t	cls;
 client_state_t	cl;
@@ -1271,6 +1276,400 @@ int CL_GenerateRandomParticlePrecache(const char *pname)
 }
 #endif
 
+/*
+=============================================
+Libcurl Web/HTTP Downloads -- woods #webdl
+
+- Implements faster, libcurl-based file downloading.
+- Downloads game assets from a map repository, not directly from the server.
+- Enhances download speeds and reduces server load.
+
+Usage: Activated during map loading for external resource downloads.
+Note: Ensure correct configuration of the map repository URL.
+
+=============================================
+*/
+
+#define MAX_URLPATH 200
+#define BYTES_TO_KB(bytes) ((bytes) / 1024.0f)
+#define BYTES_TO_MB(bytes) ((bytes) / (1024.0 * 1024.0))
+
+typedef struct 
+{
+	char filename[MAX_OSPATH];
+	char url[MAX_URLPATH];
+} DownloadData;
+
+qboolean web2check = false;
+qboolean webcheck = false;
+qboolean stop_curl_download = false;
+qboolean curl_download_active = false;
+
+typedef struct {
+	char* url;
+	int web;
+} ThreadData;
+
+SDL_Thread* currentWebCheckThread = NULL;
+SDL_Thread* currentWeb2CheckThread = NULL;
+
+int checkWebsite (void* ptr)  // ping the potential websites in advance
+{
+	ThreadData* data = (ThreadData*)ptr;
+
+	if (data == NULL || data->url == NULL)
+	{
+		free(data);
+		return -1;
+	}
+
+	CURL* curl = curl_easy_init();
+	if (curl == NULL) {
+		free(data->url);
+		free(data);
+		return -1;
+	}
+
+	curl_easy_setopt(curl, CURLOPT_URL, data->url);
+	curl_easy_setopt(curl, CURLOPT_NOBODY, 1); // HEAD request
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
+
+	CURLcode res = curl_easy_perform(curl);
+	if (res == CURLE_OK)
+	{
+		switch (data->web)
+		{
+		case 1:
+			webcheck = true;
+			break;
+		case 2:
+			web2check = true;
+			break;
+		}
+	}
+	else
+	{
+		Con_DPrintf("cl_web_download_url %s is not responsive", data->url);
+
+		switch (data->web)
+		{
+		case 1:
+			webcheck = false;
+			break;
+		case 2:
+			web2check = false;
+			break;
+		}
+	}
+
+	curl_easy_cleanup(curl);
+
+	free(data->url);
+	free(data);
+
+	return 0;
+}
+
+SDL_Thread* webDownloadCheck (const char* url, int webId)
+{
+	SDL_Thread* thread;
+	ThreadData* data = (ThreadData*)malloc(sizeof(ThreadData));
+
+	if (data == NULL)
+	{
+		Con_DPrintf("Error: Memory allocation failure in webDownloadCheck\n");
+		return NULL;
+	}
+
+	data->url = strdup(url);
+	if (data->url == NULL)
+	{
+		Con_DPrintf("Error: URL duplication failure in webDownloadCheck\n");
+		free(data);
+		return NULL;
+	}
+
+	data->web = webId;
+
+	thread = SDL_CreateThread(checkWebsite, "CheckWebsiteThread", (void*)data);
+	if (thread == NULL) 
+	{
+		Con_DPrintf("Error: SDL_CreateThread failed in webDownloadCheck\n");
+		free(data->url);
+		free(data);
+		return NULL;
+	}
+
+	Con_DPrintf("CheckWebsiteThread created in webDownloadCheck\n");
+
+	return thread;
+}
+
+void WebCheckCallback_f (cvar_t* var)
+{
+	if (currentWebCheckThread != NULL)
+	{
+		SDL_WaitThread(currentWebCheckThread, NULL); // Wait for the current thread to finish
+		currentWebCheckThread = NULL; // Reset the pointer
+	}
+
+	if (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')
+	{
+		currentWebCheckThread = webDownloadCheck(cl_web_download_url.string, 1);
+	}
+}
+
+void Web2CheckCallback_f (cvar_t* var)
+{
+	if (currentWeb2CheckThread != NULL) 	// Wait for the current thread to finish, if it exists
+	{
+		SDL_WaitThread(currentWeb2CheckThread, NULL); // Wait for the current thread to complete
+		currentWeb2CheckThread = NULL; // Reset the pointer
+	}
+
+	if (cl_web_download_url2.string != NULL && cl_web_download_url2.string[0] != '\0')
+	{
+		currentWeb2CheckThread = webDownloadCheck(cl_web_download_url2.string, 2);
+	}
+}
+
+void WebCheckInit (void) // runs at launch in CL_Init if default values
+{
+	char* webearly = NULL;
+	char* web2early = NULL;
+
+	if (CFG_OpenConfig("config.cfg") == 0) // get these early config values
+	{
+		webearly = CFG_ReadCvarValue("cl_web_download_url");
+		web2early = CFG_ReadCvarValue("cl_web_download_url2");
+		CFG_CloseConfig();
+	}
+
+	if (webearly != NULL && webearly[0] != '\0')
+		if (!strcmp(webearly, cl_web_download_url.default_string))
+			WebCheckCallback_f(&cl_web_download_url);
+	if (web2early != NULL && web2early[0] != '\0')
+		if (!strcmp(web2early, cl_web_download_url2.default_string))
+			Web2CheckCallback_f(&cl_web_download_url2);
+
+	if (webearly != NULL)
+	{
+		free(webearly);
+		webearly = NULL;
+	}
+
+	if (web2early != NULL)
+	{
+		free(web2early);
+		web2early = NULL;
+	}
+}
+
+size_t Write_Data (void* ptr, size_t size, size_t nmemb, FILE* stream)
+{
+	return fwrite (ptr, size, nmemb, stream);
+}
+
+int Progress_Callback (void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
+{
+	if (stop_curl_download)
+		return 1;
+
+	DownloadData* dataFromCurl = (DownloadData*)clientp;
+
+	if (dataFromCurl == NULL)
+		return 0;
+
+	static int dotCount = 0;
+	static int callbackInvocationCount = 0;
+	const int callbackThreshold = 300; // Adjust this value to control the speed
+
+
+	if (dlnow > 10000 && strcmp(COM_FileGetExtension(dataFromCurl->filename), "loc"))
+	{
+		if (dltotal == 0)
+		{
+			if (callbackInvocationCount >= callbackThreshold) // Check if threshold is reached
+			{
+				char dots[32];
+				int numDots = dotCount % (sizeof(dots) - 1);
+				memset(dots, '.', numDots);
+				dots[numDots] = '\0';
+
+				Con_Printf("DL %s %s\r", COM_SkipPath(dataFromCurl->filename), dots);
+
+				dotCount++;
+				callbackInvocationCount = 0;
+			}
+			else
+			{
+				callbackInvocationCount++;
+			}
+		}
+		else
+		{
+			int progress = 0; // Initialize progress to 0%
+
+			if (dlnow > 0 && dltotal > 0)
+				progress = (int)((double)dlnow / (double)dltotal * 100.0);
+
+			char urlLimited[21];
+			Q_strncpy(urlLimited, dataFromCurl->url, 20);
+			urlLimited[20] = '\0';
+
+			char sizeStr[32];
+
+			float dltotalKB = BYTES_TO_KB(dltotal);
+			float dltotalMB = BYTES_TO_MB(dltotal);
+
+			if (dltotalMB >= 1.0f)
+				q_snprintf(sizeStr, sizeof(sizeStr), "%.2f mb", dltotalMB);
+			else if (dltotalKB >= 1.0f)
+				q_snprintf(sizeStr, sizeof(sizeStr), "%ld kb", (long)dltotalKB);
+			else
+				q_snprintf(sizeStr, sizeof(sizeStr), "%ld bytes", (long)dltotal);
+
+			Con_Printf("DL %s (%s) %s ^m%d%%\r",
+				COM_SkipPath(dataFromCurl->filename),
+				urlLimited,
+				sizeStr,
+				progress);
+
+			if (scr_disabled_for_loading != true)
+			{
+				static double now, oldtime, newtime;
+				newtime = Sys_DoubleTime();
+				now = newtime - oldtime;
+				Host_Frame(now);
+				oldtime = newtime;
+			}
+		}
+	}
+	return 0;
+}
+
+qboolean Curl_DownloadFile (const char* url, const char* filename, const char* local_path) // main curl function
+{
+	stop_curl_download = false;
+	cls.download.active = true;
+	curl_download_active = true;
+
+	if (url == NULL || url[0] == '\0')
+		return false;
+
+	char full_url[MAX_URLPATH];
+	const char* skipped_path = COM_SkipPath(filename);
+
+	if (strstr(url, "github.io") && strstr(filename, "maps")) // special case for github.io
+	{
+		char directory[5];
+
+		if (isdigit((unsigned char)skipped_path[0]))
+		{
+			strcpy(directory, "0-9/"); // If the filename starts with a digit, use '#' directory
+		}
+		else {
+			directory[0] = toupper(skipped_path[0]); // Extract the first letter and make it uppercase
+			directory[1] = '/';
+			directory[2] = '\0';
+		}
+
+		q_snprintf(full_url, sizeof(full_url), "https://%s/maps/%s/%s", url, directory, skipped_path); // Construct the URL with directory
+	}
+
+	else if (strstr(url, "maps.quakeworld.nu")) // special case for maps.quakeworld.nu
+	{
+		
+		q_snprintf(full_url, sizeof(full_url), "https://%s/%s", url, skipped_path); // use secure https and skip path
+	}
+	else 
+		q_snprintf(full_url, sizeof(full_url), "https://%s/%s", url, filename); // use secure https
+
+	DownloadData dl_data;
+	memset(&dl_data, 0, sizeof(dl_data)); // Reset dl_data
+	Q_strncpy(dl_data.filename, filename, MAX_OSPATH);
+	Q_strncpy(dl_data.url, url, MAX_URLPATH); // the server set in cl_web_download_url
+	q_strlcpy(cls.download.current, filename, sizeof(cls.download.current));
+
+	CURL* curl = curl_easy_init();
+	if (!curl)
+		return false;
+
+	char tmp_path[MAX_OSPATH];
+	q_snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", local_path);
+
+	COM_CreatePath(tmp_path);
+
+	FILE* fp = fopen(tmp_path, "wb");
+	if (!fp) 
+	{
+		curl_easy_cleanup(curl);
+		return false;
+	}
+
+	curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &dl_data); // Pass the struct to the callback
+	curl_easy_setopt(curl, CURLOPT_URL, full_url); // Use full_url here
+	curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1024L); // Use a smaller buffer size for more frequent progress updates
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, Write_Data);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, Progress_Callback);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 0L); // Timeout after x milliseconds, 1000 = 1 sec, 0L - not limit
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 500L); // Set minimum bytes per second (e.g., 500 bytes/sec)
+	curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 10L); // Set time in seconds (e.g., 10 seconds)
+
+	CURLcode res = curl_easy_perform(curl);
+	long response_code = 0;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+	// Get file size in bytes
+	fseek(fp, 0, SEEK_END); // Seek to end of file
+	long fileSizeBytes = ftell(fp); // Get current file pointer position, which is the size
+	float fileSizeKB = BYTES_TO_KB(fileSizeBytes);
+	float fileSizeMB = BYTES_TO_MB(fileSizeBytes);
+
+	fclose(fp);
+	curl_easy_cleanup(curl);
+
+	if (res != CURLE_OK || response_code != 200) 
+	{
+		unlink(tmp_path); // Delete the temporary file in case of an error
+		cls.download.active = false;
+		curl_download_active = false;
+
+		if (res != CURLE_OK) 
+			Con_DPrintf("Error downloading file: CURL error %s\n", curl_easy_strerror(res));
+		else
+			Con_DPrintf("Error downloading file: Server responded with HTTP status %ld\n", response_code);
+
+		return false;
+	}
+
+	if (rename(tmp_path, local_path) != 0) 
+	{
+		unlink(tmp_path); // Also delete the temporary file in case renaming fails
+		cls.download.active = false;
+		curl_download_active = false;
+		return false;
+	}
+	cls.download.active = false;
+	curl_download_active = false;
+
+	char sizeStr[32];
+
+	if (fileSizeMB >= 1.0f)
+		q_snprintf(sizeStr, sizeof(sizeStr), "%.2f mb", fileSizeMB);
+	else if (fileSizeKB >= 1.0f)
+		q_snprintf(sizeStr, sizeof(sizeStr), "%ld kb", (long)fileSizeKB);
+
+	else
+		q_snprintf(sizeStr, sizeof(sizeStr), "%ld bytes", fileSizeBytes);
+
+	Con_Printf("Downloaded ^m%s^m (%s) from %s\n", COM_SkipPath(filename), sizeStr, url);
+
+	return true; // File successfully downloaded
+}
+
 //sent by the server to let us know that dp downloads can be used
 void CL_ServerExtension_Download_f(void)
 {
@@ -1324,15 +1723,21 @@ void CL_Download_Finished_f(void)
 //sent by the server (or issued by the user) to stop the current download for any reason.
 void CL_StopDownload_f(void)
 {
-	if (cls.download.file)
+	if (!curl_download_active) // woods, add support for stopping curl downloads #webdl
 	{
-		fclose(cls.download.file);
-		cls.download.file = NULL;
-		unlink(cls.download.temp);
+		if (cls.download.file)
+		{
+			fclose(cls.download.file);
+			cls.download.file = NULL;
+			unlink(cls.download.temp);
 
-//		Con_SafePrintf("Download cancelled\n", cl.download_current, cl.download_size);
+			//		Con_SafePrintf("Download cancelled\n", cl.download_current, cl.download_size);
+		}
+		cls.download.active = false;
+
 	}
-	cls.download.active = false;
+	else
+		stop_curl_download = true;
 }
 //sent by the server to let us know that its going to start spamming us now.
 void CL_Download_Begin_f(void)
@@ -1388,8 +1793,31 @@ qboolean CL_CheckDownload(const char *filename)
 		return false;	//don't download these...
 	if (cls.download.active)
 		return true;	//block while we're already downloading something
+	if (*cls.download.current && !strcmp(cls.download.current, filename))
+		return false;	//if the previous download failed, don't endlessly retry.
+	if (COM_FileExists(filename, NULL))
+		return false;	//no need to download anything.
+	if (!COM_DownloadNameOkay(filename))
+		return false;	//diediedie
+
+	// woods, lets try curl web download first #webdl (much faster) #webdl
+
+	char local_path[MAX_OSPATH]; // Define the max path length	
+
+	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, filename);
+
+	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
+		if (Curl_DownloadFile (cl_web_download_url.string, filename, local_path))
+			return false;
+
+	if (web2check && (cl_web_download_url2.string != NULL && cl_web_download_url2.string[0] != '\0')) // only run if server is verified
+		if (Curl_DownloadFile (cl_web_download_url2.string, filename, local_path))
+			return false;
+
+	// woods, if not available via web, try the server #webdl
+
 	if (allow_download.value == 2) // woods #ftehack
-	{ 
+	{
 		if (!cl.protocol_dpdownload && cl.protocol != 666) // woods, allow downloads on qecrx (nq physics, FTE server) -- hack
 			return false;	//can't download anyway
 		if (netquakeio)
@@ -1402,12 +1830,6 @@ qboolean CL_CheckDownload(const char *filename)
 		if (!cl.protocol_dpdownload)
 			return false;	//can't download anyway
 	}
-	if (*cls.download.current && !strcmp(cls.download.current, filename))
-		return false;	//if the previous download failed, don't endlessly retry.
-	if (COM_FileExists(filename, NULL))
-		return false;	//no need to download anything.
-	if (!COM_DownloadNameOkay(filename))
-		return false;	//diediedie
 
 	cls.download.active = true;
 	q_strlcpy(cls.download.current, filename, sizeof(cls.download.current));
@@ -2082,6 +2504,14 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_smartspawn); // woods #spawntrainer
 	Cvar_RegisterVariable (&r_coloredpowerupglow); // woods
 	Cvar_RegisterVariable (&cl_bobbing); // woods (joequake #weaponbob)
+
+	Cvar_RegisterVariable (&cl_web_download_url); // woods #webdl
+	Cvar_RegisterVariable (&cl_web_download_url2); // woods #webdl
+
+	Cvar_SetCallback (&cl_web_download_url, &WebCheckCallback_f); // woods #webdl
+	Cvar_SetCallback (&cl_web_download_url2, &Web2CheckCallback_f); // woods #webdl
+
+	WebCheckInit (); // woods -- check if the web downloads servers are live at launch (threaded) #webdl
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);

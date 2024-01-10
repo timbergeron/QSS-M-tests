@@ -39,4 +39,6 @@ void CFG_ReadCvarOverrides (const char **vars, int num_vars);
 // the config file. call this after CFG_ReadCvars() and before
 // locking your cvars.
 
+char* CFG_ReadCvarValue (const char* var_name); // woods #webdl
+
 #endif	/* __CFGFILE_H */
