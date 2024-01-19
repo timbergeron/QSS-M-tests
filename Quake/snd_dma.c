@@ -946,7 +946,10 @@ void S_Update (vec3_t origin, vec3_t forward, vec3_t right, vec3_t up)
 		{
 			if (ch->sfx && (ch->leftvol || ch->rightvol) )
 			{
-			//	Con_Printf ("%3i %3i %s\n", ch->leftvol, ch->rightvol, ch->sfx->name);
+				sfxcache_t *sc = (sfxcache_t *) Cache_Check (&ch->sfx->cache);
+				if (snd_show.value >= 2.f)
+					Con_SafePrintf ("L:%3i R:%3i | ENT:%5i CH:%3i | %s%s\n",
+						ch->leftvol, ch->rightvol, ch->entnum, ch->entchannel, ch->sfx->name, sc && sc->loopstart >= 0 ? " [L]" : "");
 				total++;
 			}
 		}
