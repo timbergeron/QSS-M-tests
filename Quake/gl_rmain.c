@@ -48,6 +48,10 @@ vec3_t	r_origin;
 
 float r_fovx, r_fovy; //johnfitz -- rendering fov may be different becuase of r_waterwarp and r_stereo
 
+extern byte* SV_FatPVS (vec3_t org, qmodel_t* worldmodel); // woods #iwshowbboxes
+extern qboolean SV_EdictInPVS (edict_t* test, byte* pvs); // woods #iwshowbboxes
+extern qboolean SV_BoxInPVS (vec3_t mins, vec3_t maxs, byte* pvs, mnode_t* node); // woods #iwshowbboxes
+
 //
 // screen size info
 //
@@ -770,9 +774,16 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 R_EmitWirePoint -- johnfitz -- draws a wireframe cross shape for point entities
 ================
 */
-void R_EmitWirePoint (vec3_t origin)
+void R_EmitWirePoint (vec3_t origin, uint32_t color) // woods #iwshowbboxes, add color
 {
 	const int size = 8;
+
+	// woods #iwshowbboxes
+	float r = ((color >> 24) & 0xFF) / 255.0f;
+	float g = ((color >> 16) & 0xFF) / 255.0f;
+	float b = ((color >> 8) & 0xFF) / 255.0f;
+	float a = (color & 0xFF) / 255.0f;
+	glColor4f(r, g, b, a);
 
 	glBegin (GL_LINES);
 	glVertex3f (origin[0]-size, origin[1], origin[2]);
@@ -789,8 +800,15 @@ void R_EmitWirePoint (vec3_t origin)
 R_EmitWireBox -- johnfitz -- draws one axis aligned bounding box
 ================
 */
-void R_EmitWireBox (vec3_t mins, vec3_t maxs)
+void R_EmitWireBox (vec3_t mins, vec3_t maxs, uint32_t color) // woods #iwshowbboxes, add color
 {
+	// woods #iwshowbboxes
+	float r = ((color >> 24) & 0xFF) / 255.0f;
+	float g = ((color >> 16) & 0xFF) / 255.0f;
+	float b = ((color >> 8) & 0xFF) / 255.0f;
+	float a = (color & 0xFF) / 255.0f;
+	glColor4f(r, g, b, a);
+	
 	glBegin (GL_QUAD_STRIP);
 	glVertex3f (mins[0], mins[1], mins[2]);
 	glVertex3f (mins[0], mins[1], maxs[2]);
@@ -807,6 +825,38 @@ void R_EmitWireBox (vec3_t mins, vec3_t maxs)
 
 /*
 ================
+R_ShowBoundingBoxesFilter -- woods #iwshowbboxes
+
+r_showbboxes_filter artifact =trigger_secret
+================
+*/
+char r_showbboxes_filter_strings[MAXCMDLINE];
+
+static qboolean R_ShowBoundingBoxesFilter(edict_t* ed)
+{
+	if (!r_showbboxes_filter_strings[0])
+		return true;
+
+	if (ed->v.classname)
+	{
+		const char* classname = PR_GetString(ed->v.classname);
+		const char* str = r_showbboxes_filter_strings;
+		qboolean is_allowed = false;
+		while (*str && !is_allowed)
+		{
+			if (*str == '=')
+				is_allowed = !strcmp(classname, str + 1);
+			else
+				is_allowed = strstr(classname, str) != NULL;
+			str += strlen(str) + 1;
+		}
+		return is_allowed;
+	}
+	return false;
+}
+
+/*
+================
 R_ShowBoundingBoxes -- johnfitz
 
 draw bounding boxes -- the server-side boxes, not the renderer cullboxes
@@ -815,9 +865,11 @@ draw bounding boxes -- the server-side boxes, not the renderer cullboxes
 void R_ShowBoundingBoxes (void)
 {
 	extern		edict_t *sv_player;
+	byte		*pvs; // woods #iwshowbboxes
 	vec3_t		mins,maxs;
 	edict_t		*ed;
-	int			i;
+	int			i, mode; // woods #iwshowbboxes
+	uint32_t	color; // woods #iwshowbboxes
 	qcvm_t 		*oldvm;	//in case we ever draw a scene from within csqc.
 
 	if (!r_showbboxes.value || cl.maxclients > 1 || !r_drawentities.value || !sv.active)
@@ -828,11 +880,21 @@ void R_ShowBoundingBoxes (void)
 	GL_PolygonOffset (OFFSET_SHOWTRIS);
 	glDisable (GL_TEXTURE_2D);
 	glDisable (GL_CULL_FACE);
-	glColor3f (1,1,1);
 
 	oldvm = qcvm;
 	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(&sv.qcvm);
+
+	mode = abs((int)r_showbboxes.value); // woods #iwshowbboxes
+	if (mode >= 2)
+	{
+		vec3_t org;
+		VectorAdd(sv_player->v.origin, sv_player->v.view_ofs, org);
+		pvs = SV_FatPVS(org, qcvm->worldmodel);
+	}
+	else
+		pvs = NULL;
+
 	for (i=1, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
 	{
 		if (ed == sv_player || ed->free)
@@ -842,28 +904,62 @@ void R_ShowBoundingBoxes (void)
 //			if (!SV_VisibleToClient (sv_player, ed, sv.worldmodel))
 //				continue; //don't draw if not in pvs
 
+		if (!R_ShowBoundingBoxesFilter(ed))
+			continue;
+
+		if (pvs) // woods #iwshowbboxes
+		{
+			qboolean inpvs =
+				ed->num_leafs ?
+				SV_EdictInPVS(ed, pvs) :
+				SV_BoxInPVS(ed->v.absmin, ed->v.absmax, pvs, qcvm->worldmodel->nodes)
+				;
+			if (!inpvs)
+				continue;
+		}
+
+		if (r_showbboxes.value > 0.f) // woods #iwshowbboxes
+		{
+			int modelindex = (int)ed->v.modelindex;
+			color = 0xff800080;
+			if (modelindex >= 0 && modelindex < MAX_MODELS && sv.models[modelindex])
+			{
+				switch (sv.models[modelindex]->type)
+				{
+				case mod_brush:  color = 0xffff8080; break;
+				case mod_alias:  color = 0xff408080; break;
+				case mod_sprite: color = 0xff4040ff; break;
+				default:
+					break;
+				}
+			}
+			if (ed->v.health > 0)
+				color = 0xff0000ff;
+		}
+		else
+			color = 0xffffffff;
+
 		if (ed->v.mins[0] == ed->v.maxs[0] && ed->v.mins[1] == ed->v.maxs[1] && ed->v.mins[2] == ed->v.maxs[2])
 		{
 			//point entity
-			R_EmitWirePoint (ed->v.origin);
+			R_EmitWirePoint (ed->v.origin, color); // woods #iwshowbboxes
 		}
 		else
 		{
 			//box entity
 			if ((ed->v.solid == SOLID_BSP || ed->v.solid == SOLID_EXT_BSPTRIGGER) && (ed->v.angles[0]||ed->v.angles[1]||ed->v.angles[2]) && pr_checkextension.value)
-				R_EmitWireBox (ed->v.absmin, ed->v.absmax);
+				R_EmitWireBox (ed->v.absmin, ed->v.absmax, color); // woods #iwshowbboxes
 			else
 			{
 				VectorAdd (ed->v.mins, ed->v.origin, mins);
 				VectorAdd (ed->v.maxs, ed->v.origin, maxs);
-				R_EmitWireBox (mins, maxs);
+				R_EmitWireBox (mins, maxs, color); // woods #iwshowbboxes
 			}
 		}
 	}
 	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(oldvm);
 
-	glColor3f (1,1,1);
 	glEnable (GL_TEXTURE_2D);
 	glEnable (GL_CULL_FACE);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);

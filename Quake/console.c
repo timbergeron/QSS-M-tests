@@ -1385,6 +1385,31 @@ static qboolean CompleteFileList (const char* partial, void* param) // woods #iw
 	return true;
 }
 
+static qboolean CompleteClassnames (const char* partial, void* unused) // woods #iwtabcomplete #iwshowbboxes
+{
+	extern edict_t* sv_player;
+	edict_t* ed;
+	int		i;
+
+	if (!sv.active)
+		return true;
+	PR_SwitchQCVM(&sv.qcvm);
+
+	for (i = 1, ed = NEXT_EDICT(qcvm->edicts); i < qcvm->num_edicts; i++, ed = NEXT_EDICT(ed))
+	{
+		const char* name;
+		if (ed == sv_player || ed->free || !ed->v.classname)
+			continue;
+		name = PR_GetString(ed->v.classname);
+		if (*name)
+			Con_AddToTabList(name, partial, "#", NULL);
+	}
+
+	PR_SwitchQCVM(NULL);
+
+	return true;
+}
+
 static qboolean CompleteFileListDemo (const char* partial, void* param) // woods #iwtabcomplete #demolistsort
 {
 	filelist_item_t* file, ** list = (filelist_item_t**)param;
@@ -1460,6 +1485,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "test",					CompleteFileList,		&serverlist },
 	{ "test2",					CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },
+	{ "r_showbboxes_filter",	CompleteClassnames,		NULL },
 	{ "imagelist",				CompleteImageList,		NULL },
 	{ "imagedump",				CompleteImageList,		NULL },
 	{ "bind",					CompleteBindKeys,		NULL },

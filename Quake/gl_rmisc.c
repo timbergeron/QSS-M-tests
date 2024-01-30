@@ -57,6 +57,49 @@ extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
 void TexturePointer_Init (void); // woods #texturepointer
 
 /*
+====================
+R_ShowbboxesFilter_f -- woods #iwshowbboxes
+====================
+*/
+static void R_ShowbboxesFilter_f (void)
+{
+	extern char r_showbboxes_filter_strings[MAXCMDLINE];
+
+	if (Cmd_Argc() >= 2)
+	{
+		int i, len, ofs;
+		for (i = 1, ofs = 0; i < Cmd_Argc(); i++)
+		{
+			const char* arg = Cmd_Argv(i);
+			if (!*arg)
+				continue;
+			len = strlen(arg) + 1;
+			if (ofs + len + 1 > (int) countof(r_showbboxes_filter_strings))
+			{
+				Con_Warning("overflow at \"%s\"\n", arg);
+				break;
+			}
+			memcpy(&r_showbboxes_filter_strings[ofs], arg, len);
+			ofs += len;
+		}
+		r_showbboxes_filter_strings[ofs++] = '\0';
+	}
+	else
+	{
+		const char* p = r_showbboxes_filter_strings;
+		Con_SafePrintf("\"r_showbboxes_filter\" is");
+		if (!*p)
+			Con_SafePrintf(" \"\"");
+		else do
+		{
+			Con_SafePrintf(" \"%s\"", p);
+			p += strlen(p) + 1;
+		} while (*p);
+		Con_SafePrintf("\n");
+	}
+}
+
+/*
 ===============
 Tracer_Completion_f -- woods
 ===============
@@ -218,6 +261,7 @@ void R_Init (void)
 
 	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);
 	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);
+	Cmd_AddCommand ("r_showbboxes_filter", R_ShowbboxesFilter_f); // woods #iwshowbboxes
 
 	Cvar_RegisterVariable (&r_norefresh);
 	Cvar_RegisterVariable (&r_lightmap);
