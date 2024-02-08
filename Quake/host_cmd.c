@@ -365,6 +365,8 @@ void FolderList_Init(void)
 		}
 	} while (FindNextFile(fhnd, &fdat));
 
+	FolderList_Add ("id1");
+
 	FindClose(fhnd);
 }
 #else
@@ -393,6 +395,8 @@ void FolderList_Init(void)
 		FolderList_Add(dir_t->d_name);
 		closedir(mod_dir_p);
 	}
+
+	FolderList_Add("id1");
 
 	closedir(dir_p);
 }
