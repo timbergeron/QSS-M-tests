@@ -324,9 +324,20 @@ static void Host_Maps_f (void)
 
 filelist_item_t* folderlist;
 
-static void FolderList_Add(const char* name)
+static void FolderList_Add (const char* name)
 {
-	FileList_Add(name, NULL, &folderlist); // woods #demolistsort add arg
+	FileList_Add (name, NULL, &folderlist); // woods #demolistsort add arg
+}
+
+static void FolderList_Clear (void)
+{
+	FileList_Clear (&folderlist);
+}
+
+void FolderList_Rebuild (void)
+{
+	FolderList_Clear ();
+	FolderList_Init ();
 }
 
 #ifdef _WIN32
@@ -337,7 +348,7 @@ void FolderList_Init(void)
 	DWORD		attribs;
 	char		dir_string[MAX_OSPATH], mod_string[MAX_OSPATH];
 
-	q_snprintf(dir_string, sizeof(dir_string), "%s/id1/*", com_basedir);
+	q_snprintf(dir_string, sizeof(dir_string), "%s/*", com_gamedir);
 	fhnd = FindFirstFile(dir_string, &fdat);
 	if (fhnd == INVALID_HANDLE_VALUE)
 		return;
@@ -346,7 +357,7 @@ void FolderList_Init(void)
 	{
 		if (!strcmp(fdat.cFileName, ".") || !strcmp(fdat.cFileName, ".."))
 			continue;
-		q_snprintf(mod_string, sizeof(mod_string), "%s/id1/%s", com_basedir, fdat.cFileName);
+		q_snprintf(mod_string, sizeof(mod_string), "%s/%s", com_gamedir, fdat.cFileName);
 		attribs = GetFileAttributes(mod_string);
 		if (attribs != INVALID_FILE_ATTRIBUTES && (attribs & FILE_ATTRIBUTE_DIRECTORY)) {
 			/* don't bother testing for pak files / progs.dat */
@@ -363,7 +374,7 @@ void FolderList_Init(void)
 	struct dirent* dir_t;
 	char		dir_string[MAX_OSPATH], mod_string[MAX_OSPATH];
 
-	q_snprintf(dir_string, sizeof(dir_string), "%s/id1/", com_basedir);
+	q_snprintf(dir_string, sizeof(dir_string), "%s/", com_gamedir);
 	dir_p = opendir(dir_string);
 	if (dir_p == NULL)
 		return;
