@@ -112,6 +112,8 @@ extern int retry_counter; // woods #ms
 extern int grenadecache, rocketcache; // woods #r2g
 extern qboolean pausedprint; // woods
 
+void FileList_Add (const char* name, const char* date, filelist_item_t** list); // woods
+
 void CL_ClearTrailStates(void)
 {
 	int i;
@@ -1665,6 +1667,14 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 	else
 		q_snprintf(sizeStr, sizeof(sizeStr), "%ld bytes", fileSizeBytes);
 
+	if (strstr(filename, ".bsp")) // woods, add mapname to extralevels tab completion
+	{
+		char mapname[MAX_QPATH];
+		COM_StripExtension(COM_SkipPath(filename), mapname, sizeof(mapname));
+		FileList_Add (mapname, NULL, &extralevels);
+
+	}
+
 	Con_Printf("Downloaded ^m%s^m (%s) from %s\n", COM_SkipPath(filename), sizeStr, url);
 
 	return true; // File successfully downloaded
@@ -1709,6 +1719,14 @@ void CL_Download_Finished_f(void)
 		{
 			q_snprintf (finalpath, sizeof(finalpath), "%s/%s", com_gamedir, cls.download.current);
 			rename(cls.download.temp, finalpath);
+			
+			if (strstr(cls.download.current, ".bsp")) // woods, add mapname to extralevels tab completion
+			{
+				char mapname[MAX_QPATH];
+				COM_StripExtension(COM_SkipPath(cls.download.current), mapname, sizeof(mapname));
+				FileList_Add (mapname, NULL, &extralevels);
+			}
+
 			Con_SafePrintf("Downloaded %s: %u bytes\n", cls.download.current, cls.download.size);
 		}
 		else
@@ -1949,6 +1967,96 @@ qboolean CL_CheckDownloads(void)
 	return true;
 }
 
+/*
+====================
+CL_ManualDownload_f -- woods #manualdownload
+====================
+*/
+void CL_ManualDownload_f (const char* filename)
+{
+
+	if (Cmd_Argc() != 2)
+	{
+		Con_Printf("download <filename> : filename with an extension (bsp, lit, wav, loc)\n");
+		return;
+	}
+
+	if (*filename == '*')
+		return;	//don't download these...
+	if (cls.download.active)
+		return;	//block while we're already downloading something
+	if (*cls.download.current && !strcmp(cls.download.current, filename))
+		return;	//if the previous download failed, don't endlessly retry.
+
+	const char* extension = COM_FileGetExtension(Cmd_Argv(1));
+
+	if (strlen(extension) == 0)
+	{
+		Con_Printf("Please use a filename with an extension (bsp, lit, wav, loc)\n");
+		return;
+	}
+
+	if (strcmp(extension, "bsp") != 0 && strcmp(extension, "wav") != 0 && strcmp(extension, "loc") != 0)
+	{
+		Con_Printf("Unsupported file extension. Use bsp, lit, wav, loc extensions\n");
+		return;
+	}
+
+	char prefixedArg[MAX_OSPATH];
+
+	if (strcmp(extension, "bsp") == 0 || strcmp(extension, "lit") == 0)
+	{
+		snprintf(prefixedArg, sizeof(prefixedArg), "maps/%s", Cmd_Argv(1));
+	}
+	else if (strcmp(extension, "wav") == 0)
+	{
+		snprintf(prefixedArg, sizeof(prefixedArg), "sound/%s", Cmd_Argv(1));
+	}
+	else if (strcmp(extension, "loc") == 0)
+	{
+		snprintf(prefixedArg, sizeof(prefixedArg), "locs/%s", Cmd_Argv(1));
+	}
+	else
+	{
+		strncpy(prefixedArg, Cmd_Argv(1), sizeof(prefixedArg));
+		prefixedArg[sizeof(prefixedArg) - 1] = '\0';
+	}
+
+	if (COM_FileExists(prefixedArg, NULL))
+	{
+		Con_Printf("File already exists, download not attempted\n");
+		return;
+	}
+
+	qboolean isNeitherWebDownloadServerSet = (cl_web_download_url.string == NULL || cl_web_download_url.string[0] == '\0') &&
+		(cl_web_download_url2.string == NULL || cl_web_download_url2.string[0] == '\0');
+
+	if (isNeitherWebDownloadServerSet)
+	{
+		Con_Printf("No web download servers are set\n");
+		return;
+	}
+
+	if (!webcheck && !web2check)
+	{
+		Con_Printf("No web download servers are active\n");
+		return;
+	}
+
+	Con_Printf("Attempting download, if found you will see progress below...\n");
+
+	char local_path[MAX_OSPATH]; // Define the max path length	
+
+	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, prefixedArg);
+
+	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
+		if (Curl_DownloadFile(cl_web_download_url.string, prefixedArg, local_path))
+			return;
+
+	if (web2check && (cl_web_download_url2.string != NULL && cl_web_download_url2.string[0] != '\0')) // only run if server is verified
+		if (Curl_DownloadFile(cl_web_download_url2.string, prefixedArg, local_path))
+			return;
+}
 
 /*
 ===============

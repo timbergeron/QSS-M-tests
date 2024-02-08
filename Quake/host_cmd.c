@@ -44,6 +44,8 @@ cvar_t sv_adminnick = {"sv_adminnick", "server admin", CVAR_ARCHIVE}; // woods (
 extern char lastconnected[3]; // woods -- #identify+
 extern qboolean ctrlpressed; // woods #saymodifier
 
+void CL_ManualDownload_f (const char* filename); // woods #manualdownload
+
 /*
 ==================
 Host_Quit_f
@@ -78,7 +80,7 @@ void Host_Quit_f (void)
 FileList_Add
 ==================
 */
-static void FileList_Add (const char *name, const char* date, filelist_item_t **list) // woods #demolistsort add arg
+void FileList_Add (const char *name, const char* date, filelist_item_t **list) // woods #demolistsort add arg, remove static
 {
 	filelist_item_t	*item,*cursor,*prev;
 
@@ -129,7 +131,7 @@ static void FileList_Clear (filelist_item_t **list)
 
 filelist_item_t	*extralevels;
 
-static void ExtraMaps_Add (const char *name)
+void ExtraMaps_Add (const char *name)
 {
 	FileList_Add(name, NULL, &extralevels); // woods #demolistsort add arg
 }
@@ -3816,6 +3818,8 @@ static void Host_Download_f(void)
 		//FIXME: add some sort of queuing thing
 //		if (cls.state == ca_connected)
 //			Cmd_ForwardToServer ();
+
+		CL_ManualDownload_f (fname); // woods #manualdownload
 		return;
 	}
 	else if (cmd_source == src_client)
