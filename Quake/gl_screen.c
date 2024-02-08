@@ -501,6 +501,9 @@ void SCR_CheckDrawCenterString (void)
 
 	scr_centertime_off -= host_frametime;
 
+	if (scr_centertime.value <= 0) // woods #confade
+		scr_centertime_off = 0;
+
 	if (scr_centertime_off <= 0 && !cl.intermission)
 		return;
 	if (key_dest != key_game)
