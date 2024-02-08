@@ -219,6 +219,58 @@ skip_prefix:
 	return q_toupper(*s1) - q_toupper(*s2);
 }
 
+int char_to_int (const char* str, int len) // woods #demolistsort
+{
+	int result = 0;
+	for (int i = 0; i < len; ++i) 
+	{
+		if (!isdigit(str[i])) return -1;  // Invalid character for conversion
+		result = result * 10 + (str[i] - '0');
+	}
+	return result;
+}
+
+int find_and_parse_date_time (const char* str, int* year, int* month, int* day, int* hour, int* min, int* sec) // woods #demolistsort
+{
+	// Ensure the string is in the expected format "YYYY-MM-DD HH:MM:SS"
+	if (strlen(str) != 19) return 0;
+
+	*year = char_to_int(str, 4);
+	*month = char_to_int(str + 5, 2);
+	*day = char_to_int(str + 8, 2);
+	*hour = char_to_int(str + 11, 2);
+	*min = char_to_int(str + 14, 2);
+	*sec = char_to_int(str + 17, 2);
+
+	if (*year == -1 || *month == -1 || *day == -1 || *hour == -1 || *min == -1 || *sec == -1) {
+		return 0;  // Parsing failed
+	}
+	return 1;  // Successful parsing
+}
+
+int q_sortdemos (const char* s1, const char* s2) // woods #demolistsort
+{
+	int year1, month1, day1, hour1, min1, sec1;
+	int year2, month2, day2, hour2, min2, sec2;
+
+	int s1_has_datetime = find_and_parse_date_time(s1, &year1, &month1, &day1, &hour1, &min1, &sec1);
+	int s2_has_datetime = find_and_parse_date_time(s2, &year2, &month2, &day2, &hour2, &min2, &sec2);
+
+	if (s1_has_datetime && s2_has_datetime) 
+	{
+		// Compare each component starting from the year down to the second
+		if (year1 != year2) return year1 - year2;  // Oldest year first
+		if (month1 != month2) return month1 - month2;  // Oldest month first
+		if (day1 != day2) return day1 - day2;  // Oldest day first
+		if (hour1 != hour2) return hour1 - hour2;  // Oldest hour first
+		if (min1 != min2) return min1 - min2;  // Oldest minute first
+		return sec1 - sec2;  // Oldest second first
+	}
+
+	// If one or both strings don't contain valid dates, use a fallback comparison
+	return strcmp(s1, s2);
+}
+
 char* Q_strnset(char* str, int c, size_t n) // woods
 {
 	size_t i;
@@ -1531,7 +1583,7 @@ void SZ_Print (sizebuf_t *buf, const char *data)
 
 /*
 ============
-COM_SkipPath
+COM_SkipPath -- woods #texturepointer
 ============
 */
 const char *COM_SkipPath (const char *pathname)
@@ -1573,6 +1625,25 @@ void COM_StripExtension (const char *in, char *out, size_t outsize)
 	}
 	if (length > 0)
 		out[length] = '\0';
+}
+
+/*
+============
+COM_SkipColon -- woods #texturepointer
+============
+*/
+const char* COM_SkipColon (const char* str)
+{
+	const char* last;
+
+	last = str;
+	while (*str)
+	{
+		if (*str == ':')
+			last = str + 1;
+		str++;
+	}
+	return last;
 }
 
 /*
@@ -1709,6 +1780,29 @@ char* COM_TintSubstring(const char* in, const char* substr, char* out, size_t ou
 		}
 	}
 	return out;
+}
+
+/*
+================
+COM_TintString  --  woods (ironwail)
+================
+*/
+char* COM_TintString(const char* in, char* out, size_t outsize)
+{
+	char* ret = out;
+	if (!outsize)
+		return "";
+	--outsize;
+	while (*in && outsize > 0)
+	{
+		char c = *in++;
+		if (c > ' ')
+			c |= 0x80;
+		*out++ = c;
+		--outsize;
+	}
+	*out++ = '\0';
+	return ret;
 }
 
 /*
@@ -2977,6 +3071,18 @@ qboolean COM_GameDirMatches(const char *tdirs)
 	return false;
 }
 
+static void COM_AddGameDirectory(const char* dir); // woods #pakdirs
+
+qboolean AddHashedDirectories(void* ctx, const char* fname, time_t mtime, size_t fsize, searchpath_t* spath)
+{
+	if (*fname == '#') // Checking if the directory starts with #
+	{
+		const char* combinedName = va("%s/%s", GAMENAME, fname);
+		COM_AddGameDirectory(combinedName);
+	}
+	return true; // Return true to continue processing
+}
+
 /*
 =================
 COM_AddGameDirectory -- johnfitz -- modified based on topaz's tutorial
@@ -3104,6 +3210,8 @@ _add_path:
 		COM_ListSystemFiles(searchdir, com_gamedir, "pak", COM_AddEnumeratedPackage);
 		COM_ListSystemFiles(searchdir, com_gamedir, "pk3", COM_AddEnumeratedPackage);
 	}
+
+	COM_ListFiles(NULL, searchdir, "#*", AddHashedDirectories); // woods #pakdirs
 
 	// then finally link the directory to the search path
 	//spike -- moved this last (also explicitly blocked loading progs.dat from system paths when running the demo)
@@ -3242,6 +3350,7 @@ static void COM_Game_f (void)
 		DemoList_Rebuild ();
 		ParticleList_Rebuild (); // woods #particlelist
 		SkyList_Rebuild (); // woods #skylist
+		FolderList_Rebuild (); // woods #folderlist
 
 		Con_Printf("\"game\" changed to \"%s\"\n", COM_GetGameNames(true));
 
@@ -4139,45 +4248,47 @@ int COM_Seconds(int seconds)
 Write_Log -- woods -- write an arg to a log  // woods #serverlist
 ================
 */
-void Write_Log (const char* log_message, char* filename)
+void Write_Log (const char* log_message, const char* filename)
 {
 	char line[256];
-	int found = 0, i;
+	int found = 0;
 	char fname[MAX_OSPATH];
 
-	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, filename);
+	// Construct the full path of the file
+	strncpy(fname, com_basedir, MAX_OSPATH - 1);
+	fname[MAX_OSPATH - 1] = '\0';  // Ensure null termination
+	strncat(fname, "/id1/backups/", MAX_OSPATH - strlen(fname) - 1);
+	strncat(fname, filename, MAX_OSPATH - strlen(fname) - 1);
 
-	// Open the log file in read mode
+	// Open the file in append+read mode
 	FILE* log_file = fopen(fname, "a+");
-
-	if (!log_file)
+	if (!log_file) 
+	{
+		Con_DPrintf("Write_Log: Unable to open file %s for reading\n", fname);
 		return;
+	}
 
-	// Check if the file exists
-	if (log_file) {
-		// Iterate through each line of the file
-		while (fgets(line, sizeof(line), log_file)) {
-			// Check if the log message already exists in the file
+	// Go to the beginning of the file for reading
+	rewind(log_file);
 
-			for (i = 0;; i++) {
-				if (line[i] == '\n') {
-					line[i] = '\0';
-					break;
-				}
-			}
+	// Iterate through each line of the file
+	while (fgets(line, sizeof(line), log_file))
+	{
+		// Trim newline character
+		line[strcspn(line, "\n")] = 0;
 
-			if (strcmp(line, log_message) == 0) {
-				found = 1;
-				break;
-			}
+		// Check if the log message already exists in the file
+		if (strcmp(line, log_message) == 0) 
+		{
+			found = 1;
+			break;
 		}
-		fclose(log_file);
 	}
 
 	// If the log message does not already exist in the file, write it
 	if (!found) {
-		log_file = fopen(fname, "a");
 		fprintf(log_file, "%s\n", log_message);
-		fclose(log_file);
 	}
+
+	fclose(log_file);
 }

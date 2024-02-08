@@ -1529,7 +1529,7 @@ void Extralevels_Completion_f (cvar_t* cvar, const char* partial)
 	filelist_item_t* current = extralevels;
 
 	while (current != NULL) {
-		Con_AddToTabList (current->name, partial, NULL);
+		Con_AddToTabList (current->name, partial, NULL, NULL); // #demolistsort add arg
 		current = current->next;
 	}
 }
@@ -1569,6 +1569,7 @@ void SV_Init (void)
 	extern	cvar_t	sv_adminnick;			// woods (darkpaces) #adminnick
 	extern	cvar_t	sv_map_rotation;		// woods #maprotation
 	extern	cvar_t	sv_defaultmap;		// woods #mapchangeprotect
+	extern	cvar_t	sv_bunnyhopqw; // woods #qwbunnyhop
 
 	PM_Register();
 	Cvar_RegisterVariable (&sv_maxvelocity);
@@ -1591,6 +1592,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&pr_checkextension);
 	Cvar_RegisterVariable (&sv_altnoclip); //johnfitz
 	Cvar_RegisterVariable (&sv_nqplayerphysics);	//spike
+	Cvar_RegisterVariable (&sv_bunnyhopqw); // woods #qwbunnyhop
 
 	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
 	Cvar_RegisterVariable (&sv_sound_land); //spike
@@ -2460,7 +2462,21 @@ byte *SV_FatPVS (vec3_t org, qmodel_t *worldmodel) //johnfitz -- added worldmode
 
 /*
 =============
-SV_VisibleToClient -- johnfitz
+SV_EdictInPVS -- woods #iwshowbboxes
+=============
+*/
+qboolean SV_EdictInPVS (edict_t* test, byte* pvs)
+{
+	int i;
+	for (i = 0; i < test->num_leafs; i++)
+		if (pvs[test->leafnums[i] >> 3] & (1 << (test->leafnums[i] & 7)))
+			return true;
+	return false;
+}
+
+/*
+=============
+SV_VisibleToClient -- johnfitz -- woods #iwshowbboxes
 
 PVS test encapsulated in a nice function
 =============
@@ -2469,16 +2485,11 @@ qboolean SV_VisibleToClient (edict_t *client, edict_t *test, qmodel_t *worldmode
 {
 	byte	*pvs;
 	vec3_t	org;
-	unsigned int		i;
 
 	VectorAdd (client->v.origin, client->v.view_ofs, org);
 	pvs = SV_FatPVS (org, worldmodel);
 
-	for (i=0 ; i < test->num_leafs ; i++)
-		if (pvs[test->leafnums[i] >> 3] & (1 << (test->leafnums[i]&7) ))
-			return true;
-
-	return false;
+	return SV_EdictInPVS (test, pvs);
 }
 
 //=============================================================================

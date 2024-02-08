@@ -31,9 +31,10 @@ extern cvar_t r_clearcolor;
 extern cvar_t r_drawflat;
 extern cvar_t r_flatlightstyles;
 extern cvar_t gl_fullbrights;
-extern cvar_t gl_farclip;
 extern cvar_t gl_overbright;
 extern cvar_t gl_overbright_models;
+extern cvar_t gl_overbright_models_alpha; // woods #obmodelslist
+extern cvar_t gl_overbright_models_list; // woods #obmodelslist
 extern cvar_t r_waterwarp;
 extern cvar_t r_oldskyleaf;
 extern cvar_t r_drawworld;
@@ -50,9 +51,53 @@ cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates 
 extern cvar_t trace_any; // woods #tracers
 extern cvar_t trace_any_contains; // woods #tracers
 extern cvar_t r_drawflame; // woods #drawflame
-extern cvar_t cl_r2g; // woods r2g
 
 extern gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz
+
+void TexturePointer_Init (void); // woods #texturepointer
+
+/*
+====================
+R_ShowbboxesFilter_f -- woods #iwshowbboxes
+====================
+*/
+static void R_ShowbboxesFilter_f (void)
+{
+	extern char r_showbboxes_filter_strings[MAXCMDLINE];
+
+	if (Cmd_Argc() >= 2)
+	{
+		int i, len, ofs;
+		for (i = 1, ofs = 0; i < Cmd_Argc(); i++)
+		{
+			const char* arg = Cmd_Argv(i);
+			if (!*arg)
+				continue;
+			len = strlen(arg) + 1;
+			if (ofs + len + 1 > (int) countof(r_showbboxes_filter_strings))
+			{
+				Con_Warning("overflow at \"%s\"\n", arg);
+				break;
+			}
+			memcpy(&r_showbboxes_filter_strings[ofs], arg, len);
+			ofs += len;
+		}
+		r_showbboxes_filter_strings[ofs++] = '\0';
+	}
+	else
+	{
+		const char* p = r_showbboxes_filter_strings;
+		Con_SafePrintf("\"r_showbboxes_filter\" is");
+		if (!*p)
+			Con_SafePrintf(" \"\"");
+		else do
+		{
+			Con_SafePrintf(" \"%s\"", p);
+			p += strlen(p) + 1;
+		} while (*p);
+		Con_SafePrintf("\n");
+	}
+}
 
 /*
 ===============
@@ -75,7 +120,7 @@ static void Tracer_Completion_f (cvar_t* cvar, const char* partial)
 		const char* classname = PR_GetString (ed->v.classname);
 		classname = PR_GetString (ed->v.classname);
 		if (*classname)
-			Con_AddToTabList (classname, partial, "#");
+			Con_AddToTabList (classname, partial, "#", NULL); // #demolistsort add arg
 	}
 
 	PR_SwitchQCVM (NULL);
@@ -216,6 +261,7 @@ void R_Init (void)
 
 	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);
 	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);
+	Cmd_AddCommand ("r_showbboxes_filter", R_ShowbboxesFilter_f); // woods #iwshowbboxes
 
 	Cvar_RegisterVariable (&r_norefresh);
 	Cvar_RegisterVariable (&r_lightmap);
@@ -269,6 +315,8 @@ void R_Init (void)
 	Cvar_SetCallback (&gl_fullbrights, GL_Fullbrights_f);
 	Cvar_SetCallback (&gl_overbright, GL_Overbright_f);
 	Cvar_RegisterVariable (&gl_overbright_models);
+	Cvar_RegisterVariable (&gl_overbright_models_alpha); // woods #obmodelslist
+	Cvar_RegisterVariable (&gl_overbright_models_list); // woods #obmodelslist
 	Cvar_RegisterVariable (&r_lerpmodels);
 	Cvar_RegisterVariable (&r_lerpmove);
 	Cvar_RegisterVariable (&r_nolerp_list);
@@ -278,8 +326,8 @@ void R_Init (void)
 	//johnfitz
 
 	Cvar_RegisterVariable (&cl_damagehue);   // woods #damage
+	Cvar_RegisterVariable (&cl_damagehuecolor);   // woods #damage
 	Cvar_RegisterVariable(&cl_autodemo);   // woods #autodemo
-	Cvar_RegisterVariable (&cl_r2g); // woods #r2g
 
 	Cvar_RegisterVariable (&gl_zfix); // QuakeSpasm z-fighting fix
 	Cvar_RegisterVariable (&r_lavaalpha);
@@ -295,6 +343,8 @@ void R_Init (void)
 	PScript_InitParticles();
 #endif
 	R_SetClearColor_f (&r_clearcolor); //johnfitz
+
+	TexturePointer_Init (); // woods #texturepointer
 
 	Sky_Init (); //johnfitz
 	Fog_Init (); //johnfitz

@@ -27,6 +27,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
 extern cvar_t scr_fov, cl_gun_fovscale; // woods #zoom (ironwail)
 extern cvar_t r_coloredpowerupglow; // woods
+extern cvar_t gl_overbright_models_alpha; // woods #obmodelslist
+extern cvar_t gl_overbright_models_list; // woods #obmodelslist
+
+qboolean nameInList(const char* list, const char* name); // woods #obmodelslist
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
 
@@ -944,6 +948,14 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata
 		else
 			e->lerp.state.lerptime = 0.1;
 
+		if (e->lerpflags & LERP_WRESET) // woods #wplerp weapon change reset
+		{
+			e->lerp.state.lerpstart = 0;
+			e->lerp.state.previouspose = 0;
+			e->lerp.state.currentpose = 0;
+			e->lerpflags -= LERP_WRESET;
+		}
+
 		if (e->lerpflags & LERP_RESETANIM) //kill any lerp in progress
 		{
 			e->lerp.state.lerpstart = 0;
@@ -1091,6 +1103,9 @@ void R_SetupAliasLighting (entity_t	*e)
 	float		radiansangle;
 	float		*origin;
 
+	plcolour_t dhvalue = CL_PLColours_Parse(cl_damagehuecolor.string); // woods #damage
+	byte* dhuecolor = CL_PLColours_ToRGB(&dhvalue); // woods #damage
+
 	if (!r_refdef.drawworld)
 		lightcolor[0] = lightcolor[1] = lightcolor[2] = 255;
 	else
@@ -1151,12 +1166,12 @@ void R_SetupAliasLighting (entity_t	*e)
 			}
 		}
 
-		// woods added minlight for all models to avoid colored lighting blinding
+		// woods added minlight for models on list to avoid colored lighting blinding #obmodelslist
 		if (gl_overbright_models.value == 2)
 		{
-			if (e->model)
+			if (e->model && (nameInList(gl_overbright_models_list.string, e->model->name)))
 			{
-				add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				add = 2500.0f * gl_overbright_models_alpha.value - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 				if (add > 0.0f)
 				{
 					lightcolor[0] += add / 3.0f;
@@ -1166,12 +1181,12 @@ void R_SetupAliasLighting (entity_t	*e)
 			}
 		}
 
-		// woods added minlight for all models to avoid colored lighting blinding (but keep viewmodel lighting)
-		if (gl_overbright_models.value == 3)
+		// woods added minlight for all models to avoid colored lighting blinding (but keep viewmodel lighting) #obmodelslist
+		if (gl_overbright_models.value == 3 && nameInList(gl_overbright_models_list.string, e->model->name))
 		{
 			if ((e->model) && (e != &cl.viewent))
 			{
-				add = 3000.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				add = 2000.0f * gl_overbright_models_alpha.value - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 				if (add > 0.0f)
 				{
 					lightcolor[0] += add / 3.0f;
@@ -1182,54 +1197,58 @@ void R_SetupAliasLighting (entity_t	*e)
 		}
 	}
 	
-	// begin woods for orange hue damage taken #damage
+	// begin woods for hue damage taken #damage
 
 	if (cl.time <= cl.faceanimtime && cl_damagehue.value)
 		if (e == &cl.viewent)
 		{
 			{
-				lightcolor[0] = 169;
-				lightcolor[1] = 114;
-				lightcolor[2] = 64;
+ 				lightcolor[0] = dhuecolor[0];
+				lightcolor[1] = dhuecolor[1];
+				lightcolor[2] = dhuecolor[2];
 			}
 		}
 
-	// end woods for red damage taken
+	// end woods for damage taken
 
 	// begin woods add hue to gun model with powerups
 
-	if ((cl.gametype == GAME_DEATHMATCH) && r_coloredpowerupglow.value)
-	{
-		if (cl.items & IT_QUAD)
-			if (e == &cl.viewent)
-			{
+	if (!(cl.time <= cl.faceanimtime && cl_damagehue.value))
+	{ 
+		if ((cl.gametype == GAME_DEATHMATCH) && r_coloredpowerupglow.value)
+		{
+			if (cl.items & IT_QUAD)
+				if (e == &cl.viewent)
 				{
-					lightcolor[0] = 50;
-					lightcolor[1] = 50;
-					lightcolor[2] = 121;
+					{
+						lightcolor[0] = 50;
+						lightcolor[1] = 50;
+						lightcolor[2] = 121;
+					}
 				}
-			}
 
-		if (cl.items & IT_INVULNERABILITY)
-			if (e == &cl.viewent)
-			{
+			if (cl.items & IT_INVULNERABILITY)
+				if (e == &cl.viewent)
 				{
-					lightcolor[0] = 131;
-					lightcolor[1] = 73;
-					lightcolor[2] = 73;
+					{
+						lightcolor[0] = 131;
+						lightcolor[1] = 73;
+						lightcolor[2] = 73;
+					}
 				}
-			}
 
-		if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
-			if (e == &cl.viewent)
-			{
+			if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
+				if (e == &cl.viewent)
 				{
-					lightcolor[0] = 211;
-					lightcolor[1] = 113;
-					lightcolor[2] = 194;
+					{
+						lightcolor[0] = 211;
+						lightcolor[1] = 113;
+						lightcolor[2] = 194;
+					}
 				}
-			}
+		}
 	}
+
 	// end woods add hue to gun model with powerups
 
 	// clamp lighting so it doesn't overbright as much (96)
@@ -1388,6 +1407,11 @@ void R_DrawAliasModel (entity_t *e)
 	}
 	else if (alphatest)
 		glEnable (GL_ALPHA_TEST);
+	if (e->effects & EF_ADDITIVE)
+	{
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE);
+		glEnable(GL_BLEND);
+	}
 
 	//
 	// set up lighting
@@ -1664,6 +1688,8 @@ cleanup:
 	glColor3f(1,1,1);
 	if (e->eflags & EFLAGS_VIEWMODEL)
 		glDepthRange (0, 1);
+	if (e->effects & EF_ADDITIVE)
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glPopMatrix ();
 }
 

@@ -38,14 +38,19 @@ float	*origin;
 float	*velocity;
 
 qboolean	onground;
+qboolean	prevonground; // woods #qwbunnyhop
+vec3_t velocitybeforethink; // woods #qwbunnyhop
 
 usercmd_t	cmd;
 
 cvar_t	sv_idealpitchscale = {"sv_idealpitchscale","0.8",CVAR_NONE};
 cvar_t	sv_altnoclip = {"sv_altnoclip","1",CVAR_ARCHIVE}; //johnfitz
 cvar_t	sv_nqplayerphysics = {"sv_nqplayerphysics", "1", CVAR_ARCHIVE}; //spike. set to 0 for prediction to work. name comes from fte.
+cvar_t	sv_bunnyhopqw = {"sv_bunnyhopqw","0",CVAR_ARCHIVE}; // woods #qwbunnyhop quakespasm-shalrathy 76a1f96
 
 qboolean SV_RunThink (edict_t *ent);
+
+speed_info_t speed_info = { -1, -1, -1 }; // woods #speedometer
 
 /*
 ===============
@@ -328,6 +333,23 @@ void SV_NoclipMove (void)
 	}
 }
 
+static void SV_UpdateSpeedInfo (void) // woods #speedometer
+{
+	float fmove, smove;
+
+	fmove = cmd.forwardmove;
+	smove = cmd.sidemove;
+
+	// If jumping record whether directional keys pressed, to indicate a bad power bunny hop.
+	if (onground && sv_player->v.button2)
+	{
+ 		speed_info.jump_fmove = fmove;
+		speed_info.jump_smove = smove;
+	}
+
+	speed_info.speed = sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+}
+
 /*
 ===================
 SV_AirMove
@@ -369,7 +391,7 @@ void SV_AirMove (void)
 	{	// noclip
 		VectorCopy (wishvel, velocity);
 	}
-	else if ( onground )
+	else if (onground && !(sv_bunnyhopqw.value && !prevonground)) // woods #qwbunnyhop
 	{
 		SV_UserFriction ();
 		SV_Accelerate (wishspeed, wishdir);
@@ -395,10 +417,13 @@ void SV_ClientThink (void)
 	if (sv_player->v.movetype == MOVETYPE_NONE)
 		return;
 
+	prevonground = onground; // woods #qwbunnyhop
 	onground = (int)sv_player->v.flags & FL_ONGROUND;
 
 	origin = sv_player->v.origin;
 	velocity = sv_player->v.velocity;
+
+	for (int i = 0;i < 3;i++) velocitybeforethink[i] = velocity[i]; // woods #qwbunnyhop
 
 	DropPunchAngle ();
 
@@ -441,6 +466,8 @@ void SV_ClientThink (void)
 	else
 		SV_AirMove ();
 	//johnfitz
+
+	SV_UpdateSpeedInfo (); // woods #speedometer
 }
 
 

@@ -232,6 +232,7 @@ extern int q_strncasecmp (const char *s1, const char *s2, size_t n);
 
 /* locale-insensitive natural string comparison function */
 int q_strnaturalcmp (const char* s1, const char* s2); // woods #iwtabcomplete
+int q_sortdemos (const char* s1, const char* s2); // woods #demolistsort
 
 /* locale-insensitive case-insensitive alternative to strstr */
 extern char *q_strcasestr(const char *haystack, const char *needle);
@@ -248,7 +249,7 @@ extern char* Q_strrev (char* s); // woods
 extern char* strremove(char* str, char* sub); // woods
 extern char* Q_strcasestr(const char* haystack, const char* needle); // woods
 char* Q_strnset (char* str, int c, size_t n); // woods
-void Write_Log (const char* log_message, char* filename); // woods #serverlist
+void Write_Log (const char* log_message, const char* filename); // woods #serverlist
 
 #define strcasecmp brokeninmsvc
 #define stricmp brokenportability
@@ -281,6 +282,7 @@ void COM_InitArgv (int argc, char **argv);
 void COM_InitFilesystem (void);
 
 const char *COM_SkipPath (const char *pathname);
+const char *COM_SkipColon (const char* str); // woods #texturepointer
 void COM_StripExtension (const char *in, char *out, size_t outsize);
 void COM_FileBase (const char *in, char *out, size_t outsize);
 void COM_AddExtension (char *path, const char *extension, size_t len);
@@ -296,6 +298,7 @@ char *va (const char *format, ...) FUNC_PRINTF(1,2);
 // does a varargs printf into a temp buffer
 
 char* COM_TintSubstring(const char* in, const char* substr, char* out, size_t outsize); // woods add filter (ironwail)
+char* COM_TintString(const char* in, char* out, size_t outsize); // woods (ironwail)
 
 unsigned COM_HashString (const char *str);
 

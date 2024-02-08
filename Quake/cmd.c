@@ -604,13 +604,15 @@ void Cmd_List_f (void)
 	}
 
 	count=0;
-	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
 	{
-		if (partial && Q_strncmp (partial,cmd->name, len))
-		{
+		if (cmd->srctype == src_server)
 			continue;
-		}
-		Con_SafePrintf ("   %s\n", cmd->name);
+		if (Cmd_IsReservedName(cmd->name))
+			continue;
+		if (partial && Q_strncmp(partial, cmd->name, len))
+			continue;
+		Con_SafePrintf("   %s\n", cmd->name);
 		count++;
 	}
 
@@ -620,21 +622,6 @@ void Cmd_List_f (void)
 		Con_SafePrintf (" beginning with \"%s\"", partial);
 	}
 	Con_SafePrintf ("\n");
-}
-
-static char *Cmd_TintSubstring(const char *in, const char *substr, char *out, size_t outsize)
-{
-	int l;
-	char *m;
-	q_strlcpy(out, in, outsize);
-	while ((m = q_strcasestr(out, substr)))
-	{
-		l = strlen(substr);
-		while (l-->0)
-			if (*m >= ' ' && *m < 127)
-				*m++ |= 0x80;
-	}
-	return out;
 }
 
 /*
@@ -649,38 +636,30 @@ static void Cmd_ListAllContaining(const char* substr)
 {
 	char tmpbuf[256];
 	int hits = 0;
-	cmd_function_t	*cmd;
-	cvar_t *var;
-	cmdalias_t* alias;
+	cmd_function_t* cmd;
+	cvar_t* var;
 	const char* plural;
 	const char* plural2; // woods #addaliases
 
-	for (alias = cmd_alias; alias; alias = alias->next) // woods #addaliases
+
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
 	{
-		if (q_strcasestr(alias->name, substr))
+		if (cmd->srctype != src_server && q_strcasestr(cmd->name, substr) && !Cmd_IsReservedName(cmd->name))
 		{
 			hits++;
-			Con_SafePrintf("   %s (alias)\n", Cmd_TintSubstring(alias->name, substr, tmpbuf, sizeof(tmpbuf)));
+			Con_SafePrintf("   %s\n", COM_TintSubstring(cmd->name, substr, tmpbuf, sizeof(tmpbuf)));
 		}
 	}
 
-	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
-	{
-		if (q_strcasestr(cmd->name, substr) && cmd->srctype != src_server)
-		{
-			hits++;
-			Con_SafePrintf ("   %s\n", Cmd_TintSubstring(cmd->name, substr, tmpbuf, sizeof(tmpbuf)));
-		}
-	}
-
-	for (var=Cvar_FindVarAfter("", 0) ; var ; var=var->next)
+	for (var = Cvar_FindVarAfter("", 0) ; var; var=var->next)
 	{
 		if (q_strcasestr(var->name, substr))
 		{
 			hits++;
-			Con_SafePrintf ("   %s (current value: \"%s\")\n", Cmd_TintSubstring(var->name, substr, tmpbuf, sizeof(tmpbuf)), var->string);
+			Con_SafePrintf ("   %s (current value: \"%s\")\n", COM_TintSubstring(var->name, substr, tmpbuf, sizeof(tmpbuf)), var->string);
 		}
 	}
+
 	plural = (hits == 1) ? "" : "s";
 	plural2 = (hits == 1) ? "" : "es"; // woods #addaliases
 	if (!hits)
@@ -1397,6 +1376,8 @@ void Cmd_ForwardToServer (void)
 	{
 		if (ctrlpressed && !q_strcasecmp(Cmd_Argv(0), "say")) // woods #saymodifier
 			SZ_Print(&cls.message, "say_team");
+		else if (ctrlpressed && !q_strcasecmp(Cmd_Argv(0), "say_team")) // woods #saymodifier
+			SZ_Print(&cls.message, "say");
 		else
 			SZ_Print(&cls.message, Cmd_Argv(0));
 		SZ_Print(&cls.message, " ");

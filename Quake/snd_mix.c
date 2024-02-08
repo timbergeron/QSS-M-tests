@@ -40,9 +40,9 @@ void Sound_Toggle_Mute_f(void) // woods #mute -- adapted from Fitzquake Mark V
 	SND_InitScaletable();
 	SCR_Mute_Switch(); // woods #usermute
 	if (muted) // woods #usermute
-		Con_Printf("Mute: ÏÎ\n"); // ON
+		Con_Printf("Mute: ^mON\n"); // ON
 	else
-		Con_Printf("Mute: ÏÆÆ\n"); // OFF
+		Con_Printf("Mute: ^mOFF\n"); // OFF
 }
 
 void Sound_Toggle_Mute_Off_f(void) // woods #mute -- adapted from Fitzquake Mark V

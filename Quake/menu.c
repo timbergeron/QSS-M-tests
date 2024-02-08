@@ -94,8 +94,8 @@ char		m_return_reason [32];
 
 #define StartingGame	(m_multiplayer_cursor == 1)
 #define JoiningGame		(m_multiplayer_cursor == 0)
-#define	IPXConfig		(m_net_cursor == 0)
-#define	TCPIPConfig		(m_net_cursor == 1)
+//#define	IPXConfig		(m_net_cursor == 1) // woods #skipipx
+#define	TCPIPConfig		(m_net_cursor == 0)
 
 void M_ConfigureNetSubsystem(void);
 
@@ -677,12 +677,12 @@ void M_MultiPlayer_Key (int key)
 		{
 		case 0:
 			if (ipxAvailable || ipv4Available || ipv6Available)
-				M_Menu_Net_f ();
+				M_Menu_LanConfig_f (); // woods #skipipx
 			break;
 
 		case 1:
 			if (ipxAvailable || ipv4Available || ipv6Available)
-				M_Menu_Net_f ();
+				M_Menu_LanConfig_f (); // woods #skipipx
 			break;
 
 		case 2:
@@ -770,6 +770,7 @@ static void hsvtorgb(float inh, float s, float v, byte *out)
 };
 
 qboolean rgbactive; // woods
+qboolean colordelta; // woods
 
 void M_AdjustColour(plcolour_t *tr, int dir)
 {
@@ -896,7 +897,7 @@ void M_Setup_Draw (void)
 			flyme = false;
 	}
 
-	if (!chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
+	if (!chase_active.value && !cls.demoplayback && host_initialized && !flyme && cls.state == ca_connected) // woods #3rdperson
 	{
 		chasewasnotactive = true;
 		Cbuf_AddText("chase_active 1\n");
@@ -961,6 +962,11 @@ void M_Setup_Key (int k)
 			chasewasnotactive = false;
 			Cbuf_AddText("chase_active 0\n");
 		}
+		if (colordelta)
+		{
+			colordelta = false;
+			Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_oldtop), CL_PLColours_ToString(setup_oldbottom)));
+		}
 	case K_BBUTTON:
 		M_Menu_MultiPlayer_f ();
 		break;
@@ -987,18 +993,24 @@ void M_Setup_Key (int k)
 		if (setup_cursor == 3) // 2 to 3 woods #namemaker
 		{
 			M_AdjustColour(&setup_top, -1);
-			strncpy (lastColorSelected, CL_PLColours_ToString (setup_top), sizeof ((CL_PLColours_ToString (setup_top))));
+			strncpy(lastColorSelected, CL_PLColours_ToString(setup_top), sizeof((CL_PLColours_ToString(setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
 			M_AdjustColour(&setup_bottom, -1);
-			strncpy (lastColorSelected, CL_PLColours_ToString (setup_bottom), sizeof ((CL_PLColours_ToString (setup_bottom))));
+			strncpy(lastColorSelected, CL_PLColours_ToString(setup_bottom), sizeof((CL_PLColours_ToString(setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		break;
 	case K_MWHEELUP:
@@ -1013,7 +1025,10 @@ void M_Setup_Key (int k)
 			strncpy (lastColorSelected, CL_PLColours_ToString (setup_top), sizeof ((CL_PLColours_ToString (setup_top))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		if (setup_cursor == 4) // 3 to 4 woods #namemaker
 		{
@@ -1021,7 +1036,10 @@ void M_Setup_Key (int k)
 			strncpy (lastColorSelected, CL_PLColours_ToString (setup_bottom), sizeof ((CL_PLColours_ToString (setup_bottom))));
 			if (chase_active.value && !cls.demoplayback && host_initialized && !flyme) // woods #3rdperson
 				if (!CL_PLColours_Equals(setup_top, setup_oldtop) || !CL_PLColours_Equals(setup_bottom, setup_oldbottom))
+				{
 					Cbuf_AddText(va("color %s %s\n", CL_PLColours_ToString(setup_top), CL_PLColours_ToString(setup_bottom)));
+					colordelta = true;
+				}
 		}
 		break;
 
@@ -1081,6 +1099,7 @@ void M_Setup_Key (int k)
 				SDL_SetClipboardText (lastColorSelected);
 			else
 				SDL_SetClipboardText (CL_PLColours_ToString (setup_bottom));
+			S_LocalSound ("misc/menu2.wav");
 		}
 		break;
 
@@ -2655,10 +2674,10 @@ void M_LanConfig_Draw (void)
 		startJoin = "New Game";
 	else
 		startJoin = "Join Game";
-	if (IPXConfig)
+	/*if (IPXConfig) // woods #skipipx
 		protocol = "IPX";
-	else
-		protocol = "TCP/IP";
+	else*/
+	protocol = "TCP/IP";
 	M_Print (basex, 32, va ("%s - %s", startJoin, protocol));
 	basex += 8;
 
@@ -2758,7 +2777,7 @@ void M_LanConfig_Key (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_Net_f ();
+		M_Menu_MultiPlayer_f (); // woods #skipipx
 		break;
 
 	case K_UPARROW:
@@ -3270,7 +3289,7 @@ void M_GameOptions_Key (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_Net_f ();
+		M_Menu_MultiPlayer_f (); // woods #skipipx
 		break;
 
 	case K_UPARROW:
@@ -3519,6 +3538,7 @@ static struct
 	{"help", M_Menu_Help_f},
 	{"menu_quit", M_Menu_Quit_f},
 	{"menu_credits", M_Menu_Credits_f}, // needed by the 2021 re-release
+	{"namemaker", M_Shortcut_NameMaker_f}, // woods
 };
 
 //=============================================================================
@@ -3652,7 +3672,6 @@ void M_Init (void)
 	Cmd_AddCommand ("togglemenu", M_ToggleMenu_f);
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
-	Cmd_AddCommand ("namemaker", M_Shortcut_NameMaker_f); // woods #namemaker
 
 	if (!MQC_Init())
 		MQC_Shutdown();
@@ -3948,7 +3967,7 @@ void M_ConfigureNetSubsystem(void)
 // enable/disable net systems to match desired config
 	Cbuf_AddText ("stopdemo\n");
 
-	if (IPXConfig || TCPIPConfig)
+	if (/*IPXConfig || */TCPIPConfig) // woods #skipipx
 		net_hostport = lanConfig_port;
 }
 

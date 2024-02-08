@@ -690,6 +690,48 @@ void Draw_String (int x, int y, const char *str)
 }
 
 /*
+================
+Draw_StringRGBA -- woods
+================
+*/
+void Draw_StringRGBA (int x, int y, const char* str, plcolour_t c, float alpha)
+{
+	//if (y <= -8) // woods enabled for more printing options #varmatchclock
+	//	return;			// totally off screen
+
+	glEnable(GL_BLEND);
+
+	if (c.type == 2)
+		glColor4f(c.rgb[0] / 255.0, c.rgb[1] / 255.0, c.rgb[2] / 255.0, alpha);
+	else
+	{
+		byte* pal = (byte*)&d_8to24table[(c.basic << 4) + 8];
+		glColor4f(pal[0] / 255.0, pal[1] / 255.0, pal[2] / 255.0, alpha);
+	}
+
+	glDisable(GL_ALPHA_TEST);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	GL_Bind(char_texture);
+	glBegin(GL_QUADS);
+
+	while (*str)
+	{
+		if (*str != 32) //don't waste verts on spaces
+			Draw_CharacterQuad(x, y, *str);
+		str++;
+		x += 8;
+	}
+
+	glEnd();
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+	glColor4f(1, 1, 1, 1);
+}
+
+/*
 =============
 Draw_Pic -- johnfitz -- modified
 =============
@@ -1073,10 +1115,10 @@ void GL_SetCanvas (canvastype newcanvas)
 			glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 48*s);
 		}
 		break;
-	case CANVAS_SBAR2: // woods #speed
+	case CANVAS_SBAR2: // woods #speed #speedometer
 		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
-		glOrtho (0, 320, 80, 0, -99999, 99999);
-		glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 80*s);
+		glOrtho (0, 320, 270, 0, -99999, 99999);
+		glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 270*s);
 		break;
 	case CANVAS_IBAR_QW: //split for cleaner QW hud support // woods #sbarstyles
         s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
@@ -1087,6 +1129,11 @@ void GL_SetCanvas (canvastype newcanvas)
 		s = CLAMP (1.0f, scr_crosshairscale.value, 10.0f);
 		glOrtho (scr_vrect.width/-2/s, scr_vrect.width/2/s, scr_vrect.height/2/s, scr_vrect.height/-2/s, -99999, 99999);
 		glViewport (scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
+		break;
+	case CANVAS_CROSSHAIR2: //0,0 is center of viewport -- woods #texturepointer
+		s = CLAMP(1.0f, scr_conscale.value, 10.0f);
+		glOrtho(scr_vrect.width / -2 / s, scr_vrect.width / 2 / s, scr_vrect.height / 2 / s, scr_vrect.height / -2 / s, -99999, 99999);
+		glViewport(scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
 		break;
 	case CANVAS_MATCHCLOCK: //0,0 is center of viewport // woods #varmatchclock
 		s = CLAMP (1.0, scr_matchclockscale.value, 10.0);

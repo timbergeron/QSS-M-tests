@@ -48,7 +48,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define QSSM_VER_MAJOR		1
 #define QSSM_VER_MINOR		5
-#define QSSM_VER_PATCH		8
+#define QSSM_VER_PATCH		9
 #ifndef QSSM_VER_SUFFIX
 #define QSSM_VER_SUFFIX			// optional version suffix string literal like "-beta1"
 #endif
@@ -376,6 +376,7 @@ extern	double		last_angle_time;	// JPG - need this for smooth chasecam (from Pro
 typedef struct filelist_item_s
 {
 	char			name[100]; // woods #mapdescriptions
+	char			date[50]; // woods #demolistsort
 	struct filelist_item_s	*next;
 } filelist_item_t;
 
@@ -428,9 +429,11 @@ void DemoList_Rebuild (void);
 void ParticleList_Rebuild(void);
 void SkyList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
+void FolderList_Rebuild (void); // woods #folderlist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage
+extern cvar_t	cl_damagehuecolor;  // woods #damage
 extern	vec3_t	NULLVEC; // woods truelighting #truelight
 extern char dequake[256];	// JPG 1.05 - dedicated console translation // woods for #iplog
 extern	cvar_t	cl_autodemo; //r00k  / woods #autodemo
@@ -442,6 +445,15 @@ extern int		current_skill;	// skill level for currently loaded level (in case
 extern qboolean		isDedicated;
 
 extern int		minimum_memory;
+
+typedef struct // woods - #speedometer
+{
+	float speed;
+	float jump_smove, jump_fmove;	// inputs right before last jump.
+
+} speed_info_t;
+
+extern speed_info_t speed_info; // woods - #speedometer
 
 #define bound(a,b,c) ((a) >= (c) ? (a) : \
 					(b) < (a) ? (a) : (b) > (c) ? (c) : (b)) // woods #configprint

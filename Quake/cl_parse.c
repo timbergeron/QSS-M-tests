@@ -43,8 +43,9 @@ int VID_GetCurrentDPI(void);
 
 extern cvar_t gl_overbright_models; // woods for f_config
 
-int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
-int grenadecache; // woods r2g
+int ogflagprecache = 0, swapflagprecache = 0, swapflagprecache2 = 0, swapflagprecache3 = 0; // woods #alternateflags
+int grenadecache = -1, rocketcache = -1; // woods #r2g
+
 
 extern int	maptime; // woods connected map time #maptime
 extern char videosetg[50];	// woods #q_sysinfo (qrack)
@@ -605,6 +606,11 @@ static void CL_EntitiesDeltaed(void)
 				ent->lerpflags |= LERP_RESETANIM; //if we missed a think, we'd be lerping from the wrong frame
 
 			ent->msgtime = cl.mtime[0];
+
+			if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]]) // woods
+			{
+				cl.viewent.lerpflags |= LERP_WRESET; // woods #wplerp don't lerp animation across model changes
+			}
 
 		// shift the known values for interpolation
 			VectorCopy (ent->msg_origins[0], ent->msg_origins[1]);
@@ -1525,8 +1531,11 @@ static void CL_ParseServerInfo (void)
 		if (!strcmp(str, "progs/flag.mdl")) // find the precache number #alternateflags
 			ogflagprecache = cl.model_count;
 
-		if (!strcmp(str, "progs/grenade.mdl")) // woods r2g
+		if (!strcmp(str, "progs/grenade.mdl")) // woods #r2g
 			grenadecache = cl.model_count;
+
+		if (!strcmp(str, "progs/missile.mdl")) // woods #r2g
+			rocketcache = cl.model_count;
 	}
 
 	if (COM_FileExists("progs/ctfmodel.mdl", NULL)) // woods -> does client have alternate flag model? Quake Mission Pack 2: Dissolution of Eternity (Rogue) -- official #alternateflags
@@ -2026,10 +2035,6 @@ static void CL_ParseClientdata (void)
 		CL_SetHudStat(STAT_NAILS, ammovals[1]);
 		CL_SetHudStat(STAT_ROCKETS, ammovals[2]);
 		CL_SetHudStat(STAT_CELLS, ammovals[3]);
-
-		// woods for death location for LOCs #pqteam
-		if (health <= 0)
-			memcpy (cl.death_location, cl.entities[cl.viewentity].origin, sizeof(vec3_t));
 	}
 
 	//johnfitz -- lerping
@@ -2503,11 +2508,17 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				{
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
 				}
-				if ((strstr(string, "íáôãè ìåîçôè") || (strstr(string, "match length"))))  // woods vote match length auto vote yes
+
+				char qfmatchlength[13] = { 237, 225, 244, 227, 232, 32, 236, 229, 238, 231, 244, 232,'\0' }; // woods -- quake font red 'match length'
+
+				if ((strstr(string, qfmatchlength) || (strstr(string, "match length"))))  // woods vote match length auto vote yes
 				{
 					Cbuf_AddText("impulse 115\n");
 				}
-				if (!strncmp(string, "ÃìáîÒéîç", 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
+
+				char qfClanRing[9] = { 195, 236, 225, 238, 210, 233, 238, 231, '\0' }; // woods -- quake font red 'ClanRing'
+
+				if (!strncmp(string, qfClanRing, 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
 					if (COM_FileExists("dm.cfg", NULL))
@@ -3034,7 +3045,9 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			}
 			else
 			{
-				if (!strncmp(buf2, "13.", 3))
+				if (!strncmp(buf2, "14.", 3))
+					os_codename = "macOS Sonoma (2023)";
+				else if (!strncmp(buf2, "13.", 3))
 					os_codename = "macOS Ventura (2022)";
 				else if (!strncmp(buf2, "12.", 3))
 					os_codename = "macOS Monterey (2021)";
@@ -3327,7 +3340,7 @@ void CL_ParseServerMessage (void)
 			Host_EndGame ("Server disconnected\n");
 
 		case svc_print:
-			s = MSG_ReadString();           //   woods pq string #pqteam
+ 			s = MSG_ReadString();           //   woods pq string #pqteam
 			CL_ParseProQuakeString(s);      //   woods pq string #pqteam
 			CL_ParsePrint(s);				//   woods pq string #pqteam
 			break;

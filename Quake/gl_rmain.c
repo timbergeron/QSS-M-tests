@@ -48,6 +48,10 @@ vec3_t	r_origin;
 
 float r_fovx, r_fovy; //johnfitz -- rendering fov may be different becuase of r_waterwarp and r_stereo
 
+extern byte* SV_FatPVS (vec3_t org, qmodel_t* worldmodel); // woods #iwshowbboxes
+extern qboolean SV_EdictInPVS (edict_t* test, byte* pvs); // woods #iwshowbboxes
+extern qboolean SV_BoxInPVS (vec3_t mins, vec3_t maxs, byte* pvs, mnode_t* node); // woods #iwshowbboxes
+
 //
 // screen size info
 //
@@ -58,6 +62,7 @@ mleaf_t		*r_viewleaf, *r_oldviewleaf;
 int		d_lightstylevalue[MAX_LIGHTSTYLES];	// 8.8 fraction of base light value
 
 cvar_t	cl_damagehue = {"cl_damagehue", "1",CVAR_ARCHIVE};  // woods #damage
+cvar_t	cl_damagehuecolor = {"cl_damagehuecolor", "0xeb580e",CVAR_ARCHIVE};  // woods #damage
 cvar_t	cl_autodemo = {"cl_autodemo","0",CVAR_ARCHIVE};	//R00k   // woods #autodemo
 
 cvar_t	r_norefresh = {"r_norefresh","0",CVAR_NONE};
@@ -96,6 +101,8 @@ cvar_t	gl_fullbrights = {"gl_fullbrights", "1", CVAR_ARCHIVE};
 cvar_t	gl_farclip = {"gl_farclip", "16384", CVAR_ARCHIVE};
 cvar_t	gl_overbright = {"gl_overbright", "1", CVAR_ARCHIVE};
 cvar_t	gl_overbright_models = {"gl_overbright_models", "2", CVAR_ARCHIVE};
+cvar_t	gl_overbright_models_alpha = {"gl_overbright_models_alpha", "1", CVAR_ARCHIVE}; // woods #obmodelslist
+cvar_t	gl_overbright_models_list = {"gl_overbright_models_list", "progs/armor.mdl,progs/backpack.mdl,progs/bolt.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/end1.mdl,progs/end2.mdl,progs/end3.mdl,progs/end4.mdl,progs/eyes.mdl,progs/g_light.mdl,progs/g_nail.mdl,progs/g_nail2.mdl,progs/g_rock.mdl,progs/g_rock2.mdl,progs/g_shot.mdl,progs/grenade.mdl,progs/invisibl.mdl,progs/invulner.mdl,progs/missile.mdl,progs/player.mdl,progs/quaddama.mdl,progs/s_spike.mdl,progs/spike.mdl,progs/v_axe.mdl,progs/v_light.mdl,progs/v_nail.mdl,progs/v_nail2.mdl,progs/v_rock.mdl,progs/v_rock2.mdl,progs/v_shot.mdl,progs/v_shot2.mdl,progs/v_spike.mdl,progs/w_spike.mdl,progs/bit.mdl,progs/flag.mdl,progs/flag2.mdl,progs/flag3.mdl,progs/ctfmodel.mdl,progs/star.mdl,progs/v_star.mdl", CVAR_ARCHIVE}; // woods #obmodelslist
 cvar_t	r_oldskyleaf = {"r_oldskyleaf", "0", CVAR_NONE};
 cvar_t	r_drawworld = {"r_drawworld", "1", CVAR_NONE};
 cvar_t	r_showtris = {"r_showtris", "0", CVAR_NONE};
@@ -117,14 +124,12 @@ cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 cvar_t	trace_any = {"trace_any","0",CVAR_NONE}; // woods #tracers
 cvar_t	trace_any_contains = {"trace_any_contains","item_artifact_super_damage",CVAR_NONE}; // woods #tracers
 cvar_t	r_drawflame = {"r_drawflame","1",CVAR_ARCHIVE}; // woods #drawflame
-cvar_t	cl_r2g = {"cl_r2g","0",CVAR_ARCHIVE}; // woods #r2g
 
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
 
 int	map_ctf_flag_style; // woods #alternateflags
 extern int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache3; // woods #alternateflags
-extern int grenadecache; // woods r2g
 
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
 
@@ -471,7 +476,6 @@ void R_SetFrustum (float fovx, float fovy)
 GL_SetFrustum -- johnfitz -- written to replace MYgluPerspective
 =============
 */
-#define NEARCLIP 4
 float frustum_skew = 0.0; //used by r_stereo
 /*void GL_SetFrustum(float fovx, float fovy)
 {
@@ -717,12 +721,6 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		{
 			case mod_alias:
 
-				if (grenadecache && cl_r2g.value && !strcmp(currententity->model->name, "progs/missile.mdl")) // woods r2g
-				{
-						currententity->syncbase = 0;
-						currententity->model = cl.model_precache[grenadecache];
-				}
-
 				if (swapflagprecache && map_ctf_flag_style == 2 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
 				{
 					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
@@ -776,9 +774,16 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 R_EmitWirePoint -- johnfitz -- draws a wireframe cross shape for point entities
 ================
 */
-void R_EmitWirePoint (vec3_t origin)
+void R_EmitWirePoint (vec3_t origin, uint32_t color) // woods #iwshowbboxes, add color
 {
 	const int size = 8;
+
+	// woods #iwshowbboxes
+	float r = ((color >> 24) & 0xFF) / 255.0f;
+	float g = ((color >> 16) & 0xFF) / 255.0f;
+	float b = ((color >> 8) & 0xFF) / 255.0f;
+	float a = (color & 0xFF) / 255.0f;
+	glColor4f(r, g, b, a);
 
 	glBegin (GL_LINES);
 	glVertex3f (origin[0]-size, origin[1], origin[2]);
@@ -795,8 +800,15 @@ void R_EmitWirePoint (vec3_t origin)
 R_EmitWireBox -- johnfitz -- draws one axis aligned bounding box
 ================
 */
-void R_EmitWireBox (vec3_t mins, vec3_t maxs)
+void R_EmitWireBox (vec3_t mins, vec3_t maxs, uint32_t color) // woods #iwshowbboxes, add color
 {
+	// woods #iwshowbboxes
+	float r = ((color >> 24) & 0xFF) / 255.0f;
+	float g = ((color >> 16) & 0xFF) / 255.0f;
+	float b = ((color >> 8) & 0xFF) / 255.0f;
+	float a = (color & 0xFF) / 255.0f;
+	glColor4f(r, g, b, a);
+	
 	glBegin (GL_QUAD_STRIP);
 	glVertex3f (mins[0], mins[1], mins[2]);
 	glVertex3f (mins[0], mins[1], maxs[2]);
@@ -813,6 +825,38 @@ void R_EmitWireBox (vec3_t mins, vec3_t maxs)
 
 /*
 ================
+R_ShowBoundingBoxesFilter -- woods #iwshowbboxes
+
+r_showbboxes_filter artifact =trigger_secret
+================
+*/
+char r_showbboxes_filter_strings[MAXCMDLINE];
+
+static qboolean R_ShowBoundingBoxesFilter(edict_t* ed)
+{
+	if (!r_showbboxes_filter_strings[0])
+		return true;
+
+	if (ed->v.classname)
+	{
+		const char* classname = PR_GetString(ed->v.classname);
+		const char* str = r_showbboxes_filter_strings;
+		qboolean is_allowed = false;
+		while (*str && !is_allowed)
+		{
+			if (*str == '=')
+				is_allowed = !strcmp(classname, str + 1);
+			else
+				is_allowed = strstr(classname, str) != NULL;
+			str += strlen(str) + 1;
+		}
+		return is_allowed;
+	}
+	return false;
+}
+
+/*
+================
 R_ShowBoundingBoxes -- johnfitz
 
 draw bounding boxes -- the server-side boxes, not the renderer cullboxes
@@ -821,9 +865,11 @@ draw bounding boxes -- the server-side boxes, not the renderer cullboxes
 void R_ShowBoundingBoxes (void)
 {
 	extern		edict_t *sv_player;
+	byte		*pvs; // woods #iwshowbboxes
 	vec3_t		mins,maxs;
 	edict_t		*ed;
-	int			i;
+	int			i, mode; // woods #iwshowbboxes
+	uint32_t	color; // woods #iwshowbboxes
 	qcvm_t 		*oldvm;	//in case we ever draw a scene from within csqc.
 
 	if (!r_showbboxes.value || cl.maxclients > 1 || !r_drawentities.value || !sv.active)
@@ -834,11 +880,21 @@ void R_ShowBoundingBoxes (void)
 	GL_PolygonOffset (OFFSET_SHOWTRIS);
 	glDisable (GL_TEXTURE_2D);
 	glDisable (GL_CULL_FACE);
-	glColor3f (1,1,1);
 
 	oldvm = qcvm;
 	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(&sv.qcvm);
+
+	mode = abs((int)r_showbboxes.value); // woods #iwshowbboxes
+	if (mode >= 2)
+	{
+		vec3_t org;
+		VectorAdd(sv_player->v.origin, sv_player->v.view_ofs, org);
+		pvs = SV_FatPVS(org, qcvm->worldmodel);
+	}
+	else
+		pvs = NULL;
+
 	for (i=1, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
 	{
 		if (ed == sv_player || ed->free)
@@ -848,28 +904,62 @@ void R_ShowBoundingBoxes (void)
 //			if (!SV_VisibleToClient (sv_player, ed, sv.worldmodel))
 //				continue; //don't draw if not in pvs
 
+		if (!R_ShowBoundingBoxesFilter(ed))
+			continue;
+
+		if (pvs) // woods #iwshowbboxes
+		{
+			qboolean inpvs =
+				ed->num_leafs ?
+				SV_EdictInPVS(ed, pvs) :
+				SV_BoxInPVS(ed->v.absmin, ed->v.absmax, pvs, qcvm->worldmodel->nodes)
+				;
+			if (!inpvs)
+				continue;
+		}
+
+		if (r_showbboxes.value > 0.f) // woods #iwshowbboxes
+		{
+			int modelindex = (int)ed->v.modelindex;
+			color = 0xff800080;
+			if (modelindex >= 0 && modelindex < MAX_MODELS && sv.models[modelindex])
+			{
+				switch (sv.models[modelindex]->type)
+				{
+				case mod_brush:  color = 0xffff8080; break;
+				case mod_alias:  color = 0xff408080; break;
+				case mod_sprite: color = 0xff4040ff; break;
+				default:
+					break;
+				}
+			}
+			if (ed->v.health > 0)
+				color = 0xff0000ff;
+		}
+		else
+			color = 0xffffffff;
+
 		if (ed->v.mins[0] == ed->v.maxs[0] && ed->v.mins[1] == ed->v.maxs[1] && ed->v.mins[2] == ed->v.maxs[2])
 		{
 			//point entity
-			R_EmitWirePoint (ed->v.origin);
+			R_EmitWirePoint (ed->v.origin, color); // woods #iwshowbboxes
 		}
 		else
 		{
 			//box entity
 			if ((ed->v.solid == SOLID_BSP || ed->v.solid == SOLID_EXT_BSPTRIGGER) && (ed->v.angles[0]||ed->v.angles[1]||ed->v.angles[2]) && pr_checkextension.value)
-				R_EmitWireBox (ed->v.absmin, ed->v.absmax);
+				R_EmitWireBox (ed->v.absmin, ed->v.absmax, color); // woods #iwshowbboxes
 			else
 			{
 				VectorAdd (ed->v.mins, ed->v.origin, mins);
 				VectorAdd (ed->v.maxs, ed->v.origin, maxs);
-				R_EmitWireBox (mins, maxs);
+				R_EmitWireBox (mins, maxs, color); // woods #iwshowbboxes
 			}
 		}
 	}
 	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(oldvm);
 
-	glColor3f (1,1,1);
 	glEnable (GL_TEXTURE_2D);
 	glEnable (GL_CULL_FACE);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
@@ -965,6 +1055,378 @@ void R_ShowTris (void)
 
 /*
 ================
+ tool_texturepointer -- woods -- fitzquake markv r15 (baker) #texturepointer
+================
+*/
+
+static vec3_t collision_spot;
+qboolean texturepointer_on;
+
+
+typedef struct
+{
+	char			texturename[16]; // WAD sizeof name is 16, so maxlength of a texture is 15.
+	gltexture_t* glt;
+	const char* explicit_name;
+	const char* short_name;
+	int				width;
+	int				height;
+	entity_t* ent;
+	msurface_t* surf;
+	float			distance;
+} texturepointer_t;
+
+static texturepointer_t texturepointer;
+
+void TexturePointer_Reset (void)
+{
+	memset(&texturepointer, 0, sizeof(texturepointer_t));
+}
+
+static void Texture_Pointer_f (void)
+{
+	switch (Cmd_Argc())
+	{
+	case 2:
+		texturepointer_on = !!Q_atoi(Cmd_Argv(1));
+		break;
+	case 1:
+		texturepointer_on = !texturepointer_on;
+		break;
+	}
+
+	TexturePointer_Reset();
+	Con_Printf("texture pointer is %s\n", texturepointer_on ? "^mON" : "^mOFF");
+}
+
+void TexturePointer_Init (void)
+{
+	Cmd_AddCommand("tool_texturepointer", Texture_Pointer_f);
+}
+
+void TexturePointer_CheckChange (texturepointer_t* test)
+{	
+	// This next IF checks if there is a surface and if the name is different than before ...
+ 	if (test->surf && strcmp(test->surf->texinfo->texture->name, texturepointer.texturename))
+	{
+		// Change of texture
+//		Con_Printf ("Texture changed from %s to %s\n", texturepointer.texturename, test->surf->texinfo->texture->name);
+		q_strlcpy(texturepointer.texturename, test->surf->texinfo->texture->name, 16 /* WAD sizeof name */);
+		texturepointer.glt = test->surf->texinfo->texture->gltexture;
+
+		
+		// Is water or lava, redirect to that glt
+		//if (!texturepointer.glt && test->surf->texinfo->texture->warpimage)
+		//	texturepointer.glt = test->surf->texinfo->texture->warpimage;
+
+		/// Probably sky ...
+		if (!texturepointer.glt)
+		{
+			texturepointer.explicit_name = texturepointer.texturename; //texturepointer.surf->texinfo->texture->name;
+			texturepointer.short_name = texturepointer.texturename;
+		//	texturepointer.width = texturepointer.surf->texinfo->texture->width;
+		//	texturepointer.height = texturepointer.surf->texinfo->texture->height;
+
+		}
+		else
+		{
+			texturepointer.explicit_name = texturepointer.glt->name;
+			texturepointer.short_name = COM_SkipColon(texturepointer.explicit_name);
+		//	texturepointer.width = texturepointer.glt->source_width;
+		//	texturepointer.height = texturepointer.glt->source_height;
+		}
+
+	}
+	texturepointer.surf = test->surf;
+	texturepointer.ent = test->ent;
+}
+
+msurface_t* SurfacePoint_NodeCheck_Recursive (mnode_t* node, vec3_t start, vec3_t end)
+{
+	float		front, back, frac;
+	vec3_t		mid;
+	msurface_t* surf = NULL;
+
+	// RecursiveLightPoint wouldn't exit here, btw.  We do
+	// Baker: investigate in future why this can happen ...
+	if (!node)
+		return NULL; // I think it is because we pass brush models to it
+					  // Or maybe because we pass sky and water too?
+
+loc0:
+	// didn't hit anything (CONTENTS_EMPTY or CONTENTS_WATER, etc.)
+	// Baker: special contents ... I'm not sure this should be a fail here except if contents empty
+	// Like do: node->contents == CONTENTS_EMPTY or  CONTENTS_SOLID return;
+	// However, seems to work perfect!
+	if (node->contents < 0)
+		return NULL;		// didn't hit anything
+
+// calculate mid point
+	if (node->plane->type < 3)
+	{
+		front = start[node->plane->type] - node->plane->dist;
+		back = end[node->plane->type] - node->plane->dist;
+	}
+	else
+	{
+		front = DotProduct(start, node->plane->normal) - node->plane->dist;
+		back = DotProduct(end, node->plane->normal) - node->plane->dist;
+	}
+
+	// LordHavoc: optimized recursion
+	if ((back < 0) == (front < 0))
+	{
+		node = node->children[front < 0];
+		goto loc0;
+	}
+
+	frac = front / (front - back);
+	mid[0] = start[0] + (end[0] - start[0]) * frac;
+	mid[1] = start[1] + (end[1] - start[1]) * frac;
+	mid[2] = start[2] + (end[2] - start[2]) * frac;
+
+	// go down front side
+	surf = SurfacePoint_NodeCheck_Recursive(node->children[front < 0], start, mid);
+	if (surf)
+	{
+		return surf; // hit something
+	}
+	else
+	{
+		// Didn't hit anything so ...
+
+		int		i;
+		surf = cl.worldmodel->surfaces + node->firstsurface;
+
+		// check for impact on this node
+		// Baker: Apparently we need this if the for loop below fails
+		VectorCopy(mid, collision_spot);
+
+		for (i = 0;i < node->numsurfaces;i++, surf++)
+		{
+			// light would check if SURF_DRAWTILED (no lightmaps), but we want for texture pointer
+			//if (surf->flags & SURF_DRAWTILED)
+			//	continue; // no lightmaps
+
+			double dsfrac, dtfrac;
+
+			dsfrac = DoublePrecisionDotProduct(mid, surf->lmvecs[0]) + surf->lmvecs[0][3];
+			dtfrac = DoublePrecisionDotProduct(mid, surf->lmvecs[1]) + surf->lmvecs[1][3];
+			if (dsfrac < 0 || dtfrac < 0)
+				continue;
+
+			if (dsfrac > surf->extents[0] || dtfrac > surf->extents[1])
+				continue;
+
+			// At this point we have a collision with this surface.
+			// Set return variables
+			VectorCopy(mid, collision_spot);
+			return surf; // success
+		}
+
+		// go down back side
+		return SurfacePoint_NodeCheck_Recursive(node->children[front >= 0], mid, end);
+	}
+}
+
+static texturepointer_t SurfacePoint (vec3_t startpoint, vec3_t endpoint)
+{
+	float collision_distance;
+	texturepointer_t best = { 0 };
+	int			i;
+
+	msurface_t* collision_surf = SurfacePoint_NodeCheck_Recursive (cl.worldmodel->nodes, startpoint, endpoint);
+
+	if (collision_surf)
+	{
+		collision_distance = DistanceBetween2Points (startpoint, collision_spot);
+
+		best.ent = NULL;
+		best.surf = collision_surf;
+		best.distance = collision_distance;
+	}
+
+	// Now check for hit with world submodels
+	for (i = 0; i < cl_numvisedicts; i++)	// 0 is player.
+	{
+		// Note that this ONLY collides with visible entities!
+		entity_t* pe = cl_visedicts[i];
+		vec3_t		adjusted_startpoint, adjusted_endpoint, adjusted_net;
+
+		if (!pe->model)
+			continue;   // no model for ent
+
+		if (!(pe->model->surfaces == cl.worldmodel->surfaces))
+			continue;	// model isnt part of world (i.e. no health boxes or what not ...)
+
+		// Baker: We need to adjust the point locations for entity origin
+
+		VectorSubtract(startpoint, pe->origin, adjusted_startpoint);
+		VectorSubtract(endpoint, pe->origin, adjusted_endpoint);
+		VectorSubtract(startpoint, adjusted_startpoint, adjusted_net);
+
+		// Make further adjustments if entity is rotated
+		if (pe->angles[0] || pe->angles[1] || pe->angles[2])
+		{
+			vec3_t f, r, u, temp;
+			AngleVectors(pe->angles, f, r, u);	// split entity angles to forward, right, up
+
+			VectorCopy(adjusted_startpoint, temp);
+			adjusted_startpoint[0] = DotProduct(temp, f);
+			adjusted_startpoint[1] = -DotProduct(temp, r);
+			adjusted_startpoint[2] = DotProduct(temp, u);
+
+			VectorCopy(adjusted_endpoint, temp);
+			adjusted_endpoint[0] = DotProduct(temp, f);
+			adjusted_endpoint[1] = -DotProduct(temp, r);
+			adjusted_endpoint[2] = DotProduct(temp, u);
+		}
+
+		collision_surf = SurfacePoint_NodeCheck_Recursive(pe->model->nodes + pe->model->hulls[0].firstclipnode /*pe->model->nodes*/, adjusted_startpoint, adjusted_endpoint);
+
+		if (collision_surf)
+		{
+			// Baker: We have to add the origin back into the results here!
+			VectorAdd(collision_spot, adjusted_net, collision_spot);
+
+			collision_distance = DistanceBetween2Points(startpoint, collision_spot);
+
+			if (!best.surf || collision_distance < best.distance)
+			{
+				// New best
+				best.ent = pe;
+				best.surf = collision_surf;
+				best.distance = collision_distance;
+			}
+
+		}
+		// On to next entity ..
+	}
+
+	return best;
+}
+
+// Determine start and end test and run function to get closest collision surface.
+texturepointer_t TexturePointer_SurfacePoint (void)
+{
+	vec3_t startingpoint, endingpoint, forward, up, right;
+
+	// r_refdef.vieworg/viewangles is the camera position
+	VectorCopy(r_refdef.vieworg, startingpoint);
+
+	// Obtain the forward vector
+	AngleVectors(r_refdef.viewangles, forward, right, up);
+
+	// Walk it forward by 4096 units
+	VectorMA(startingpoint, 4096, forward, endingpoint);
+
+	// There is no assurance anything will be hit (i.e. noclip outside map looking at void)
+	return SurfacePoint(startingpoint, endingpoint);
+}
+
+extern qboolean	qeintermission; // woods
+
+void TexturePointer_Draw (void)
+{
+	if (cl.intermission || qeintermission || scr_viewsize.value >= 130)
+		return;
+
+	if (texturepointer_on && cls.signon == SIGNONS && cl.worldmodel && texturepointer.surf)
+	{
+		//const char* drawstring1 = va("\bTexture:\b %s", texturepointer.short_name);
+		//const char* drawstring2 = va("\b  %i x %i px", texturepointer.width, texturepointer.height);
+
+		GL_SetCanvas(CANVAS_CROSSHAIR2);
+
+		char texturename[MAX_OSPATH];
+
+		if (strstr(texturepointer.short_name, "textures/"))
+			q_snprintf(texturename, sizeof(texturename), "external: %s", texturepointer.short_name);
+		else
+			q_snprintf(texturename, sizeof(texturename), "%s", texturepointer.short_name);
+
+		Draw_String(0 - (strlen(texturename) * 4), 20, texturename);
+	}
+}
+
+Point3D R_EmitSurfaceHighlight (entity_t* enty, msurface_t* surf, vec4_t color, int style)
+{
+	Point3D center;
+	float* verts = surf->polys->verts[0];
+
+	vec3_t mins = { 99999,  99999,  99999 };
+	vec3_t maxs = { -99999, -99999, -99999 };
+	int i;
+
+	if (enty)
+	{
+		glPushMatrix();
+		R_RotateForEntity(enty->origin, enty->angles, enty->netstate.scale);
+	}
+
+	if (style == OUTLINED_POLYGON)	// Set to lines
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glDisable(GL_CULL_FACE);
+	glColor4f(color[0], color[1], color[2], color[3]);
+	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+
+	glBegin(GL_POLYGON);
+
+	// Draw polygon while collecting information for the center.
+	for (i = 0; i < surf->polys->numverts; i++, verts += VERTEXSIZE)
+	{
+		VectorExtendLimits(verts, mins, maxs);
+		glVertex3fv(verts);
+	}
+	glEnd();
+
+	glEnable(GL_TEXTURE_2D);
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	glEnable(GL_CULL_FACE);
+	glColor4f(1, 1, 1, 1);
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_BLEND);
+
+	if (style == OUTLINED_POLYGON)	// Set to lines
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	if (enty)
+		glPopMatrix();
+
+	// Calculate the center
+	VectorAverage(mins, maxs, center.vec3);
+
+	return center;
+}
+
+void TexturePointer_Think (void)
+{
+	texturepointer_t test;
+
+	if (!texturepointer_on || !cl.worldmodel || cls.signon < SIGNONS)
+		return;
+
+	if (cl.intermission || qeintermission || scr_viewsize.value >= 130)
+		return;
+
+	test = TexturePointer_SurfacePoint();
+
+	if (test.surf)
+	{
+		//const vec4_t linecolor = {1,1,1,1};
+		vec4_t color = { 1, 0, 0, sin(realtime * 3) * 0.125f + 0.25 };
+ 		TexturePointer_CheckChange(&test);
+
+		R_EmitSurfaceHighlight (texturepointer.ent, texturepointer.surf, color, FILLED_POLYGON);
+	}
+}
+
+/*
+================
 R_DrawShadows
 ================
 */
@@ -988,11 +1450,11 @@ void R_DrawShadows (void)
 	{
 		currententity = cl_visedicts[i];
 
-		if (currententity->model->type != mod_alias)
+		if (!currententity->model) // woods
 			continue;
 
-		if (currententity == &cl.viewent)
-			return;
+		if (currententity->model->type != mod_alias)
+			continue;
 
 		GL_DrawAliasShadow (currententity);
 	}
@@ -1141,6 +1603,8 @@ void R_RenderScene (void)
 		LaserSight (); // woods #laser
 
 	R_ShowTris (); //johnfitz
+
+	TexturePointer_Think (); // woods #texturepointer
 
 	R_ShowBoundingBoxes (); //johnfitz
 

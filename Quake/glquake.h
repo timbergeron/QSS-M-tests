@@ -154,6 +154,9 @@ extern	refdef_t	r_refdef;
 extern	mleaf_t		*r_viewleaf, *r_oldviewleaf;
 extern	int		d_lightstylevalue[MAX_LIGHTSTYLES];	// 8.8 fraction of base light value
 
+extern	cvar_t	gl_farclip;
+#define NEARCLIP 4
+
 extern	cvar_t	r_norefresh;
 extern	cvar_t	r_drawentities;
 extern	cvar_t	r_drawworld;
@@ -457,6 +460,8 @@ extern vec4_t skyroom_origin;		//... and it is here. [3] is paralax scale
 extern vec4_t skyroom_orientation;
 
 void TexMgr_RecalcWarpImageSize (void);
+
+enum {FILLED_POLYGON, OUTLINED_POLYGON}; // woods #texturepointer
 
 void R_ClearTextureChains (qmodel_t *mod, texchain_t chain);
 void R_ChainSurface (msurface_t *surf, texchain_t chain);

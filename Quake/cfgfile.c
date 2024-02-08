@@ -109,6 +109,54 @@ void CFG_ReadCvars (const char **vars, int num_vars)
 	FS_rewind (cfg_file);
 }
 
+char* CFG_ReadCvarValue (const char* var_name) // woods -- same as CFG_ReadCvars, but lets get a single cvar value #webdl
+{
+	char buff[1024];
+	char* tmp;
+
+	if (!cfg_file || !var_name)
+		return NULL;
+
+	while (FS_fgets(buff, sizeof(buff), cfg_file)) {
+		// Remove end-of-line characters and replace tabs with spaces
+		for (int i = 0; buff[i]; i++) {
+			if (buff[i] == '\r' || buff[i] == '\n' || buff[i] == '\t')
+				buff[i] = ' ';
+		}
+
+		// Trim trailing spaces
+		int len = strlen(buff);
+		while (len > 0 && buff[len - 1] == ' ') {
+			buff[len - 1] = '\0';
+			len--;
+		}
+
+		// Check if the line ends with a quotation mark
+		if (len > 0 && buff[len - 1] == '\"') {
+			// Remove the ending quotation mark
+			buff[len - 1] = '\0';
+
+			// More accurate check for the variable name
+			if (strncmp(buff, var_name, strlen(var_name)) == 0 && buff[strlen(var_name)] == ' ') {
+				// Find the start of the value
+				tmp = strchr(buff, '\"');
+				if (tmp) {
+					// Allocate memory for the value
+					char* value = (char*)malloc(strlen(tmp + 1) + 1);
+					if (value) {
+						strcpy(value, tmp + 1);
+						FS_rewind(cfg_file);
+						return value; // Return the dynamically allocated value
+					}
+				}
+			}
+		}
+	}
+
+	FS_rewind(cfg_file);
+	return NULL; // Variable not found or error in allocation
+}
+
 /*
 ===================
 CFG_ReadCvarOverrides

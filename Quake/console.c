@@ -57,7 +57,7 @@ extern qboolean cl_mm2; // woods #con_mm1mute
 extern char afk_name[16]; // woods #smartafk
 
 cvar_t		con_notifytime = {"con_notifytime","3",CVAR_ARCHIVE};	//seconds
-cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
+cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_ARCHIVE}; //johnfitz
 
 cvar_t		con_filter = { "con_filter", "1", CVAR_ARCHIVE }; //johnfitz
 cvar_t		con_notifylist = { "con_notifylist", "", CVAR_ARCHIVE }; // woods #notiy
@@ -66,6 +66,8 @@ cvar_t		con_notifylines = { "con_notifylines","4",CVAR_ARCHIVE }; // woods #noti
 cvar_t		con_notifyposition = { "con_notifyposition","0",CVAR_ARCHIVE }; // woods #notifyposition
 cvar_t		con_notifyfade = {"con_notifyfade", "1", CVAR_ARCHIVE}; // woods #confade
 cvar_t		con_notifyfadetime = {"con_notifyfadetime", "0.5", CVAR_ARCHIVE}; // woods #confade
+cvar_t		con_colmax = { "con_colmax", "0", CVAR_ARCHIVE}; // woods #consolecols
+cvar_t		con_coldirection = { "con_coldirection", "0", CVAR_ARCHIVE}; // woods #consolecols
 
 char		con_lastcenterstring[1024]; //johnfitz
 
@@ -378,6 +380,8 @@ void Con_Init (void)
 
 	Cvar_RegisterVariable (&con_notifytime);
 	Cvar_RegisterVariable (&con_logcenterprint); //johnfitz
+	Cvar_RegisterVariable (&con_colmax); // woods #consolecols
+	Cvar_RegisterVariable (&con_coldirection); // woods #consolecols
 
 	Cvar_RegisterVariable( &con_filter);
 	Cvar_RegisterVariable (&con_notifylist); // woods #notiy
@@ -660,7 +664,9 @@ static void Con_Print (const char *txt)
 
 			sprintf(namewithcolon, "%s: ", cl_name.string); // "woods: "
 
-			if (strstr(txt, "στατιστιγσ") || strstr(txt, "match starting") || strstr(txt, "End of match"))
+			char statistics[11] = { 243, 244, 225, 244, 233, 243, 244, 233, 227, 243, '\0' }; // woods -- quake font red 'statistics'
+
+			if (strstr(txt, statistics) || strstr(txt, "match starting") || strstr(txt, "End of match"))
 				matchstats = true;
 			if (strstr(txt, "The match is over"))
 				matchstats = false;
@@ -1179,6 +1185,7 @@ char key_tabpartial[MAXCMDLINE];
 typedef struct tab_s
 {
 	const char	*name;
+	char date[20]; // woods #demolistsort
 	const char	*type;
 	struct tab_s	*next;
 	struct tab_s	*prev;
@@ -1211,7 +1218,7 @@ tablist is a doubly-linked loop, alphabetized by name
 static char	bash_partial[80];
 static qboolean	bash_singlematch;
 
-void Con_AddToTabList (const char* name, const char* partial, const char* type) // woods #iwtabcomplete
+void Con_AddToTabList (const char* name, const char* partial, const char* type, const char* param) // woods #iwtabcomplete -- added extra arg for dynamic list type (ie demo vs sky/map etc) #demolistsort
 {
 	tab_t* t, * insert;
 	char* i_bash, * i_bash2;
@@ -1220,6 +1227,8 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 
 	if (!Con_Match (name, partial))
 		return;
+
+	int FileIsDemo = (param != NULL); // woods #demolistsort
 
 	if (!*bash_partial && bash_singlematch)
 	{
@@ -1262,6 +1271,11 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 	t->name = (const char*)(t + 1);
 	t->type = type;
 	t->count = 1;
+	if (param)
+	{
+		strncpy(t->date, param, sizeof(t->date) - 1); // Copy the date
+		t->date[sizeof(t->date) - 1] = '\0'; // Ensure null termination
+	}
 
 	if (!tablist) //create list
 	{
@@ -1269,7 +1283,7 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 		t->next = t;
 		t->prev = t;
 	}
-	else if (q_strnaturalcmp (name, tablist->name) < 0) //insert at front
+	else if (FileIsDemo ? (q_sortdemos(param, tablist->date) < 0) : (q_strnaturalcmp(name, tablist->name) < 0)) // Insert at front -- woods #demolistsort
 	{
 		t->next = tablist;
 		t->prev = tablist->prev;
@@ -1282,7 +1296,7 @@ void Con_AddToTabList (const char* name, const char* partial, const char* type) 
 		insert = tablist;
 		do
 		{
-			int cmp = q_strnaturalcmp (name, insert->name);
+			int cmp = FileIsDemo ? q_sortdemos(t->date, insert->date) : q_strnaturalcmp(name, insert->name);  // woods #demolistsort
 			if (!cmp && !strcmp(name, insert->name)) // avoid duplicates
 			{
 				Hunk_FreeToLowMark (mark);
@@ -1367,7 +1381,40 @@ static qboolean CompleteFileList (const char* partial, void* param) // woods #iw
 {
 	filelist_item_t* file, ** list = (filelist_item_t**)param;
 	for (file = *list; file; file = file->next)
-		Con_AddToTabList (file->name, partial, NULL);
+		Con_AddToTabList (file->name, partial, NULL, NULL);
+	return true;
+}
+
+static qboolean CompleteClassnames (const char* partial, void* unused) // woods #iwtabcomplete #iwshowbboxes
+{
+	extern edict_t* sv_player;
+	edict_t* ed;
+	int		i;
+
+	if (!sv.active)
+		return true;
+	PR_SwitchQCVM(&sv.qcvm);
+
+	for (i = 1, ed = NEXT_EDICT(qcvm->edicts); i < qcvm->num_edicts; i++, ed = NEXT_EDICT(ed))
+	{
+		const char* name;
+		if (ed == sv_player || ed->free || !ed->v.classname)
+			continue;
+		name = PR_GetString(ed->v.classname);
+		if (*name)
+			Con_AddToTabList(name, partial, "#", NULL);
+	}
+
+	PR_SwitchQCVM(NULL);
+
+	return true;
+}
+
+static qboolean CompleteFileListDemo (const char* partial, void* param) // woods #iwtabcomplete #demolistsort
+{
+	filelist_item_t* file, ** list = (filelist_item_t**)param;
+	for (file = *list; file; file = file->next)
+		Con_AddToTabList (file->name, partial, NULL, file->date);
 	return true;
 }
 
@@ -1382,7 +1429,7 @@ static qboolean CompleteBindKeys (const char* partial, void* unused) // woods #i
 	{
 		const char* name = Key_KeynumToString(i);
 		if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
-			Con_AddToTabList (name, partial, keybindings[0][i]);
+			Con_AddToTabList (name, partial, keybindings[0][i], NULL); // #demolistsort add arg
 	}
 
 	return true;
@@ -1398,7 +1445,77 @@ static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods 
 		{
 			const char* name = Key_KeynumToString(i);
 			if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
-				Con_AddToTabList (name, partial, keybindings[0][i]);
+				Con_AddToTabList (name, partial, keybindings[0][i], NULL); // #demolistsort add arg
+		}
+	}
+
+	return true;
+}
+
+static qboolean CompleteViewpos (const char* partial, void* unused) // woods
+{
+	if (Cmd_Argc() != 2)
+		return false;
+	Con_AddToTabList("copy", partial, NULL, NULL); // #demolistsort add arg
+
+	return true;
+}
+
+static qboolean CompleteCvarList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cvar_t* cvar;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	cvar = Cvar_FindVarAfter("", CVAR_NONE);
+	for (; cvar; cvar = cvar->next)
+			Con_AddToTabList(cvar->name, partial, "cvar", NULL); // #demolistsort add arg
+	
+	return true;
+}
+
+static qboolean CompleteIfList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cmdalias_t* alias;
+	cvar_t* cvar;
+	cmd_function_t* cmd;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	cvar = Cvar_FindVarAfter("", CVAR_NONE);
+	for (; cvar; cvar = cvar->next)
+		Con_AddToTabList (cvar->name, partial, "cvar", NULL); // #demolistsort add arg
+
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+		Con_AddToTabList (cmd->name, partial, "command", NULL); // #demolistsort add arg
+
+	for (alias = cmd_alias; alias; alias = alias->next)
+		Con_AddToTabList (alias->name, partial, "alias", NULL); // #demolistsort add arg
+
+	return true;
+}
+
+static qboolean CompleteScreenshotList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	if (Cmd_Argc() == 2)
+	{
+		const char* fileTypes[] = { "jpg", "png", "tga" };
+		const int fileTypeCount = sizeof(fileTypes) / sizeof(fileTypes[0]); // Calculate the number of file types
+
+		for (int i = 0; i < fileTypeCount; ++i)
+			Con_AddToTabList (fileTypes[i], partial, NULL, NULL); // #demolistsort add arg
+	}
+
+	else if (Cmd_Argc() == 3)
+	{
+		for (int num = 1; num <= 100; ++num)
+		{
+			char numStr[4];
+			snprintf(numStr, sizeof(numStr), "%d", num);
+
+			Con_AddToTabList (numStr, partial, NULL, NULL); // #demolistsort add arg
 		}
 	}
 
@@ -1406,6 +1523,7 @@ static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods 
 }
 
 qboolean CompleteImageList (const char* partial, void* unused); // woods
+qboolean CompleteSoundList (const char* partial, void* unused); // woods
 
 typedef struct arg_completion_type_s // woods #iwtabcomplete
 {
@@ -1420,17 +1538,27 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "maps",					CompleteFileList,		&extralevels },
 	{ "changelevel",			CompleteFileList,		&extralevels },
 	{ "game",					CompleteFileList,		&modlist },
-	{ "record",					CompleteFileList,		&demolist },
-	{ "playdemo",				CompleteFileList,		&demolist },
-	{ "timedemo",				CompleteFileList,		&demolist },
+	{ "record",					CompleteFileListDemo,	&demolist },
+	{ "playdemo",				CompleteFileListDemo,	&demolist },
+	{ "timedemo",				CompleteFileListDemo,	&demolist },
 	{ "sky",					CompleteFileList,		&skylist },
 	{ "exec",					CompleteFileList,		&execlist },
 	{ "connect",				CompleteFileList,		&serverlist },
+	{ "test",					CompleteFileList,		&serverlist },
+	{ "test2",					CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },
+	{ "r_showbboxes_filter",	CompleteClassnames,		NULL },
 	{ "imagelist",				CompleteImageList,		NULL },
 	{ "imagedump",				CompleteImageList,		NULL },
 	{ "bind",					CompleteBindKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
+	{ "viewpos",				CompleteViewpos,		NULL },
+	{ "reset",					CompleteCvarList,		NULL },
+	{ "if",						CompleteIfList,			NULL },
+	{ "play",					CompleteSoundList,		NULL },
+	{ "play2",					CompleteSoundList,		NULL },
+	{ "playvol",				CompleteSoundList,		NULL },
+	{ "screenshot",				CompleteScreenshotList,	NULL },
 };
 
 static const int num_arg_completion_types =
@@ -1494,15 +1622,151 @@ static void BuildTabList (const char* partial)
 	cvar = Cvar_FindVarAfter("", CVAR_NONE);
 	for (; cvar; cvar=cvar->next)
 		if (q_strcasestr (cvar->name, partial))
-			Con_AddToTabList (cvar->name, partial, "cvar");
+			Con_AddToTabList (cvar->name, partial, "cvar", NULL); // #demolistsort add arg
 
 	for (cmd=cmd_functions; cmd; cmd=cmd->next)
 		if (cmd->srctype != src_server && q_strcasestr(cmd->name, partial) && !Cmd_IsReservedName(cmd->name))
-			Con_AddToTabList (cmd->name, partial, "command");
+			Con_AddToTabList (cmd->name, partial, "command", NULL); // #demolistsort add arg
 
 	for (alias=cmd_alias; alias; alias=alias->next)
 		if (q_strcasestr (alias->name, partial))
-			Con_AddToTabList (alias->name, partial, "alias");
+			Con_AddToTabList (alias->name, partial, "alias", NULL); // #demolistsort add arg
+}
+
+/*
+============
+Con_FormatTabMatch -- woods #consolecols (iw 85bf0e8)
+============
+*/
+static void Con_FormatTabMatch (const tab_t* t, char* dst, size_t dstsize)
+{
+	char tinted[MAXCMDLINE];
+
+	COM_TintSubstring(t->name, bash_partial, tinted, sizeof(tinted));
+
+	if (!t->type)
+		q_strlcpy(dst, tinted, dstsize);
+	else if (t->type[0] == '#' && !t->type[1])
+		q_snprintf(dst, dstsize, "%s (%d)", tinted, t->count);
+	else
+		q_snprintf(dst, dstsize, "%s (%s)", tinted, t->type);
+}
+
+/*
+============
+GetTabAtIndex -- woods #consolecols
+============
+*/
+static tab_t* GetTabAtIndex (tab_t* list, int index)
+{
+	if (list == NULL || index < 0)
+		return NULL;
+
+	tab_t* current = list;
+	for (int i = 0; i < index; i++)
+	{
+		current = current->next;
+		if (current == list) // If we reach the start of the list again
+			return NULL;    // Index is out of bounds
+	}
+	return current;
+}
+
+/*
+============
+Con_PrintTabList -- woods #consolecols (iw 85bf0e8)
+============
+*/
+static void Con_PrintTabList(void)
+{
+	char    buf[MAXCMDLINE];
+	int     i, j, maxlen, cols, rows, matches, total, itemCount;
+	tab_t* t;
+
+	// determine maximum item length
+	maxlen = 0;
+	t = tablist;
+	do 
+	{
+		Con_FormatTabMatch(t, buf, sizeof(buf));
+		int total = (int)strlen(buf);
+		maxlen = q_max(maxlen, total);
+		t = t->next;
+	} while (t != tablist);
+
+	// determine number of columns
+	if (!maxlen)
+		return;
+	maxlen += 3;                                        // indent
+	maxlen = q_max(maxlen, 8);                          // min width
+	maxlen = (maxlen + 3) & ~3;                         // round up to multiple of 4
+	cols = q_max(con_linewidth, maxlen) / maxlen;
+	if (con_colmax.value >= 1.f)
+		cols = q_min(cols, (int)con_colmax.value);     // apply user limit
+
+	if (con_coldirection.value == 1)
+	{
+		// Original method: Left to right, then top to bottom
+		Con_SafePrintf("\n");
+		i = matches = total = 0;
+		t = tablist;
+		do {
+			Con_FormatTabMatch(t, buf, sizeof(buf));
+			if (++i == cols) 
+			{
+				i = 0;
+				Con_SafePrintf("   %s\n", buf);
+			}
+			else {
+				Con_SafePrintf("   %*s", -(maxlen - 3), buf);
+			}
+			if (t->type && t->type[0] == '#' && !t->type[1])
+				total += t->count;
+			t = t->next;
+			++matches;
+		} while (t != tablist);
+		if (i != 0)
+			Con_SafePrintf("\n");
+	}
+	else
+	{
+		// Count total items
+		itemCount = 0;
+		t = tablist;
+		do {
+			itemCount++;
+			t = t->next;
+		} while (t != tablist);
+
+		rows = (itemCount + cols - 1) / cols; // Calculate the number of rows
+
+		// Print all matches in top-to-bottom, then left-to-right order
+		Con_SafePrintf("\n");
+		matches = total = 0;
+		for (i = 0; i < rows; i++) 
+		{
+			for (j = 0; j < cols; j++) 
+			{
+				int index = j * rows + i;
+				if (index < itemCount) 
+				{
+					t = GetTabAtIndex
+					(tablist, index);
+					Con_FormatTabMatch(t, buf, sizeof(buf));
+					Con_SafePrintf(" %*s", -(maxlen - 3), buf);
+					if (t->type && t->type[0] == '#' && !t->type[1])
+						total += t->count;
+					matches++;
+				}
+			}
+			Con_SafePrintf("\n");
+		}
+	}
+
+		if (total > 0)
+			Con_SafePrintf("   %d unique matches (%d total)\n", matches, total);
+
+	Con_SafePrintf("\n");
 }
 
 /*
@@ -1522,6 +1786,9 @@ void Con_TabComplete (tabcomplete_t mode)
 	if (mode == TABCOMPLETE_AUTOHINT)
 	{
 		key_tabpartial[0] = '\0';
+
+		if ((key_lines[edit_line][1] == ' ')) // woods no auto hints if leading space for chatting from console
+			return;
 
 		// only show completion hint when the cursor is at the end of the line
 		if ((size_t)key_linepos >= sizeof(key_lines[edit_line]) || key_lines[edit_line][key_linepos])
@@ -1561,34 +1828,7 @@ void Con_TabComplete (tabcomplete_t mode)
 
 		// print list if length > 1 and action is user-initiated
 		if (tablist->next != tablist && mode == TABCOMPLETE_USER)
-		{
-			int matches = 0;
-			int total = 0;
-			t = tablist;
-			Con_SafePrintf("\n");
-			do
-			{
-				char tinted[MAXCMDLINE];
-				COM_TintSubstring (t->name, bash_partial, tinted, sizeof(tinted));
-				if (t->type)
-				{
-					if (t->type[0] == '#' && !t->type[1])
-					{
-						Con_SafePrintf("   %s (%d)\n", tinted, t->count);
-						total += t->count;
-					}
-					else
-						Con_SafePrintf ("   %s (%s)\n", tinted, t->type);
-				}
-				else
-					Con_SafePrintf("   %s\n", tinted);
-				t = t->next;
-				++matches;
-			} while (t != tablist);
-			if (total > 0)
-				Con_Printf ("   %d unique matches (%d total)\n", matches, total);
-			Con_SafePrintf("\n");
-		}
+			Con_PrintTabList (); // woods #consolecols
 
 		//	match = tablist->name;
 		// First time, just show maximum matching chars -- S.A.

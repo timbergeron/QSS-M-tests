@@ -1582,7 +1582,7 @@ static void VID_CompleteModeField (cvar_t* cvar, const char* partial, size_t ofs
 		if (i > 0 && GET_FIELD_FOR_MODE(i) == GET_FIELD_FOR_MODE(i - 1))
 			continue;
 		q_snprintf(buf, sizeof(buf), "%d", GET_FIELD_FOR_MODE(i));
-		Con_AddToTabList(buf, partial, cvar->value == GET_FIELD_FOR_MODE(i) ? "current" : NULL);
+		Con_AddToTabList(buf, partial, cvar->value == GET_FIELD_FOR_MODE(i) ? "current" : NULL, NULL); // #demolistsort add arg
 	}
 
 #undef GET_FIELD_FOR_MODE

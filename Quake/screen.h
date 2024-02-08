@@ -73,6 +73,7 @@ typedef enum {
 	CANVAS_SBAR2, // woods #speed
 	CANVAS_IBAR_QW, // woods #sbarstyles
 	CANVAS_CROSSHAIR,
+	CANVAS_CROSSHAIR2, // woods #texturepointer
 	CANVAS_MATCHCLOCK,
 	CANVAS_BOTTOMLEFT,
 	CANVAS_BOTTOMLEFT2, // woods #scrping

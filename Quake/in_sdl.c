@@ -1200,7 +1200,10 @@ void IN_SendKeyEvents (void)
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
 		if (cl.modtype == 1)
-			sprintf(afktype, "%s", "ÁÆË");
+		{ 
+			char qfAFK[4] = { 193, 198, 203, '\0' }; // woods -- quake font red 'AFK'
+			sprintf(afktype, "%s", qfAFK);
+		}
 	}
 
 	IN_UpdateGrabs();

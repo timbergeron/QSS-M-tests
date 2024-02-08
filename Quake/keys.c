@@ -741,16 +741,8 @@ void Key_Console (int key)
 	case K_ENTER:
 		if (cls.state == ca_connected && !CheckForCommand() && (cl_say.value == 1 || cl_say.value == 2 || (cl_say.value == 3 && key_lines[edit_line][1] == ' '))) // woods don't have to type "say " every time you wanna say something #ezsay (joequake)
 		{
-			if (keydown[K_CTRL])
-			{
-				Cbuf_AddText("say_team ");
-				key_tabhint[0] = '\0';
-			}
-			else
-			{
 				Cbuf_AddText("say ");
 				key_tabhint[0] = '\0';
-			}
 		}
 	case K_KP_ENTER:
 		key_tabpartial[0] = 0;
@@ -767,6 +759,7 @@ void Key_Console (int key)
 		key_lines[edit_line][0] = ']';
 		key_lines[edit_line][1] = 0; //johnfitz -- otherwise old history items show up in the new edit line
 		key_linepos = 1;
+		key_tabhint[0] = '\0'; // woods #iwtabcomplete
 		if (cls.state == ca_disconnected)
 			SCR_UpdateScreen (); // force an update, because the command may take some time
 		if (cl_say.value == 2 || cl_say.value == 3) // woods #ezsay add leading space for mode 2
@@ -1771,19 +1764,23 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 	}
 
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts #stopdownload
-	if (cls.download.active && (key_dest == key_console))
-		if (down && (key == 'c') && keydown[K_CTRL])
+	if (cls.download.active)
 	{
-		Cbuf_AddText("stopdownload\n");
-		return;
+		if (down && (key == '.') && keydown[K_COMMAND]) // woods #shortcuts #stopdownload
+		{
+			Cbuf_AddText("stopdownload\n");
+			return;
+		}
 	}
 #endif
 
-	if (cls.download.active && (key_dest == key_console))
-		if (down && (key == 'c') && keydown[K_CTRL]) // woods #shortcuts #stopdownload
+	if (cls.download.active)
 	{
-		Cbuf_AddText("stopdownload\n");
-		return;
+		if (down && (key == '.') && keydown[K_CTRL]) // woods #shortcuts #stopdownload
+		{
+			Cbuf_AddText("stopdownload\n");
+			return;
+		}
 	}
 
 /*#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #shortcuts

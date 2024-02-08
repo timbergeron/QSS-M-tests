@@ -64,7 +64,7 @@ void Con_Hide (void);
 
 const char *Con_Quakebar (int len);
 void Con_TabComplete (tabcomplete_t mode); // woods #iwtabcomplete
-void Con_AddToTabList (const char* name, const char* partial, const char* type); // woods #iwtabcomplete
+void Con_AddToTabList (const char* name, const char* partial, const char* type, const char* param); // woods #iwtabcomplete -- add arg #demolistsort
 qboolean Con_Match (const char* partial, const char* str); // woods #iwtabcomplete
 void Con_LogCenterPrint (const char *str);
 

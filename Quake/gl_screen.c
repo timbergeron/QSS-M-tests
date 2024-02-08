@@ -98,6 +98,8 @@ Uint32 HintTimer_Callback(Uint32 interval, void* param); // woods #qssmhints
 void Print_Hints_f(void); // woods #qssmhints
 extern qboolean netquakeio; // woods
 
+void TexturePointer_Draw(void); // woods #texturepointer
+
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
@@ -117,6 +119,7 @@ cvar_t		scr_clock = {"scr_clock", "0", CVAR_ARCHIVE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_ARCHIVE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_ARCHIVE};  // woods #matchhud
 cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_ARCHIVE}; // woods #speed
+cvar_t		scr_showspeed_y = {"scr_showspeed_y", "176", CVAR_ARCHIVE}; // woods - #speedometer
 cvar_t		scr_matchclock = {"scr_matchclock", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
@@ -215,18 +218,27 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	
 	if (cl.modtype == 4) // woods #qeintermission
 	{ 
-		if (strstr(str, "÷ÔÙÂ") || strstr(str, "‘ƒÕ") || (strstr(str, "Õ·Ù„Ë") && strstr(str, "”ıÌÌ·Ú˘"))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
+		char qfVote[5] = { 214, 239, 244, 229, '\0' }; // quake font red 'Vote'
+		char qfTDM[4] = { 212, 196, 205, '\0' }; // quake font red 'TDM'
+		char qfMatch[6] = { 205, 225, 244, 227, 232, '\0' }; // quake font red 'Match'
+		char qfSummary[8] = { 211, 245, 237, 237, 225, 242, 249, '\0' }; // quake font red 'Summary'
+
+		if (strstr(str, qfVote) || strstr(str, qfTDM) || (strstr(str, qfMatch) && strstr(str, qfSummary))) // woods #qeintermission (Vote For, TDM Stats, Match Summary)  
 			qeintermission = true;
 		else
 			qeintermission = false;
 	}
 
-	if (strstr(str, "„ÔıÓÙ‰Ô˜Ó∫")) // woods #clearcrxcountdown (countdown)
+	char qfcountdown[11] = { 227, 239, 245, 238, 244, 228, 239, 247, 238, 186, '\0' }; // woods -- quake font red 'countdown:'
+
+	if (strstr(str, qfcountdown)) // woods #clearcrxcountdown (countdown)
 		countdown = true;
 	else
 		countdown = false;
 
-	if ((strstr(str, "–¡’”≈ƒ")) || (strstr(str, "PAUSED"))) // #showpaused
+	char qfPAUSED[7] = { 208, 193, 213, 211, 197, 196, '\0' }; // woods -- quake font red 'PAUSED'
+
+	if ((strstr(str, qfPAUSED)) || (strstr(str, "PAUSED"))) // #showpaused
 	{
 		pausedprint = true; // woods #qssmhints
 		return;
@@ -236,7 +248,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 // woods for center print filter  -> this is #flagstatus
 // ===============================
 
- // begin woods for flagstatus parsing --  ‚ = blue abandoned, Ú = red abandoned, r = taken, b = taken
+ // begin woods for flagstatus parsing for legacy mods without infokeys
 
 	const char* blueflag;
 	char buf[10];
@@ -246,36 +258,44 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	{ 
 		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
-		if (!strpbrk(str, "Äùùù")) // cdmod MOD print
+		char qfleftbrnbigbrkt[2] = { 128, '\0' }; // quake font left bigger brown bracket
+
+		char qfrbrnsep[3] = { 114, 158, '\0' }; // regular font 'r' + quake font brown spacer -- RED TAKEN
+		char qfbrrtbrnbrkt[3] = { 98, 159, '\0' }; // regular font 'b' + quake font brown right smaller bracket -- BLUE TAKEN
+
+		char qfredrbrnsep[3] = { 242, 158, '\0' }; // quake font red 'r' + quake font brown spacer -- RED ABANDONED
+		char qfredbrrtbrnbrkt[3] = { 226, 159, '\0' }; // quake font red 'b' + quake font brown right smaller bracket -- BLUE ABANDONED
+
+		if (!strpbrk(str, qfleftbrnbigbrkt)) // crmod MOD print
 		{
 			// RED
 
-			if (strstr(str, "rû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red taken
+			if (strstr(str, qfrbrnsep) && !strstr(str, qfbrrtbrnbrkt) && !strstr(str, qfredbrrtbrnbrkt)) // red taken
 				strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus));
 
-			if (strstr(str, "Úû") && !strstr(str, "bü") && !strstr(str, "‚ü")) // red abandoned
+			if (strstr(str, qfredrbrnsep) && !strstr(str, qfbrrtbrnbrkt) && !strstr(str, qfredbrrtbrnbrkt)) // red abandoned
 				strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus));
 
 		// BLUE
 
-			if (strstr(str, "bü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue taken
+			if (strstr(str, qfbrrtbrnbrkt) && !strstr(str, qfrbrnsep) && !strstr(str, qfredrbrnsep)) // blue taken
 				strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus));
 
-			if (strstr(str, "‚ü") && !strstr(str, "rû") && !strstr(str, "Úû")) // blue abandoned
+			if (strstr(str, qfredbrrtbrnbrkt) && !strstr(str, qfrbrnsep) && !strstr(str, qfredrbrnsep)) // blue abandoned
 				strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus));
 
 		// RED & BLUE
 
-			if ((strstr(str, "bü")) && (strstr(str, "rû"))) //  blue & red taken
+			if ((strstr(str, qfbrrtbrnbrkt)) && (strstr(str, qfrbrnsep))) //  blue & red taken
 				strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
 
-			if ((strstr(str, "‚ü")) && (strstr(str, "Úû"))) // blue & red abandoned
+			if ((strstr(str, qfredbrrtbrnbrkt)) && (strstr(str, qfredrbrnsep))) // blue & red abandoned
 				strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
 
-			if ((strstr(str, "‚ü")) && (strstr(str, "rû"))) // blue abandoned, red taken
+			if ((strstr(str, qfredbrrtbrnbrkt)) && (strstr(str, qfrbrnsep))) // blue abandoned, red taken
 				strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
 
-			if ((strstr(str, "bü")) && (strstr(str, "Úû"))) // red abandoned, blue taken
+			if ((strstr(str, qfbrrtbrnbrkt)) && (strstr(str, qfredrbrnsep))) // red abandoned, blue taken
 				strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
 		}
 	}
@@ -286,11 +306,28 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 		return;
 
 	if (!strcmp(str, "Your team captured the flag!\n") ||
-		!strcmp(str, "Your flag was captured!\n") ||
-		!strcmp(str, "Enemy ÊÏ·Á has been returned to base!") ||
-		!strcmp(str, "Your ∆Ã¡« has been taken!") ||
-		!strcmp(str, "Your team has the enemy ∆Ã¡«!") ||
-		!strcmp(str, "Your ÊÏ·Á has been returned to base!"))
+		!strcmp(str, "Your flag was captured!\n"))
+		return;
+
+	char qfflag[5] = { 230, 236, 225, 231, '\0' }; // woods  -- quake font red lowercase 'flag'
+	char qfupFLAG[5] = { 198, 204, 193, 199, '\0' }; // woods -- quake font red uppercase 'FLAG'
+
+	char fgmsgbuffer[42];
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Enemy %s has been returned to base!", qfflag);
+	if (!strcmp(str, fgmsgbuffer))
+		return;
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Your %s has been taken!", qfupFLAG);
+	if (!strcmp(str, fgmsgbuffer))
+		return;
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Your team has the enemy %s!", qfupFLAG);
+	if (!strcmp(str, fgmsgbuffer))
+		return;
+
+	q_snprintf(fgmsgbuffer, sizeof(fgmsgbuffer), "Your %s has been returned to base!", qfflag);
+	if (!strcmp(str, fgmsgbuffer))
 		return;
 
 	if (*str != '/' && cl.intermission)
@@ -463,6 +500,9 @@ void SCR_CheckDrawCenterString (void)
 		scr_erase_lines = scr_center_lines;
 
 	scr_centertime_off -= host_frametime;
+
+	if (scr_centertime.value <= 0) // woods #confade
+		scr_centertime_off = 0;
 
 	if (scr_centertime_off <= 0 && !cl.intermission)
 		return;
@@ -743,6 +783,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
 	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
 	Cvar_RegisterVariable (&scr_showspeed); // woods #speed
+	Cvar_RegisterVariable (&scr_showspeed_y); // woods #speedometer
 	Cvar_RegisterVariable (&scr_matchclock); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_y); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_x); // woods #varmatchclock
@@ -1586,6 +1627,85 @@ void SCR_ShowFlagStatus(void)
 
 /*
 ==============
+SCR_Speedometer -- woods #speedometer (https://github.com/matthewearl/quakespasm f4411f0 from joequake)
+==============
+*/
+void SCR_Speedometer(void)
+{
+	float speed;
+	vec3_t vel;
+	int bad_jump = 0;
+	static float maxspeed = 0, display_speed = -1;
+	static double lastrealtime = 0;
+
+	int	x, bg_color;
+	float speedunits;
+	char st[8];
+	float alpha = 0.5;
+	int y = scr_showspeed_y.value;
+
+	if (cl.intermission || qeintermission || scr_viewsize.value >= 120)
+		return;
+
+	GL_SetCanvas(CANVAS_SBAR2);
+
+	if (lastrealtime > realtime)
+	{
+		lastrealtime = 0;
+		display_speed = -1;
+		maxspeed = 0;
+	}
+
+	VectorCopy(cl.velocity, vel);
+	vel[2] = 0;
+	speed = VectorLength(vel);
+
+	if (speed > maxspeed)
+		maxspeed = speed;
+
+	if (sv.active && speed_info.speed >= 0)
+	{
+		display_speed = speed_info.speed;
+		bad_jump = speed_info.jump_fmove == 0 || speed_info.jump_smove == 0;
+	}
+
+	// draw
+
+	if (display_speed >= 0)
+	{
+		sprintf(st, "%3d", (int)display_speed);
+
+		x = 80;
+
+		bg_color = (bad_jump && scr_showspeed.value > 2) ? 251 : 10;
+		Draw_Fill(x, y - 1, 160, 1, bg_color, alpha);
+		Draw_Fill(x, y + 9, 160, 1, bg_color, alpha);
+		Draw_Fill(x, y, 160, 9, 52, 0.9);
+
+		speedunits = display_speed;
+		if (display_speed <= 500)
+		{
+			Draw_Fill(x, y, (int)(display_speed / 3.125), 9, 100, alpha);
+		}
+		else
+		{
+			while (speedunits > 500)
+				speedunits -= 500;
+			Draw_Fill(x, y, (int)(speedunits / 3.125), 9, 68, alpha);
+		}
+		Draw_String(x + 36 - (strlen(st) * 8), y, st);
+	}
+
+	if (realtime - lastrealtime >= 0.0)
+	{
+		lastrealtime = realtime;
+		display_speed = maxspeed;
+		maxspeed = 0;
+	}
+}
+
+/*
+==============
 SCR_DrawSpeed -- woods #speed
 ==============
 */
@@ -1610,14 +1730,14 @@ void SCR_DrawSpeed (void)
 		y = 0;
 
 		if (scr_viewsize.value <= 100)
-			y = 18;
+			y = 208;
 		else if (scr_viewsize.value == 110)
-			y = 43;
+			y = 233;
 		if (scr_sbar.value == 2)
-			y = 43;
+			y = 233;
 	}
 
-	if (scr_showspeed.value && !cl.intermission) {
+	if (scr_showspeed.value == 1 && !cl.intermission) {
 		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
 		float	speed = VectorLength(vel);
 
@@ -1632,6 +1752,10 @@ void SCR_DrawSpeed (void)
 					M_PrintWhite(x, y, st);  // white
 		}
 	}
+
+	if (scr_showspeed.value > 1)
+		SCR_Speedometer (); // woods #speedometer
+
 }
 
 /*
@@ -1682,14 +1806,14 @@ void SCR_Mute(void)
 			y = 0;
 
 			if (scr_viewsize.value <= 100)
-				y = 18;
+				y = 208;
 			else if (scr_viewsize.value == 110)
-				y = 43;
+				y = 233;
 			else
 				return;
 			if (scr_sbar.value == 2)
 			{ 
-				y = 43;
+				y = 233;
 
 				if (!scr_showspeed.value || !cls.demoplayback)
 					x = 0;
@@ -1736,7 +1860,7 @@ void SCR_Observing(void)
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
-		y = 0;
+		y = 190;
 
 		if (scr_viewsize.value > 110 || (scr_sbar.value == 3 && sb_showscores))
 			return;
@@ -1977,10 +2101,10 @@ void SCR_DrawPause2(void)
 
 	pic = Draw_CachePic("gfx/pause.lmp");
 
-	if (cl.match_pause_time > 0 || pausedprint)
+	if ((cl.match_pause_time > 0 && !cls.demoplayback) || pausedprint)
 		Draw_Pic((320 - pic->width) / 2, (240 - 48 - pic->height) / 2, pic); //johnfitz -- stretched menus
 
-	if ((cl.match_pause_time > 0 || pausedprint) && scr_hints.value)
+	if (((cl.match_pause_time > 0 && !cls.demoplayback) || pausedprint) && scr_hints.value)
 	{
 		GL_SetCanvas(CANVAS_HINT);
 
@@ -2122,7 +2246,7 @@ void LaserSight (void)
 
 	// find the spot the player is looking at
 	VectorMA(start, 4096, forward, crosshair);
-	TraceLine(start, crosshair, wall);
+	TraceLine(start, crosshair, 0, wall);
 
 	glDisable(GL_DEPTH_TEST);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -2343,6 +2467,7 @@ void SCR_ScreenShot_f (void)
 	strftime(str, 24, "%m-%d-%Y-%H%M%S", &loct); // time and date support
 
 	q_snprintf(checkname, sizeof(checkname), "%s/screenshots", com_gamedir); // woods #screenshots
+	Sys_mkdir(com_gamedir); //  woods create gamedir if not there #screenshots
 	Sys_mkdir(checkname); //  woods create screenshots if not there #screenshots
 	
 	Q_strncpy (ext, "png", sizeof(ext));
@@ -2372,22 +2497,11 @@ void SCR_ScreenShot_f (void)
 		return;
 	}
 	
-	/*
-// find a file name to save it to
-	for (i=0; i<10000; i++)
-	{
-		q_snprintf (imagename, sizeof(imagename), "screenshots/qssm%04i.%s", i, ext);	// "fitz%04i.tga" // woods #screenshots
-		q_snprintf (checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
-		if (Sys_FileType(checkname) == FS_ENT_NONE)
-			break;	// file doesn't exist
-	}
-	if (i == 10000)
-	{
-		Con_Printf ("SCR_ScreenShot_f: Couldn't find an unused filename\n");
-		return;
-	}*/
+	if (cl.mapname[0] == '\0' || cls.state == ca_disconnected)
+		q_snprintf(imagename, sizeof(imagename), "screenshots/qssm_%s.%s", str, ext); // woods #screenshots time and date support
+	else
+		q_snprintf(imagename, sizeof(imagename), "screenshots/qssm_%s_%s.%s", cl.mapname, str, ext);
 
-	q_snprintf(imagename, sizeof(imagename), "screenshots/%s_%s.%s", cl.mapname, str, ext);	// woods #screenshots time and date support
 	q_snprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
 
 //get data
@@ -2412,7 +2526,7 @@ void SCR_ScreenShot_f (void)
 
 	if (ok)
 	{ 
-		Con_Printf ("Wrote %s\n", imagename);
+		Con_Printf ("Wrote %s\n", checkname);
 		S_LocalSound("player/tornoff2.wav"); // woods add sound to screenshot
 	}
 	else
@@ -2751,6 +2865,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawSpeed (); // woods #speed
 		SCR_Mute (); // woods #usermute
 		SCR_Observing (); // woods
+		TexturePointer_Draw (); // woods #texturepointer
 		SCR_DrawConsole ();
 		M_Draw ();
 	}

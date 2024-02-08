@@ -17,16 +17,29 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        # use apt-spy2 to select closest apt mirror,
-        # which helps avoid connectivity issues in Azure;
-        # see https://github.com/actions/virtual-environments/issues/675
         sudo gem install apt-spy2
         sudo apt-spy2 check
-        sudo apt-spy2 fix --commit
-        # after selecting a specific mirror, we need to run 'apt-get update'
-        sudo apt-get update
-        sudo apt-get install -y mingw-w64
-        sudo apt-get install -y libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 libz-mingw-w64-dev libcurl4-openssl-dev zip
+
+        mirrors=$(apt-spy2 list | awk '{print $1}')
+        for mirror in $mirrors; do
+          echo "Trying mirror: $mirror"
+          sudo apt-spy2 select --mirror=$mirror --commit
+
+          # Run 'apt-get update' for the selected mirror
+          if sudo apt-get update; then
+            # Try to install dependencies. If successful, break out of the loop.
+            if sudo apt-get install -y mingw-w64 libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 libz-mingw-w64-dev libcurl4-openssl-dev zip; then
+              echo "Dependencies successfully installed using mirror: $mirror"
+              break
+            else
+              echo "Failed to install dependencies from mirror: $mirror. Trying next mirror."
+            fi
+          else
+            echo "Failed to update using mirror: $mirror. Trying next mirror."
+          fi
+        done
+      continue-on-error: false
+      
     - name: Build
       run: |
         chmod 755 build-${{ matrix.platform }}.sh

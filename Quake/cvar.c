@@ -721,7 +721,7 @@ Adds a freestanding variable to the variable list.
 */
 void Cvar_RegisterVariable (cvar_t *variable)
 {
-	char	value[512];
+	char	value[800]; // woods #obmodelslist raise for lists
 	qboolean	set_rom;
 	cvar_t	*cursor,*prev; //johnfitz -- sorted list insert
 
