@@ -430,6 +430,7 @@ void ParticleList_Rebuild(void);
 void SkyList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
 void FolderList_Rebuild (void); // woods #folderlist
+void ExecList_Rebuild (void); // woods #execlist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage

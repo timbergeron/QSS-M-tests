@@ -527,6 +527,17 @@ void ServerList_Init(void)
 
 filelist_item_t* execlist;
 
+static void ExecList_Clear (void)
+{
+	FileList_Clear (&execlist);
+}
+
+void ExecList_Rebuild(void)
+{
+	ExecList_Clear ();
+	ExecList_Init ();
+}
+
 // TODO: Factor out to a general-purpose file searching function
 void ExecList_Init(void)
 {
