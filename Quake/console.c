@@ -1461,7 +1461,69 @@ static qboolean CompleteViewpos (const char* partial, void* unused) // woods
 	return true;
 }
 
+static qboolean CompleteCvarList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cvar_t* cvar;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	cvar = Cvar_FindVarAfter("", CVAR_NONE);
+	for (; cvar; cvar = cvar->next)
+			Con_AddToTabList(cvar->name, partial, "cvar", NULL); // #demolistsort add arg
+	
+	return true;
+}
+
+static qboolean CompleteIfList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cmdalias_t* alias;
+	cvar_t* cvar;
+	cmd_function_t* cmd;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	cvar = Cvar_FindVarAfter("", CVAR_NONE);
+	for (; cvar; cvar = cvar->next)
+		Con_AddToTabList (cvar->name, partial, "cvar", NULL); // #demolistsort add arg
+
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+		Con_AddToTabList (cmd->name, partial, "command", NULL); // #demolistsort add arg
+
+	for (alias = cmd_alias; alias; alias = alias->next)
+		Con_AddToTabList (alias->name, partial, "alias", NULL); // #demolistsort add arg
+
+	return true;
+}
+
+static qboolean CompleteScreenshotList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	if (Cmd_Argc() == 2)
+	{
+		const char* fileTypes[] = { "jpg", "png", "tga" };
+		const int fileTypeCount = sizeof(fileTypes) / sizeof(fileTypes[0]); // Calculate the number of file types
+
+		for (int i = 0; i < fileTypeCount; ++i)
+			Con_AddToTabList (fileTypes[i], partial, NULL, NULL); // #demolistsort add arg
+	}
+
+	else if (Cmd_Argc() == 3)
+	{
+		for (int num = 1; num <= 100; ++num)
+		{
+			char numStr[4];
+			snprintf(numStr, sizeof(numStr), "%d", num);
+
+			Con_AddToTabList (numStr, partial, NULL, NULL); // #demolistsort add arg
+		}
+	}
+
+	return true;
+}
+
 qboolean CompleteImageList (const char* partial, void* unused); // woods
+qboolean CompleteSoundList (const char* partial, void* unused); // woods
 
 typedef struct arg_completion_type_s // woods #iwtabcomplete
 {
@@ -1491,6 +1553,12 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "bind",					CompleteBindKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
 	{ "viewpos",				CompleteViewpos,		NULL },
+	{ "reset",					CompleteCvarList,		NULL },
+	{ "if",						CompleteIfList,			NULL },
+	{ "play",					CompleteSoundList,		NULL },
+	{ "play2",					CompleteSoundList,		NULL },
+	{ "playvol",				CompleteSoundList,		NULL },
+	{ "screenshot",				CompleteScreenshotList,	NULL },
 };
 
 static const int num_arg_completion_types =

@@ -1135,6 +1135,24 @@ static void S_SoundList (void)
 	Con_Printf ("%i sounds, %i bytes\n", num_sfx, total); //johnfitz -- added count
 }
 
+qboolean CompleteSoundList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	int		i;
+	sfx_t* sfx;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	for (sfx = known_sfx, i = 0; i < num_sfx; i++, sfx++)
+	{
+		const char* name;
+		name = sfx->name;
+		if (*name)
+			Con_AddToTabList (name, partial, NULL, NULL);
+	}
+
+	return true;
+}
 
 void S_LocalSound (const char *name)
 {
