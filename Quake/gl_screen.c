@@ -2467,6 +2467,7 @@ void SCR_ScreenShot_f (void)
 	strftime(str, 24, "%m-%d-%Y-%H%M%S", &loct); // time and date support
 
 	q_snprintf(checkname, sizeof(checkname), "%s/screenshots", com_gamedir); // woods #screenshots
+	Sys_mkdir(com_gamedir); //  woods create gamedir if not there #screenshots
 	Sys_mkdir(checkname); //  woods create screenshots if not there #screenshots
 	
 	Q_strncpy (ext, "png", sizeof(ext));
@@ -2496,22 +2497,11 @@ void SCR_ScreenShot_f (void)
 		return;
 	}
 	
-	/*
-// find a file name to save it to
-	for (i=0; i<10000; i++)
-	{
-		q_snprintf (imagename, sizeof(imagename), "screenshots/qssm%04i.%s", i, ext);	// "fitz%04i.tga" // woods #screenshots
-		q_snprintf (checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
-		if (Sys_FileType(checkname) == FS_ENT_NONE)
-			break;	// file doesn't exist
-	}
-	if (i == 10000)
-	{
-		Con_Printf ("SCR_ScreenShot_f: Couldn't find an unused filename\n");
-		return;
-	}*/
+	if (cl.mapname[0] == '\0' || cls.state == ca_disconnected)
+		q_snprintf(imagename, sizeof(imagename), "screenshots/qssm_%s.%s", str, ext); // woods #screenshots time and date support
+	else
+		q_snprintf(imagename, sizeof(imagename), "screenshots/qssm_%s_%s.%s", cl.mapname, str, ext);
 
-	q_snprintf(imagename, sizeof(imagename), "screenshots/%s_%s.%s", cl.mapname, str, ext);	// woods #screenshots time and date support
 	q_snprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, imagename);
 
 //get data
@@ -2536,7 +2526,7 @@ void SCR_ScreenShot_f (void)
 
 	if (ok)
 	{ 
-		Con_Printf ("Wrote %s\n", imagename);
+		Con_Printf ("Wrote %s\n", checkname);
 		S_LocalSound("player/tornoff2.wav"); // woods add sound to screenshot
 	}
 	else
