@@ -766,7 +766,26 @@ void Key_Console (int key)
 			Char_Console2(32);
 		return;
 
+	case K_KP_INS:
+		if (keydown[K_CTRL])
+		{
+			Cvar_SetValue("scr_conscale" , (glwidth / 640)); //R00k: hotkey to enlarge the interface after changing resolutions.
+			Cvar_SetValue("scr_menuscale", (glwidth / 640));
+			Cvar_SetValue("scr_sbarscale", (glwidth / 640));
+		}
+		break;
+
 	case K_TAB:
+		if ((key_lines[edit_line][1] == 'q'))	// RAGE-QUIT AUTO SEQUENCE DETECTED
+		{
+			key_lines[edit_line][1] = 'q';
+			key_lines[edit_line][2] = 'u';
+			key_lines[edit_line][3] = 'i';
+			key_lines[edit_line][4] = 't';
+			key_lines[edit_line][5] = ';';
+			key_linepos += 3;
+			return;
+		}
 		Con_TabComplete (TABCOMPLETE_USER); // woods #iwtabcomplete
 		return;
 
@@ -958,9 +977,10 @@ void Key_Console (int key)
 	case K_INS:
 		if (keydown[K_SHIFT])		/* Shift-Ins paste */
 			PasteToConsole();
-		else	key_insert ^= 1;
-		Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
-		return;
+		else
+			key_insert ^= 1;
+		Con_TabComplete(TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
+		break;
 
 	case 'U':
 	case 'u':
@@ -1013,7 +1033,8 @@ void Key_Console (int key)
 		break;
 	case 'd':
 	case 'D':
-		if (keydown[K_CTRL]) {		/* Ctrl+d: abort the line -- S.A */ // woods switched to D, from C #concopy
+		if (keydown[K_CTRL]) 
+		{		/* Ctrl+d: abort the line -- S.A */ // woods switched to D, from C #concopy
 			Con_Printf ("%s\n", workline);
 			workline[0] = ']';
 			workline[1] = 0;
@@ -1773,10 +1794,9 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 		}
 	}
 #endif
-
-	if (cls.download.active)
+	if (down && (key == '.') && keydown[K_CTRL]) // woods #shortcuts #stopdownload	
 	{
-		if (down && (key == '.') && keydown[K_CTRL]) // woods #shortcuts #stopdownload
+		if (cls.download.active)	
 		{
 			Cbuf_AddText("stopdownload\n");
 			return;

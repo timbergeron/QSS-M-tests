@@ -890,8 +890,10 @@ void V_CalcRefdef (void)
 	CalcGunAngle ();
 
 	view->eflags = EFLAGS_VIEWMODEL;
-	VectorScale(forward, 1.0/32, view->origin);	//bias it very slightly sideways (so it shifts slightly when turning to mimic the 1/32 bias that used to affect it before we changed how viewmodels work)
-	view->origin[0] = bob*0.4;	//and bob it forwards
+	VectorScale(forward, 0.03125f, view->origin);	//bias it very slightly sideways (so it shifts slightly when turning to mimic the 1/32 bias that used to affect it before we changed how viewmodels work)
+
+	if (cl_bobcycle.value)
+		view->origin[0] = bob * 0.4;	//and bob it forwards
 
 	if (cl.items & IT_INVISIBILITY) // woods #ringalpha
 	{
