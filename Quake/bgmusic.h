@@ -39,5 +39,24 @@ void BGM_Resume (void);
 
 void BGM_PlayCDtrack (byte track, qboolean looping);
 
+typedef enum _bgm_player // woods moved from bgmusic.c #musiclist
+{
+    BGM_NONE = -1,
+    BGM_MIDIDRV = 1,
+    BGM_STREAMER
+} bgm_player_t;
+
+typedef struct music_handler_s // woods moved from bgmusic.c #musiclist
+{
+    unsigned int    type;           /* 1U << n (see snd_codec.h)    */
+    bgm_player_t    player;         /* Enumerated bgm player type   */
+    int             is_available;   /* -1 means not present         */
+    const char* ext;           /* Expected file extension      */
+    const char* dir;           /* Where to look for music file */
+    struct music_handler_s* next;
+} music_handler_t;
+
+extern music_handler_t wanted_handlers[]; // woods #musiclist
+
 #endif	/* _BGMUSIC_H_ */
 

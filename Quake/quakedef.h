@@ -388,6 +388,7 @@ extern filelist_item_t	*execlist; // woods #execlist
 extern filelist_item_t  *particlelist; // woods #particlelist
 extern filelist_item_t  *serverlist; // woods #serverlist
 extern filelist_item_t*	 folderlist; // woods #folderlist
+extern filelist_item_t  *musiclist; // woods #musiclist
 
 void Host_ClearMemory (void);
 void Host_ServerFrame (void);
@@ -422,6 +423,7 @@ void ParticleList_Init (void); // woods #particlelist
 void ServerList_Init(void); // woods #serverlist
 void FolderList_Init (void); // woods #folderlist
 void SkyList_Init (void); // woods #folderlist
+void MusicList_Init (void); // woods #musiclist
 
 
 void ExtraMaps_NewGame (void);
@@ -431,6 +433,7 @@ void SkyList_Rebuild (void);
 void ServerList_Rebuild (void); // woods #serverlist
 void FolderList_Rebuild (void); // woods #folderlist
 void ExecList_Rebuild (void); // woods #execlist
+void MusicList_Rebuild (void); // woods #musiclist
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage

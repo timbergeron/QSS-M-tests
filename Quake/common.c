@@ -3352,6 +3352,7 @@ static void COM_Game_f (void)
 		SkyList_Rebuild (); // woods #skylist
 		FolderList_Rebuild (); // woods #folderlist
 		ExecList_Rebuild (); // woods #execlist
+		MusicList_Rebuild (); // woods #musiclist
 
 		Con_Printf("\"game\" changed to \"%s\"\n", COM_GetGameNames(true));
 

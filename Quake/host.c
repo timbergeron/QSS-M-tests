@@ -1493,6 +1493,7 @@ void Host_Init (void)
 		ParticleList_Init (); // woods #particlelist
 		ServerList_Init(); // woods #serverlist
 		FolderList_Init(); // woods #folderlist
+		MusicList_Init (); // woods #musiclist
 		VID_Init ();
 		IN_Init ();
 		TexMgr_Init (); //johnfitz

@@ -1547,6 +1547,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "test",					CompleteFileList,		&serverlist },
 	{ "test2",					CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },
+	{ "music",					CompleteFileList,		&musiclist },
 	{ "r_showbboxes_filter",	CompleteClassnames,		NULL },
 	{ "imagelist",				CompleteImageList,		NULL },
 	{ "imagedump",				CompleteImageList,		NULL },

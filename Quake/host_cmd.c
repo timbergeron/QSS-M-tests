@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "net_defs.h" // woods for #iplog
 #include <time.h> // woods #demolistsort
 #include <sys/stat.h> // woods #demolistsort
+#include "bgmusic.h" // woods #musiclist
 #ifndef _WIN32
 #include <dirent.h>
 #endif
@@ -1042,6 +1043,104 @@ void SkyList_Init (void)
 					COM_StripExtension (pak->files[i].name, skyname, sizeof(skyname));
 					skyname[strlen(skyname) - 2] = '\0'; // remove "bk" part
 					FileList_Add (skyname, NULL, &skylist); // woods #demolistsort add arg
+				}
+			}
+		}
+	}
+}
+
+//==============================================================================
+// woods  -- music list management #musiclist
+//==============================================================================
+
+filelist_item_t* musiclist;
+
+static void MusicList_Clear (void)
+{
+	FileList_Clear (&musiclist);
+}
+
+void MusicList_Rebuild (void)
+{
+	MusicList_Clear ();
+	MusicList_Init ();
+}
+
+void MusicList_Init(void)
+{
+#ifdef _WIN32
+	WIN32_FIND_DATA fdat;
+	HANDLE fhnd;
+#else
+	DIR* dir_p;
+	struct dirent* dir_t;
+#endif
+	char filestring[MAX_OSPATH];
+	char musicname[32];
+	searchpath_t* search;
+	pack_t* pak;
+	int i;
+
+	for (search = com_searchpaths; search; search = search->next)
+	{
+		if (!search->pack) //directory
+		{
+#ifdef _WIN32
+			for (int i = 0; wanted_handlers[i].ext != NULL; ++i)
+			{
+				q_snprintf(filestring, sizeof(filestring), "%s/music/*.%s", search->filename, wanted_handlers[i].ext);
+				fhnd = FindFirstFile(filestring, &fdat);
+				if (fhnd == INVALID_HANDLE_VALUE)
+					continue;
+				do
+				{
+					COM_StripExtension(fdat.cFileName, musicname, sizeof(musicname));
+					FileList_Add(musicname, NULL, &musiclist);
+				} while (FindNextFile(fhnd, &fdat));
+				FindClose(fhnd);
+			}
+#else
+			for (int i = 0; wanted_handlers[i].ext != NULL; ++i)
+			{
+				q_snprintf(filestring, sizeof(filestring), "%s/music/", search->filename);
+				dir_p = opendir(filestring);
+				if (dir_p == NULL)
+					continue;
+				while ((dir_t = readdir(dir_p)) != NULL)
+				{
+					if (!strcmp(dir_t->d_name, ".") || !strcmp(dir_t->d_name, ".."))
+						continue;
+
+					const char* ext = COM_FileGetExtension(dir_t->d_name);
+
+					if (q_strcasecmp(ext, wanted_handlers[i].ext) == 0)
+					{
+						COM_StripExtension(dir_t->d_name, musicname, sizeof(musicname));
+						FileList_Add(musicname, NULL, &musiclist);
+					}
+				}
+				closedir(dir_p);
+			}
+#endif
+		}
+		else //pakfile
+		{
+			for (i = 0, pak = search->pack; i < pak->numfiles; i++)
+			{
+				if (strncmp(pak->files[i].name, "music/", 6) == 0)
+				{
+					const char* ext = COM_FileGetExtension(pak->files[i].name);
+
+					for (int j = 0; wanted_handlers[j].ext != NULL; ++j)
+					{
+						if (q_strcasecmp(ext, wanted_handlers[j].ext) == 0)
+						{
+							char* startOfName = pak->files[i].name + 6; // Skip the 'music/' part
+							COM_StripExtension(startOfName, musicname, sizeof(musicname));
+							FileList_Add(musicname, NULL, &musiclist);
+							break;
+						}
+					}
 				}
 			}
 		}
