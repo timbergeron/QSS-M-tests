@@ -1518,7 +1518,7 @@ void M_AdjustSliders (int dir)
 		break;
 	case OPT_SCRSIZE:	// screen size
 		f = scr_viewsize.value + dir * 10;
-		if (f > 120)	f = 120;
+		if (f > 130)	f = 130;
 		else if(f < 30)	f = 30;
 		Cvar_SetValue ("viewsize", f);
 		break;
@@ -1668,7 +1668,7 @@ void M_Options_Draw (void)
 
 	// OPT_SCRSIZE:
 	M_Print (16, 32 + 8*OPT_SCRSIZE,	"           Screen size");
-	r = (scr_viewsize.value - 30) / (120 - 30);
+	r = (scr_viewsize.value - 30) / (130 - 30);
 	M_DrawSlider (220, 32 + 8*OPT_SCRSIZE, r);
 
 	// OPT_GAMMA:
