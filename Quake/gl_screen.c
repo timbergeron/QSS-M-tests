@@ -728,6 +728,26 @@ static void SCR_Callback_refdef (cvar_t *var)
 }
 
 /*
+=================
+CompleteViewsize_f -- woods #scrviewsize
+
+For tab complete
+=================
+*/
+static void CompleteViewsize_f (cvar_t* cvar, const char* partial)
+{
+	if (Cmd_Argc() != 2)
+		return;
+
+	const char* viewSizes[] = { "30", "40", "50", "60", "70", "80", "90", "100", "110", "120", "130" };
+	int viewSizesCount = sizeof(viewSizes) / sizeof(viewSizes[0]);
+
+	for (int i = 0; i < viewSizesCount; ++i) {
+		Con_AddToTabList (viewSizes[i], partial, NULL, NULL);
+	}
+}
+
+/*
 ==================
 SCR_Conwidth_f -- johnfitz -- called when scr_conwidth or scr_conscale changes
 ==================
@@ -804,6 +824,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable(&scr_zoomfov); // woods #zoom (ironwail)
 	Cvar_RegisterVariable(&scr_zoomspeed);
 	Cvar_RegisterVariable (&scr_viewsize);
+	Cvar_SetCompletion (&scr_viewsize, CompleteViewsize_f); // woods #scrviewsize
 	Cvar_RegisterVariable (&scr_conspeed);
 	Cvar_RegisterVariable (&scr_showturtle);
 	Cvar_RegisterVariable (&scr_showpause);

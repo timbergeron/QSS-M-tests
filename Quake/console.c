@@ -1475,6 +1475,19 @@ static qboolean CompleteCvarList (const char* partial, void* unused) // woods #i
 	return true;
 }
 
+static qboolean CompleteCommandList (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cmd_function_t* cmd;
+
+	if (Cmd_Argc() >= 4)
+		return false;
+
+	for (cmd = cmd_functions; cmd; cmd = cmd->next)
+		Con_AddToTabList (cmd->name, partial, "command", NULL); // #demolistsort add arg
+
+	return true;
+}
+
 static qboolean CompleteIfList (const char* partial, void* unused) // woods #iwtabcomplete
 {
 	cmdalias_t* alias;
@@ -1555,6 +1568,11 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "unbind",					CompleteUnbindKeys,		NULL },
 	{ "viewpos",				CompleteViewpos,		NULL },
 	{ "reset",					CompleteCvarList,		NULL },
+	{ "toggle",					CompleteCvarList,		NULL },
+	{ "cycle",					CompleteCvarList,		NULL },
+	{ "set",					CompleteCvarList,		NULL },
+	{ "seta",					CompleteCvarList,		NULL },
+	{ "cmdtoggle",				CompleteCommandList,	NULL },
 	{ "if",						CompleteIfList,			NULL },
 	{ "play",					CompleteSoundList,		NULL },
 	{ "play2",					CompleteSoundList,		NULL },
