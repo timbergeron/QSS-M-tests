@@ -3346,6 +3346,7 @@ static void COM_Game_f (void)
 		if (!isDedicated)
 			Draw_ReloadTextures(true);
 		ExtraMaps_NewGame ();
+		DescMaps_NewGame (); // woods #mapdescriptions
 		Host_Resetdemos ();
 		DemoList_Rebuild ();
 		ParticleList_Rebuild (); // woods #particlelist

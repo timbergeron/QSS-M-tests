@@ -218,30 +218,23 @@ void ExtraMaps_NewGame (void)
 	ExtraMaps_Init ();
 }
 
-filelist_item_t* levelwithdesc; // woods #mapdescriptions
+//==============================================================================
+// woods -- worldspawn map description support #mapdescriptions
+//==============================================================================
 
-/*
-==================
-Host_Maps_f -- woods add worldspawn map description support #mapdescriptions
-==================
-*/
-static void Host_Maps_f (void)
+filelist_item_t* levelwithdesc;
+
+static void Host_Maps_Init_f (void) // add worldspawn map description
 {
 	int i;
-	filelist_item_t	*level;
+	filelist_item_t *level;
 
 	int max_word_length = 0;
-	int count = 0;
-
-	const char* filter = NULL; 
-
-	if (Cmd_Argc() >= 2)
-		filter = Cmd_Argv(1);
 
 	for (level = extralevels, i = 0; level; level = level->next, i++) // find the max map name length
 	{
 		int word_length = strlen(level->name);
-		if (word_length > max_word_length) 
+		if (word_length > max_word_length)
 		{
 			max_word_length = word_length;
 		}
@@ -279,6 +272,19 @@ static void Host_Maps_f (void)
 		}
 		free(space_str);
 	}
+}
+
+static void Host_Maps_f (void) // prints worldspawn map description
+{
+	int i;
+	filelist_item_t	*level;
+
+	int count = 0;
+
+	const char* filter = NULL; 
+
+	if (Cmd_Argc() >= 2)
+		filter = Cmd_Argv(1);
 
 	Con_SafePrintf("\n");
 
@@ -317,6 +323,35 @@ static void Host_Maps_f (void)
 			Con_SafePrintf ("no maps found\n");
 		Con_SafePrintf ("\n");
 	}
+}
+
+static int MapDescriptionThreadFunction (void* data)
+{
+	Host_Maps_Init_f ();
+	return 0;
+}
+
+void DescMaps_Init (void)
+{
+	SDL_Thread* thread = SDL_CreateThread (MapDescriptionThreadFunction, "HostMapsThread", NULL);
+	if (thread != NULL) 
+	{
+		int threadReturnValue;
+		SDL_WaitThread(thread, &threadReturnValue); // Wait for the thread to finish
+	}
+	else 
+		Con_DPrintf ("SDL_CreateThread failed: %s\n", SDL_GetError());
+}
+
+static void DescMaps_Clear (void)
+{
+	FileList_Clear (&levelwithdesc);
+}
+
+void DescMaps_NewGame (void)
+{
+	DescMaps_Clear ();
+	Host_Maps_Init_f ();
 }
 
 //==============================================================================

@@ -1494,6 +1494,7 @@ void Host_Init (void)
 		ServerList_Init(); // woods #serverlist
 		FolderList_Init(); // woods #folderlist
 		MusicList_Init (); // woods #musiclist
+		DescMaps_Init (); // woods #mapdescriptions
 		VID_Init ();
 		IN_Init ();
 		TexMgr_Init (); //johnfitz

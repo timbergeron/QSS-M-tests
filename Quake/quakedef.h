@@ -389,6 +389,7 @@ extern filelist_item_t  *particlelist; // woods #particlelist
 extern filelist_item_t  *serverlist; // woods #serverlist
 extern filelist_item_t*	 folderlist; // woods #folderlist
 extern filelist_item_t  *musiclist; // woods #musiclist
+extern filelist_item_t  *levelwithdesc; // woods #mapdescriptions
 
 void Host_ClearMemory (void);
 void Host_ServerFrame (void);
@@ -424,9 +425,11 @@ void ServerList_Init(void); // woods #serverlist
 void FolderList_Init (void); // woods #folderlist
 void SkyList_Init (void); // woods #folderlist
 void MusicList_Init (void); // woods #musiclist
+void DescMaps_Init (void); // woods #mapdescriptions
 
 
 void ExtraMaps_NewGame (void);
+void DescMaps_NewGame (void); // woods #mapdescriptions
 void DemoList_Rebuild (void);
 void ParticleList_Rebuild(void);
 void SkyList_Rebuild (void);
