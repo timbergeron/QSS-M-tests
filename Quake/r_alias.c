@@ -1327,8 +1327,8 @@ void R_DrawAliasModel (entity_t *e)
 		glDepthRange (0, 0.3);
 
 		//FIXME: this needs to go. combine with depthrange and explicit viewmodel-only fov into a different projection matrix..
-		if (scr_fov.value > 90.f && cl_gun_fovscale.value)
-			fovscale = tan(scr_fov.value * (0.5f * M_PI / 180.f));
+		if (r_refdef.basefov > 90.f && cl_gun_fovscale.value)
+			fovscale = 1.0f / tan(DEG2RAD(r_refdef.basefov / 2.0)) / cl_gun_fovscale.value; // woods
 	}
 	else
 	{
@@ -1343,9 +1343,6 @@ void R_DrawAliasModel (entity_t *e)
 		//
 		glPushMatrix ();
 	}
-
-	if (e == &cl.viewent && r_refdef.basefov > 90.f && cl_gun_fovscale.value) // woods #zoom (ironwail)
-		fovscale = tan(r_refdef.basefov * (0.5f * M_PI / 180.f)); // woods #zoom (ironwail)
 
 	R_RotateForEntity (lerpdata.origin, lerpdata.angles, e->netstate.scale);
 
@@ -1366,13 +1363,13 @@ void R_DrawAliasModel (entity_t *e)
 		// and fix things up
 		glMultMatrixf(eyematrix);
 
-		glTranslatef(paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
-		glScalef(paliashdr->scale[0], paliashdr->scale[1] * fovscale, paliashdr->scale[2] * fovscale);
+		glTranslatef(paliashdr->scale_origin[0] * fovscale, paliashdr->scale_origin[1], paliashdr->scale_origin[2]); // woods
+		glScalef(paliashdr->scale[0] * fovscale, paliashdr->scale[1], paliashdr->scale[2]);
 	}
 	else
 	{
-		glTranslatef(paliashdr->scale_origin[0], paliashdr->scale_origin[1] * fovscale, paliashdr->scale_origin[2] * fovscale);
-		glScalef(paliashdr->scale[0], paliashdr->scale[1] * fovscale, paliashdr->scale[2] * fovscale);
+		glTranslatef(paliashdr->scale_origin[0] * fovscale, paliashdr->scale_origin[1], paliashdr->scale_origin[2]); // woods
+		glScalef(paliashdr->scale[0] * fovscale, paliashdr->scale[1], paliashdr->scale[2]);
 	}
 
 	// end double eyes / woods
