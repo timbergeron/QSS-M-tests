@@ -477,8 +477,6 @@ static void Con_Print (const char *txt)
 	int		c, l;
 	static int	cr;
 	int		mask;
-	int     minutes, minutes_next, seconds, seconds_next, match_time; // #smartteam
-	char			com[35]; // #smartteam
 	qboolean	boundary;
 	static int fixline = 0; // woods #confilter
 
@@ -488,51 +486,6 @@ static void Con_Print (const char *txt)
 
 	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
 	{
-		if (cl.teamgame)  // begin woods smart team comm #smartteam
-		{ 
-			if (cl.match_pause_time)
-				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
-			else
-				match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
-
-			minutes_next = (match_time-33) / 60;
-			seconds_next = (match_time - 33) - 60 * minutes_next;
-			minutes = match_time / 60;
-			seconds = match_time - 60 * minutes;
-			
-			if (!strcmp(txt, "Quad Damage"))
-			{
-				sprintf(com, "say_team got quad at: %02d", seconds);
-				Cmd_ExecuteString(com, src_command);
-				Cmd_ExecuteString(com, src_command);
-				Cmd_ExecuteString(com, src_command);
-			}
-
-			if (!strcmp(txt, "Pentagram of Protection"))
-			{
-				sprintf(com, "say_team got pent at: %02d", seconds);
-				Cmd_ExecuteString(com, src_command);
-				Cmd_ExecuteString(com, src_command);
-				Cmd_ExecuteString(com, src_command);
-			}
-
-			if (!strcmp(txt, "Ring of Shadows"))
-			{
-				sprintf(com, "say_team got eyes at: %02d", seconds);
-				Cmd_ExecuteString(com, src_command);
-				Cmd_ExecuteString(com, src_command);
-				Cmd_ExecuteString(com, src_command);
-			}
-			if (!strcmp(txt, "Quad Damage is wearing off\n") && match_time > 33)
-			{
-					sprintf(com, "say_team next quad at: %02d", seconds_next);
-					Cmd_ExecuteString(com, src_command);
-					Cmd_ExecuteString(com, src_command);
-					Cmd_ExecuteString(com, src_command);
-			}
-
-		}
-
 		if (cl_autodemo.value == 2) // woods, inspired by uns disconnects :(
 			if (!strcmp(txt, "Match unpaused\n") && !cls.demoplayback && !cls.demorecording)
 				Cmd_ExecuteString("record\n", src_command);
