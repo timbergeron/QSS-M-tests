@@ -3190,7 +3190,7 @@ COM_AddGameDirectory -- johnfitz -- modified based on topaz's tutorial
 static void COM_AddGameDirectory (const char *dir)
 {
 	const char *base = com_basedir;
-	int i;
+	int i, j;
 	unsigned int path_id;
 	searchpath_t *searchdir;
 	char pakfile[MAX_OSPATH];
@@ -3198,7 +3198,8 @@ static void COM_AddGameDirectory (const char *dir)
 	qboolean been_here = false;
 	FILE *listing;
 	qboolean found;
-	const char *enginepackname = "quakespasm";
+	const char* enginepacknames[] = { "quakespasm", "qssm" }; // woods
+	int num_enginepacks = sizeof(enginepacknames) / sizeof(enginepacknames[0]); // Number of engine pack names
 
 	if (*dir == '*')
 		dir++;
@@ -3234,73 +3235,78 @@ _add_path:
 	q_strlcpy (searchdir->filename, com_gamedir, sizeof(searchdir->filename));
 	q_strlcpy (searchdir->purename, dir, sizeof(searchdir->purename));
 
-	q_snprintf (pakfile, sizeof(pakfile), "%s/pak.lst", com_gamedir);
-	listing = fopen(pakfile, "rb");
-	if (listing)
+	for (j = 0; j < num_enginepacks; j++) // Iterate over engine pack names
 	{
-		int len;
-		char *buffer;
-		const char *name;
-		fseek(listing, 0, SEEK_END);
-		len = ftell(listing);
-		fseek(listing, 0, SEEK_SET);
-		buffer = Z_Malloc(len+1);
-		fread(buffer, 1, len, listing);
-		buffer[len] = 0;
-		fclose(listing);
+		const char* enginepackname = enginepacknames[j]; // Current engine pack name
 
-		name = buffer;
-		com_modified = true;	//any reordering of paks should be frowned upon
-		while ((name = COM_Parse(name)))
+		q_snprintf (pakfile, sizeof(pakfile), "%s/pak.lst", com_gamedir);
+		listing = fopen(pakfile, "rb");
+		if (listing)
 		{
-			if (!*com_token)
-				continue;
-			if (strchr(com_token, '/') || strchr(com_token, '\\') || strchr(com_token, ':'))
-				continue;
-			q_snprintf (pakfile, sizeof(pakfile), "%s/%s", com_gamedir, com_token);
-			q_snprintf (purename, sizeof(purename), "%s/%s", dir, com_token);
-			COM_AddPackage(searchdir, pakfile, purename);
+			int len;
+			char *buffer;
+			const char *name;
+			fseek(listing, 0, SEEK_END);
+			len = ftell(listing);
+			fseek(listing, 0, SEEK_SET);
+			buffer = Z_Malloc(len+1);
+			fread(buffer, 1, len, listing);
+			buffer[len] = 0;
+			fclose(listing);
 
-			if (path_id == 1 && !fitzmode && !q_strncasecmp(com_token, "pak0.", 5))
-			{	//add this now, to try to retain correct ordering.
-				qboolean old = com_modified;
-				if (been_here) base = host_parms->userdir;
-				q_snprintf (pakfile, sizeof(pakfile), "%s/%s.%s", base, enginepackname, COM_FileGetExtension(com_token));
-				q_snprintf (purename, sizeof(purename), "%s.%s", enginepackname, COM_FileGetExtension(com_token));
+			name = buffer;
+			com_modified = true;	//any reordering of paks should be frowned upon
+			while ((name = COM_Parse(name)))
+			{
+				if (!*com_token)
+					continue;
+				if (strchr(com_token, '/') || strchr(com_token, '\\') || strchr(com_token, ':'))
+					continue;
+				q_snprintf (pakfile, sizeof(pakfile), "%s/%s", com_gamedir, com_token);
+				q_snprintf (purename, sizeof(purename), "%s/%s", dir, com_token);
 				COM_AddPackage(searchdir, pakfile, purename);
-				com_modified = old;
+
+				if (path_id == 1 && !fitzmode && !q_strncasecmp(com_token, "pak0.", 5))
+				{	//add this now, to try to retain correct ordering.
+					qboolean old = com_modified;
+					if (been_here) base = host_parms->userdir;
+					q_snprintf (pakfile, sizeof(pakfile), "%s/%s.%s", base, enginepackname, COM_FileGetExtension(com_token));
+					q_snprintf (purename, sizeof(purename), "%s.%s", enginepackname, COM_FileGetExtension(com_token));
+					COM_AddPackage(searchdir, pakfile, purename);
+					com_modified = old;
+				}
 			}
 		}
-	}
 
-	// add any pak files in the format pak0.pak pak1.pak, ...
-	for (i = 0; ; i++)
-	{
-		found = false;
-
-		q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
-		q_snprintf (purename, sizeof(purename), "%s/pak%i.pak", dir, i);
-		found |= COM_AddPackage(searchdir, pakfile, purename);
-		q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pk3", com_gamedir, i);
-		q_snprintf (purename, sizeof(purename), "%s/pak%i.pk3", dir, i);
-		found |= COM_AddPackage(searchdir, pakfile, purename);
-
-		if (i == 0 && path_id == 1 && !fitzmode)
+		// add any pak files in the format pak0.pak pak1.pak, ...
+		for (i = 0; ; i++)
 		{
-			qboolean old = com_modified;
-			if (been_here) base = host_parms->userdir;
+			found = false;
 
-			q_snprintf (pakfile, sizeof(pakfile), "%s/%s.pak", base, enginepackname);
-			q_snprintf (purename, sizeof(purename), "%s.pak", enginepackname);
-			COM_AddPackage(searchdir, pakfile, purename);
-			q_snprintf (pakfile, sizeof(pakfile), "%s/%s.pk3", base, enginepackname);
-			q_snprintf (purename, sizeof(purename), "%s.pk3", enginepackname);
-			COM_AddPackage(searchdir, pakfile, purename);
+			q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
+			q_snprintf (purename, sizeof(purename), "%s/pak%i.pak", dir, i);
+			found |= COM_AddPackage(searchdir, pakfile, purename);
+			q_snprintf (pakfile, sizeof(pakfile), "%s/pak%i.pk3", com_gamedir, i);
+			q_snprintf (purename, sizeof(purename), "%s/pak%i.pk3", dir, i);
+			found |= COM_AddPackage(searchdir, pakfile, purename);
 
-			com_modified = old;
+			if (i == 0 && path_id == 1 && !fitzmode)
+			{
+				qboolean old = com_modified;
+				if (been_here) base = host_parms->userdir;
+
+				q_snprintf (pakfile, sizeof(pakfile), "%s/%s.pak", base, enginepackname);
+				q_snprintf (purename, sizeof(purename), "%s.pak", enginepackname);
+				COM_AddPackage(searchdir, pakfile, purename);
+				q_snprintf (pakfile, sizeof(pakfile), "%s/%s.pk3", base, enginepackname);
+				q_snprintf (purename, sizeof(purename), "%s.pk3", enginepackname);
+				COM_AddPackage(searchdir, pakfile, purename);
+
+				com_modified = old;
+			}
+			if (!found)
+				break;
 		}
-		if (!found)
-			break;
 	}
 
 	i = COM_CheckParm ("-nowildpaks");
