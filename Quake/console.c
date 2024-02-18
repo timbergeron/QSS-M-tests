@@ -1535,6 +1535,26 @@ static qboolean CompleteScreenshotList (const char* partial, void* unused) // wo
 	return true;
 }
 
+static qboolean CompleteWriteCfg (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	if (Cmd_Argc() != 2)
+		return false;
+	
+	char str[30];
+	time_t systime = time(0);
+	struct tm loct = *localtime(&systime);
+
+
+	strftime(str, 30, "config-%m-%d-%Y-%H%M%S.cfg", &loct);
+	
+	Con_AddToTabList (str, partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList ("config.cfg", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList ("qssm.cfg", partial, NULL, NULL); // #demolistsort add arg
+
+
+	return true;
+}
+
 qboolean CompleteImageList (const char* partial, void* unused); // woods
 qboolean CompleteSoundList (const char* partial, void* unused); // woods
 
@@ -1578,6 +1598,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "play2",					CompleteSoundList,		NULL },
 	{ "playvol",				CompleteSoundList,		NULL },
 	{ "screenshot",				CompleteScreenshotList,	NULL },
+	{ "writeconfig",			CompleteWriteCfg,		NULL },
 };
 
 static const int num_arg_completion_types =
