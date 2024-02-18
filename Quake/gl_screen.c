@@ -928,46 +928,58 @@ SCR_DrawClock -- johnfitz
 */
 void SCR_DrawClock (void)
 {
-	char	str[12];
+	char	str[30];
 	int x,y;
 
 	if (scr_viewsize.value >= 130)
 		return;
 
-	if (scr_clock.value == 1)
-	{
-		int minutes, seconds;
+	time_t systime = time(0);
+	struct tm* loct = localtime(&systime);
 
-		minutes = cl.time / 60;
-		seconds = ((int)cl.time)%60;
-
-		sprintf (str,"%i:%i%i", minutes, seconds/10, seconds%10);
+	if (loct == NULL)
+		strcpy(str, "time error");
+	else {
+		switch ((int)scr_clock.value)
+		{
+		case 1:
+		{
+			int minutes = (int)cl.time / 60;
+			int seconds = (int)cl.time % 60;
+			sprintf(str, "%02i:%02i", minutes, seconds);
+			break;
+		}
+		case 2:
+				strftime(str, sizeof(str), "%I:%M %p", loct);
+			break;
+		case 3:
+				strftime(str, sizeof(str), "%X", loct);
+			break;
+		case 4:
+			strftime(str, sizeof(str), "%m/%d/%Y", loct);
+			break;
+		case 5:
+			strftime(str, sizeof(str), "%m/%d/%Y %I:%M %p", loct);
+			break;
+		case 6:
+			strftime(str, sizeof(str), "%m/%d/%Y %X", loct);
+			break;
+		case 7:
+			if (sb_showscores)
+				strftime(str, sizeof(str), "%m/%d/%y", loct);
+			else
+				strftime(str, sizeof(str), "%I:%M %p", loct);
+			break;
+		case 8:
+			if (sb_showscores)
+				strftime(str, sizeof(str), "%m/%d/%y", loct);
+			else
+				strftime(str, sizeof(str), "%X", loct);
+			break;
+		default:
+			return;
+		}
 	}
-
-	else if (scr_clock.value == 2)
-	{
-		time_t systime = time(0);
-		struct tm loct =*localtime(&systime);
-
-		strftime(str, 12, "%I:%M %p", &loct);
-	}
-
-	else if (scr_clock.value == 3)
-	{
-		time_t systime = time(0);
-		struct tm loct =*localtime(&systime);
-
-		strftime(str, 12, "%X", &loct);
-	}
-	else if (scr_clock.value == 4)
-	{
-		time_t systime = time(0);
-		struct tm loct = *localtime(&systime);
-
-		strftime(str, 12, "%m/%d/%Y", &loct);
-	}
-	else
-		return;
 
 	//draw it
 
