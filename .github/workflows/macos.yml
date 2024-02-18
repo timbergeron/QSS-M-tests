@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: macOS
       if: runner.os == 'macOS'
@@ -20,7 +20,7 @@ jobs:
           ./build-macos.sh
 
     - name: Upload macOS artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: runner.os == 'macOS'
       with:
         name: QSS-M
