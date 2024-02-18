@@ -438,6 +438,8 @@ void ExecList_Rebuild (void); // woods #execlist
 void MusicList_Rebuild (void); // woods #musiclist
 void FileList_Add_MapDesc (const char* levelName); // woods #mapdescriptions
 
+void M_CheckMods (void); // woods #modsmenu (iw)
+
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage
 extern cvar_t	cl_damagehuecolor;  // woods #damage

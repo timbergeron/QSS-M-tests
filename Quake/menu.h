@@ -36,6 +36,7 @@ enum m_state_e {
 	m_video,
 	m_extras,
 	m_keys,
+	m_mods, // woods #modsmenu (iw)
 	m_help,
 	m_quit,
 	m_lanconfig,
@@ -77,6 +78,7 @@ void M_Draw (void);
 void M_DrawCharacter (int cx, int line, int num);
 
 void M_DrawPic (int x, int y, qpic_t *pic);
+void M_DrawSubpic (int x, int y, qpic_t* pic, int left, int top, int width, int height); // woods #modsmenu (iw)
 void M_DrawTransPic (int x, int y, qpic_t *pic);
 void M_DrawCheckbox (int x, int y, int on);
 

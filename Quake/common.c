@@ -3453,6 +3453,7 @@ static void COM_Game_f (void)
 		FolderList_Rebuild (); // woods #folderlist
 		ExecList_Rebuild (); // woods #execlist
 		MusicList_Rebuild (); // woods #musiclist
+		M_CheckMods (); // woods #modsmenu (iw)
 
 		Con_Printf("\"game\" changed to \"%s\"\n", COM_GetGameNames(true));
 
@@ -3960,6 +3961,24 @@ unsigned COM_HashString (const char *str)
 	while (*str)
 	{
 		hash ^= *str++;
+		hash *= 0x01000193u;
+	}
+	return hash;
+}
+
+/*
+================
+COM_HashBlock --  woods #modsmenu (iw)
+Computes the FNV-1a hash of a memory block
+================
+*/
+unsigned COM_HashBlock(const void* data, size_t size)
+{
+	const byte* ptr = (const byte*)data;
+	unsigned hash = 0x811c9dc5u;
+	while (size--)
+	{
+		hash ^= *ptr++;
 		hash *= 0x01000193u;
 	}
 	return hash;

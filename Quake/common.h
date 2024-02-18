@@ -307,6 +307,7 @@ char* COM_TintSubstring(const char* in, const char* substr, char* out, size_t ou
 char* COM_TintString(const char* in, char* out, size_t outsize); // woods (ironwail)
 
 unsigned COM_HashString (const char *str);
+unsigned COM_HashBlock (const void* data, size_t size); // woods #modsmenu (iw)
 
 // localization support for 2021 rerelease version:
 void LOC_Init (void);
