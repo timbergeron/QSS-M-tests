@@ -425,7 +425,6 @@ void ServerList_Init(void); // woods #serverlist
 void FolderList_Init (void); // woods #folderlist
 void SkyList_Init (void); // woods #folderlist
 void MusicList_Init (void); // woods #musiclist
-void DescMaps_Init (void); // woods #mapdescriptions
 
 
 void ExtraMaps_NewGame (void);
@@ -437,6 +436,7 @@ void ServerList_Rebuild (void); // woods #serverlist
 void FolderList_Rebuild (void); // woods #folderlist
 void ExecList_Rebuild (void); // woods #execlist
 void MusicList_Rebuild (void); // woods #musiclist
+void FileList_Add_MapDesc (const char* levelName); // woods #mapdescriptions
 
 extern cvar_t	gl_lightning_alpha; // woods #lightalpha
 extern cvar_t	cl_damagehue;  // woods #damage

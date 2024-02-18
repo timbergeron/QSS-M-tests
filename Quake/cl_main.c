@@ -1672,6 +1672,7 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 		char mapname[MAX_QPATH];
 		COM_StripExtension(COM_SkipPath(filename), mapname, sizeof(mapname));
 		FileList_Add (mapname, NULL, &extralevels);
+		FileList_Add_MapDesc (mapname); // #mapdescriptions
 
 	}
 
@@ -1725,6 +1726,7 @@ void CL_Download_Finished_f(void)
 				char mapname[MAX_QPATH];
 				COM_StripExtension(COM_SkipPath(cls.download.current), mapname, sizeof(mapname));
 				FileList_Add (mapname, NULL, &extralevels);
+				FileList_Add_MapDesc (mapname); // #mapdescriptions
 			}
 
 			Con_SafePrintf("Downloaded %s: %u bytes\n", cls.download.current, cls.download.size);

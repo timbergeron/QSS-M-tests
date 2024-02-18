@@ -3084,7 +3084,7 @@ qboolean Mod_LoadMapDescription(char* desc, size_t maxchars, const char* map)
 			is_classname = i != 0 && !strcmp(com_token, "classname");
 
 			// parse value
-			data = COM_Parse(data);
+			data = COM_ParseEx(data, CPE_ALLOWTRUNC);
 			if (!data)
 				return ret;
 
@@ -3098,9 +3098,9 @@ qboolean Mod_LoadMapDescription(char* desc, size_t maxchars, const char* map)
 						*ch = dequake[*ch];
 					
 					char c = com_token[j] & 0x7f;
-					// replace \n with a space
-
-					if (c == '\\' && com_token[j + 1] == 'n')
+					if (c == '\n' || c == '\r') // replace newlines with spaces
+						c = ' ';
+					else if (c == '\\' && com_token[j + 1] == 'n') // replace '\\' followed by 'n' with space
 					{
 						c = ' ';
 						j++;

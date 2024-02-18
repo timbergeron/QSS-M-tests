@@ -1806,6 +1806,105 @@ char* COM_TintString(const char* in, char* out, size_t outsize)
 }
 
 /*
+==============
+COM_ParseEx --  woods (ironwail) #mapdescriptions
+
+Parse a token out of a string
+
+The mode argument controls how overflow is handled:
+- CPE_NOTRUNC:		return NULL (abort parsing)
+- CPE_ALLOWTRUNC:	truncate com_token (ignore the extra characters in this token)
+==============
+*/
+const char* COM_ParseEx (const char* data, cpe_mode mode)
+{
+	int		c;
+	int		len;
+
+	len = 0;
+	com_token[0] = 0;
+
+	if (!data)
+		return NULL;
+
+	// skip whitespace
+skipwhite:
+	while ((c = *data) <= ' ')
+	{
+		if (c == 0)
+			return NULL;	// end of file
+		data++;
+	}
+
+	// skip // comments
+	if (c == '/' && data[1] == '/')
+	{
+		while (*data && *data != '\n')
+			data++;
+		goto skipwhite;
+	}
+
+	// skip /*..*/ comments
+	if (c == '/' && data[1] == '*')
+	{
+		data += 2;
+		while (*data && !(*data == '*' && data[1] == '/'))
+			data++;
+		if (*data)
+			data += 2;
+		goto skipwhite;
+	}
+
+	// handle quoted strings specially
+	if (c == '\"')
+	{
+		data++;
+		while (1)
+		{
+			if ((c = *data) != 0)
+				++data;
+			if (c == '\"' || !c)
+			{
+				com_token[len] = 0;
+				return data;
+			}
+			if (len < Q_COUNTOF(com_token) - 1)
+				com_token[len++] = c;
+			else if (mode == CPE_NOTRUNC)
+				return NULL;
+		}
+	}
+
+	// parse single characters
+	if (c == '{' || c == '}' || c == '(' || c == ')' || c == '\'' || c == ':')
+	{
+		if (len < Q_COUNTOF(com_token) - 1)
+			com_token[len++] = c;
+		else if (mode == CPE_NOTRUNC)
+			return NULL;
+		com_token[len] = 0;
+		return data + 1;
+	}
+
+	// parse a regular word
+	do
+	{
+		if (len < Q_COUNTOF(com_token) - 1)
+			com_token[len++] = c;
+		else if (mode == CPE_NOTRUNC)
+			return NULL;
+		data++;
+		c = *data;
+		/* commented out the check for ':' so that ip:port works */
+		if (c == '{' || c == '}' || c == '(' || c == ')' || c == '\''/* || c == ':' */)
+			break;
+	} while (c > 32);
+
+	com_token[len] = 0;
+	return data;
+}
+
+/*
 spike -- this function simply says whether a filename is acceptable for downloading (used by both client+server)
 */
 qboolean COM_DownloadNameOkay(const char *filename)

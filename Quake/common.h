@@ -261,8 +261,14 @@ void Write_Log (const char* log_message, const char* filename); // woods #server
 extern	char		com_token[1024];
 extern	qboolean	com_eof;
 
-const char *COM_Parse (const char *data);
+typedef enum // woods (ironwail) #mapdescriptions
+{
+	CPE_NOTRUNC,					// return parse error in case of overflow
+	CPE_ALLOWTRUNC,					// truncate com_token in case of overflow
+} cpe_mode;
 
+const char *COM_Parse (const char *data);
+const char *COM_ParseEx (const char* data, cpe_mode mode); // woods (ironwail) #mapdescriptions
 
 extern	int		com_argc;
 extern	char	**com_argv;

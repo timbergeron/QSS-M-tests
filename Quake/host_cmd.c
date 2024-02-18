@@ -222,60 +222,80 @@ void ExtraMaps_NewGame (void)
 // woods -- worldspawn map description support #mapdescriptions
 //==============================================================================
 
+#define	MAXDESC	70
+
 filelist_item_t* levelwithdesc;
 
-static void Host_Maps_Init_f (void) // add worldspawn map description
+int max_word_length = 0;
+qboolean descriptionsParsed = false;
+
+void UpdateMaxWordLength (const char* word)
 {
-	int i;
-	filelist_item_t *level;
+	int word_length = strlen(word);
+	if (word_length > max_word_length) 
+		max_word_length = word_length;
+}
 
-	int max_word_length = 0;
+void ExtraMaps_ParseDescriptions (void)
+{
+	filelist_item_t* level;
 
-	for (level = extralevels, i = 0; level; level = level->next, i++) // find the max map name length
+	for (level = extralevels; level; level = level->next) 
+		UpdateMaxWordLength(level->name);
+
+	for (level = extralevels; level; level = level->next)
 	{
+		char mapdesc[MAXDESC];
+		Mod_LoadMapDescription(mapdesc, sizeof(mapdesc), level->name);
+
 		int word_length = strlen(level->name);
-		if (word_length > max_word_length)
-		{
-			max_word_length = word_length;
-		}
-	}
+		int num_spaces = (max_word_length + 2) - word_length;
+		if (num_spaces < 1)
+			num_spaces = 1;
 
-	if (levelwithdesc == NULL) // only run once
-	{
-		char* space_str = NULL;
+		char* space_str = malloc((num_spaces + 1) * sizeof(char));
+		memset(space_str, ' ', num_spaces);
+		space_str[num_spaces] = '\0';
 
-		for (level = extralevels, i = 0; level; level = level->next, i++)
-		{
-			char mapdesc[70];
-			Mod_LoadMapDescription(mapdesc, sizeof(mapdesc), level->name);
+		char combined[MAX_CHAT_SIZE_EX - 1];
+		q_snprintf(combined, sizeof(combined), "%s%s%s", level->name, space_str, mapdesc);
+		FileList_Add (combined, NULL, &levelwithdesc);
 
-			int word_length = strlen(level->name);
-			int num_spaces = (max_word_length + 2) - word_length;
-
-			if (num_spaces < 1) {
-				num_spaces = 1;
-			}
-
-			if (space_str == NULL) // allocate the space string once
-				space_str = malloc((num_spaces + 1) * sizeof(char));
-			else if (num_spaces + 1 > strlen(space_str))
-				space_str = realloc(space_str, (num_spaces + 1) * sizeof(char));
-
-			memset(space_str, ' ', num_spaces);
-			space_str[num_spaces] = '\0';
-
-			char combined[MAX_CHAT_SIZE_EX];
-
-			snprintf(combined, sizeof(combined), "%s%s%s", level->name, space_str, mapdesc);
-
-			FileList_Add(combined, NULL, &levelwithdesc); // woods #demolistsort add arg
-		}
 		free(space_str);
 	}
+
+	descriptionsParsed = true;
+}
+
+void FileList_Add_MapDesc (const char* levelName) // for a map download
+{
+	UpdateMaxWordLength (levelName);
+
+	char mapdesc[MAXDESC];
+	Mod_LoadMapDescription (mapdesc, sizeof(mapdesc), levelName);
+
+	int word_length = strlen(levelName);
+	int num_spaces = (max_word_length + 2) - word_length;
+	if (num_spaces < 1)
+		num_spaces = 1;
+
+	char* space_str = malloc ((num_spaces + 1) * sizeof(char));
+	memset (space_str, ' ', num_spaces);
+	space_str[num_spaces] = '\0';
+
+	char combined[MAX_CHAT_SIZE_EX];
+	q_snprintf (combined, sizeof(combined), "%s%s%s", levelName, space_str, mapdesc);
+
+	FileList_Add (combined, NULL, &levelwithdesc);
+
+	free (space_str);
 }
 
 static void Host_Maps_f (void) // prints worldspawn map description
 {
+	if (!descriptionsParsed)
+		ExtraMaps_ParseDescriptions ();
+
 	int i;
 	filelist_item_t	*level;
 
@@ -325,33 +345,15 @@ static void Host_Maps_f (void) // prints worldspawn map description
 	}
 }
 
-static int MapDescriptionThreadFunction (void* data)
-{
-	Host_Maps_Init_f ();
-	return 0;
-}
-
-void DescMaps_Init (void)
-{
-	SDL_Thread* thread = SDL_CreateThread (MapDescriptionThreadFunction, "HostMapsThread", NULL);
-	if (thread != NULL) 
-	{
-		int threadReturnValue;
-		SDL_WaitThread(thread, &threadReturnValue); // Wait for the thread to finish
-	}
-	else 
-		Con_DPrintf ("SDL_CreateThread failed: %s\n", SDL_GetError());
-}
-
 static void DescMaps_Clear (void)
 {
 	FileList_Clear (&levelwithdesc);
+	descriptionsParsed = false;
 }
 
 void DescMaps_NewGame (void)
 {
 	DescMaps_Clear ();
-	Host_Maps_Init_f ();
 }
 
 //==============================================================================
