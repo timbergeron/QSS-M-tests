@@ -1107,6 +1107,7 @@ R_DrawWorld -- johnfitz -- rewritten
 void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 {
 	float entalpha;
+	char mapname[MAX_QPATH]; // woods #textureless
 	
 	if (ent != NULL)
 		entalpha = ENTALPHA_DECODE(ent->alpha);
@@ -1131,18 +1132,9 @@ void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 		goto fullbrights;
 	}
 
-	if (strcmp(model->name, "maps/b_batt0.bsp") && // woods, show textures for bmodels #textureless
-		strcmp(model->name, "maps/b_batt1.bsp") &&
-		strcmp(model->name, "maps/b_bh10.bsp") &&
-		strcmp(model->name, "maps/b_bh100.bsp") &&
-		strcmp(model->name, "maps/b_bh25.bsp") &&
-		strcmp(model->name, "maps/b_explob.bsp") &&
-		strcmp(model->name, "maps/b_nail0.bsp") &&
-		strcmp(model->name, "maps/b_nail1.bsp") &&
-		strcmp(model->name, "maps/b_rock0.bsp") &&
-		strcmp(model->name, "maps/b_rock1.bsp") &&
-		strcmp(model->name, "maps/b_shell0.bsp") &&
-		strcmp(model->name, "maps/b_shell1.bsp"))
+	COM_FileBase (model->name, mapname, sizeof(mapname)); // woods, show textures for bmodels #textureless
+
+	if (!isSpecialMap(mapname))
 
 		if (r_lightmap_cheatsafe)
 		{

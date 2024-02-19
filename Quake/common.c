@@ -4419,3 +4419,22 @@ void Write_Log (const char* log_message, const char* filename)
 
 	fclose(log_file);
 }
+
+qboolean isSpecialMap (const char* name) // woods for bmodels
+{
+	const char* specialMaps[] = 
+	{
+		"b_batt0", "b_batt1", "b_bh10", "b_bh100", "b_bh25",
+		"b_explob", "b_nail0", "b_nail1", "b_rock0", "b_rock1",
+		"b_shell0", "b_shell1", "b_lnail0", "b_lnail1", "b_mrock0", 
+		"b_mrock1", "b_plas0", "b_plas1"
+	};
+	int numSpecialMaps = sizeof(specialMaps) / sizeof(specialMaps[0]);
+
+	for (int i = 0; i < numSpecialMaps; ++i)
+	{
+		if (!strcmp(name, specialMaps[i])) 
+			return true;
+	}
+	return false;
+}

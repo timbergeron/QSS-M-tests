@@ -1231,6 +1231,7 @@ TexMgr_LoadImage32 -- handles 32bit source data
 static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 {
 	int	internalformat,	miplevel, mipwidth, mipheight, picmip;
+	char mapname[MAX_QPATH]; // woods #gl_max_size
 
 	//do this before any rescaling
 	if (glt->flags & TEXPREF_PREMULTIPLY)
@@ -1250,21 +1251,9 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 
 	if (gl_max_size.value) // woods #gl_max_size only apply to map bsp wall/floors
 	{ 
-		if (!strstr(glt->name, "maps") ||
-		   	(strstr(glt->name, "maps/b_batt0.bsp") ||
-			 strstr(glt->name, "maps/b_batt1.bsp") ||
-			 strstr(glt->name, "maps/b_bh10.bsp") ||
-			 strstr(glt->name, "maps/b_bh100.bsp") ||
-			 strstr(glt->name, "maps/b_bh25.bsp") ||
-			 strstr(glt->name, "maps/b_explob.bsp") ||
-			 strstr(glt->name, "maps/b_nail0.bsp") ||
-			 strstr(glt->name, "maps/b_nail1.bsp") ||
-			 strstr(glt->name, "maps/b_rock0.bsp") ||
-			 strstr(glt->name, "maps/b_rock1.bsp") ||
-			 strstr(glt->name, "maps/b_shell0.bsp") ||
-			 strstr(glt->name, "maps/b_shell1.bsp")) ||
+		COM_FileBase (glt->name, mapname, sizeof(mapname));
 
-			strstr(glt->name, "*") || strstr(glt->name, "sky"))
+		if (!strstr(glt->name, "maps") || isSpecialMap(mapname) || strstr(glt->name, "*") || strstr(glt->name, "sky"))
 		{
 			mipwidth = TexMgr_SafeTextureSize2 (glt->width >> picmip);
 			mipheight = TexMgr_SafeTextureSize2 (glt->height >> picmip);

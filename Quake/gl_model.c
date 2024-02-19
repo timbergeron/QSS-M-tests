@@ -912,18 +912,7 @@ static void Mod_LoadTextures (lump_t *l)
 				{
 					qboolean brushbsp;
 
-					if (!strcmp(mapname, "b_batt0") || // woods, show textures for bmodels #textureless
-						!strcmp(mapname, "b_batt1") ||
-						!strcmp(mapname, "b_bh10") ||
-						!strcmp(mapname, "b_bh100") ||
-						!strcmp(mapname, "b_bh25") ||
-						!strcmp(mapname, "b_explob") ||
-						!strcmp(mapname, "b_nail0") ||
-						!strcmp(mapname, "b_nail1") ||
-						!strcmp(mapname, "b_rock0") ||
-						!strcmp(mapname, "b_rock1") ||
-						!strcmp(mapname, "b_shell0") ||
-						!strcmp(mapname, "b_shell1"))
+					if (isSpecialMap) // woods, show textures for bmodels #textureless
 						brushbsp = true;
 					else
 						brushbsp = false;
