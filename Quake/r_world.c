@@ -711,7 +711,7 @@ void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain
 	qboolean	bound;
 	float entalpha;
 
-	if (r_drawflat_cheatsafe/* || r_lightmap_cheatsafe*/) // ericw -- !r_drawworld_cheatsafe check moved to R_DrawWorld_Water () // woods #textureless to keep water
+	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe) // ericw -- !r_drawworld_cheatsafe check moved to R_DrawWorld_Water ()
 		return;
 
 	if (gl_glsl_water_able)
@@ -1107,7 +1107,6 @@ R_DrawWorld -- johnfitz -- rewritten
 void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 {
 	float entalpha;
-	char mapname[MAX_QPATH]; // woods #textureless
 	
 	if (ent != NULL)
 		entalpha = ENTALPHA_DECODE(ent->alpha);
@@ -1132,28 +1131,22 @@ void R_DrawTextureChains (qmodel_t *model, entity_t *ent, texchain_t chain)
 		goto fullbrights;
 	}
 
-	COM_FileBase (model->name, mapname, sizeof(mapname)); // woods, show textures for bmodels #textureless
-
-	if (!isSpecialMap(mapname))
-
-		if (r_lightmap_cheatsafe)
+	if (r_lightmap_cheatsafe)
+	{
+		if (!gl_overbright.value)
 		{
-			if (!gl_overbright.value)
-			{
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-				glColor3f(0.5, 0.5, 0.5);
-			}
-			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // woods #textureless make white, more grey and less white
-			glColor3f(0.4, 0.4, 0.4); // woods #textureless make white, more grey
-			R_DrawLightmapChains ();
-			if (!gl_overbright.value)
-			{
-				glColor3f(1,1,1);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-			}
-			//R_DrawTextureChains_White (model, chain); // woods #textureless to keep sky and water
-			return;
+			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+			glColor3f(0.5, 0.5, 0.5);
 		}
+		R_DrawLightmapChains ();
+		if (!gl_overbright.value)
+		{
+			glColor3f(1,1,1);
+			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+		}
+		R_DrawTextureChains_White (model, chain);
+		return;
+	}
 
 	R_BeginTransparentDrawing (entalpha);
 

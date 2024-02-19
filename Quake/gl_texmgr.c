@@ -828,7 +828,7 @@ TexMgr_SafeTextureSize -- return a size with hardware and user prefs in mind
 */
 int TexMgr_SafeTextureSize (int s)
 {
-	int p = (int)gl_max_size.value;
+	int p = abs((int)gl_max_size.value); // woods add abs
 	if (!gl_texture_NPOT)
 		s = TexMgr_Pad(s);
 	if (p > 0) {
@@ -1260,6 +1260,18 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 		}
 		else
 		{ 
+			if (gl_max_size.value < 0) // woods - grayscale for negative values
+			{ 
+				for (int i = 0; i < (glt->width * glt->height); i++)
+				{
+					unsigned char* pixel = (unsigned char*)&data[i];
+					// Calculate luminance
+					float grey = 0.3f * pixel[0] + 0.6f * pixel[1] + 0.1f * pixel[2];
+					// Set RGB to luminance (maintain alpha)
+					pixel[0] = pixel[1] = pixel[2] = (unsigned char)grey;
+				}
+			}
+			
 			mipwidth = TexMgr_SafeTextureSize (glt->width >> picmip);
 			mipheight = TexMgr_SafeTextureSize (glt->height >> picmip);
 		}

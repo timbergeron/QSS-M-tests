@@ -662,7 +662,7 @@ void R_SetupView (void)
 	//johnfitz -- cheat-protect some draw modes
 	r_drawflat_cheatsafe = r_fullbright_cheatsafe = r_lightmap_cheatsafe = false;
 	r_drawworld_cheatsafe = r_refdef.drawworld;
-	if (cl.maxclients >= 1 && r_refdef.drawworld) // woods #textureless > 1 up to 16 for online play
+	if (cl.maxclients == 1 && r_refdef.drawworld)
 	{
 		if (!r_drawworld.value) r_drawworld_cheatsafe = false;
 
@@ -1434,7 +1434,7 @@ void R_DrawShadows (void)
 {
 	int i;
 
-	if (!r_shadows.value || !r_drawentities.value || r_drawflat_cheatsafe/* || r_lightmap_cheatsafe*/) // woods #textureless keep shadows
+	if (!r_shadows.value || !r_drawentities.value || r_drawflat_cheatsafe || r_lightmap_cheatsafe)
 		return;
 
 	// Use stencil buffer to prevent self-intersecting shadows, from Baker (MarkV)
@@ -1853,7 +1853,7 @@ void R_RenderView (void)
 	//Spike: flag whether the skyroom was actually visible, so we don't needlessly draw it when its not (1 frame's lag, hopefully not too noticable)
 	if (r_refdef.drawworld)
 	{
-		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe/* || r_lightmap_cheatsafe*/)  // woods #textureless to keep sky
+		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe)
 			skyroom_visible = false;	//don't do skyrooms when the view is in the void, for framerate reasons while debugging.
 		else
 			skyroom_visible = R_SkyroomWasVisible();
