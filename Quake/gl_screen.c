@@ -2560,7 +2560,9 @@ void SCR_ScreenShot_f (void)
 	if (ok)
 	{ 
 		Con_Printf ("Wrote %s\n", checkname);
-		S_LocalSound("player/tornoff2.wav"); // woods add sound to screenshot
+
+		const char* soundFile = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
+		S_LocalSound(soundFile); // woods add sound to screenshot
 	}
 	else
 		Con_Printf ("SCR_ScreenShot_f: Couldn't create %s\n", imagename);

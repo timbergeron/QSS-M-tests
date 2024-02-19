@@ -1219,7 +1219,8 @@ void M_Setup_Key (int k)
 				SDL_SetClipboardText (lastColorSelected);
 			else
 				SDL_SetClipboardText (CL_PLColours_ToString (setup_bottom));
-			S_LocalSound ("misc/menu2.wav");
+			const char* soundFile = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
+			S_LocalSound(soundFile); // woods add sound to screenshot
 		}
 		break;
 

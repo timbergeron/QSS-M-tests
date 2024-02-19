@@ -248,6 +248,8 @@ void Con_Copy_f(void)
 #if defined(USE_SDL2)
 	SDL_SetClipboardText(f);
 #endif
+	const char* soundFile = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
+	S_LocalSound(soundFile); // woods add sound to screenshot
 }
 
 /*
