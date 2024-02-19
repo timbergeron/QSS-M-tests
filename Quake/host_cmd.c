@@ -195,9 +195,10 @@ void ExtraMaps_Init (void)
 				{
 					if (!strcmp(COM_FileGetExtension(pak->files[i].name), "bsp"))
 					{
-						if (pak->files[i].filelen > 32*1024)
-						{ // don't list files under 32k (ammo boxes etc)
-							COM_StripExtension(pak->files[i].name + 5, mapname, sizeof(mapname));
+						COM_StripExtension(pak->files[i].name + 5, mapname, sizeof(mapname));
+
+						if (pak->files[i].filelen > 32*1024 && !isSpecialMap(mapname))
+						{ // don't list files under 32k (ammo boxes etc) or certain names (ex. authmdl are larger) -- woods
 							ExtraMaps_Add (mapname);
 						}
 					}
