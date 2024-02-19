@@ -910,12 +910,7 @@ static void Mod_LoadTextures (lump_t *l)
 
 				if (gl_load24bit.value == 2) // woods #load24bit2
 				{
-					qboolean brushbsp;
-
-					if (isSpecialMap) // woods, show textures for bmodels #textureless
-						brushbsp = true;
-					else
-						brushbsp = false;
+					qboolean brushbsp = isSpecialMap(mapname);
 
 					if (brushbsp)
 						data = Image_LoadImage(filename, &fwidth, &fheight, &rfmt, &malloced);
