@@ -108,6 +108,7 @@
 		66991C0A1DBAB4A600C373C0 /* Quakespasm.html in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C041DBAB47000C373C0 /* Quakespasm.html */; };
 		66991C0B1DBAB4A600C373C0 /* Quakespasm.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 66991C051DBAB47000C373C0 /* Quakespasm.txt */; };
 		850566E12A6071F200C2FCA3 /* libxmp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 850566E02A6071F200C2FCA3 /* libxmp.a */; };
+		8558644E2B8421810016F8F6 /* qssm.pak in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8558644D2B8421770016F8F6 /* qssm.pak */; };
 		85AC9B2C2A70521E00228EF3 /* pmove.c in Sources */ = {isa = PBXBuildFile; fileRef = 85AC9B2A2A70521E00228EF3 /* pmove.c */; };
 		85AC9B2D2A70521E00228EF3 /* pmovetst.c in Sources */ = {isa = PBXBuildFile; fileRef = 85AC9B2B2A70521E00228EF3 /* pmovetst.c */; };
 		932AE8F92944103F0062F917 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F3294410200062F917 /* libopus.a */; };
@@ -143,6 +144,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 16;
 			files = (
+				8558644E2B8421810016F8F6 /* qssm.pak in CopyFiles */,
 				668A0137277D80B0009D9427 /* Quakespasm-Spiked.txt in CopyFiles */,
 				66991C071DBAB4A600C373C0 /* quakespasm.pak in CopyFiles */,
 				66991C081DBAB4A600C373C0 /* LICENSE.txt in CopyFiles */,
@@ -346,6 +348,7 @@
 		66991C061DBAB48000C373C0 /* quakespasm.pak */ = {isa = PBXFileReference; lastKnownFileType = file; name = quakespasm.pak; path = ../Quake/quakespasm.pak; sourceTree = "<group>"; };
 		850566DF2A6071DD00C2FCA3 /* libxmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libxmp.a; path = libs_universal/libxmp.a; sourceTree = "<group>"; };
 		850566E02A6071F200C2FCA3 /* libxmp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libxmp.a; path = libs_universal/libxmp.a; sourceTree = "<group>"; };
+		8558644D2B8421770016F8F6 /* qssm.pak */ = {isa = PBXFileReference; lastKnownFileType = file; name = qssm.pak; path = ../Quake/qssm.pak; sourceTree = "<group>"; };
 		85AC9B2A2A70521E00228EF3 /* pmove.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmove.c; path = ../Quake/pmove.c; sourceTree = "<group>"; };
 		85AC9B2B2A70521E00228EF3 /* pmovetst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmovetst.c; path = ../Quake/pmovetst.c; sourceTree = "<group>"; };
 		85AC9B2E2A70522300228EF3 /* pmove.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = pmove.h; path = ../Quake/pmove.h; sourceTree = "<group>"; };
@@ -763,6 +766,7 @@
 			isa = PBXGroup;
 			children = (
 				66991C061DBAB48000C373C0 /* quakespasm.pak */,
+				8558644D2B8421770016F8F6 /* qssm.pak */,
 				66991C021DBAB47000C373C0 /* LICENSE.txt */,
 				66991C031DBAB47000C373C0 /* Quakespasm-Music.txt */,
 				668A0133277D8068009D9427 /* Quakespasm-Spiked.txt */,
@@ -847,7 +851,6 @@
 				664D989119CF6B78000D395C /* common.c in Sources */,
 				664D989219CF6B78000D395C /* console.c in Sources */,
 				664D989319CF6B78000D395C /* crc.c in Sources */,
-				CE9FFE482AF78E4B00E53854 /* pmove.c in Sources */,
 				664D989419CF6B78000D395C /* cvar.c in Sources */,
 				664D989519CF6B78000D395C /* host_cmd.c in Sources */,
 				664D989619CF6B78000D395C /* host.c in Sources */,
@@ -921,7 +924,6 @@
 				664D98D319CF6B78000D395C /* snd_vorbis.c in Sources */,
 				664D98D419CF6B78000D395C /* snd_wave.c in Sources */,
 				664D98D519CF6B78000D395C /* snd_mp3.c in Sources */,
-				CE9FFE492AF78E4B00E53854 /* pmovetst.c in Sources */,
 				664D98D619CF6B78000D395C /* snd_mikmod.c in Sources */,
 				668A0113277D0BE8009D9427 /* mdfour.c in Sources */,
 				85AC9B2C2A70521E00228EF3 /* pmove.c in Sources */,
@@ -961,6 +963,7 @@
 		664D98F719CF6B78000D395C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1005,6 +1008,7 @@
 					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx-11.0/lib",
 					"$(PROJECT_DIR)/codecs/lib",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_LDFLAGS = "-lcurl";
 				PRODUCT_NAME = "QSS-M";
 				"SDKROOT[arch=arm64]" = macosx;
@@ -1017,6 +1021,7 @@
 		664D98F819CF6B78000D395C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1039,6 +1044,7 @@
 					SDL_FRAMEWORK,
 					USE_ZLIB,
 				);
+				"GCC_WARN_64_TO_32_BIT_CONVERSION[arch=*64]" = NO;
 				HEADER_SEARCH_PATHS = (
 					codecs/include,
 					"vcpkg/installed/x64-osx-10.9/include",
@@ -1058,6 +1064,7 @@
 					"$(PROJECT_DIR)/vcpkg/installed/arm64-osx-11.0/lib",
 					"$(PROJECT_DIR)/codecs/lib",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_CFLAGS = "";
 				"OTHER_CFLAGS[arch=i386]" = (
 					"-arch",
