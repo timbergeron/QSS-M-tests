@@ -3687,6 +3687,8 @@ void PScript_ClearParticles (void)
 	CL_ClearTrailStates();
 }
 
+int warningCount = 0;
+
 static qboolean P_LoadParticleSet(char *name, qboolean implicit, qboolean showwarning)
 {
 	char *file;
@@ -3743,8 +3745,11 @@ static qboolean P_LoadParticleSet(char *name, qboolean implicit, qboolean showwa
 			return true;
 		}
 #endif
-		if (showwarning)
+		if (showwarning && warningCount != 1)
+		{
+			warningCount = 1;
 			Con_Printf(CON_WARNING "Couldn't find particle description %s\n", name);
+		}
 		return false;
 	}
 	return true;
