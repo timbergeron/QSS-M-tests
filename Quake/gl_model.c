@@ -49,7 +49,7 @@ cvar_t	r_replacemodels = {"r_replacemodels", "", CVAR_ARCHIVE};
 static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
 static cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
-cvar_t gl_load24bit_skins = {"gl_load24bit_skins", "1", CVAR_ARCHIVE }; // woods #loadskins
+cvar_t gl_load24bit_skins = {"gl_load24bit_skins", "0", CVAR_ARCHIVE }; // woods #loadskins
 void Cache_Flush_f (cvar_t* var); // woods #loadskins
 
 extern cvar_t	r_fastturb; // woods #fastturb
