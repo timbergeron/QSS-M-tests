@@ -2694,20 +2694,32 @@ static void Host_Say_Team_f2(void) // woods chat shortcuts
 	Cmd_ExecuteString(text, src_command);
 }
 
-extern char lastchat[MAXCMDLINE]; // woods #like
+static Uint32 lastLikeTime = 0; // stores the last time nothing was available to #like
 
-static void Host_Like_f(void) // woods #like
+static void Host_Like_f (void) // woods #like
 {
+	if (cl.maxclients <= 1 || cls.demoplayback) // mp or coop only
+		return;
+	
+	Uint32 currentTime = SDL_GetTicks(); // get the current time in milliseconds
+
+	if (currentTime - lastLikeTime < 1000) // 1 second has passed, avoid spamming
+		return;
+
 	char text[MAXCMDLINE];
 
-	if ((cl.lastchat[0] == '\0') || cls.state == ca_disconnected)
+	if (strstr(cl.lastchat, ": likes")) // no intinite likes
+		return;
+
+	if (cl.lastchat[0] == '\0')
 	{
 		Con_Printf("\nnothing to like\n\n");
+		lastLikeTime = currentTime;
 		return;
 	}
 
-	sprintf(text, "say ^mlikes^m%s", Q_strnset(cl.lastchat, ' ', 1));
-	Cmd_ExecuteString(text, src_command);
+	q_snprintf(text, sizeof(text), "say likes %s", cl.lastchat + 1);
+	Cbuf_AddText(text);
 }
 
 static void Host_Tell_f(void) // modified by woods to accept wildcards, status #s like proquake identify #tell+

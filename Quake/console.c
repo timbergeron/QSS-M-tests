@@ -492,8 +492,11 @@ static void Con_Print (const char *txt)
 			if (!strcmp(txt, "Match unpaused\n") && !cls.demoplayback && !cls.demorecording)
 				Cmd_ExecuteString("record\n", src_command);
 
-		if (strstr(txt, ": ")) // woods #like
-			strcpy(cl.lastchat, txt);
+		if (strstr(txt, ": ") && cls.signon == SIGNONS && cl.maxclients > 1) // woods #like
+		{ 
+			strncpy(cl.lastchat, txt, sizeof(cl.lastchat) - 1);
+			cl.lastchat[sizeof(cl.lastchat) - 1] = '\0';
+		}
 
 		if (!strcmp(txt, "You receive "))
 
