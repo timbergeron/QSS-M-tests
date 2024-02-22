@@ -1944,7 +1944,7 @@ void Sbar_Draw (void)
 
 		if (scr_sbar.value == 3) // #qehud
 		{
-			y = 149;
+			y = 152;
 			x = 216;
 			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 
