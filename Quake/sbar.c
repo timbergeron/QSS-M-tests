@@ -940,8 +940,9 @@ void Sbar_DrawInventory_QW (void)
 	float	time;
 	int	flashon;
 	int extraguns = 2 * hipnotic;
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 
-	if (scr_sbar.value == 3)
+	if (clampedSbar == 3)
 		GL_SetCanvas(CANVAS_IBAR_QWQE);
 	else
 		GL_SetCanvas(CANVAS_IBAR_QW);
@@ -1080,7 +1081,7 @@ void Sbar_DrawInventory_QW (void)
 
 	GL_SetCanvas(CANVAS_SBAR);
 
-	if (scr_sbar.value == 3)
+	if (clampedSbar == 3)
 		return;
 
 	flashon = 0;
@@ -1237,7 +1238,9 @@ void Sbar_DrawFrags(void)
 	int				teamscores, colors, minutes, seconds, mask; // JPG - added these
 	int				match_time; // JPG - added this
 
-	if (scr_sbar.value > 1) // woods #sbarstyles
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+	
+	if (clampedSbar > 1) // woods #sbarstyles
 		return;
 	
 	// JPG - check to see if we should sort teamscores instead
@@ -1377,10 +1380,12 @@ void Sbar_DrawRecord(void)
 	y = 0;
 	x = 0;
 
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
 	if (scr_viewsize.value >= 130)
 		return;
 
-	if (scr_sbar.value == 1)
+	if (clampedSbar == 1)
 	{
 		GL_SetCanvas(CANVAS_SBAR);
 
@@ -1391,7 +1396,7 @@ void Sbar_DrawRecord(void)
 		Draw_Fill(315, y, 1, 1, 249, 1);
 	}
 
-	if (scr_sbar.value == 2)
+	if (clampedSbar == 2)
 	{
 		if (scr_viewsize.value >= 110)
 			return;
@@ -1403,7 +1408,7 @@ void Sbar_DrawRecord(void)
 		Draw_Fill(x, y, 1, 1, 249, 1);
 	}
 
-	if (scr_sbar.value == 3)
+	if (clampedSbar == 3)
 	{
 		GL_SetCanvas(CANVAS_BOTTOMRIGHTQE);
 
@@ -1527,7 +1532,9 @@ void Sbar_DrawFace_Team (void)
 	color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 	color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 
-	if (scr_sbar.value == 3 && scr_viewsize.value <= 110)
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
+	if (clampedSbar == 3 && scr_viewsize.value <= 110)
 		{
 			GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 			Draw_Fill(18, 164, 23, 1, color, .7); // top
@@ -1540,7 +1547,7 @@ void Sbar_DrawFace_Team (void)
 	if (sb_showscores == true)
 		return;
 
-	if (scr_viewsize.value <= 110 && scr_sbar.value != 3)
+	if (scr_viewsize.value <= 110 && clampedSbar != 3)
 	{
 		{
 			GL_SetCanvas(CANVAS_SBAR);
@@ -1630,6 +1637,8 @@ void Sbar_Draw (void)
 	float w; //johnfitz
 	int armor, invuln;
 
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3); // woods
+
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
 
@@ -1706,11 +1715,11 @@ void Sbar_Draw (void)
 
 	if (scr_viewsize.value < 110) //johnfitz -- check viewsize instead of sb_lines
 	{
-		if (scr_sbar.value == 1)
+		if (clampedSbar == 1)
 			Sbar_DrawInventory ();
-		if (scr_sbar.value == 2)
+		if (clampedSbar == 2)
 			Sbar_DrawInventory_QW ();
-		if (scr_sbar.value == 3)
+		if (clampedSbar == 3)
 		{
 			GL_SetCanvas(CANVAS_BOTTOMRIGHTQE); //johnfitz
 			Sbar_DrawInventory_QE();
@@ -1720,7 +1729,7 @@ void Sbar_Draw (void)
 			Sbar_DrawFrags ();
 	}
 
-	if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // qe hud does not use 'traditional sbar' #qehud
+	if (clampedSbar == 3 && scr_viewsize.value <= 110) // qe hud does not use 'traditional sbar' #qehud
 	{
 		plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
 		
@@ -1913,7 +1922,7 @@ void Sbar_Draw (void)
 
 	}
 
-	if (scr_sbar.value == 3)
+	if (clampedSbar == 3)
 		GL_SetCanvas(CANVAS_SBARQE);
 	else
 		GL_SetCanvas(CANVAS_SBAR); //johnfitz
@@ -1942,7 +1951,7 @@ void Sbar_Draw (void)
 		int len = strlen(tempstring), i;
 		int x = 0, y = 0;
 
-		if (scr_sbar.value == 3) // #qehud
+		if (clampedSbar == 3) // #qehud
 		{
 			y = 152;
 			x = 216;
@@ -1958,7 +1967,7 @@ void Sbar_Draw (void)
 				return;
 
 		}
-		if (scr_sbar.value == 2)
+		if (clampedSbar == 2)
 		{
 			GL_SetCanvas(CANVAS_SBAR2);
 
@@ -1978,7 +1987,7 @@ void Sbar_Draw (void)
 			if (complete_pct_int > 99)
 				x += 7;
 		}
-		if (scr_sbar.value == 1)
+		if (clampedSbar == 1)
 		{
 			GL_SetCanvas(CANVAS_SBAR2);
 

@@ -2848,6 +2848,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			char hud[3];
 			char lfps[20];
 			char ecolor[10];
+			int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 			
 			if (!strcmp(r_particledesc.string, ""))
 				sprintf(particles, "classic");
@@ -2859,9 +2860,9 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			else
 				sprintf(textures, "%s", "ON");
 
-			if (scr_sbar.value == 2)
+			if (clampedSbar == 2)
 				sprintf(hud, "%s", "qw");
-			else if (scr_sbar.value == 3)
+			else if (clampedSbar == 3)
 				sprintf(hud, "%s", "qe");
 			else
 				sprintf(hud, "%s", "nq");

@@ -861,6 +861,7 @@ void SCR_DrawFPS (void)
 	static int	oldframecount = 0;
 	double	elapsed_time;
 	int	frames;
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3); // woods
 
 	elapsed_time = realtime - oldtime;
 	frames = r_framecount - oldframecount;
@@ -891,7 +892,7 @@ void SCR_DrawFPS (void)
 		sprintf (st2, "%4.0f", lastfps); // woods #f_config
 		cl.fps = atoi(st2); // woods #f_config
 		x = 312 - (strlen(st)<<3); // woods added padding
-		if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // woods #qehud
+		if (clampedSbar == 3 && scr_viewsize.value <= 110) // woods #qehud
 		{
 			GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 			x = 301;
@@ -930,6 +931,8 @@ void SCR_DrawClock (void)
 {
 	char	str[30];
 	int x,y;
+
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 
 	if (scr_viewsize.value >= 130)
 		return;
@@ -983,7 +986,7 @@ void SCR_DrawClock (void)
 
 	//draw it
 
-	if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // woods #qehud
+	if (clampedSbar == 3 && scr_viewsize.value <= 110) // woods #qehud
 	{
 		GL_SetCanvas(CANVAS_BOTTOMRIGHTQESMALL);
 		x = 301;
@@ -1024,6 +1027,8 @@ void SCR_ShowPing(void)
 	char	num[12];
 	scoreboard_t* s;
 
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
 	if (scr_viewsize.value >= 130)
 		return;
 
@@ -1043,7 +1048,7 @@ void SCR_ShowPing(void)
 			x = 46; //johnfitz -- simplified becuase some positioning is handled elsewhere
 			y = 20;
 
-			if (scr_sbar.value == 3 && scr_viewsize.value <= 110) // #qehud
+			if (clampedSbar == 3 && scr_viewsize.value <= 110) // #qehud
 			{
 				GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
 				if (cl.stats[STAT_ARMOR] < 1)
@@ -1097,6 +1102,8 @@ void SCR_ShowPL(void)
 	int pl;
 	char			num[12];
 
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
 	if (scr_viewsize.value >= 130)
 		return;
 
@@ -1108,7 +1115,7 @@ void SCR_ShowPL(void)
 
 		int	x, y;
 
-		if (scr_sbar.value == 3) // #qehud
+		if (clampedSbar == 3) // #qehud
 		{
 			GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
 			x = 20;
@@ -1462,6 +1469,7 @@ void SCR_ShowObsFrags(void)
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	char buf[15];
 	const char* obs;
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 
 	if (cl.intermission)
 		return;
@@ -1480,7 +1488,7 @@ void SCR_ShowObsFrags(void)
 		{
 			Sbar_SortFrags_Obs ();
 
-			if (scr_sbar.value == 3)
+			if (clampedSbar == 3)
 			{
 				GL_SetCanvas(CANVAS_BOTTOMLEFTQESCORES);
 				x = 24;
@@ -1746,11 +1754,12 @@ void SCR_DrawSpeed (void)
 {
 	char			st[64];
 	int				x, y;
+	int				clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 
 	if (scr_viewsize.value > 110 || scr_viewsize.value >= 130)
 		return;
 
-	if (scr_sbar.value == 3)
+	if (clampedSbar == 3)
 	{
 		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 		y = 175;
@@ -1762,11 +1771,11 @@ void SCR_DrawSpeed (void)
 		x = 0;
 		y = 0;
 
-		if (scr_viewsize.value <= 100)
+		if (clampedSbar <= 100)
 			y = 208;
-		else if (scr_viewsize.value == 110)
+		else if (clampedSbar == 110)
 			y = 233;
-		if (scr_sbar.value == 2)
+		if (clampedSbar == 2)
 			y = 233;
 	}
 
@@ -1802,16 +1811,16 @@ void SCR_Mute(void)
 
 	if (cl.intermission)
 		return;
-	if (scr_sbar.value > 3)
-		return;
 
 	if (scr_viewsize.value > 110)
 		return;
 
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
 	if (!strcmp(mute, "y"))
 	{
 
-		if (scr_sbar.value == 3) // #qehud
+		if (clampedSbar == 3) // #qehud
 		{
 			y = 176;
 			x = 184;
@@ -1844,7 +1853,7 @@ void SCR_Mute(void)
 				y = 233;
 			else
 				return;
-			if (scr_sbar.value == 2)
+			if (clampedSbar == 2)
 			{ 
 				y = 233;
 
@@ -1892,16 +1901,17 @@ void SCR_Observing(void)
 		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
+		int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 
 		y = 190;
 
-		if (scr_viewsize.value > 110 || (scr_sbar.value == 3 && sb_showscores))
+		if (scr_viewsize.value > 110 || (clampedSbar == 3 && sb_showscores))
 			return;
 		
-		if (scr_viewsize.value >= 110 || scr_sbar.value > 1)
+		if (scr_viewsize.value >= 110 || clampedSbar > 1)
 			y += 24;
 
-		if (scr_sbar.value == 3)
+		if (clampedSbar == 3)
 			y += 34;
 
 		if (cl.intermission)
