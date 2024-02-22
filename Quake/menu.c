@@ -48,6 +48,7 @@ void M_Menu_Main_f (void);
 		void M_Menu_Extras_f (void);
 		void M_Menu_Video_f (void);
 	void M_Menu_Mods_f(void); // woods #modsmenu (iw)
+	void M_Menu_Demos_f (void); // woods #demosmenu
 	void M_Menu_Help_f (void);
 	void M_Menu_Quit_f (void);
 
@@ -67,6 +68,7 @@ void M_NameMaker_Draw(void); // woods #namemaker
 		void M_Keys_Draw (void);
 		void M_Video_Draw (void);
 	void M_Mods_Draw(void); // woods #modsmenu (iw)
+	void M_Demos_Draw (void); // woods #demosmenu
 	void M_Help_Draw (void);
 	void M_Quit_Draw (void);
 
@@ -280,6 +282,7 @@ enum // woods #modsmenu (iw)
 	MAIN_MULTIPLAYER,
 	MAIN_OPTIONS,
 	MAIN_MODS,
+	MAIN_DEMOS, // woods #demosmenu
 	MAIN_HELP,
 	MAIN_QUIT,
 
@@ -316,7 +319,7 @@ void M_Menu_Main_f (void)
 }
 
 
-void M_Main_Draw (void) // woods #modsmenu (iw)
+void M_Main_Draw (void) // woods #modsmenu #demosmenu (iw)
 {
 	int		cursor, f;
 	qpic_t	*p;
@@ -334,23 +337,32 @@ void M_Main_Draw (void) // woods #modsmenu (iw)
 			M_DrawTransPic(72, 32 + split, Draw_CachePic("gfx/menumods.lmp"));
 		else
 			M_Print(74, 32 + split + 1, "MODS");
-		M_DrawSubpic(72, 32 + split + 20, p, 0, split, p->width, p->height - split);
+
+		if (m_main_mods > 0) // woods #demosmenu
+			M_DrawTransPic(72, 52 + split, Draw_CachePic("gfx/menudemos.lmp"));
+		else
+			M_Print(74, 52 + split + 1, "DEMOS");
+		M_DrawSubpic(72, 52 + split + 20, p, 0, split, p->width, p->height - split);
 	}
 	else
 		M_DrawTransPic(72, 32, Draw_CachePic("gfx/mainmenu.lmp"));
 
-
-
-
 	f = (int)(realtime * 10) % 6;
 	cursor = m_main_cursor;
-	if (!m_main_mods && cursor > MAIN_MODS)
-		--cursor;
+	if (!m_main_mods)
+	{
+		if (cursor > MAIN_MODS) // Adjust cursor if it's beyond the MODS item
+		{
+			cursor--;  // Skip MODS
+			if (cursor >= MAIN_DEMOS) // Check if cursor is at or beyond DEMOS
+				cursor--;  // Skip DEMOS as well
+		}
+	}
 	M_DrawTransPic(54, 32 + cursor * 20, Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
 }
 
 
-void M_Main_Key (int key) // woods #modsmenu (iw)
+void M_Main_Key (int key) // woods #modsmenu #demosmenu (iw)
 {
 	switch (key)
 	{
@@ -372,16 +384,26 @@ void M_Main_Key (int key) // woods #modsmenu (iw)
 		S_LocalSound ("misc/menu1.wav");
 		if (++m_main_cursor >= MAIN_ITEMS)
 			m_main_cursor = 0;
-		else if (!m_main_mods && m_main_cursor == MAIN_MODS)
-			++m_main_cursor;
+		else if (!m_main_mods)
+		{
+			if (m_main_cursor == MAIN_MODS || m_main_cursor == MAIN_DEMOS) // Skip over MODS and DEMOS if mods are not present
+				m_main_cursor += 2; // Skip over both items
+			if (m_main_cursor >= MAIN_ITEMS) // Ensure cursor wraps around correctly
+				m_main_cursor = 0;
+		}
 		break;
 
 	case K_UPARROW:
 		S_LocalSound ("misc/menu1.wav");
 		if (--m_main_cursor < 0)
 			m_main_cursor = MAIN_ITEMS - 1;
-		else if (!m_main_mods && m_main_cursor == MAIN_MODS)
-			--m_main_cursor;
+		else if (!m_main_mods) 
+		{
+			if (m_main_cursor == MAIN_DEMOS || m_main_cursor == MAIN_MODS) // When moving up, check if we hit DEMOS first then MODS
+				m_main_cursor -= 2; // Skip over both items going up
+			if (m_main_cursor < 0) // Ensure cursor wraps around correctly
+				m_main_cursor = MAIN_ITEMS - 1;
+		}
 		break;
 
 	case K_ENTER:
@@ -411,6 +433,10 @@ void M_Main_Key (int key) // woods #modsmenu (iw)
 			M_Menu_Mods_f();
 			break;
 
+		case MAIN_DEMOS: // woods #demosmenu
+			M_Menu_Demos_f ();
+			break;
+
 		case MAIN_QUIT:
 			M_Menu_Quit_f ();
 			break;
@@ -420,13 +446,16 @@ void M_Main_Key (int key) // woods #modsmenu (iw)
 
 //=============================================================================
 
-void M_CheckMods (void) // woods #modsmenu (iw)
+void M_CheckMods (void) // woods #modsmenu #demosmenu (iw)
 {
-	unsigned int id_mods, id_main;
+	unsigned int id_mods, id_main, id_demos;
 	int h, length;
 
 	m_main_mods = 0;
 	if (!COM_FileExists("gfx/menumods.lmp", &id_mods))
+		return;
+
+	if (!COM_FileExists("gfx/menudemos.lmp", &id_demos))
 		return;
 
 	length = COM_OpenFile("gfx/mainmenu.lmp", &h, &id_main);
@@ -3975,6 +4004,178 @@ void M_Mods_Key(int key)
 }
 
 //=============================================================================
+
+// woods #demosmenu
+
+/* Demos menu */
+
+#define MAX_MENU_DEMOS		8192
+#define MAX_VIS_DEMOS	18
+
+typedef struct
+{
+	const char* name;
+	const char* date;
+	qboolean	active;
+} demoitem_t;
+
+static struct
+{
+	menulist_t			list;
+	enum m_state_e		prev;
+	demoitem_t			items[MAX_MENU_DEMOS];
+} demosmenu;
+
+
+static void M_Demos_Add (const char* name, const char* date)
+{
+	demoitem_t tempDemo;
+	tempDemo.name = name;
+	tempDemo.date = date;
+
+	int insertPos = demosmenu.list.numitems;
+
+	for (int i = 0; i < demosmenu.list.numitems; i++) // Find the correct position to insert the new demo based on the date
+
+	{
+		if (q_sortdemos(date, demosmenu.items[i].date) < 0)
+		{ // Assuming q_sortdemos returns <0 if first date is earlier
+			insertPos = i;
+			break;
+		}
+	}
+
+	if (insertPos != demosmenu.list.numitems) // If necessary, shift items to make room for the new demo
+		memmove(&demosmenu.items[insertPos + 1], &demosmenu.items[insertPos], sizeof(demoitem_t) * (demosmenu.list.numitems - insertPos));
+
+	demosmenu.items[insertPos] = tempDemo; // Insert the new demo into the calculated position
+
+	
+	if (demosmenu.list.numitems == 0) // Update the cursor to the first item if this is the first insertion
+		demosmenu.list.cursor = 0;
+
+	demosmenu.list.numitems++;
+}
+
+static void M_Demos_ReverseOrder (void)
+{
+	int i, j;
+	demoitem_t temp;
+
+	for (i = 0, j = demosmenu.list.numitems - 1; i < j; i++, j--)
+	{
+		temp = demosmenu.items[i];
+		demosmenu.items[i] = demosmenu.items[j];
+		demosmenu.items[j] = temp;
+	}
+}
+
+static void M_Demos_Init (void)
+{
+	filelist_item_t* item;
+
+	demosmenu.list.viewsize = MAX_VIS_DEMOS;
+	demosmenu.list.cursor = -1;
+	demosmenu.list.scroll = 0;
+	demosmenu.list.numitems = 0;
+
+	for (item = demolist; item && demosmenu.list.numitems < MAX_MENU_DEMOS; item = item->next)
+		M_Demos_Add(item->name, item->date);
+
+	if (demosmenu.list.cursor == -1)
+		demosmenu.list.cursor = 0;
+
+	M_List_CenterCursor(&demosmenu.list);
+	M_Demos_ReverseOrder();
+}
+
+void M_Menu_Demos_f (void)
+{
+	key_dest = key_menu;
+	demosmenu.prev = m_state;
+	m_state = m_demos;
+	m_entersound = true;
+	M_Demos_Init();
+}
+
+void M_Demos_Draw (void)
+{
+	const char* str;
+	int x, y, i, j, cols;
+	int firstvis, numvis;
+
+	x = 64;
+	y = 32;
+	cols = 28;
+
+	M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+	Draw_String(x, y - 28, "Demos");
+	M_DrawQuakeBar(x - 8, y - 16, cols + 2);
+
+	M_List_GetVisibleRange(&demosmenu.list, &firstvis, &numvis);
+	for (i = 0; i < numvis; i++)
+	{
+		int idx = i + firstvis;
+		int mask = demosmenu.items[idx].active ? 0 : 128;
+		for (j = 0; j < cols - 1 && demosmenu.items[idx].name[j]; j++)
+			M_DrawCharacter(x + j * 8, y + i * 8, demosmenu.items[idx].name[j] | mask);
+
+		if (idx == demosmenu.list.cursor)
+			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
+	}
+
+	if (M_List_GetOverflow(&demosmenu.list) > 0)
+	{
+		int scrollbary, scrollbarh;
+		M_List_GetScrollbar(&demosmenu.list, &scrollbary, &scrollbarh);
+		M_DrawTextBox(x + cols * 8 - 12, y + scrollbary * 8 - 4, 0, scrollbarh - 1);
+
+		str = va("%d-%d of %d", firstvis + 1, firstvis + numvis, demosmenu.list.numitems);
+		M_Print(x + (cols - strlen(str)) * 8, y - 24, str);
+
+		if (demosmenu.list.scroll > 0)
+			M_DrawEllipsisBar(x, y - 8, cols);
+		if (demosmenu.list.scroll + demosmenu.list.viewsize < demosmenu.list.numitems)
+			M_DrawEllipsisBar(x, y + demosmenu.list.viewsize * 8, cols);
+	}
+}
+
+qboolean M_Demos_Match (int index, char initial)
+{
+	return q_tolower(demosmenu.items[index].name[0]) == initial;
+}
+
+void M_Demos_Key (int key)
+{
+	if (M_List_Key(&demosmenu.list, key))
+		return;
+
+	if (M_List_CycleMatch(&demosmenu.list, key, M_Demos_Match))
+		return;
+
+	switch (key)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+		if (demosmenu.prev == m_options)
+			M_Menu_Options_f();
+		else
+			M_Menu_Main_f();
+		break;
+
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+		Cbuf_AddText(va("playdemo %s\n", demosmenu.items[demosmenu.list.cursor].name));
+		M_Menu_Main_f();
+		break;
+
+	default:
+		break;
+	}
+}
+
+//=============================================================================
 /* Credits menu -- used by the 2021 re-release */
 
 void M_Menu_Credits_f (void)
@@ -4003,6 +4204,7 @@ static struct
 	{"menu_credits", M_Menu_Credits_f}, // needed by the 2021 re-release
 	{"namemaker", M_Shortcut_NameMaker_f}, // woods
 	{"menu_mods", M_Menu_Mods_f}, // woods
+	{"menu_demos", M_Menu_Demos_f}, // woods
 
 
 };
@@ -4262,6 +4464,10 @@ void M_Draw (void)
 		M_Mods_Draw();
 		break;
 
+	case m_demos: // woods #demosmenu
+		M_Demos_Draw ();
+		break;
+
 	case m_help:
 		M_Help_Draw ();
 		break;
@@ -4363,6 +4569,10 @@ void M_Keydown (int key)
 
 	case m_mods: // woods #modsmenu (iw)
 		M_Mods_Key(key);
+		return;
+
+	case m_demos: // woods #demosmenu
+		M_Demos_Key (key);
 		return;
 
 	case m_help:

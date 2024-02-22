@@ -37,6 +37,7 @@ enum m_state_e {
 	m_extras,
 	m_keys,
 	m_mods, // woods #modsmenu (iw)
+	m_demos, // woods #demosmenu
 	m_help,
 	m_quit,
 	m_lanconfig,
