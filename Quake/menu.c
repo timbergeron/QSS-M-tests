@@ -266,6 +266,82 @@ void M_DrawEllipsisBar(int x, int y, int cols) // woods #modsmenu (iw)
 }
 
 //=============================================================================
+/* Scrolling ticker -- woods #modsmenu #demosmenu (iw)*/ 
+
+typedef struct
+{
+	double			scroll_time;
+	double			scroll_wait_time;
+} menuticker_t;
+
+static void M_Ticker_Init(menuticker_t* ticker)
+{
+	ticker->scroll_time = 0.0;
+	ticker->scroll_wait_time = 1.0;
+}
+
+static void M_Ticker_Update(menuticker_t* ticker)
+{
+	if (ticker->scroll_wait_time <= 0.0)
+		ticker->scroll_time += host_frametime;
+	else
+		ticker->scroll_wait_time = q_max(0.0, ticker->scroll_wait_time - host_frametime);
+}
+
+static qboolean M_Ticker_Key(menuticker_t* ticker, int key)
+{
+	switch (key)
+	{
+	case K_RIGHTARROW:
+		ticker->scroll_time += 0.25;
+		ticker->scroll_wait_time = 1.5;
+		S_LocalSound("misc/menu3.wav");
+		return true;
+
+	case K_LEFTARROW:
+		ticker->scroll_time -= 0.25;
+		ticker->scroll_wait_time = 1.5;
+		S_LocalSound("misc/menu3.wav");
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+// TODO: smooth scrolling
+void M_PrintScroll(int x, int y, int maxwidth, const char* str, double time, qboolean color) // woods #modsmenu (iw)
+{
+	int maxchars = maxwidth / 8;
+	int len = strlen(str);
+	int i, ofs;
+	char mask = color ? 128 : 0;
+
+	if (len <= maxchars)
+	{
+		if (color)
+			M_Print(x, y, str);
+		else
+			M_PrintWhite(x, y, str);
+		return;
+	}
+
+	ofs = (int)floor(time * 4.0);
+	ofs %= len + 5;
+	if (ofs < 0)
+		ofs += len + 5;
+
+	for (i = 0; i < maxchars; i++)
+	{
+		char c = (ofs < len) ? str[ofs] : " /// "[ofs - len];
+		M_DrawCharacter(x, y, c ^ mask);
+		x += 8;
+		if (++ofs >= len + 5)
+			ofs = 0;
+	}
+}
+
+//=============================================================================
 
 int m_save_demonum;
 
@@ -3840,8 +3916,7 @@ qboolean M_List_CycleMatch(menulist_t* list, int key, qboolean(*match_fn) (int i
 
 /* Mods menu */
 
-#define MAX_MODS		4096
-#define MAX_VIS_MODS	18
+#define MAX_VIS_MODS	19
 
 typedef struct
 {
@@ -3853,7 +3928,9 @@ static struct
 {
 	menulist_t			list;
 	enum m_state_e		prev;
-	moditem_t			items[MAX_MODS];
+	int					prev_cursor;
+	menuticker_t		ticker;
+	moditem_t			*items;
 } modsmenu;
 
 static qboolean M_Mods_IsActive(const char* game)
@@ -3891,11 +3968,16 @@ static qboolean M_Mods_IsActive(const char* game)
 
 static void M_Mods_Add(const char* name)
 {
-	moditem_t* mod = &modsmenu.items[modsmenu.list.numitems];
-	mod->name = name;
-	mod->active = M_Mods_IsActive(name);
-	if (mod->active && modsmenu.list.cursor == -1)
+	moditem_t mod;
+	mod.name = name;
+	mod.active = M_Mods_IsActive(name);
+	if (mod.active && modsmenu.list.cursor == -1)
 		modsmenu.list.cursor = modsmenu.list.numitems;
+	
+	// Ensure there's enough space for one more item
+	VEC_PUSH(modsmenu.items, mod);
+
+	modsmenu.items[modsmenu.list.numitems] = mod;
 	modsmenu.list.numitems++;
 }
 
@@ -3907,8 +3989,11 @@ static void M_Mods_Init(void)
 	modsmenu.list.cursor = -1;
 	modsmenu.list.scroll = 0;
 	modsmenu.list.numitems = 0;
+	VEC_CLEAR(modsmenu.items);
 
-	for (item = modlist; item && modsmenu.list.numitems < MAX_MODS; item = item->next)
+	M_Ticker_Init(&modsmenu.ticker);
+
+	for (item = modlist; item; item = item->next)
 		M_Mods_Add(item->name);
 
 	if (modsmenu.list.cursor == -1)
@@ -3929,26 +4014,34 @@ void M_Menu_Mods_f(void)
 void M_Mods_Draw(void)
 {
 	const char* str;
-	int x, y, i, j, cols;
+	int x, y, i, cols;
 	int firstvis, numvis;
 
-	x = 64;
+	x = 16;
 	y = 32;
-	cols = 28;
+	cols = 36;
 
-	M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+	if (modsmenu.prev_cursor != modsmenu.list.cursor)
+	{
+		modsmenu.prev_cursor = modsmenu.list.cursor;
+		M_Ticker_Init(&modsmenu.ticker);
+	}
+	else
+		M_Ticker_Update(&modsmenu.ticker);
+
 	Draw_String(x, y - 28, "Mods");
 	M_DrawQuakeBar(x - 8, y - 16, cols + 2);
 
 	M_List_GetVisibleRange(&modsmenu.list, &firstvis, &numvis);
-	for (i = 0; i < numvis; i++)
+	for (i = 0; i < numvis; i++) 
 	{
 		int idx = i + firstvis;
-		int mask = modsmenu.items[idx].active ? 0 : 128;
-		for (j = 0; j < cols - 1 && modsmenu.items[idx].name[j]; j++)
-			M_DrawCharacter(x + j * 8, y + i * 8, modsmenu.items[idx].name[j] | mask);
+		int color = modsmenu.items[idx].active ? 1 : 0;
+		qboolean selected = (idx == modsmenu.list.cursor);
 
-		if (idx == modsmenu.list.cursor)
+		M_PrintScroll(x, y + i * 8, (cols - 2) * 8, modsmenu.items[idx].name, selected ? modsmenu.ticker.scroll_time : 0.0, color);
+
+		if (selected)
 			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
 	}
 
@@ -3981,6 +4074,9 @@ void M_Mods_Key(int key)
 	if (M_List_CycleMatch(&modsmenu.list, key, M_Mods_Match))
 		return;
 
+	if (M_Ticker_Key(&modsmenu.ticker, key))
+		return;
+
 	switch (key)
 	{
 	case K_ESCAPE:
@@ -4009,8 +4105,7 @@ void M_Mods_Key(int key)
 
 /* Demos menu */
 
-#define MAX_MENU_DEMOS		8192
-#define MAX_VIS_DEMOS	18
+#define MAX_VIS_DEMOS	19
 
 typedef struct
 {
@@ -4023,7 +4118,9 @@ static struct
 {
 	menulist_t			list;
 	enum m_state_e		prev;
-	demoitem_t			items[MAX_MENU_DEMOS];
+	int					prev_cursor;
+	menuticker_t		ticker;
+	demoitem_t			*items;
 } demosmenu;
 
 
@@ -4033,13 +4130,14 @@ static void M_Demos_Add (const char* name, const char* date)
 	tempDemo.name = name;
 	tempDemo.date = date;
 
+	Vec_Grow ((void**)&demosmenu.items, sizeof(demoitem_t), demosmenu.list.numitems + 1);
+
 	int insertPos = demosmenu.list.numitems;
 
 	for (int i = 0; i < demosmenu.list.numitems; i++) // Find the correct position to insert the new demo based on the date
-
 	{
-		if (q_sortdemos(date, demosmenu.items[i].date) < 0)
-		{ // Assuming q_sortdemos returns <0 if first date is earlier
+		if (q_sortdemos(date, demosmenu.items[i].date) < 0) // Assuming q_sortdemos returns <0 if first date is earlier
+		{
 			insertPos = i;
 			break;
 		}
@@ -4050,8 +4148,7 @@ static void M_Demos_Add (const char* name, const char* date)
 
 	demosmenu.items[insertPos] = tempDemo; // Insert the new demo into the calculated position
 
-	
-	if (demosmenu.list.numitems == 0) // Update the cursor to the first item if this is the first insertion
+	if (demosmenu.list.numitems == 0)
 		demosmenu.list.cursor = 0;
 
 	demosmenu.list.numitems++;
@@ -4078,8 +4175,11 @@ static void M_Demos_Init (void)
 	demosmenu.list.cursor = -1;
 	demosmenu.list.scroll = 0;
 	demosmenu.list.numitems = 0;
+	VEC_CLEAR(demosmenu.items);
 
-	for (item = demolist; item && demosmenu.list.numitems < MAX_MENU_DEMOS; item = item->next)
+	M_Ticker_Init (&demosmenu.ticker);
+
+	for (item = demolist; item; item = item->next)
 		M_Demos_Add(item->name, item->date);
 
 	if (demosmenu.list.cursor == -1)
@@ -4101,26 +4201,33 @@ void M_Menu_Demos_f (void)
 void M_Demos_Draw (void)
 {
 	const char* str;
-	int x, y, i, j, cols;
+	int x, y, i, cols;
 	int firstvis, numvis;
 
-	x = 64;
+	x = 16;
 	y = 32;
-	cols = 28;
+	cols = 36;
 
-	M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+	if (demosmenu.prev_cursor != demosmenu.list.cursor)
+	{
+		demosmenu.prev_cursor = demosmenu.list.cursor;
+		M_Ticker_Init(&demosmenu.ticker);
+	}
+	else
+		M_Ticker_Update(&demosmenu.ticker);
+
 	Draw_String(x, y - 28, "Demos");
 	M_DrawQuakeBar(x - 8, y - 16, cols + 2);
 
 	M_List_GetVisibleRange(&demosmenu.list, &firstvis, &numvis);
-	for (i = 0; i < numvis; i++)
+	for (i = 0; i < numvis; i++) 
 	{
 		int idx = i + firstvis;
-		int mask = demosmenu.items[idx].active ? 0 : 128;
-		for (j = 0; j < cols - 1 && demosmenu.items[idx].name[j]; j++)
-			M_DrawCharacter(x + j * 8, y + i * 8, demosmenu.items[idx].name[j] | mask);
+		qboolean selected = (idx == demosmenu.list.cursor);
 
-		if (idx == demosmenu.list.cursor)
+		M_PrintScroll(x, y + i * 8, (cols - 2) * 8, demosmenu.items[idx].name, selected ? demosmenu.ticker.scroll_time : 0.0, false);
+
+		if (selected) 
 			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
 	}
 
@@ -4151,6 +4258,9 @@ void M_Demos_Key (int key)
 		return;
 
 	if (M_List_CycleMatch(&demosmenu.list, key, M_Demos_Match))
+		return;
+
+	if (M_Ticker_Key(&demosmenu.ticker, key))
 		return;
 
 	switch (key)
