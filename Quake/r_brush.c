@@ -879,11 +879,11 @@ static void BuildSurfaceDisplayList (msurface_t *fa)
 		//
 		// lightmap texture coordinates
 		//
-		s = DotProduct (vec, fa->lmvecs[0]) + fa->lmvecs[0][3];
+		s = DotProduct (vec, fa->lmvecs[0]) + fa->lmvecs[0][3] + 0.5;
 		s += fa->light_s;
 		s /= LMBLOCK_WIDTH;
 
-		t = DotProduct (vec, fa->lmvecs[1]) + fa->lmvecs[1][3];
+		t = DotProduct (vec, fa->lmvecs[1]) + fa->lmvecs[1][3] + 0.5;
 		t += fa->light_t;
 		t /= LMBLOCK_HEIGHT;
 

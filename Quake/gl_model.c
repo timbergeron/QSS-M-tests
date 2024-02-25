@@ -1498,7 +1498,7 @@ static void CalcSurfaceExtents (msurface_t *s, int lmshift)
 		s->lmvecs[i][0] = s->texinfo->vecs[i][0] / lmscale;
 		s->lmvecs[i][1] = s->texinfo->vecs[i][1] / lmscale;
 		s->lmvecs[i][2] = s->texinfo->vecs[i][2] / lmscale;
-		s->lmvecs[i][3] = s->texinfo->vecs[i][3] / lmscale + 0.5/*sigh*/ - bmins[i];
+		s->lmvecs[i][3] = s->texinfo->vecs[i][3] / lmscale - bmins[i];
 		if (mod_lightscale_broken.value)
 			s->lmvecscale[i] = 16;	//luxels->qu... except buggy so dlights have the wrong spread on large surfaces (blame shib7)
 		else
@@ -1711,11 +1711,11 @@ static void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 			out->lmvecs[0][0] = LittleFloat(decoupledlm->lmvecs[0][0]);
 			out->lmvecs[0][1] = LittleFloat(decoupledlm->lmvecs[0][1]);
 			out->lmvecs[0][2] = LittleFloat(decoupledlm->lmvecs[0][2]);
-			out->lmvecs[0][3] = LittleFloat(decoupledlm->lmvecs[0][3]) + 0.5f; //sigh
+			out->lmvecs[0][3] = LittleFloat(decoupledlm->lmvecs[0][3]);
 			out->lmvecs[1][0] = LittleFloat(decoupledlm->lmvecs[1][0]);
 			out->lmvecs[1][1] = LittleFloat(decoupledlm->lmvecs[1][1]);
 			out->lmvecs[1][2] = LittleFloat(decoupledlm->lmvecs[1][2]);
-			out->lmvecs[1][3] = LittleFloat(decoupledlm->lmvecs[1][3]) + 0.5f; //sigh
+			out->lmvecs[1][3] = LittleFloat(decoupledlm->lmvecs[1][3]);
 			out->lmvecscale[0] = 1.0f/VectorLength(out->lmvecs[0]);	//luxels->qu
 			out->lmvecscale[1] = 1.0f/VectorLength(out->lmvecs[1]);
 			decoupledlm++;
