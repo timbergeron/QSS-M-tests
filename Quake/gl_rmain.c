@@ -562,10 +562,10 @@ void R_SetupView (void)
 	int viewcontents;	//spike -- rewrote this a little
 	int i;
 
-	// Need to do those early because we now update dynamic light maps during R_MarkSurfaces
-	R_PushDlights ();
-	R_AnimateLight ();
 	r_framecount++;
+
+	// Need to do those early because we now update dynamic light maps during R_MarkSurfaces
+	R_AnimateLight ();
 
 	Fog_SetupFrame (); //johnfitz
 
@@ -993,9 +993,12 @@ void R_RenderScene (void)
 
 	Fog_EnableGFog (); //johnfitz
 
-	Sky_DrawSky (); //johnfitz
+	if (r_refdef.drawworld)
+	{
+		Sky_DrawSky (); //johnfitz
 
-	R_DrawWorld ();
+		R_DrawWorld ();
+	}
 	currententity = NULL;
 
 	S_ExtraUpdate (); // don't let sound get messed up if going slow

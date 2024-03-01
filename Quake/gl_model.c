@@ -247,6 +247,7 @@ void Mod_ClearAll (void)
 			mod->needload = true;
 			TexMgr_FreeTexturesForOwner (mod); //johnfitz
 			PScript_ClearSurfaceParticles(mod);
+			RSceneCache_Cleanup(mod);
 		}
 	}
 }
@@ -265,6 +266,7 @@ void Mod_ResetAll (void)
 		{
 			TexMgr_FreeTexturesForOwner (mod);
 			PScript_ClearSurfaceParticles(mod);
+			RSceneCache_Cleanup(mod);
 		}
 		memset(mod, 0, sizeof(qmodel_t));
 	}
@@ -1411,16 +1413,14 @@ static void Mod_LoadTexinfo (lump_t *l)
 		if (miptex >= loadmodel->numtextures-1 || !loadmodel->textures[miptex])
 		{
 			if (out->flags & TEX_SPECIAL)
-				out->texture = loadmodel->textures[loadmodel->numtextures-1];
+				miptex = loadmodel->numtextures-1;
 			else
-				out->texture = loadmodel->textures[loadmodel->numtextures-2];
+				miptex = loadmodel->numtextures-2;
 			out->flags |= TEX_MISSING;
 			missing++;
 		}
-		else
-		{
-			out->texture = loadmodel->textures[miptex];
-		}
+		out->texture = loadmodel->textures[miptex];
+		out->materialidx = miptex;
 		//johnfitz
 	}
 
@@ -2849,6 +2849,8 @@ visdone:
 // set up the submodels (FIXME: this is confusing)
 //
 
+	mod->submodelof = loadmodel;
+
 	// johnfitz -- okay, so that i stop getting confused every time i look at this loop, here's how it works:
 	// we're looping through the submodels starting at 0.  Submodel 0 is the main model, so we don't have to
 	// worry about clobbering data the first time through, since it's the same data.  At the end of the loop,
@@ -2869,6 +2871,8 @@ visdone:
 
 		mod->firstmodelsurface = bm->firstface;
 		mod->nummodelsurfaces = bm->numfaces;
+		mod->submodelof = loadmodel->submodelof;
+		mod->submodelidx = i;
 
 		VectorCopy (bm->maxs, mod->maxs);
 		VectorCopy (bm->mins, mod->mins);

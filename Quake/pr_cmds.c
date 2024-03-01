@@ -2096,16 +2096,16 @@ static void PF_cl_makestatic (void)
 	if (i >= cl.max_static_entities)
 	{
 		int ec = 64;
-		entity_t **newstatics = realloc(cl.static_entities, sizeof(*newstatics) * (cl.max_static_entities+ec));
+		struct cl_static_entities_s *newstatics = realloc(cl.static_entities, sizeof(*newstatics) * (cl.max_static_entities+ec));
 		entity_t *newents = Hunk_Alloc(sizeof(*newents) * ec);
 		if (!newstatics || !newents)
 			Host_Error ("Too many static entities");
 		cl.static_entities = newstatics;
 		while (ec--)
-			cl.static_entities[cl.max_static_entities++] = newents++;
+			cl.static_entities[cl.max_static_entities++].ent = newents++;
 	}
 
-	stat = cl.static_entities[i];
+	stat = cl.static_entities[i].ent;
 	cl.num_statics++;
 
 	SV_BuildEntityState(NULL, ent, &stat->baseline);
@@ -2127,8 +2127,7 @@ static void PF_cl_makestatic (void)
 
 	VectorCopy (ent->baseline.origin, stat->origin);
 	VectorCopy (ent->baseline.angles, stat->angles);
-	if (stat->model)
-		R_AddEfrags (stat);
+	CL_LinkStaticEnt(&cl.static_entities[i]);
 
 // throw the entity away now
 	ED_Free (ent);

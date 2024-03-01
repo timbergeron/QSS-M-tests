@@ -112,6 +112,7 @@ qboolean gl_glsl_gamma_able = false; //ericw
 qboolean gl_glsl_alias_able = false; //ericw
 qboolean gl_glsl_water_able = false; //Spoike
 int gl_stencilbits;
+GLint gl_hardware_maxsize;
 
 PFNGLMULTITEXCOORD2FARBPROC GL_MTexCoord2fFunc = NULL; //johnfitz
 PFNGLACTIVETEXTUREARBPROC GL_SelectTextureFunc = NULL; //johnfitz
@@ -121,6 +122,10 @@ PFNGLBUFFERDATAARBPROC GL_BufferDataFunc = NULL; //ericw
 PFNGLBUFFERSUBDATAARBPROC GL_BufferSubDataFunc = NULL; //ericw
 PFNGLDELETEBUFFERSARBPROC GL_DeleteBuffersFunc = NULL; //ericw
 PFNGLGENBUFFERSARBPROC GL_GenBuffersFunc = NULL; //ericw
+PFNGLMAPBUFFERARBPROC	GL_MapBufferFunc		= NULL; //spike
+PFNGLUNMAPBUFFERARBPROC	GL_UnmapBufferFunc		= NULL; //spike
+PFNGLMAPBUFFERRANGEPROC	GL_MapBufferRangeFunc	= NULL;	//spike
+PFNGLBUFFERSTORAGEPROC	GL_BufferStorageFunc	= NULL;	//spike
 
 QS_PFNGLCREATESHADERPROC GL_CreateShaderFunc = NULL; //ericw
 QS_PFNGLDELETESHADERPROC GL_DeleteShaderFunc = NULL; //ericw
@@ -814,6 +819,7 @@ static void VID_Restart (void)
 // one of the new objects could be given the same ID as an invalid handle
 // which is later deleted.
 
+	RSceneCache_Shutdown();
 	TexMgr_DeleteTextureObjects ();
 	GLSLGamma_DeleteTexture ();
 	R_ScaleView_DeleteTexture ();
@@ -993,6 +999,8 @@ static void GL_CheckExtensions (void)
 		GL_BufferSubDataFunc = (PFNGLBUFFERSUBDATAARBPROC) SDL_GL_GetProcAddress("glBufferSubDataARB");
 		GL_DeleteBuffersFunc = (PFNGLDELETEBUFFERSARBPROC) SDL_GL_GetProcAddress("glDeleteBuffersARB");
 		GL_GenBuffersFunc = (PFNGLGENBUFFERSARBPROC) SDL_GL_GetProcAddress("glGenBuffersARB");
+		GL_MapBufferFunc = (PFNGLMAPBUFFERARBPROC) SDL_GL_GetProcAddress("glMapBufferARB");	//spike -- grab these too.
+		GL_UnmapBufferFunc = (PFNGLUNMAPBUFFERARBPROC) SDL_GL_GetProcAddress("glUnmapBufferARB");
 		if (GL_BindBufferFunc && GL_BufferDataFunc && GL_BufferSubDataFunc && GL_DeleteBuffersFunc && GL_GenBuffersFunc)
 		{
 			Con_Printf("FOUND: ARB_vertex_buffer_object\n");
@@ -1002,6 +1010,21 @@ static void GL_CheckExtensions (void)
 		{
 			Con_Warning ("ARB_vertex_buffer_object not available\n");
 		}
+	}
+
+	if (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 4) || GL_ParseExtensionList(gl_extensions, "GL_ARB_buffer_storage"))
+	{
+		GL_MapBufferRangeFunc = (PFNGLMAPBUFFERRANGEPROC) SDL_GL_GetProcAddress("glMapBufferRange");
+		GL_BufferStorageFunc = (PFNGLBUFFERSTORAGEPROC) SDL_GL_GetProcAddress("glBufferStorage");
+		if (gl_vbo_able && GL_MapBufferRangeFunc && GL_BufferStorageFunc)
+			Con_Printf("FOUND: GL_ARB_buffer_storage\n");
+		else
+			Con_Warning ("GL_ARB_buffer_storage not available\n");	//doesn't really warrent a warning, but when in rome...
+	}
+	else
+	{
+		GL_MapBufferRangeFunc = NULL;
+		GL_BufferStorageFunc = NULL;
 	}
 
 	// multitexture
@@ -1348,6 +1371,11 @@ static void GL_Init (void)
 		Cbuf_AddText ("gl_clear 1\n");	//Spike -- don't forget your \ns guys...
 	}
 	//johnfitz
+
+	// query max size from hardware
+	glGetIntegerv (GL_MAX_TEXTURE_SIZE, &gl_hardware_maxsize);
+	LMBLOCK_WIDTH = q_min(gl_hardware_maxsize, 512);	//keeping this small potentially allows for more efficient texsubimage calls.
+	LMBLOCK_HEIGHT = q_min(gl_hardware_maxsize, 16384);
 
 	GLAlias_CreateShaders ();
 	GLWorld_CreateShaders ();
