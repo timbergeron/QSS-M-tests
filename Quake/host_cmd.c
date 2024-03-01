@@ -1434,11 +1434,11 @@ static void Host_Loadgame_f (void)
 		{	// parse an edict
 			ent = EDICT_NUM(entnum);
 			if (entnum < qcvm->num_edicts) {
+				SV_UnlinkEdict(ent);
 				ent->free = false;
 				memset (&ent->v, 0, qcvm->progs->entityfields * 4);
 			}
 			else {
-				SV_UnlinkEdict(ent);
 				memset (ent, 0, qcvm->edict_size);
 				ent->baseline = nullentitystate;
 			}

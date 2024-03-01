@@ -763,7 +763,7 @@ void R_ShowBoundingBoxes (void)
 	int			i;
 	qcvm_t 		*oldvm;	//in case we ever draw a scene from within csqc.
 
-	if (!r_showbboxes.value || cl.maxclients > 1 || !r_drawentities.value || !sv.active)
+	if (!r_showbboxes.value || cl.maxclients > 1 || !r_drawentities.value)
 		return;
 
 	glDisable (GL_DEPTH_TEST);
@@ -773,38 +773,79 @@ void R_ShowBoundingBoxes (void)
 	glDisable (GL_CULL_FACE);
 	glColor3f (1,1,1);
 
-	oldvm = qcvm;
-	PR_SwitchQCVM(NULL);
-	PR_SwitchQCVM(&sv.qcvm);
-	for (i=1, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
+	if (r_showbboxes.value == 2 || !sv.active)
 	{
-		if (ed == sv_player || ed->free)
-			continue; //don't draw player's own bbox or freed edicts
+		entity_t *e;
+		for (i = 0; i < cl_numvisedicts; i++)
+		{	//only the visible ents...
+			e = cl_visedicts[i];
 
-//		if (r_showbboxes.value != 2)
-//			if (!SV_VisibleToClient (sv_player, ed, sv.worldmodel))
-//				continue; //don't draw if not in pvs
-
-		if (ed->v.mins[0] == ed->v.maxs[0] && ed->v.mins[1] == ed->v.maxs[1] && ed->v.mins[2] == ed->v.maxs[2])
-		{
-			//point entity
-			R_EmitWirePoint (ed->v.origin);
-		}
-		else
-		{
-			//box entity
-			if ((ed->v.solid == SOLID_BSP || ed->v.solid == SOLID_EXT_BSPTRIGGER) && (ed->v.angles[0]||ed->v.angles[1]||ed->v.angles[2]) && pr_checkextension.value)
-				R_EmitWireBox (ed->v.absmin, ed->v.absmax);
+			if (e->eflags & EFLAGS_VIEWMODEL)
+				continue;	//no point, probably outside the level. misleading.
+			if (e->netstate.solidsize == ES_SOLID_BSP && e->model)
+			{	// explicit hulls in the BSP model. also accept non-bmodels too, probably bugs but their boxes will at least be approximate.
+				VectorAdd(e->origin, e->model->mins, mins);
+				VectorAdd(e->origin, e->model->maxs, maxs);
+				R_EmitWireBox (mins, maxs);
+			}
+			else if (e->netstate.solidsize == ES_SOLID_NOT)
+			{	//we're actually using collision data here, so there'll be quite a few such ents unfortunately. we can just draw them as points, shouldn't be ambigous as points are normally nonsolid anyway.
+				if (e->model && e->model->type == mod_brush)
+				{	//bmodels are just painful with their origin so far from their geometry (because origins are irrelevant). lie and show the middle of the geometry. should probably skip this if its a rotator.
+					VectorMA(e->origin, 0.5, e->model->mins, mins);
+					VectorMA(mins, 0.5, e->model->maxs, mins);
+					R_EmitWirePoint (mins);
+				}
+				else
+					R_EmitWirePoint (e->origin);
+			}
 			else
 			{
-				VectorAdd (ed->v.mins, ed->v.origin, mins);
-				VectorAdd (ed->v.maxs, ed->v.origin, maxs);
+				maxs[0] = maxs[1] = e->netstate.solidsize & 255;
+				mins[0] = mins[1] = -maxs[0];
+				mins[2] = -(int)((e->netstate.solidsize >>8) & 255);
+				maxs[2] = (int)((e->netstate.solidsize>>16) & 65535) - 32768;
+				VectorAdd(e->origin, mins, mins);
+				VectorAdd(e->origin, maxs, maxs);
 				R_EmitWireBox (mins, maxs);
 			}
 		}
 	}
-	PR_SwitchQCVM(NULL);
-	PR_SwitchQCVM(oldvm);
+	else
+	{
+		oldvm = qcvm;
+		PR_SwitchQCVM(NULL);
+		PR_SwitchQCVM(&sv.qcvm);
+		for (i=1, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
+		{
+			if (ed == sv_player || ed->free)
+				continue; //don't draw player's own bbox or freed edicts
+
+	//		if (r_showbboxes.value != 2)
+	//			if (!SV_VisibleToClient (sv_player, ed, sv.worldmodel))
+	//				continue; //don't draw if not in pvs
+
+			if (ed->v.mins[0] == ed->v.maxs[0] && ed->v.mins[1] == ed->v.maxs[1] && ed->v.mins[2] == ed->v.maxs[2])
+			{
+				//point entity
+				R_EmitWirePoint (ed->v.origin);
+			}
+			else
+			{
+				//box entity
+				if ((ed->v.solid == SOLID_BSP || ed->v.solid == SOLID_EXT_BSPTRIGGER) && (ed->v.angles[0]||ed->v.angles[1]||ed->v.angles[2]) && pr_checkextension.value)
+					R_EmitWireBox (ed->v.absmin, ed->v.absmax);
+				else
+				{
+					VectorAdd (ed->v.mins, ed->v.origin, mins);
+					VectorAdd (ed->v.maxs, ed->v.origin, maxs);
+					R_EmitWireBox (mins, maxs);
+				}
+			}
+		}
+		PR_SwitchQCVM(NULL);
+		PR_SwitchQCVM(oldvm);
+	}
 
 	glColor3f (1,1,1);
 	glEnable (GL_TEXTURE_2D);

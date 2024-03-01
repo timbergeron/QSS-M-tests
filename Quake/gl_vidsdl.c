@@ -1591,7 +1591,9 @@ void	VID_Init (void)
 	int		p, width, height, refreshrate, bpp;
 	int		display_width, display_height, display_refreshrate, display_bpp;
 	qboolean	fullscreen;
-	const char	*read_vars[] = { "vid_fullscreen",
+	cvar_t *v;
+	size_t i;
+	static const char	*read_vars[] = { "vid_fullscreen",
 					 "vid_width",
 					 "vid_height",
 					 "vid_refreshrate",
@@ -1599,7 +1601,9 @@ void	VID_Init (void)
 					 "vid_vsync",
 					 "vid_fsaa",
 					 "vid_desktopfullscreen",
-					 "vid_borderless"};
+					 "vid_borderless",
+					 "gl_load24bit",	//including this here so we don't start up to the wrong setting.
+					 };
 #define num_readvars	( sizeof(read_vars)/sizeof(read_vars[0]) )
 
 	Cvar_RegisterVariable (&vid_fullscreen); //johnfitz
@@ -1611,15 +1615,14 @@ void	VID_Init (void)
 	Cvar_RegisterVariable (&vid_fsaa); //QuakeSpasm
 	Cvar_RegisterVariable (&vid_desktopfullscreen); //QuakeSpasm
 	Cvar_RegisterVariable (&vid_borderless); //QuakeSpasm
-	Cvar_SetCallback (&vid_fullscreen, VID_Changed_f);
-	Cvar_SetCallback (&vid_width, VID_Changed_f);
-	Cvar_SetCallback (&vid_height, VID_Changed_f);
-	Cvar_SetCallback (&vid_refreshrate, VID_Changed_f);
-	Cvar_SetCallback (&vid_bpp, VID_Changed_f);
-	Cvar_SetCallback (&vid_vsync, VID_Changed_f);
-	Cvar_SetCallback (&vid_fsaa, VID_FSAA_f);
-	Cvar_SetCallback (&vid_desktopfullscreen, VID_Changed_f);
-	Cvar_SetCallback (&vid_borderless, VID_Changed_f);
+	for (i = 0; i < num_readvars; i++)
+	{
+		v = Cvar_FindVar(read_vars[i]);
+		if (!v || v->callback)
+			Sys_Error("Cvar %s not found yet, or already has a callback", read_vars[i]);
+		else
+			Cvar_SetCallback (v, VID_Changed_f);
+	}
 
 	Cmd_AddCommand ("vid_unlock", VID_Unlock); //johnfitz
 	Cmd_AddCommand ("vid_restart", VID_Restart); //johnfitz

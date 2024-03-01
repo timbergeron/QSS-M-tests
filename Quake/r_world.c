@@ -643,8 +643,7 @@ static void GLWater_CreateShaders (void)
         //The following 4 lines SHOULD match the software renderer, except normalised coords rather than snapped texels
         "#define M_PI 3.14159\n"
 		"#define TIMEBIAS (((WarpTime*20.0)*M_PI*2.0)/128.0)\n"
-		"	ntc.s += 0.125 + sin(tc_tex.t*M_PI + TIMEBIAS)*0.125;\n"
-		"	ntc.t += 0.125 + sin(tc_tex.s*M_PI + TIMEBIAS)*0.125;\n"
+		"	ntc += 0.125 + sin(tc_tex.ts*M_PI + TIMEBIAS)*0.125;\n"
 		"	vec4 result = texture2D(Tex, ntc.st);\n"
 "#ifdef LIT\n"
 		"	result *= texture2D(LMTex, tc_lm.xy);\n"
