@@ -243,7 +243,7 @@ static int MSG_ReadSize16 (sizebuf_t *sb)
 	{
 		int solid = (((ssolid>>7) & 0x1F8) - 32+32768)<<16;	/*up can be negative*/
 		solid|= ((ssolid & 0x1F)<<3);
-		solid|= ((ssolid & 0x3E0)<<10);
+		solid|= ((ssolid & 0x3E0)<<6);
 		return solid;
 	}
 }
@@ -1461,10 +1461,6 @@ static void CL_ParseServerInfo (void)
 	str = MSG_ReadString ();
 	q_strlcpy (cl.levelname, str, sizeof(cl.levelname));
 
-// seperate the printfs so the server message can have a color
-	Con_Printf ("\n%s\n", Con_Quakebar(40)); //johnfitz
-	Con_Printf ("%c%s\n", 2, str);
-
 //johnfitz -- tell user which protocol this is
 	if (developer.value)
 	{
@@ -1508,6 +1504,10 @@ static void CL_ParseServerInfo (void)
 		q_snprintf(protname, sizeof(protname), "%i", cl.protocol);
 	Con_Printf ("Using protocol %s", protname);
 	Con_Printf ("\n");
+
+	// seperate the printfs so the server message can have a color
+	Con_Printf ("\n%s\n", Con_Quakebar(40)); //johnfitz
+	Con_Printf ("%c%s\n", 2, str);
 
 // first we go through and touch all of the precache data that still
 // happens to be in the cache, so precaching something else doesn't
@@ -2074,16 +2074,16 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	if (i >= cl.max_static_entities)
 	{
 		int ec = 64;
-		entity_t **newstatics = realloc(cl.static_entities, sizeof(*newstatics) * (cl.max_static_entities+ec));
+		struct cl_static_entities_s *newstatics = realloc(cl.static_entities, sizeof(*newstatics) * (cl.max_static_entities+ec));
 		entity_t *newents = Hunk_Alloc(sizeof(*newents) * ec);
 		if (!newstatics || !newents)
 			Host_Error ("Too many static entities");
 		cl.static_entities = newstatics;
 		while (ec--)
-			cl.static_entities[cl.max_static_entities++] = newents++;
+			cl.static_entities[cl.max_static_entities++].ent = newents++;
 	}
 
-	ent = cl.static_entities[i];
+	ent = cl.static_entities[i].ent;
 	cl.num_statics++;
 	CL_ParseBaseline (ent, version); //johnfitz -- added second parameter
 
@@ -2104,8 +2104,7 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	ent->alpha = ent->baseline.alpha; //johnfitz -- alpha
 	VectorCopy (ent->baseline.origin, ent->origin);
 	VectorCopy (ent->baseline.angles, ent->angles);
-	if (ent->model)
-		R_AddEfrags (ent);
+	CL_LinkStaticEnt(&cl.static_entities[i]);
 }
 
 /*

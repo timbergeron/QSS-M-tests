@@ -45,6 +45,7 @@ extern cvar_t r_lerpmove;
 extern cvar_t r_nolerp_list;
 extern cvar_t r_noshadow_list;
 //johnfitz
+extern cvar_t r_scenecache;
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates QS's bug where it ignores texture coord offsets for water (breaking curved water volumes). we do NOT ignore scales though.
 
@@ -324,6 +325,9 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_noshadow_list);
 	Cvar_SetCallback (&r_noshadow_list, R_Model_ExtraFlags_List_f);
 	//johnfitz
+	//spike -- new cvars...
+	Cvar_RegisterVariable (&r_scenecache);
+	//spike
 
 	Cvar_RegisterVariable (&cl_damagehue);   // woods #damage
 	Cvar_RegisterVariable (&cl_damagehuecolor);   // woods #damage

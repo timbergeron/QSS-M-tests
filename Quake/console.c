@@ -1529,6 +1529,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "maps",					CompleteFileList,		&extralevels },
 	{ "changelevel",			CompleteFileList,		&extralevels },
 	{ "game",					CompleteFileList,		&modlist },
+	{ "gamedir",				CompleteFileList,		&modlist },
 	{ "record",					CompleteFileListDemo,	&demolist },
 	{ "playdemo",				CompleteFileListDemo,	&demolist },
 	{ "timedemo",				CompleteFileListDemo,	&demolist },

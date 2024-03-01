@@ -117,8 +117,8 @@ void CL_ClearTrailStates(void)
 	int i;
 	for (i = 0; i < cl.num_statics; i++)
 	{
-		PScript_DelinkTrailstate(&(cl.static_entities[i]->trailstate));
-		PScript_DelinkTrailstate(&(cl.static_entities[i]->emitstate));
+		PScript_DelinkTrailstate(&(cl.static_entities[i].ent->trailstate));
+		PScript_DelinkTrailstate(&(cl.static_entities[i].ent->emitstate));
 	}
 	for (i = 0; i < cl.max_edicts; i++)
 	{
@@ -185,6 +185,8 @@ void CL_ClearState (void)
 #ifdef PSET_SCRIPT
 	PScript_Shutdown();
 #endif
+
+	RSceneCache_Shutdown();
 
 	if (!sv.active)
 		Draw_ReloadTextures(false);
@@ -1957,10 +1959,10 @@ qboolean CL_CheckDownloads(void)
 	//make sure ents have the correct models, now that they're actually loaded.
 	for (i = 0; i < cl.num_statics; i++)
 	{
-		if (cl.static_entities[i]->model)
+		if (cl.static_entities[i].ent->model)
 			continue;
-		cl.static_entities[i]->model = cl.model_precache[cl.static_entities[i]->netstate.modelindex];
-		R_AddEfrags (cl.static_entities[i]);
+		cl.static_entities[i].ent->model = cl.model_precache[cl.static_entities[i].ent->netstate.modelindex];
+		CL_LinkStaticEnt(&cl.static_entities[i]);
 	}
 	return true;
 }

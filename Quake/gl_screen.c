@@ -864,7 +864,7 @@ void SCR_DrawFPS (void)
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3); // woods
 
 	elapsed_time = realtime - oldtime;
-	frames = r_framecount - oldframecount;
+	frames = host_framecount - oldframecount;
 
 	if (scr_viewsize.value >= 130)
 		return;
@@ -872,7 +872,7 @@ void SCR_DrawFPS (void)
 	if (elapsed_time < 0 || frames < 0)
 	{
 		oldtime = realtime;
-		oldframecount = r_framecount;
+		oldframecount = host_framecount;
 		return;
 	}
 	// update value every 3/4 second
@@ -880,7 +880,7 @@ void SCR_DrawFPS (void)
 	{
 		lastfps = frames / elapsed_time;
 		oldtime = realtime;
-		oldframecount = r_framecount;
+		oldframecount = host_framecount;
 	}
 
 	if (scr_showfps.value)
