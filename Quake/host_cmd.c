@@ -81,7 +81,7 @@ void Host_Quit_f (void)
 FileList_Add
 ==================
 */
-void FileList_Add (const char *name, const char* date, filelist_item_t **list) // woods #demolistsort add arg, remove static
+void FileList_Add (const char *name, const char* data, filelist_item_t **list) // woods #demolistsort add arg, remove static
 {
 	filelist_item_t	*item,*cursor,*prev;
 
@@ -94,8 +94,8 @@ void FileList_Add (const char *name, const char* date, filelist_item_t **list) /
 
 	item = (filelist_item_t *) Z_Malloc(sizeof(filelist_item_t));
 	q_strlcpy (item->name, name, sizeof(item->name));
-	if (date)
-		q_strlcpy(item->date, date, sizeof(item->date)); // woods #demolistsort add arg
+	if (data)
+		q_strlcpy(item->data, data, sizeof(item->data)); // woods #demolistsort add arg
 
 	// insert each entry in alphabetical order
 	if (*list == NULL ||
@@ -115,6 +115,34 @@ void FileList_Add (const char *name, const char* date, filelist_item_t **list) /
 		}
 		item->next = prev->next;
 		prev->next = item;
+	}
+}
+
+/*
+==================
+FileList_Subtract -- woods
+==================
+*/
+void FileList_Subtract (const char* name, filelist_item_t** list)
+{
+	filelist_item_t* cursor, * prev = NULL;
+
+	for (cursor = *list; cursor != NULL; prev = cursor, cursor = cursor->next)
+	{
+		if (!Q_strcmp(name, cursor->name))
+		{
+			if (cursor == *list) // If it's the first item in the list
+			{
+				*list = cursor->next;
+			}
+			else // If it's in the middle or end
+			{
+				prev->next = cursor->next;
+			}
+
+			Z_Free(cursor);
+			return;
+		}
 	}
 }
 
@@ -211,6 +239,7 @@ void ExtraMaps_Init (void)
 static void ExtraMaps_Clear (void)
 {
 	FileList_Clear(&extralevels);
+	descriptionsParsed = false;
 }
 
 void ExtraMaps_NewGame (void)
@@ -223,9 +252,7 @@ void ExtraMaps_NewGame (void)
 // woods -- worldspawn map description support #mapdescriptions
 //==============================================================================
 
-#define	MAXDESC	70
-
-filelist_item_t* levelwithdesc;
+#define	MAXDESC	50
 
 int max_word_length = 0;
 qboolean descriptionsParsed = false;
@@ -233,7 +260,7 @@ qboolean descriptionsParsed = false;
 void UpdateMaxWordLength (const char* word)
 {
 	int word_length = strlen(word);
-	if (word_length > max_word_length) 
+	if (word_length > max_word_length)
 		max_word_length = word_length;
 }
 
@@ -249,20 +276,9 @@ void ExtraMaps_ParseDescriptions (void)
 		char mapdesc[MAXDESC];
 		Mod_LoadMapDescription(mapdesc, sizeof(mapdesc), level->name);
 
-		int word_length = strlen(level->name);
-		int num_spaces = (max_word_length + 2) - word_length;
-		if (num_spaces < 1)
-			num_spaces = 1;
+		FileList_Subtract(level->name, &extralevels);
+		FileList_Add(level->name, mapdesc, &extralevels);
 
-		char* space_str = malloc((num_spaces + 1) * sizeof(char));
-		memset(space_str, ' ', num_spaces);
-		space_str[num_spaces] = '\0';
-
-		char combined[MAX_CHAT_SIZE_EX - 1];
-		q_snprintf(combined, sizeof(combined), "%s%s%s", level->name, space_str, mapdesc);
-		FileList_Add (combined, NULL, &levelwithdesc);
-
-		free(space_str);
 	}
 
 	descriptionsParsed = true;
@@ -284,10 +300,7 @@ void FileList_Add_MapDesc (const char* levelName) // for a map download
 	memset (space_str, ' ', num_spaces);
 	space_str[num_spaces] = '\0';
 
-	char combined[MAX_CHAT_SIZE_EX];
-	q_snprintf (combined, sizeof(combined), "%s%s%s", levelName, space_str, mapdesc);
-
-	FileList_Add (combined, NULL, &levelwithdesc);
+	FileList_Add (levelName, mapdesc, &extralevels);
 
 	free (space_str);
 }
@@ -295,66 +308,49 @@ void FileList_Add_MapDesc (const char* levelName) // for a map download
 static void Host_Maps_f (void) // prints worldspawn map description
 {
 	if (!descriptionsParsed)
-		ExtraMaps_ParseDescriptions ();
+		ExtraMaps_ParseDescriptions();
 
-	int i;
-	filelist_item_t	*level;
-
+	filelist_item_t* level;
 	int count = 0;
-
-	const char* filter = NULL; 
+	const char* filter = NULL;
 
 	if (Cmd_Argc() >= 2)
 		filter = Cmd_Argv(1);
 
 	Con_SafePrintf("\n");
 
-	for (level = levelwithdesc, i = 0; level; level = level->next, i++)
-	{ 
+	for (level = extralevels; level; level = level->next)
+	{
 		char buf[MAX_CHAT_SIZE_EX];
-	
-		if (filter)
+		char combined[MAX_CHAT_SIZE_EX];
+
+		int word_length = strlen(level->name);
+		int num_spaces = (max_word_length + 2) - word_length;
+		if (num_spaces < 1) num_spaces = 1;
+		snprintf(combined, sizeof(combined), "%-*s %s", word_length + num_spaces, level->name, level->data);
+
+		if (filter) 
 		{
-			if (!q_strcasestr(level->name, filter))
+			if (!(q_strcasestr(level->name, filter) || q_strcasestr(level->data, filter)))
 				continue;
-			COM_TintSubstring(level->name, filter, buf, sizeof(buf));
-			count++;
+
+			COM_TintSubstring(combined, filter, buf, sizeof(buf));
+			q_strlcpy(combined, buf, sizeof(combined));
 		}
-		else
-		{
-			q_strlcpy(buf, level->name, sizeof(buf));
-		}
-		
-		Con_SafePrintf("   %s\n", buf);
+
+		Con_SafePrintf("   %s\n", combined);
+		count++;
 	}
 
-	if (filter)
-	{
-		if (count)
-			Con_SafePrintf("\n");
-		Con_SafePrintf("%i map(s) found containing '%s'\n", count, filter);
-		Con_SafePrintf("\n");
-	}
+	if (filter) 
+		Con_SafePrintf("\n%i map(s) found containing '%s'\n\n", count, filter);
 	else
 	{
-		Con_SafePrintf ("\n");
-		if (i)
-			Con_SafePrintf ("%i map(s)\n", i);
+		if (count)
+			Con_SafePrintf("\n%i map(s)\n\n", count);
 		else
-			Con_SafePrintf ("no maps found\n");
-		Con_SafePrintf ("\n");
+			Con_SafePrintf("\nno maps found\n\n");
 	}
-}
-
-static void DescMaps_Clear (void)
-{
-	FileList_Clear (&levelwithdesc);
-	descriptionsParsed = false;
-}
-
-void DescMaps_NewGame (void)
-{
-	DescMaps_Clear ();
 }
 
 //==============================================================================

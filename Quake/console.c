@@ -1372,7 +1372,7 @@ static qboolean CompleteFileListDemo (const char* partial, void* param) // woods
 {
 	filelist_item_t* file, ** list = (filelist_item_t**)param;
 	for (file = *list; file; file = file->next)
-		Con_AddToTabList (file->name, partial, NULL, file->date);
+		Con_AddToTabList (file->name, partial, NULL, file->data);
 	return true;
 }
 

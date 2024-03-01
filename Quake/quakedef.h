@@ -375,8 +375,8 @@ extern	double		last_angle_time;	// JPG - need this for smooth chasecam (from Pro
 
 typedef struct filelist_item_s
 {
-	char			name[100]; // woods #mapdescriptions
-	char			date[50]; // woods #demolistsort
+	char			name[MAX_QPATH];
+	char			data[50]; // woods #demolistsort #mapdescriptions
 	struct filelist_item_s	*next;
 } filelist_item_t;
 
@@ -389,7 +389,10 @@ extern filelist_item_t  *particlelist; // woods #particlelist
 extern filelist_item_t  *serverlist; // woods #serverlist
 extern filelist_item_t*	 folderlist; // woods #folderlist
 extern filelist_item_t  *musiclist; // woods #musiclist
-extern filelist_item_t  *levelwithdesc; // woods #mapdescriptions
+
+extern qboolean descriptionsParsed; // woods #mapdescriptions
+void ExtraMaps_ParseDescriptions (void); // woods #mapdescriptions
+extern int max_word_length; // woods #mapdescriptions
 
 void Host_ClearMemory (void);
 void Host_ServerFrame (void);
@@ -428,7 +431,6 @@ void MusicList_Init (void); // woods #musiclist
 
 
 void ExtraMaps_NewGame (void);
-void DescMaps_NewGame (void); // woods #mapdescriptions
 void DemoList_Rebuild (void);
 void ParticleList_Rebuild(void);
 void SkyList_Rebuild (void);

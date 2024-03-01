@@ -112,8 +112,6 @@ extern int retry_counter; // woods #ms
 extern int grenadecache, rocketcache; // woods #r2g
 extern qboolean pausedprint; // woods
 
-void FileList_Add (const char* name, const char* date, filelist_item_t** list); // woods
-
 void CL_ClearTrailStates(void)
 {
 	int i;
@@ -1671,7 +1669,6 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 	{
 		char mapname[MAX_QPATH];
 		COM_StripExtension(COM_SkipPath(filename), mapname, sizeof(mapname));
-		FileList_Add (mapname, NULL, &extralevels);
 		FileList_Add_MapDesc (mapname); // #mapdescriptions
 
 	}
@@ -1725,7 +1722,6 @@ void CL_Download_Finished_f(void)
 			{
 				char mapname[MAX_QPATH];
 				COM_StripExtension(COM_SkipPath(cls.download.current), mapname, sizeof(mapname));
-				FileList_Add (mapname, NULL, &extralevels);
 				FileList_Add_MapDesc (mapname); // #mapdescriptions
 			}
 
