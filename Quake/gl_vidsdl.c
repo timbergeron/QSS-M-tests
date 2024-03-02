@@ -1069,7 +1069,10 @@ static void GL_CheckExtensions (void)
 		GL_MapBufferRangeFunc = (PFNGLMAPBUFFERRANGEPROC) SDL_GL_GetProcAddress("glMapBufferRange");
 		GL_BufferStorageFunc = (PFNGLBUFFERSTORAGEPROC) SDL_GL_GetProcAddress("glBufferStorage");
 		if (gl_vbo_able && GL_MapBufferRangeFunc && GL_BufferStorageFunc)
-			Con_Printf("FOUND: GL_ARB_buffer_storage\n");
+		{ 
+			if (cls.state == ca_disconnected)
+				Con_Printf("FOUND: GL_ARB_buffer_storage\n");
+		}
 		else
 			Con_Warning ("GL_ARB_buffer_storage not available\n");	//doesn't really warrent a warning, but when in rome...
 	}
