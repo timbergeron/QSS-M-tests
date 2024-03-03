@@ -245,8 +245,19 @@ void Vec_Free(void** pvec)
 
 int q_strnaturalcmp (const char* s1, const char* s2) // woods #iwtabcomplete
 {
+	qboolean neg1, neg2, sign1, sign2;
+
 	if (s1 == s2)
 		return 0;
+
+	neg1 = *s1 == '-';
+	neg2 = *s2 == '-';
+	sign1 = neg1 || *s1 == '+';
+	sign2 = neg2 || *s2 == '+';
+
+	// early out if strings start with different signs followed by digits
+	if (neg1 != neg2 && q_isdigit (s1[sign1]) && q_isdigit (s1[sign2]))
+		return neg2 - neg1;
 
 skip_prefix:
 	while (*s1 && !q_isdigit(*s1) && q_toupper(*s1) == q_toupper(*s2))
@@ -260,7 +271,7 @@ skip_prefix:
 	{
 		const char* begin1 = s1++;
 		const char* begin2 = s2++;
-		int diff;
+		int diff, sign;
 
 		while (*begin1 == '0')
 			begin1++;
@@ -272,16 +283,22 @@ skip_prefix:
 		while (q_isdigit(*s2))
 			s2++;
 
+		sign = neg1 ? -1 : 1;
+
 		diff = (s1 - begin1) - (s2 - begin2);
 		if (diff)
-			return diff;
+			return diff * sign;
 
 		while (begin1 != s1)
 		{
 			diff = *begin1++ - *begin2++;
 			if (diff)
-				return diff;
+				return diff * sign;
 		}
+
+		// We only support negative numbers at the beginning of strings so that
+		// "-2" is sorted before "-1", but "file-2345.ext" *after* "file-1234.ext".
+		neg1 = neg2 = false;
 
 		goto skip_prefix;
 	}
