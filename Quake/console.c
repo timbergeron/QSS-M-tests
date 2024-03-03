@@ -1683,7 +1683,7 @@ static void Con_PrintTabList(void)
 	tab_t* t;
 
 	// determine maximum item length
-	maxlen = 0;
+	matches = maxlen = 0;
 	t = tablist;
 	do 
 	{
@@ -1691,6 +1691,7 @@ static void Con_PrintTabList(void)
 		int total = (int)strlen(buf);
 		maxlen = q_max(maxlen, total);
 		t = t->next;
+		++matches;
 	} while (t != tablist);
 
 	// determine number of columns
@@ -1702,12 +1703,14 @@ static void Con_PrintTabList(void)
 	cols = q_max(con_linewidth, maxlen) / maxlen;
 	if (con_colmax.value >= 1.f)
 		cols = q_min(cols, (int)con_colmax.value);     // apply user limit
+	if (matches < 6)									// single column if fewer than 6 matches
+		cols = 1;
 
 	if (con_coldirection.value == 1)
 	{
 		// Original method: Left to right, then top to bottom
 		Con_SafePrintf("\n");
-		i = matches = total = 0;
+		i = total = 0;
 		t = tablist;
 		do {
 			Con_FormatTabMatch(t, buf, sizeof(buf));
@@ -1722,7 +1725,6 @@ static void Con_PrintTabList(void)
 			if (t->type && t->type[0] == '#' && !t->type[1])
 				total += t->count;
 			t = t->next;
-			++matches;
 		} while (t != tablist);
 		if (i != 0)
 			Con_SafePrintf("\n");
@@ -1741,7 +1743,7 @@ static void Con_PrintTabList(void)
 
 		// Print all matches in top-to-bottom, then left-to-right order
 		Con_SafePrintf("\n");
-		matches = total = 0;
+		total = 0;
 		for (i = 0; i < rows; i++) 
 		{
 			for (j = 0; j < cols; j++) 
@@ -1755,7 +1757,6 @@ static void Con_PrintTabList(void)
 					Con_SafePrintf(" %*s", -(maxlen - 3), buf);
 					if (t->type && t->type[0] == '#' && !t->type[1])
 						total += t->count;
-					matches++;
 				}
 			}
 			Con_SafePrintf("\n");
