@@ -1710,7 +1710,7 @@ void M_MultiPlayer_Draw (void)
 	M_DrawTransPic (54, 32 + m_multiplayer_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
 
 	
-	if (cl.maxclients > 1 && cls.state == ca_connected) // woods, give some extra info in mp menu
+	if (cl.maxclients > 1 && cls.state == ca_connected && !cls.demoplayback) // woods, give some extra info in mp menu
 	{
 		f = (320 - 26 * 8) / 2;
 		M_DrawTextBox(f, 96, i, 2);
