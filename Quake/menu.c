@@ -4627,6 +4627,7 @@ void M_GameOptions_Mousemove(int cx, int cy) // woods #mousemenu
 qboolean	searchComplete = false;
 double		searchCompleteTime;
 enum slistScope_e searchLastScope = SLIST_LAN;
+void ResetHostlist (void); // woods #resethostlist
 
 void M_Menu_Search_f (enum slistScope_e scope)
 {
@@ -4635,6 +4636,8 @@ void M_Menu_Search_f (enum slistScope_e scope)
 	IN_UpdateGrabs();
 	m_entersound = false;
 	slistSilent = true;
+	if (searchLastScope != scope) // woods #resethostlist
+		ResetHostlist();
 	slistScope = searchLastScope = scope;
 	searchComplete = false;
 	NET_Slist_f();

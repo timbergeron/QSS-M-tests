@@ -1883,6 +1883,11 @@ static void Info_ReadKey(const char *info, const char *key, char *out, size_t ou
 	*out = 0;
 }
 
+void ResetHostlist (void) // woods #resethostlist
+{
+	memset(hostlist, 0, sizeof(hostlist[0]) * hostlist_max);
+	hostlist_count = 0;
+}
 
 static qboolean _Datagram_SearchForHosts (qboolean xmit)
 {	
