@@ -115,6 +115,18 @@ extern	enum slistScope_e
 	SLIST_INTERNET
 } slistScope;
 
+#define HOSTCACHESIZE	128	// woods #serversmenu
+
+typedef enum { // woods #serversmenu
+	SERVER_NAME,
+	SERVER_CNAME,
+	SERVER_MAP,
+	SERVER_USERS,
+	SERVER_MAX_USERS
+} ServerInfoType;
+
+const char* NET_SlistPrintServerInfo(size_t idx, ServerInfoType type); // woods #serversmenu
+
 extern	size_t		hostCacheCount;
 
 void	NET_Slist_f (void);

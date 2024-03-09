@@ -60,6 +60,7 @@ extern qboolean m_entersound;
 void M_Init (void);
 void M_Keydown (int key);
 void M_Charinput (int key);
+void M_Mousemove(int x, int y); // woods #mousemenu (iw)
 qboolean M_TextEntry (void);
 #if defined(_WIN32) // woods #disablecaps via ironwail
 qboolean M_KeyBinding(void);

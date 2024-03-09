@@ -318,7 +318,7 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 
 	qboolean gamecodecursor = (key_dest == key_game && cl.qcvm.cursorforced) || (key_dest == key_menu && cls.menu_qcvm.cursorforced);
 	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || gamecodecursor || !windowhasfocus;
-	freemouse = wantcursor && (modestate == MS_WINDOWED || gamecodecursor);
+	freemouse = wantcursor || gamecodecursor; // woods #mousemenu
 	needevents = (!wantcursor) || key_dest == key_game;
 
 	if (isDedicated)
@@ -1341,6 +1341,8 @@ void IN_SendKeyEvents (void)
 							event.button.button);
 				break;
 			}
+			if (key_dest == key_menu) // woods #mousemenu
+				M_Mousemove(event.button.x, event.button.y);
 			Key_Event(buttonremap[event.button.button - 1], event.button.state == SDL_PRESSED);
 			break;
 
@@ -1360,6 +1362,8 @@ void IN_SendKeyEvents (void)
 #endif
 
 		case SDL_MOUSEMOTION:
+			if (key_dest == key_menu) // woods #mousemenu
+				M_Mousemove(event.button.x, event.button.y);
 			IN_MouseMotion(event.motion.xrel, event.motion.yrel, event.motion.x, event.motion.y);
 			break;
 

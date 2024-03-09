@@ -92,6 +92,7 @@ static void VID_Menu_Init (void); //johnfitz
 static void VID_Menu_f (void); //johnfitz
 static void VID_MenuDraw (void);
 static void VID_MenuKey (int key);
+static void VID_MenuMouse(int cx, int cy); // woods #mousemenu
 
 static void ClearAllStates (void);
 static void GL_Init (void);
@@ -1922,6 +1923,7 @@ void	VID_Init (void)
 	vid_menucmdfn = VID_Menu_f; //johnfitz
 	vid_menudrawfn = VID_MenuDraw;
 	vid_menukeyfn = VID_MenuKey;
+	vid_menumousefn = VID_MenuMouse; // woods #mousemenu
 
 	VID_Gamma_Init(); //johnfitz
 	VID_Menu_Init(); //johnfitz
@@ -2307,6 +2309,8 @@ static void VID_MenuKey (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
+	case K_MOUSE4: // woods #mousemenu
+	case K_MOUSE2: // woods #mousemenu
 		VID_SyncCvars (); //sync cvars before leaving menu. FIXME: there are other ways to leave menu
 		S_LocalSound ("misc/menu1.wav");
 		M_Menu_Options_f ();
@@ -2327,6 +2331,7 @@ static void VID_MenuKey (int key)
 		break;
 
 	case K_LEFTARROW:
+	case K_MWHEELDOWN: // woods #mousemenu
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
@@ -2351,6 +2356,7 @@ static void VID_MenuKey (int key)
 		break;
 
 	case K_RIGHTARROW:
+	case K_MWHEELUP: // woods #mousemenu
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
@@ -2377,6 +2383,7 @@ static void VID_MenuKey (int key)
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
+	case K_MOUSE1: // woods #mousemenu
 		m_entersound = true;
 		switch (video_options_cursor)
 		{
@@ -2412,6 +2419,23 @@ static void VID_MenuKey (int key)
 	default:
 		break;
 	}
+}
+
+/*
+================
+VID_MenuMouse -- woods #mousemenu (iw)
+================
+*/
+static void VID_MenuMouse(int cx, int cy)
+{
+	int cursor = (cy - 48) / 8;
+	// Handle the visual gap between the last option and "Test changes"
+	if (cursor > VID_OPT_TEST)
+		--cursor; // past the gap, correct the index
+	else if (cursor == VID_OPT_TEST)
+		return; // inside the gap, do nothing
+	cursor = CLAMP(0, cursor, VIDEO_OPTIONS_ITEMS);
+	video_options_cursor = cursor;
 }
 
 /*

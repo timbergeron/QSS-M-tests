@@ -1021,6 +1021,27 @@ void Draw_FadeScreen (void)
 
 /*
 ================
+Draw_GetMenuTransform -- woods #mousemenu (iw)
+================
+*/
+void Draw_GetMenuTransform(vrect_t* bounds, vrect_t* viewport)
+{
+	float s;
+	s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+	s = CLAMP(1.0, scr_menuscale.value, s);
+	// ericw -- doubled width to 640 to accommodate long keybindings
+	bounds->x = 0;
+	bounds->y = 0;
+	bounds->width = 640;
+	bounds->height = 200;
+	viewport->x = glx + (glwidth - 320 * s) / 2;
+	viewport->y = gly + (glheight - 200 * s) / 2;
+	viewport->width = 640 * s;
+	viewport->height = 200 * s;
+}
+
+/*
+================
 GL_SetCanvas -- johnfitz -- support various canvas types
 ================
 */

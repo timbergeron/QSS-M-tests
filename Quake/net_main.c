@@ -391,6 +391,30 @@ const char *NET_SlistPrintServerName (size_t idx)
 	return hostcache[idx].cname;
 }
 
+const char* NET_SlistPrintServerInfo (size_t idx, ServerInfoType type) // woods #serversmenu
+{
+	static char buf[32];
+
+	if (idx >= hostCacheCount) {
+		return "";
+	}
+	switch (type) {
+	case SERVER_NAME:
+		return hostcache[idx].name;
+	case SERVER_CNAME:
+		return hostcache[idx].cname;
+	case SERVER_MAP:
+		return hostcache[idx].map;
+	case SERVER_USERS:
+		snprintf(buf, sizeof(buf), "%d", hostcache[idx].users);
+		return buf;
+	case SERVER_MAX_USERS:
+		snprintf(buf, sizeof(buf), "%d", hostcache[idx].maxusers);
+		return buf;
+	default:
+		return "";
+	}
+}
 
 static void Slist_Send (void *unused)
 {

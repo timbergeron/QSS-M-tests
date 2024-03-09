@@ -1885,7 +1885,7 @@ static void Info_ReadKey(const char *info, const char *key, char *out, size_t ou
 
 
 static qboolean _Datagram_SearchForHosts (qboolean xmit)
-{
+{	
 	int		ret;
 	size_t	n;
 	size_t	i;
@@ -2510,4 +2510,33 @@ int Datagram_QueryAddresses(qhostaddr_t *addresses, int maxaddresses)
 			result += net_landrivers[net_landriverlevel].QueryAddresses(addresses+result, maxaddresses-result);
 	}
 	return result;
+}
+
+const char* ResolveHostname (const char* hostname) // woods #serversmenu
+{
+	static char resolvedIP[NET_NAMELEN] = { 0 }; // Buffer to store the resolved IP address as a string
+	struct qsockaddr sendaddr;
+	int resolved = 0;
+
+	// Attempt to resolve the hostname with each initialized network driver
+	for (net_landriverlevel = 0; net_landriverlevel < net_numlandrivers; net_landriverlevel++) {
+		if (!net_landrivers[net_landriverlevel].initialized)
+			continue;
+
+		if (dfunc.GetAddrFromName(hostname, &sendaddr) != -1) 
+		{
+			resolved = 1; // Mark as resolved
+			strncpy(resolvedIP, dfunc.AddrToString(&sendaddr, false), sizeof(resolvedIP) - 1);
+			resolvedIP[sizeof(resolvedIP) - 1] = '\0'; // Ensure null-termination
+			break; // Stop iterating once resolved
+		}
+	}
+
+	if (!resolved) 
+	{
+		Con_Printf("Could not resolve %s\n", hostname);
+		return "Hostname could not be resolved";
+	}
+
+	return resolvedIP;
 }
