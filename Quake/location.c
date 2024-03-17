@@ -77,147 +77,223 @@ void LOC_SetLoc (vec3_t mins, vec3_t maxs, char *name)
 	*ptr = l; // woods remove indent
 }
 
-qboolean LOC_LoadLocations (void)
+qboolean nqloc; // woods nq/qw 3/6-point format flag #qwlocs
+qboolean hasPrintedFormat = false; // woods #qwlocs
+
+qboolean LOC_LoadLocations (void) // woods #qwlocs
 {
-	char	filename[MAX_OSPATH];
-	vec3_t	mins, maxs;	
-	char	name[32];
+    char	filename[MAX_OSPATH];
+    vec3_t	mins, maxs;
+    char	name[64]; // incrrased from 32 to 64 for qw locs
 
-	int		i, linenumber, limit, len;
-	char	*filedata, *text, *textend, *linestart, *linetext, *lineend;
-	int		filesize;
+    int		i, linenumber, limit, len;
+    char	*filedata, *text, *textend, *linestart, *linetext, *lineend;
+    int		filesize;
 
-	if (cls.state != ca_connected || !cl.worldmodel)
-	{
-		Con_Printf("!LOC_LoadLocations ERROR: No map loaded!\n");
-		return false;
-	}
+    hasPrintedFormat = false;
 
-	//LOC_Init();
+    if (cls.state != ca_connected || !cl.worldmodel)
+    {
+        Con_Printf("!LOC_LoadLocations ERROR: No map loaded!\n");
+        return false;
+    }
 
-	LOC_Clear_f();
+    //LOC_Init();
 
-	q_snprintf(filename, sizeof(filename), "locs/%s.loc", cl.mapname);
+    LOC_Clear_f();
 
-	if (COM_FileExists(filename, NULL) == false)
-	{
-		//Con_Printf("%s could not be found.\n", filename);
-		return false;
-	}
+    q_snprintf(filename, sizeof(filename), "locs/%s.loc", cl.mapname);
 
-	filedata = (char*)COM_LoadTempFile(filename, NULL);
+    if (COM_FileExists(filename, NULL) == false)
+    {
+        //Con_Printf("%s could not be found.\n", filename);
+        return false;
+    }
 
-	if (!filedata)
-	{
-		Con_Printf("%s contains empty or corrupt data.\n", filename);
-		return false;
-	}
+    filedata = (char*)COM_LoadTempFile(filename, NULL);
 
-	filesize = strlen(filedata);
+    if (!filedata)
+    {
+        Con_Printf("%s contains empty or corrupt data.\n", filename);
+        return false;
+    }
 
-	text = filedata;
-	textend = filedata + filesize;
-	for (linenumber = 1;text < textend;linenumber++)
-	{
-		linestart = text;
-		for (;text < textend && *text != '\r' && *text != '\n';text++)
-			;
-		lineend = text;
-		if (text + 1 < textend && *text == '\r' && text[1] == '\n')
-			text++;
-		if (text < textend)
-			text++;
-		// trim trailing whitespace
-		while (lineend > linestart && lineend[-1] <= ' ')
-			lineend--;
-		// trim leading whitespace
-		while (linestart < lineend && *linestart <= ' ')
-			linestart++;
-		// check if this is a comment
-		if (linestart + 2 <= lineend && !strncmp(linestart, "//", 2))
-			continue;
-		linetext = linestart;
-		limit = 3;
-		for (i = 0;i < limit;i++)
-		{
-			if (linetext >= lineend)
-				break;
-			// note: a missing number is interpreted as 0
-			if (i < 3)
-				mins[i] = atof(linetext);
-			else
-				maxs[i - 3] = atof(linetext);
-			// now advance past the number
-			while (linetext < lineend && *linetext > ' ' && *linetext != ',')
-				linetext++;
-			// advance through whitespace
-			if (linetext < lineend)
-			{
-				if (*linetext == ',')
-				{
-					linetext++;
-					limit = 6;
-					// note: comma can be followed by whitespace
-				}
-				if (*linetext <= ' ')
-				{
-					// skip whitespace
-					while (linetext < lineend && *linetext <= ' ')
-						linetext++;
-				}
+    filesize = strlen(filedata);
+
+    text = filedata;
+    textend = filedata + filesize;
+    for (linenumber = 1;text < textend;linenumber++)
+    {
+        linestart = text;
+        for (;text < textend && *text != '\r' && *text != '\n';text++)
+            ;
+        lineend = text;
+        if (text + 1 < textend && *text == '\r' && text[1] == '\n')
+            text++;
+        if (text < textend)
+            text++;
+        // trim trailing whitespace
+        while (lineend > linestart && lineend[-1] <= ' ')
+            lineend--;
+        // trim leading whitespace
+        while (linestart < lineend && *linestart <= ' ')
+            linestart++;
+        // check if this is a comment
+        if (linestart + 2 <= lineend && !strncmp(linestart, "//", 2))
+            continue;
+        linetext = linestart;
+        limit = 3; // Assume a 3-point format initially
+       
+        for (i = 0;i < limit && linetext < lineend;i++) // detect 3 or 6 point format using commas, qw 3 point system has no commas
+        {
+            char* nextCommaOrSpace = linetext;
+            while (nextCommaOrSpace < lineend && *nextCommaOrSpace != ',' && *nextCommaOrSpace > ' ')
+                nextCommaOrSpace++;
+
+            if (*nextCommaOrSpace == ',')
+            {
+                nqloc = true;
+                if (!hasPrintedFormat)
+                {
+                    Con_DPrintf("NetQuake LOC Detected\n");
+                    hasPrintedFormat = true;
+                }
+            }
+            else
+            {
+				nqloc = false;
+                if (!hasPrintedFormat)
+                {
+                    Con_DPrintf("QuakeWorld LOC Detected\n");
+                    hasPrintedFormat = true;
+                }
 			}
-		}
-		// if this is a quoted name, remove the quotes
-		if (i == 6)
-		{
-			if (linetext >= lineend || *linetext != '"')
-				continue; // proquake location names are always quoted
-			lineend--;
-			linetext++;
-			len = q_min(lineend - linetext, (int)sizeof(name) - 1);
-			memcpy(name, linetext, len);
-			name[len] = 0;
-			
-			LOC_SetLoc(mins, maxs, name);// add the box to the list
-		}
-		else
-			continue;
-	}
-	return true;
+
+            if (i < 3) mins[i] = atof(linetext); // Use mins for initial coordinates
+
+            linetext = nextCommaOrSpace;
+            if (*nextCommaOrSpace == ',') linetext++;
+
+            while (linetext < lineend && *linetext <= ' ') linetext++;
+        }
+
+        if (nqloc) // Detected a 6-point format
+        {
+            limit = 6; // Adjust limit for parsing 6-point data
+            for (; i < limit && linetext < lineend; i++)
+            {
+                char* nextCommaOrSpace = linetext;
+                while (nextCommaOrSpace < lineend && *nextCommaOrSpace != ',' && *nextCommaOrSpace > ' ')
+                    nextCommaOrSpace++;
+
+                if (i >= 3) maxs[i - 3] = atof(linetext); // Use maxs for additional coordinates
+
+                linetext = nextCommaOrSpace;
+                if (*nextCommaOrSpace == ',') linetext++;
+
+                while (linetext < lineend && *linetext <= ' ') linetext++;
+            }
+        }
+
+        // Now, extract the name for both formats here
+        while (linetext < lineend && *linetext <= ' ') linetext++;
+        len = q_min(lineend - linetext, sizeof(name) - 1);
+        memcpy(name, linetext, len);
+        name[len] = '\0';
+
+        if (nqloc && i == 6) // Successfully parsed a 6-point format
+        {
+
+            size_t nameLen = strlen(name);
+            if (name[0] == '"' && name[nameLen - 1] == '"') {
+                name[nameLen - 1] = '\0';
+                memmove(name, name + 1, nameLen - 1);
+            }
+
+            LOC_SetLoc(mins, maxs, name);
+        }
+        else if (!nqloc && i == 3) // Successfully parsed a 3-point format
+        {
+            char* separator;
+            while ((separator = strstr(name, "$loc_name_separator")) != NULL)
+            {
+                *separator = '-'; // Replace the separator with "-"
+
+                char* restOfString = separator + strlen("$loc_name_separator");
+                memmove(separator + 1, restOfString, strlen(restOfString) + 1);
+            }
+
+            char* locNameInstance;
+            while ((locNameInstance = strstr(name, "$loc_name_")) != NULL) 
+            {
+                size_t prefixLength = strlen("$loc_name_"); // remove the prefix
+                memmove(locNameInstance, locNameInstance + prefixLength, strlen(locNameInstance + prefixLength) + 1);
+            }
+
+            char* dollarDot;
+            while ((dollarDot = strstr(name, "$.")) != NULL) 
+            {
+                *dollarDot = '-'; // Replace "$." with "-"
+                memmove(dollarDot + 1, dollarDot + 2, strlen(dollarDot + 2) + 1); // +1 for null terminator
+            }
+            
+            LOC_SetLoc(mins, mins, name);
+        }
+        else
+            Con_DPrintf("Error parsing location data on line %d.\n", linenumber);
+    }
+    return true;
 }
 
-
-char *LOC_GetLocation (vec3_t p)
+char *LOC_GetLocation (vec3_t p) // woods #qwlocs
 {
-	location_t *loc;
-	location_t *bestloc;
-	float dist, bestdist;
+    location_t *loc;
+    location_t *bestloc;
+    float dist, bestdist;
 
-	bestloc = NULL;
+    bestloc = NULL;
 
-	bestdist = 999999;
+    bestdist = 999999;
 
-	for (loc = locations;loc;loc = loc->next_loc)
-	{
-		dist =	fabs(loc->mins[0] - p[0]) + fabs(loc->maxs[0] - p[0]) + 
-				fabs(loc->mins[1] - p[1]) + fabs(loc->maxs[1] - p[1]) +
-				fabs(loc->mins[2] - p[2]) + fabs(loc->maxs[2] - p[2]) - loc->sum;
+    vec3_t diff;
 
-		if (dist < .01)
-		{
-			return loc->name;
-		}
+    for (loc = locations;loc;loc = loc->next_loc) 
+    {
+        if (!nqloc) // qw nearest point location
+        {
+            vec3_t scaled_mins;
+            VectorCopy(loc->mins, scaled_mins);
+            for (int i = 0; i < 3; i++)
+            {
+                scaled_mins[i] /= 8.0; // Adjusting the scale of the input coordinates to match the stored locations
+            }
 
-		if (dist < bestdist)
-		{
-			bestdist = dist;
-			bestloc = loc;
-		}
-	}
-	
-	if (bestloc)
-	{
-		return bestloc->name;
-	}
-	return "no .loc";
+            VectorSubtract(p, scaled_mins, diff); // squared distance from the adjusted point to the location point
+            dist = diff[0] * diff[0] + diff[1] * diff[1] + diff[2] * diff[2];
+        }
+        else // nq axial box location: calculate the shortest distance from point to the axial box (rectangular prism)
+        {
+            dist = fabs(loc->mins[0] - p[0]) + fabs(loc->maxs[0] - p[0]) +
+                fabs(loc->mins[1] - p[1]) + fabs(loc->maxs[1] - p[1]) +
+                fabs(loc->mins[2] - p[2]) + fabs(loc->maxs[2] - p[2]) - loc->sum;
+
+            if (dist < .01)
+            {
+                return loc->name;
+            }
+        }
+
+        if (!bestloc || dist < bestdist) 
+        {
+            bestdist = dist;
+            bestloc = loc;
+            ;
+        }
+    }
+
+    if (bestloc) 
+    {
+        return bestloc->name;
+    }
+    return "no .loc";
 }

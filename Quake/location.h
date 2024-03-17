@@ -11,7 +11,7 @@ typedef struct location_s
 {
 	struct	location_s *next_loc;
 	vec3_t	mins, maxs;		
-	char	name[32];
+	char	name[64]; // woods #qwlocs
 	vec_t	sum;
 	float	col[3];
 } location_t;
