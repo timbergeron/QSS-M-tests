@@ -3876,7 +3876,7 @@ void M_Quit_Draw (void) //johnfitz -- modified for new quit message -- woods mod
 /* LAN CONFIG MENU */
 
 int		lanConfig_cursor = -1;
-int		lanConfig_cursor_table[] = { 72, 90, 100, 110 }; // woods #mousemenu
+int		lanConfig_cursor_table[] = { 68, 88, 96, 128 }; // woods #mousemenu
 #define NUM_LANCONFIG_CMDS	4
 
 int 	lanConfig_port;
@@ -3911,7 +3911,7 @@ void M_LanConfig_Draw (void)
 	qpic_t	*p;
 	int		basex;
 	int		y;
-	int		numaddresses, i;
+	int		numaddresses;
 	qhostaddr_t addresses[16];
 	const char	*startJoin;
 	const char	*protocol;
@@ -3943,13 +3943,9 @@ void M_LanConfig_Draw (void)
 		M_Print (basex+9*8, y, "NONE KNOWN");
 		y += 8;
 	}
-	else for (i = 0; i < 0; i++) // woods, only show the first address ipv4
+	else
 	{
-		M_Print (basex+9*8, y, addresses[i]);
-		y += 8;
-	}
-	{
-		M_Print (basex+9*8, y, addresses[i]);
+		M_Print (basex+9*8, y, addresses[0]);
 		y += 8;
 	}
 #else
@@ -4155,7 +4151,7 @@ qboolean M_LanConfig_TextEntry (void)
 
 void M_LanConfig_Mousemove(int cx, int cy) // woods #mousemenu
 {
-	M_UpdateCursorWithTable(cy + 2, lanConfig_cursor_table, NUM_LANCONFIG_CMDS, &lanConfig_cursor);
+	M_UpdateCursorWithTable(cy, lanConfig_cursor_table, NUM_LANCONFIG_CMDS - StartingGame, &lanConfig_cursor);
 }
 
 //=============================================================================
@@ -5546,7 +5542,7 @@ void M_Demos_Key (int key)
 		if (x < -8 || !M_List_UseScrollbar(&demosmenu.list, y))
 			goto enter;
 		demosmenu.scrollbar_grab = true;
-		M_Maps_Mousemove(m_mousex, m_mousey);
+		M_Demos_Mousemove(m_mousex, m_mousey);
 		break;
 
 	default:
