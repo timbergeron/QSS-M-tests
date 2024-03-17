@@ -81,7 +81,7 @@ cvar_t  cl_ambient = {"cl_ambient", "1", CVAR_ARCHIVE}; // woods #stopsound
 cvar_t  r_coloredpowerupglow = {"r_coloredpowerupglow", "1", CVAR_ARCHIVE}; // woods
 cvar_t  cl_bobbing = {"cl_bobbing", "0", CVAR_ARCHIVE}; // woods (joequake #weaponbob)
 cvar_t	cl_web_download_url = {"cl_web_download_url", "q1tools.github.io", CVAR_ARCHIVE}; // woods #webdl
-cvar_t	cl_web_download_url2 = { "cl_web_download_url2", "maps.quakeworld.nu/all", CVAR_ARCHIVE }; // woods #webdl
+cvar_t	cl_web_download_url2 = { "cl_web_download_url2", "maps.quakeworld.nu", CVAR_ARCHIVE }; // woods #webdl
 
 client_static_t	cls;
 client_state_t	cl;
@@ -1579,10 +1579,12 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 		q_snprintf(full_url, sizeof(full_url), "https://%s/maps/%s/%s", url, directory, skipped_path); // Construct the URL with directory
 	}
 
-	else if (strstr(url, "maps.quakeworld.nu")) // special case for maps.quakeworld.nu
+	else if (strstr(url, "maps.quakeworld.nu")) // special cases for maps.quakeworld.nu
 	{
-		
-		q_snprintf(full_url, sizeof(full_url), "https://%s/%s", url, skipped_path); // use secure https and skip path
+		if (strstr(filename, ".loc"))
+			q_snprintf(full_url, sizeof(full_url), "https://%s/%s", "maps.quakeworld.nu", filename);
+		else
+			q_snprintf(full_url, sizeof(full_url), "https://%s/%s", "maps.quakeworld.nu/all", skipped_path); // use secure https and skip path
 	}
 	else 
 		q_snprintf(full_url, sizeof(full_url), "https://%s/%s", url, filename); // use secure https
