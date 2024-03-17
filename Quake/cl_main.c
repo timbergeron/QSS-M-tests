@@ -1977,7 +1977,7 @@ void CL_ManualDownload_f (const char* filename)
 
 	if (Cmd_Argc() != 2)
 	{
-		Con_Printf("download <filename> : filename with an extension (bsp, lit, wav, loc)\n");
+		Con_Printf("download <filename> : filename with an extension (bsp, lit, loc, mdl, or wav)\n");
 		return;
 	}
 
@@ -1992,13 +1992,13 @@ void CL_ManualDownload_f (const char* filename)
 
 	if (strlen(extension) == 0)
 	{
-		Con_Printf("Please use a filename with an extension (bsp, lit, wav, loc)\n");
+		Con_Printf("Please use a filename with an extension (bsp, lit, loc, mdl, or wav)\n");
 		return;
 	}
 
-	if (strcmp(extension, "bsp") != 0 && strcmp(extension, "wav") != 0 && strcmp(extension, "loc") != 0)
+	if (strcmp(extension, "bsp") != 0 && strcmp(extension, "lit") != 0 && strcmp(extension, "loc") != 0 && strcmp(extension, "mdl") != 0 && strcmp(extension, "wav") != 0)
 	{
-		Con_Printf("Unsupported file extension. Use bsp, lit, wav, loc extensions\n");
+		Con_Printf("Unsupported file extension. Use bsp, lit, loc, mdl, or wav extensions\n");
 		return;
 	}
 
@@ -2015,6 +2015,10 @@ void CL_ManualDownload_f (const char* filename)
 	else if (strcmp(extension, "loc") == 0)
 	{
 		snprintf(prefixedArg, sizeof(prefixedArg), "locs/%s", Cmd_Argv(1));
+	}
+	else if (strcmp(extension, "mdl") == 0)
+	{
+		snprintf(prefixedArg, sizeof(prefixedArg), "progs/%s", Cmd_Argv(1));
 	}
 	else
 	{
