@@ -4524,3 +4524,57 @@ qboolean isSpecialMap (const char* name) // woods for bmodels
 	}
 	return false;
 }
+
+/*
+==================
+UTF8_WriteCodePoint -- woods #serversmenu (ironwail)
+
+Writes a single Unicode code point using UTF-8
+
+Returns the number of bytes written (up to 4),
+or 0 on error (overflow or invalid code point)
+==================
+*/
+size_t UTF8_WriteCodePoint(char* dst, size_t maxbytes, uint32_t codepoint)
+{
+	if (!maxbytes)
+		return 0;
+
+	if (codepoint < 0x80)
+	{
+		dst[0] = (char)codepoint;
+		return 1;
+	}
+
+	if (codepoint < 0x800)
+	{
+		if (maxbytes < 2)
+			return 0;
+		dst[0] = 0xC0 | (codepoint >> 6);
+		dst[1] = 0x80 | (codepoint & 63);
+		return 2;
+	}
+
+	if (codepoint < 0x10000)
+	{
+		if (maxbytes < 3)
+			return 0;
+		dst[0] = 0xE0 | (codepoint >> 12);
+		dst[1] = 0x80 | ((codepoint >> 6) & 63);
+		dst[2] = 0x80 | (codepoint & 63);
+		return 3;
+	}
+
+	if (codepoint < 0x110000)
+	{
+		if (maxbytes < 4)
+			return 0;
+		dst[0] = 0xF0 | (codepoint >> 18);
+		dst[1] = 0x80 | ((codepoint >> 12) & 63);
+		dst[2] = 0x80 | ((codepoint >> 6) & 63);
+		dst[3] = 0x80 | (codepoint & 63);
+		return 4;
+	}
+
+	return 0;
+}

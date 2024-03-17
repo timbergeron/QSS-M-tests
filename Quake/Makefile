@@ -283,6 +283,7 @@ OBJS := strlcat.o \
 	wad.o \
 	cmd.o \
 	common.o \
+	json.o \
 	fs_zip.o \
 	crc.o \
 	cvar.o \

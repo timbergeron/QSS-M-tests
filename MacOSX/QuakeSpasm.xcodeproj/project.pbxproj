@@ -111,6 +111,7 @@
 		8558644E2B8421810016F8F6 /* qssm.pak in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8558644D2B8421770016F8F6 /* qssm.pak */; };
 		85AC9B2C2A70521E00228EF3 /* pmove.c in Sources */ = {isa = PBXBuildFile; fileRef = 85AC9B2A2A70521E00228EF3 /* pmove.c */; };
 		85AC9B2D2A70521E00228EF3 /* pmovetst.c in Sources */ = {isa = PBXBuildFile; fileRef = 85AC9B2B2A70521E00228EF3 /* pmovetst.c */; };
+		85C58F442B9D79580010F658 /* json.c in Sources */ = {isa = PBXBuildFile; fileRef = 85C58F432B9D79580010F658 /* json.c */; };
 		932AE8F92944103F0062F917 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F3294410200062F917 /* libopus.a */; };
 		93B34FA22946BA0300FB5B72 /* libmad.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA02946BA0300FB5B72 /* libmad.a */; };
 		93B34FA32946BA0300FB5B72 /* libFLAC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA12946BA0300FB5B72 /* libFLAC.a */; };
@@ -352,6 +353,9 @@
 		85AC9B2A2A70521E00228EF3 /* pmove.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmove.c; path = ../Quake/pmove.c; sourceTree = "<group>"; };
 		85AC9B2B2A70521E00228EF3 /* pmovetst.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pmovetst.c; path = ../Quake/pmovetst.c; sourceTree = "<group>"; };
 		85AC9B2E2A70522300228EF3 /* pmove.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = pmove.h; path = ../Quake/pmove.h; sourceTree = "<group>"; };
+		85C58F432B9D79580010F658 /* json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = json.c; path = ../Quake/json.c; sourceTree = "<group>"; };
+		85C58F452B9D79680010F658 /* json.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = json.h; path = ../Quake/json.h; sourceTree = SOURCE_ROOT; };
+		85C58F472B9D7AAB0010F658 /* jsmn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = jsmn.h; path = ../Quake/jsmn.h; sourceTree = SOURCE_ROOT; };
 		85F94F5A2A606C26005D9F52 /* libmad.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmad.a; path = libs_universal/libmad.a; sourceTree = "<group>"; };
 		85F94F5B2A606C31005D9F52 /* libFLAC.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libFLAC.a; path = libs_universal/libFLAC.a; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -532,6 +536,7 @@
 			children = (
 				483A77DE0D2EE8FB00CB2E4C /* Headers */,
 				B021C20714A5FF7E003F18D6 /* cfgfile.c */,
+				85C58F432B9D79580010F658 /* json.c */,
 				483A78100D2EEA5400CB2E4C /* chase.c */,
 				483A78110D2EEA5400CB2E4C /* cmd.c */,
 				483A78120D2EEA5400CB2E4C /* common.c */,
@@ -667,6 +672,8 @@
 				483A77E90D2EE97700CB2E4C /* crc.h */,
 				483A77EA0D2EE97700CB2E4C /* cvar.h */,
 				6348AF7D26EA437E00E036E2 /* default_cfg.h */,
+				85C58F452B9D79680010F658 /* json.h */,
+				85C58F472B9D7AAB0010F658 /* jsmn.h */,
 				85AC9B2E2A70522300228EF3 /* pmove.h */,
 				6348AF7F26EA439C00E036E2 /* filenames.h */,
 				FD07DF952782B4FE005CB9D9 /* location.h */,
@@ -858,6 +865,7 @@
 				664D989819CF6B78000D395C /* menu.c in Sources */,
 				664D989919CF6B78000D395C /* pr_cmds.c in Sources */,
 				664D989A19CF6B78000D395C /* pr_edict.c in Sources */,
+				85C58F442B9D79580010F658 /* json.c in Sources */,
 				664D989B19CF6B78000D395C /* pr_exec.c in Sources */,
 				664D989C19CF6B78000D395C /* sbar.c in Sources */,
 				664D989D19CF6B78000D395C /* view.c in Sources */,

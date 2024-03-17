@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 #include "q_ctype.h" // woods #modsmenu (iw)
+#include <curl/curl.h> // woods #serversmenu
+#include "json.h" // woods #serversmenu
 
 void (*vid_menucmdfn)(void); //johnfitz
 void (*vid_menudrawfn)(void);
@@ -4690,7 +4692,7 @@ void M_Search_Key (int key)
 /* SLIST MENU */
 // woods #serversmenu
 
-#define MAX_VIS_SERVERS 19
+#define MAX_VIS_SERVERS 18
 
 typedef struct {
 	const char* name;
@@ -4718,29 +4720,170 @@ const char* ResolveHostname (const char* hostname);
 qboolean Valid_IP (const char* ip_str);
 qboolean Valid_Domain (const char* domain_str);
 
-int compareServerUsers (const void* a, const void* b) // sorting servers based on the number of users
+//=============================================================================
+// woods servers.quakeone.com support curl+json parsing #serversmenu
+//=============================================================================
+
+struct MemoryStruct
+{
+	char* memory;
+	size_t size;
+};
+
+static size_t WriteMemoryCallback (void* contents, size_t size, size_t nmemb, void* userp)
+{
+	size_t realSize = size * nmemb;
+	struct MemoryStruct* mem = (struct MemoryStruct*)userp;
+
+	char* ptr = realloc(mem->memory, mem->size + realSize + 1);
+	if (!ptr) {
+		Con_DPrintf("not enough memory (realloc returned NULL)\n");
+		return 0;
+	}
+
+	mem->memory = ptr;
+	memcpy(&(mem->memory[mem->size]), contents, realSize);
+	mem->size += realSize;
+	mem->memory[mem->size] = 0;
+
+	return realSize;
+}	
+
+void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* actualServerCount)
+{
+	json_t* json = JSON_Parse(jsonText);
+	if (!json || !json->root || json->root->type != JSON_ARRAY) 
+	{
+		Con_DPrintf("Failed to parse JSON or JSON is not an array.\n");
+		if (json) JSON_Free(json);
+		return;
+	}
+
+	const jsonentry_t* serverEntry;
+	for (serverEntry = json->root->firstchild; serverEntry; serverEntry = serverEntry->next)
+	{
+		const char* name = JSON_FindString(serverEntry, "hostname");
+		const char* address = JSON_FindString(serverEntry, "address");
+		const double* currentStatus = JSON_FindNumber(serverEntry, "currentStatus");
+		const double* currentPlayers = JSON_FindNumber(serverEntry, "currentPlayers");
+		const double* maxPlayers = JSON_FindNumber(serverEntry, "maxPlayers");
+		const char* map = JSON_FindString(serverEntry, "map");
+		const double* gameId = JSON_FindNumber(serverEntry, "gameId");
+		const double* port = JSON_FindNumber(serverEntry, "port");
+
+		if (!name || !address || *currentStatus !=0 || !port || !gameId || *gameId != 0) continue; // Skip if essential info is missing or gametype is 0 (0 is netquake compat)
+
+		*items = realloc(*items, sizeof(servertitem_t) * (*actualServerCount + 1));
+		if (!*items) {
+			Con_DPrintf("Memory allocation failed.\n");
+			break;
+		}
+
+		size_t addressLength = strlen(address) + 1 /* colon */ + 6 /* max length of port number */ + 1 /* null terminator */;
+		char* addressWithPort = malloc(addressLength);
+		if (!addressWithPort) {
+			Con_DPrintf("Memory allocation for address with port failed.\n");
+			break;
+		}
+		q_snprintf(addressWithPort, addressLength, "%s:%d", address, (int)*port);
+
+		servertitem_t* newItem = &(*items)[*actualServerCount];
+		newItem->name = strdup(name ? name : "Unknown");
+		newItem->ip = strdup(addressWithPort);
+		free(addressWithPort);
+		newItem->users = currentPlayers ? (int)*currentPlayers : 0;
+		newItem->maxusers = maxPlayers ? (int)*maxPlayers : 0;
+		newItem->map = strdup(map ? map : "Unknown");
+		newItem->active = true;
+
+		(*actualServerCount)++;
+	}
+
+	JSON_Free(json);
+}
+
+void CurlServerList (servertitem_t** items, int* actualServerCount) 
+{
+	CURL* curl;
+	CURLcode res;
+	struct MemoryStruct chunk;
+
+	chunk.memory = malloc(1);  // Initial allocation
+	chunk.size = 0;    // No data at this point
+
+	curl_global_init(CURL_GLOBAL_ALL);
+	curl = curl_easy_init();
+
+	if (curl) 
+	{
+		curl_easy_setopt(curl, CURLOPT_URL, "https://servers.quakeone.com/api/servers/status");
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
+		curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+		res = curl_easy_perform(curl);
+		if (res != CURLE_OK)
+			Con_DPrintf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+		else
+			populateServersFromJSON(chunk.memory, items, actualServerCount);
+
+		free(chunk.memory);
+		curl_easy_cleanup(curl);
+	}
+
+	curl_global_cleanup();
+}
+
+int compareServerUsers (const void* a, const void* b) 
 {
 	const servertitem_t* serverA = (const servertitem_t*)a;
 	const servertitem_t* serverB = (const servertitem_t*)b;
 
-	return serverB->users - serverA->users; // Descending order: b - a
+	int userDifference = serverB->users - serverA->users; // First, sort by user count in descending order
+	if (userDifference != 0) 
+		return userDifference;
+
+	return q_strcasecmp(serverA->name, serverB->name);
+	return q_strcasecmp(serverA->name, serverB->name);
 }
 
-void FetchAndSortServers (void) // Fetches the servers from the server list and sorts them based on the number of users
+void RemoveDuplicateServers (servertitem_t** items, int* actualServerCount) 
 {
-	free(serversmenu.items); // Free the existing items if any
-	serversmenu.items = NULL; // Ensure the pointer is NULL for realloc to work correctly
+	int writeIndex = 0;
+	for (int i = 0; i < *actualServerCount; i++) {
+		qboolean isDuplicate = false;
+		for (int j = 0; j < i; j++) {
+			if (strcmp((*items)[i].ip, (*items)[j].ip) == 0) {
+				isDuplicate = true;
+				break;
+			}
+		}
+		if (!isDuplicate) {
+			if (writeIndex != i) {
+				(*items)[writeIndex] = (*items)[i];
+			}
+			writeIndex++;
+		}
+	}
+	*actualServerCount = writeIndex;
+}
 
-	int actualServerCount = 0; // Counter for the actual number of servers added
+void FetchAndSortServers (void) 
+{
+	free(serversmenu.items);
+	serversmenu.items = NULL;
+	int actualServerCount = 0;
 
-	for (int i = 0; i < HOSTCACHESIZE; i++) {
+	for (int i = 0; i < HOSTCACHESIZE; i++) // Fetch and add servers from the dp list
+	{
 		const char* serverName = NET_SlistPrintServerInfo(i, SERVER_NAME);
 		const char* serverIP = NET_SlistPrintServerInfo(i, SERVER_CNAME);
 		int users = atoi(NET_SlistPrintServerInfo(i, SERVER_USERS));
 		int maxusers = atoi(NET_SlistPrintServerInfo(i, SERVER_MAX_USERS));
 		const char* map = NET_SlistPrintServerInfo(i, SERVER_MAP);
 
-		if (serverName && serverName[0] != '\0') { // Check for a non-empty server name
+		if (serverName && serverName[0] != '\0') 
+		{
 			serversmenu.items = (servertitem_t*)realloc(serversmenu.items, sizeof(servertitem_t) * (actualServerCount + 1));
 
 			serversmenu.items[actualServerCount].name = strdup(serverName);
@@ -4754,7 +4897,12 @@ void FetchAndSortServers (void) // Fetches the servers from the server list and 
 		}
 	}
 
-	if (actualServerCount > 1) 	// Sorting servers based on the number of users in descending order
+	CurlServerList (&serversmenu.items, &actualServerCount);// fetch and add servers from the server.quakeone.com json API
+
+	RemoveDuplicateServers(&serversmenu.items, &actualServerCount);
+
+	// Sorting servers based on the number of users in descending order, if more than one server is present
+	if (actualServerCount > 1)
 		qsort(serversmenu.items, actualServerCount, sizeof(servertitem_t), compareServerUsers);
 
 	serversmenu.servercount = actualServerCount;
@@ -4843,6 +4991,11 @@ void M_ServerList_Draw (void)
 
 		if (selected)
 			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
+
+		q_snprintf(serverStr, sizeof(serverStr), "%-34.34s", serversmenu.items[idx].name);
+
+		if (selected)
+		M_PrintWhite(x, y + serversmenu.list.viewsize * 8 + 12, serverStr);
 	}
 
 	if (M_List_GetOverflow(&serversmenu.list) > 0) {

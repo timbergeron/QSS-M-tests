@@ -338,6 +338,9 @@ qboolean LOC_HasPlaceholders (const char *str);
 size_t LOC_Format (const char *format, const char* (*getarg_fn)(int idx, void* userdata), void* userdata, char* out, size_t len);
 qboolean isSpecialMap (const char* name); // woods for bmodels
 
+// Unicode
+size_t UTF8_WriteCodePoint(char* dst, size_t maxbytes, uint32_t codepoint); // woods #serversmenu (ironwail)
+
 //============================================================================
 
 // QUAKEFS
