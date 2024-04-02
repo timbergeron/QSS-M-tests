@@ -94,7 +94,7 @@ void FileList_Add (const char *name, const char* data, filelist_item_t **list) /
 			return;
 	}
 
-	item = (filelist_item_t *) Z_Malloc(sizeof(filelist_item_t));
+	item = (filelist_item_t *) malloc(sizeof(filelist_item_t));
 	q_strlcpy (item->name, name, sizeof(item->name));
 	if (data)
 		q_strlcpy(item->data, data, sizeof(item->data)); // woods #demolistsort add arg
@@ -142,7 +142,7 @@ void FileList_Subtract (const char* name, filelist_item_t** list)
 				prev->next = cursor->next;
 			}
 
-			Z_Free(cursor);
+			free(cursor);
 			return;
 		}
 	}
@@ -155,7 +155,7 @@ static void FileList_Clear (filelist_item_t **list)
 	while (*list)
 	{
 		blah = (*list)->next;
-		Z_Free(*list);
+		free (*list);
 		*list = blah;
 	}
 }
