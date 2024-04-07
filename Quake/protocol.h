@@ -260,6 +260,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define ENTSCALE_ENCODE(a)	((a) ? ((a) * ENTSCALE_DEFAULT) : ENTSCALE_DEFAULT) // Convert to byte
 #define ENTSCALE_DECODE(a)	((float)(a) / ENTSCALE_DEFAULT) // Convert to float for rendering
 
+#define CL_SetStati(stat, val) cl.statsf[stat] = (cl.stats[stat] = val) // woods moved from cl_parse.c (iw) #democontrols
+#define CL_SetHudStat(stat, val) if (cl.stats[stat] != val)Sbar_Changed(); CL_SetStati(stat,val) // woods moved from cl_parse.c (iw) #democontrols
+
 // defaults for clientinfo messages
 #define	DEFAULT_VIEWHEIGHT	22
 

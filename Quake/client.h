@@ -62,6 +62,8 @@ typedef struct
 	float	percent;		// 0-256 -- woods iw
 } cshift_t;
 
+extern cshift_t		cshift_empty; // woods (iw) #democontrols
+
 #define	CSHIFT_CONTENTS	0
 #define	CSHIFT_DAMAGE	1
 #define	CSHIFT_BONUS	2
@@ -82,6 +84,7 @@ typedef struct
 {
 	vec3_t	origin;
 	float	radius;
+	float	spawn;				// woods (iw) #democontrols
 	double	die;				// stop lighting after this time
 	float	decay;				// drop this each second
 	float	minlight;			// don't add when contributing less
@@ -95,6 +98,7 @@ typedef struct
 {
 	int		entity;
 	struct qmodel_s	*model;
+	float	starttime; // woods (iw) #democontrols
 	float	endtime;
 	vec3_t	start, end;
 	const char *trailname;
@@ -130,8 +134,6 @@ typedef struct
 // entering a map (and clearing client_state_t)
 	qboolean	demorecording;
 	qboolean	demoplayback;
-	qboolean	demorewind; // woods #demorewind (Baker Fitzquake Mark V)
-	float		demospeed; // woods #demorewind (Baker Fitzquake Mark V)
 
 	// woods #demopercent (Baker Fitzquake Mark V)
 
@@ -146,17 +148,25 @@ typedef struct
 
 	char		demoname[MAX_OSPATH];	// So we can print demo whatever completed. 
 
-	float		demospeed_state;		// woods, use spacebar for pause
-
 	// end woods #demopercent ((Baker Fitzquake Mark V)
 
 // did the user pause demo playback? (separate from cl.paused because we don't
 // want a svc_setpause inside the demo to actually pause demo playback).
 	qboolean	demopaused;
 
+	// demo playback speed (<0 = rewinding; 0 = paused; >0 = forward) // woods (iw) #democontrols
+	float	demospeed;
+
+	// base demo speed; different from demospeed when fast-forwarding/rewinding or when playback is paused
+	// (we want to be able to set playback speed to 1/2x, pause, and then resume playback at 1/2x not 1x)
+	float		basedemospeed;
+
 	qboolean	timedemo;
 	int		forcetrack;		// -1 = use normal cd track
+	char		demofilename[MAX_OSPATH]; // woods (iw) #democontrols
 	FILE		*demofile;
+	long		demofilestart;	// for demos in pak files // woods (iw) #democontrols
+	long		demofilesize; // woods (iw) #democontrols
 	int		td_lastframe;		// to meter out one message a frame
 	int		td_startframe;		// host_framecount at start
 	float		td_starttime;		// realtime at second frame of timedemo
@@ -245,7 +255,6 @@ typedef struct
 	double		time;			// clients view of time, should be between
 								// servertime and oldservertime to generate
 								// a lerp point for other data
-	double		ctime;			// woods #demorewind (Baker Fitzquake Mark V) -- inclusive of demo speed (can go backwards)
 	double		oldtime;		// previous cl.time, time-oldtime is used
 								// to decay light values and smooth step ups
 
@@ -418,7 +427,6 @@ extern	cvar_t	cl_recordingdemo;
 extern	cvar_t	cl_shownet;
 extern	cvar_t	cl_nolerp;
 extern	cvar_t	cl_demoreel;
-extern	cvar_t	cl_demospeed; // woods #demotools
 
 extern	cvar_t	cfg_unbindall;
 
@@ -516,6 +524,9 @@ void CL_ClearTrailStates(void);
 //
 void CL_StopPlayback (void);
 int CL_GetMessage (void);
+void CL_AdvanceTime(void); // woods (iw) #democontrols
+void CL_FinishDemoFrame(void); // woods (iw) #democontrols
+void CL_AddDemoRewindSound(int entnum, int channel, sfx_t* sfx, vec3_t pos, int vol, float atten); // woods (iw) #democontrols
 
 void CL_Stop_f (void);
 void CL_Record_f (void);

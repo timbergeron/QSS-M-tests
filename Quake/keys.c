@@ -1950,121 +1950,55 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 		return;
 	}
 
-	if (down && (key == K_SPACE) && (key_dest == key_game)) // woods
-	{
-		if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo)
-		{
-			if (cl_demospeed.value > 0)
-			{
-				cls.demospeed_state = cl_demospeed.value;
-				Cvar_SetValue("cl_demospeed", 0);
-			}
-			else
-			{
-				if (cls.demospeed_state > 0)
-					Cvar_SetValue("cl_demospeed", cls.demospeed_state);
-				else
-					Cvar_SetValue("cl_demospeed", 1);
-			}
+	// demo controls -- woods (iw) #democontrols
 
+	if (cls.demoplayback && key_dest == key_game)
+	{
+		switch (key)
+		{
+		case K_SPACE:
+			// Pause
+			if (down > wasdown)
+				cls.demopaused = !cls.demopaused;
 			return;
+
+		case K_UPARROW:
+		case '.':
+			// Resume/increase speed
+			if ((key == K_UPARROW || (key == '.' && keydown[K_SHIFT])) && down > wasdown)
+			{
+				if (!cls.demopaused)
+					cls.basedemospeed = CLAMP(0.03125f, cls.basedemospeed * 2.f, 32.f);
+				cls.demopaused = false;
+			}
+			return;
+
+		case K_DOWNARROW:
+		case ',':
+			// Decrease speed/pause
+			if ((key == K_DOWNARROW || (key == ',' && keydown[K_SHIFT])) && down > wasdown)
+			{
+				cls.basedemospeed *= 0.5f;
+				if (cls.basedemospeed < 0.03125f)
+				{
+					cls.basedemospeed = 0.03125f;
+					cls.demopaused = true;
+				}
+			}
+			return;
+
+		case K_LEFTARROW:
+		case K_RIGHTARROW:
+		case K_CTRL:
+			// Temporary modifiers: they don't perform their actions on up/down events, but are queried per frame instead
+			// to avoid having to manage state transitions (e.g. pressing esc while still holding left arrow to rewind).
+			return;
+
+		default:
+			// Not a demo control key
+			break;
 		}
 	}
-
-	// woods #demorewind (Baker Fitzquake Mark V) -- PGUP and PGDN rewind and fast-forward demos
-	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo /*&& !cls.capturedemo*/) // woods #demorewind (Baker Fitzquake Mark V)
-		if (key == K_PGUP || key == K_PGDN)
-		{ 
-			if (key_dest == key_game && down /* && cls.demospeed == 0 && cls.demorewind == false*/)
-			{
-				// During normal demoplayback, PGUP/PGDN will rewind and fast forward (if key_dest is game)
-				if (key == K_PGUP)
-				{
-					cls.demospeed = 5;
-					cls.demorewind = false;
-				}
-				else if (key == K_PGDN)
-				{
-					cls.demospeed = 5;
-					cls.demorewind = true;
-				}
-				return; // If something is bound to it, do not process it.
-			}
-			else //if (!down && (cls.demospeed != 0 || cls.demorewind != 0))
-			{
-				// During normal demoplayback, releasing PGUP/PGDN resets the speed
-				// We need to check even if not key_game in case something silly happened (to be safe)
-				cls.demospeed = 0;
-				cls.demorewind = false;
-
-				if (key_dest == key_game)
-					return; // Otherwise carry on ...
-			}
-		}
-	// woods #demorewind (Baker Fitzquake Mark V) -- scrollwheel rewind and fast-forward demos
-	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo) // woods #demorewind (Baker Fitzquake Mark V)
-		if (key == K_MWHEELUP || key == K_MWHEELDOWN)
-			if (key_dest == key_game && down)
-			{
-				if (key == K_MWHEELUP)
-				{
-					if (cls.demospeed == 5)
-					{
-						cls.demospeed = 0;
-						cls.demorewind = false;
-					}
-					else
-					{
-						cls.demospeed = 5;
-						cls.demorewind = false;
-					}
-				}
-				else if (key == K_MWHEELDOWN)
-				{
-					if (cls.demospeed == 5)
-					{
-						cls.demospeed = 0;
-						cls.demorewind = false;
-					}
-					else
-					{
-						cls.demospeed = 5;
-						cls.demorewind = true;
-					}
-				}
-				return;
-			}
-
-	// woods #demorewind (Baker Fitzquake Mark V) -- LEFT and RIGHT ARROW skip 5 seconds forward of back + SUPER FAST
-	if (cls.demoplayback && cls.demonum == -1 && !cls.timedemo) // woods #demorewind (Baker Fitzquake Mark V)
-		if (key == K_RIGHTARROW || key == K_LEFTARROW)
-		{
-			if (key_dest == key_game && down /* && cls.demospeed == 0 && cls.demorewind == false*/)
-			{
-				// During normal demoplayback, PGUP/PGDN will rewind and fast forward (if key_dest is game)
-				if (key == K_RIGHTARROW)
-				{
-					cls.demospeed = 75;
-					cls.demorewind = false;
-				}
-				else if (key == K_LEFTARROW)
-				{
-					cls.demospeed = 75;
-					cls.demorewind = true;
-				}
-				return; // If something is bound to it, do not process it.
-			}
-			else //if (!down && (cls.demospeed != 0 || cls.demorewind != 0))
-			{
-				// During normal demoplayback, releasing PGUP/PGDN resets the speed
-				// We need to check even if not key_game in case something silly happened (to be safe)
-				cls.demospeed = 0;
-				cls.demorewind = false;
-
-				if (key_dest == key_game)
-					return; // Otherwise carry on ...
-			}
-		}
 
 	//Spike -- give menuqc a chance to handle (and swallow) key events.
 	if ((key_dest == key_menu || !down) && Menu_HandleKeyEvent(down, key, 0))
@@ -2097,6 +2031,9 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 		M_ToggleMenu (1);
 		return;
 	}*/
+
+	if (cls.demoplayback && down && consolekeys[key] && key_dest == key_game && (key == '.' || key == ',' || key == K_HOME || key == K_END || (key >= '0' && key <= '9'))) // woods(iw) #democontrols
+		return;
 
 // if not a consolekey, send to the interpreter no matter what mode is
 	if ((key_dest == key_menu && menubound[key]) ||

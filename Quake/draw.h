@@ -42,6 +42,7 @@ byte *CL_PLColours_ToRGB(plcolour_t *c);
 #define CL_PLColours_Equals(a,b) (!memcmp(&a,&b, sizeof(plcolour_t)))
 
 extern	qpic_t		*draw_disc;	// also used on sbar
+extern	qboolean	custom_conchars; // woods (iw) #democontrols
 
 void Draw_Init (void);
 void Draw_Character (int x, int y, int num);

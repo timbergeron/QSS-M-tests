@@ -1846,6 +1846,12 @@ static qboolean RSceneCache_Queue(byte *vis)
 
 				for (i=0 ; i<MAX_DLIGHTS ; i++, l++)
 				{
+					if (l->spawn > cl.time) // woods (iw) #democontrols
+					{
+						l->die = 0.f;
+						continue;
+					}
+					
 					if (l->die < cl.time || !l->radius)
 						continue;
 					cache = NULL;

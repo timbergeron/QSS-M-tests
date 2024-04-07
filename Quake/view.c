@@ -579,7 +579,7 @@ V_UpdateBlend -- johnfitz -- V_UpdatePalette cleaned up and renamed
 void V_UpdateBlend (void)
 {
 	int		i, j;
-	float	frametime = cl.time - cl.oldtime; // woods iw
+	float	frametime = fabs(cl.time - cl.oldtime); // time can go backwards when rewinding demos // woods (iw) #democontrols
 	qboolean	blend_changed;
 
 	V_CalcPowerupCshift ();
@@ -770,7 +770,7 @@ void V_CalcViewRoll (void)
 	{
 		r_refdef.viewangles[ROLL] += v_dmg_time/v_kicktime.value*v_dmg_roll;
 		r_refdef.viewangles[PITCH] += v_dmg_time/v_kicktime.value*v_dmg_pitch;
-		v_dmg_time -= host_frametime;
+		v_dmg_time -= fabs(cl.time - cl.oldtime); // woods (iw) #democontrols
 	}
 
 	if (cl.stats[STAT_HEALTH] <= 0)

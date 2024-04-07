@@ -878,8 +878,6 @@ Returns false if the time is too short to run a frame
 ===================
 */
 
-float frame_timescale = 1.0f; // woods #demorewind (Baker Fitzquake Mark V)
-float previousDemoSpeed = -1; // Global variable to track the previous demospeed
 
 qboolean Host_FilterTime (float time)
 {
@@ -888,66 +886,22 @@ qboolean Host_FilterTime (float time)
 	realtime += time;
 
 	//johnfitz -- max fps cvar
-	maxfps = CLAMP (10.0, host_maxfps.value, 2307.0); // woods higher max
+	maxfps = CLAMP (10.f, host_maxfps.value, 5000.0); // woods higher max
 	if (host_maxfps.value>0 && !cls.timedemo && realtime - oldrealtime < 1.0/maxfps)
 		return false; // framerate is too high
 	//johnfitz
 
 	host_frametime = realtime - oldrealtime;
-
-	if (cls.demoplayback) // woods #demotools
-		host_frametime *= CLAMP(0, cl_demospeed.value, 20);
-
 	oldrealtime = realtime;
 
-	frame_timescale = 1; // woods #demorewind (Baker Fitzquake Mark V)
-	if (cls.demoplayback && !cls.timedemo && /*!cls.capturedemo &&*/ cls.demonum == -1) 
-	{
-		if (cls.demospeed) {
-			host_frametime *= cls.demospeed;
-			frame_timescale = cls.demospeed;
-		}
-
-		// Check if cls.demospeed has just changed to 0 from a non-zero value
-		// Various effects are only given a start time by the client so
-		// rewinding prior to an effects creation means it will exist before it
-		// should.  To deal with this just clear all of these temporary effects
-		// every time we seek.
-
-		if (previousDemoSpeed != 0 && cls.demospeed == 0) {
-			PScript_ClearParticles();
-			R_ClearParticles();
-			memset(cl_dlights, 0, sizeof(cl_dlights));
-			cl.faceanimtime = 0.0f;
-		//	cl.viewent.lerpflags |= LERP_RESETANIM;
-		}
-		// Update previousDemoSpeed for the next call
-		previousDemoSpeed = cls.demospeed;
-	}
-	else
-		if (host_timescale.value > 0 && !(cls.demoplayback && cls.demospeed && !cls.timedemo && /*!cls.capturedemo &&*/ cls.demonum == -1))
-		{
-			host_frametime *= host_timescale.value;
-			frame_timescale = host_timescale.value; // end woods #demorewind (Baker Fitzquake Mark V)
-		}
-
 	//johnfitz -- host_timescale is more intuitive than host_framerate
-	//if (host_timescale.value > 0)
-	//	host_frametime *= host_timescale.value;
+	if (host_timescale.value > 0)
+		host_frametime *= host_timescale.value;
 	//johnfitz
 	else if (host_framerate.value > 0)
 		host_frametime = host_framerate.value;
 	else if (host_maxfps.value > 0)// don't allow really long or short frames
-		{
-			if (cls.demoplayback && cl_demospeed.value == 0) // woods for pause
-				host_frametime *= cls.demospeed;
-			else if (cls.demoplayback && cl_demospeed.value < 1)
-				host_frametime *= CLAMP(0, cl_demospeed.value, 20);
-			else
-				host_frametime = CLAMP(0.0001, host_frametime, 0.1); //johnfitz -- use CLAMP
-
-			previousDemoSpeed = -1;
-		}
+		host_frametime = CLAMP (0.0001, host_frametime, 0.1); //johnfitz -- use CLAMP
 
 	return true;
 }

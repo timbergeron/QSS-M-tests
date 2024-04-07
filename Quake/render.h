@@ -59,6 +59,7 @@ typedef struct entity_s
 	entity_state_t			netstate;		// the latest network state
 
 	double					msgtime;		// time of last update
+	double					spawntime;		// woods (iw) #democontrols
 	vec3_t					msg_origins[2];	// last two updates (0 is newest)
 	vec3_t					origin;
 	vec3_t					msg_angles[2];	// last two updates (0 is newest)

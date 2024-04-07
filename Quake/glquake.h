@@ -97,6 +97,7 @@ typedef struct particle_s
 	float		ramp;
 	float		die;
 	ptype_t		type;
+	float		spawn; // woods (iw) #democontrols
 } particle_t;
 
 #define P_INVALID -1

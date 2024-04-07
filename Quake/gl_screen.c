@@ -132,6 +132,7 @@ cvar_t		scr_hints = {"scr_hints", "1",CVAR_ARCHIVE}; // woods #qssmhints
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
 cvar_t		cl_predict = { "cl_predict", "0", CVAR_NONE }; // 2021 re-release
 
+cvar_t		scr_demobar_timeout = {"scr_demobar_timeout", "1", CVAR_ARCHIVE}; // woods (iw) #democontrols
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
 cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
@@ -254,7 +255,7 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	char buf[10];
 	blueflag = Info_GetKey(cl.serverinfo, "blue flag", buf, sizeof(buf));
 
-	if (blueflag[0] == '\0') // we only use this if the server does NOT have a infokey for flag status
+	if (blueflag[0] == '\0' || cls.demoplayback) // we only use this if the server does NOT have a infokey for flag status
 	{ 
 		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
@@ -813,6 +814,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_obscenterprint); // woods
 	Cvar_RegisterVariable (&scr_hints); // woods #qssmhints
 	//johnfitz
+	Cvar_RegisterVariable(&scr_demobar_timeout); // woods (iw) #democontrols
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
 	Cvar_RegisterVariable (&cl_predict); // 2021 re-release
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
@@ -921,6 +923,163 @@ void SCR_DrawFPS (void)
 		scr_tileclear_updates = 0;
 	}
 }
+
+// woods (iw) #democontrols
+
+/*
+==============
+SCR_DrawDemoControls
+==============
+*/
+void SCR_DrawDemoControls(void)
+{
+	static const int	TIMEBAR_CHARS = 38;
+	static float		prevspeed = 1.0f;
+	static float		prevbasespeed = 1.0f;
+	static float		showtime = 1.0f;
+	int					i, len, x, y, min, sec, canvasleft, canvasright, canvasbottom, canvastop, match_time;
+	float				frac;
+	const char* str;
+	char				name[31]; // size chosen to avoid overlap with side text
+
+	canvasleft = 0;
+	canvasright = 320;
+	canvastop = 0;
+	canvasbottom = 240;
+
+	if (!cls.demoplayback || scr_demobar_timeout.value < 0.f)
+	{
+		showtime = 0.f;
+		return;
+	}
+
+	// Determine for how long the demo playback info should be displayed
+	if (cls.demospeed != prevspeed || cls.basedemospeed != prevbasespeed ||			// speed/base speed changed
+		fabs(cls.demospeed) > cls.basedemospeed ||									// fast forward/rewind
+		!scr_demobar_timeout.value)													// controls always shown
+	{
+		prevspeed = cls.demospeed;
+		prevbasespeed = cls.basedemospeed;
+		showtime = scr_demobar_timeout.value > 0.f ? scr_demobar_timeout.value : 1.f;
+	}
+	else
+	{
+		showtime -= host_frametime;
+		if (showtime < 0.f)
+		{
+			showtime = 0.f;
+			return;
+		}
+	}
+
+	// Approximate the fraction of the demo that's already been played back
+	// based on the current file offset and total demo size
+	// Note: we need to take into account the starting offset for pak files
+	frac = (ftell(cls.demofile) - cls.demofilestart) / (double)cls.demofilesize;
+	frac = CLAMP(0.f, frac, 1.f);
+
+	if (cl.intermission)
+	{
+		GL_SetCanvas(CANVAS_MENU);
+		y = LERP(canvasbottom, canvastop, 0.125f) + 8;
+	}
+	else
+	{
+		GL_SetCanvas(CANVAS_SBAR2);
+		y = canvasbottom - 68;
+	}
+	x = (canvasleft + canvasright) / 2 - TIMEBAR_CHARS / 2 * 8;
+
+	// Draw status box background
+	//GL_SetCanvasColor(1.f, 1.f, 1.f, scr_sbaralpha.value);
+	M_DrawTextBox(x - 8, y - 8, TIMEBAR_CHARS, 1);
+	//GL_SetCanvasColor(1.f, 1.f, 1.f, 1.f);
+
+	// Print playback status on the left (paused/playing/fast-forward/rewind)
+	// Note: character #13 works well as a forward symbol, but Alkaline 1.2 changes it to a disk.
+	// If we have a custom conchars texture we switch to a safer alternative, the '>' character.
+	if (!cls.demospeed)
+		str = "II";
+	else if (fabs(cls.demospeed) > 1.f)
+		str = ">>";
+	else
+		str = custom_conchars ? ">" : "\xD";
+	if (cls.demospeed >= 0.f)
+		M_Print(x, y, str);
+	else
+	{
+		str = "<<";
+		M_Print(x, y, str);
+	}
+
+	// Print base playback speed on the right
+	if (!cls.basedemospeed)
+		str = "";
+	else if (fabs(cls.basedemospeed) >= 1.f)
+		str = va("%gx", fabs(cls.basedemospeed));
+	else
+		str = va("1/%gx", 1.f / fabs(cls.basedemospeed));
+	M_Print(x + (TIMEBAR_CHARS - strlen(str)) * 8, y, str);
+
+	// Print demo name in the center
+	COM_StripExtension(COM_SkipPath(cls.demofilename), name, sizeof(name));
+	x = (canvasleft + canvasright) / 2;
+	M_Print(x - strlen(name) * 8 / 2, y, name);
+
+	// Draw seek bar rail
+	x = (canvasleft + canvasright) / 2 - TIMEBAR_CHARS / 2 * 8;
+	y -= 8;
+	Draw_Character(x - 8, y, 128);
+	for (i = 0; i < TIMEBAR_CHARS; i++)
+		Draw_Character(x + i * 8, y, 129);
+	Draw_Character(x + i * 8, y, 130);
+
+	// Define a margin for the cursor. Assuming the cursor width is 8 pixels, and we add a bit of padding
+	int cursorMargin = 12; // Adjust this value as needed
+
+	// Adjust the calculation of 'x' for the cursor position
+	// The original line was: x += (TIMEBAR_CHARS - 1) * 8 * frac;
+	// We subtract the margin from both ends (2 * cursorMargin) and adjust the calculation
+	x += ((TIMEBAR_CHARS - 1) * 8 - (2 * cursorMargin)) * frac;
+
+	// Adjust 'x' to include the margin at the start of the seek bar
+	x += cursorMargin;
+
+	// Now draw the seek bar cursor with the adjusted 'x' position
+	Draw_Character(x, y, 131);
+
+	// Print current time above the cursor
+	y -= 11;
+	sec = (int)cl.time;
+	min = sec / 60;
+	sec %= 60;
+
+	if (cl.teamgame) // pq match time
+	{
+		if (cl.match_pause_time)
+			match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
+		else
+			match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
+		min = match_time / 60;
+		sec = match_time - 60 * min;
+
+		if (min < 0) 
+			min = 0;
+		if (sec < 0) 
+			sec = 0;
+	}
+
+	str = va("%i:%02i", min, sec);
+	x -= (strchr(str, ':') - str) * 8; // align ':' with cursor
+	len = strlen(str);
+	// M_DrawTextBox effectively rounds width up to a multiple of 2,
+	// so if our length is odd we pad by half a character on each side
+	//GL_SetCanvasColor(1.f, 1.f, 1.f, scr_sbaralpha.value);
+	M_DrawTextBox(x - 8 - (len & 1) * 8 / 2, y - 8, len + (len & 1), 1);
+//	GL_SetCanvasColor(1.f, 1.f, 1.f, 1.f);
+	Draw_String(x, y, str);
+}
+
 
 /*
 ==============
@@ -1547,7 +1706,7 @@ void SCR_ShowFlagStatus(void)
 	char buf2[10];
 	blueflag = Info_GetKey(cl.serverinfo, "blue flag", buf2, sizeof(buf2));
 
-	if (blueflag[0] != '\0') // is there a key on the server (newer version of crx)
+	if ((blueflag[0] != '\0' && redflag[0] != '\0') && !cls.demoplayback) // is there a key on the server (newer version of crx)
 	{
 		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
 
@@ -2344,7 +2503,9 @@ SCR_SetUpToDrawConsole
 void SCR_SetUpToDrawConsole (void)
 {
 	//johnfitz -- let's hack away the problem of slow console when host_timescale is <0
-	extern float frame_timescale; // woods #demorewind (Baker Fitzquake Mark V)
+	extern cvar_t host_timescale;
+	float timescale, conspeed;
+	//johnfitz
 
 	Con_CheckResize ();
 
@@ -2370,21 +2531,20 @@ void SCR_SetUpToDrawConsole (void)
 	else
 		scr_conlines = 0; //none visible
 
-	float adjustment = host_frametime / frame_timescale;
-
-	if (cl_demospeed.value == 0)
-		adjustment = 5000;
+	timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
+	conspeed = (scr_conspeed.value > 0) ? scr_conspeed.value : 1e6f;
 
 	if (scr_conlines < scr_con_current)
-	{ // Retract console
-		scr_con_current -= scr_conspeed.value * adjustment; //johnfitz -- timescale
+	{
+		// ericw -- (glheight/600.0) factor makes conspeed resolution independent, using 800x600 as a baseline
+		scr_con_current -= conspeed*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines > scr_con_current)
 			scr_con_current = scr_conlines;
-
 	}
 	else if (scr_conlines > scr_con_current)
-	{ // Deploy console
-		scr_con_current += scr_conspeed.value * adjustment; //johnfitz -- timescale
+	{
+		// ericw -- (glheight/600.0)
+		scr_con_current += conspeed*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines < scr_con_current)
 			scr_con_current = scr_conlines;
 	}
@@ -2882,11 +3042,13 @@ void SCR_UpdateScreen (void)
 	else if (cl.intermission == 1 && key_dest == key_game) //end of level
 	{
 		Sbar_IntermissionOverlay ();
+		SCR_DrawDemoControls(); // woods (iw) #democontrols
 	}
 	else if (cl.intermission == 2 && key_dest == key_game) //end of episode
 	{
 		Sbar_FinaleOverlay ();
 		SCR_CheckDrawCenterString ();
+		SCR_DrawDemoControls(); // woods (iw) #democontrols
 	}
 	else
 	{
@@ -2898,6 +3060,7 @@ void SCR_UpdateScreen (void)
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz
+		SCR_DrawDemoControls(); // woods (iw) #democontrols
 		SCR_ShowPing (); // woods #scrping
 		SCR_ShowPL (); // woods #scrpl
 		SCR_DrawMatchClock (); // woods #matchhud

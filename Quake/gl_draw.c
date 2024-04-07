@@ -33,6 +33,7 @@ cvar_t		scr_conalpha = {"scr_conalpha", "0.5", CVAR_ARCHIVE}; //johnfitz
 
 qpic_t		*draw_disc;
 qpic_t		*draw_backtile;
+qboolean	custom_conchars; // woods (iw) #democontrols
 
 gltexture_t *char_texture; //johnfitz
 qpic_t		*pic_ovr, *pic_ins; //johnfitz -- new cursor handling
@@ -466,6 +467,9 @@ void Draw_LoadPics (void)
 	//stupid quakeworldism
 	if (!char_texture)
 		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "charsets/conchars", 0, conchar_texflags | TEXPREF_MIPMAP | TEXPREF_ALLOWMISSING):NULL; // woods enable TEXPREF_MIPMAP
+	
+	custom_conchars = (char_texture != NULL); // woods (iw) #democontrols
+	
 	//vanilla.
 	if (!char_texture)
 	{
@@ -738,11 +742,17 @@ Draw_Pic -- johnfitz -- modified
 */
 void Draw_Pic (int x, int y, qpic_t *pic)
 {
+	if (!pic) return; // woods (iw) #democontrols
+	
 	glpic_t			*gl;
 
 	if (scrap_dirty)
 		Scrap_Upload ();
 	gl = (glpic_t *)pic->data;
+
+	if ((uintptr_t)gl < 0x1000) // woods (iw) #democontrols
+		return;
+
 	GL_Bind (gl->gltexture);
 	glBegin (GL_QUADS);
 	glTexCoord2f (gl->sl, gl->tl);

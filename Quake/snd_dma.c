@@ -443,9 +443,6 @@ channel_t *SND_PickChannel (int entnum, int entchannel)
 	if (first_to_die == -1)
 		return NULL;
 
-	if (snd_channels[first_to_die].sfx)
-		snd_channels[first_to_die].sfx = NULL;
-
 	return &snd_channels[first_to_die];
 }
 
@@ -514,8 +511,12 @@ void S_StartSound (int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float 
 {
 	channel_t	*target_chan, *check;
 	sfxcache_t	*sc;
-	int		ch_idx;
-	int		skip;
+	sfx_t* old_sfx; // woods (iw) #democontrols
+	vec3_t		old_origin; // woods (iw) #democontrols
+	float		old_vol; // woods (iw) #democontrols
+	float		old_atten; // woods (iw) #democontrols
+	int			ch_idx; // woods (iw) #democontrols
+	int			skip; // woods (iw) #democontrols
 
 	if (!sound_started)
 		return;
@@ -530,6 +531,19 @@ void S_StartSound (int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float 
 	target_chan = SND_PickChannel(entnum, entchannel);
 	if (!target_chan)
 		return;
+
+	// keep track of the old sound playing on this channel (for demo rewinding) // woods (iw) #democontrols
+	old_sfx = NULL;
+	VectorCopy(origin, old_origin);
+	old_vol = fvol;
+	old_atten = attenuation;
+	if (entnum > 0 && entchannel > 0 && target_chan->entnum == entnum && target_chan->entchannel == entchannel)
+	{
+		old_sfx = target_chan->sfx;
+		VectorCopy(target_chan->origin, old_origin);
+		old_vol = target_chan->master_vol;
+		old_atten = target_chan->dist_mult * sound_nominal_clip_dist;
+	}
 
 // spatialize
 	memset (target_chan, 0, sizeof(*target_chan));
@@ -550,6 +564,11 @@ void S_StartSound (int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float 
 		target_chan->sfx = NULL;
 		return;		// couldn't load the sound's data
 	}
+
+	// if this is a looping sound and we're not rewinding, keep track of the previous sound playing // woods (iw) #democontrols
+// on the same ent/channel so that when we do rewind past this frame we start playing it instead
+	if (cls.demoplayback && cls.demospeed > 0.f && sc->loopstart != -1)
+		CL_AddDemoRewindSound(entnum, entchannel, old_sfx, old_origin, old_vol, old_atten);
 
 	target_chan->sfx = sfx;
 	target_chan->pos = 0.0;

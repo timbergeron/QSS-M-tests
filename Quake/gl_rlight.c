@@ -277,6 +277,12 @@ void R_PushDlights (void)
 
 	for (i=0 ; i<MAX_DLIGHTS ; i++, l++)
 	{
+		if (l->spawn > cl.time) // woods (iw) #democontrols
+		{
+			l->die = 0.f;
+			continue;
+		}
+
 		if (l->die < cl.time || !l->radius)
 			continue;
 		R_MarkLights (l, l->origin, r_framecount, i, cl.worldmodel->nodes);

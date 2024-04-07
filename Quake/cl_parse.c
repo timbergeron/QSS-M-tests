@@ -738,6 +738,7 @@ static void CLFTE_ParseEntitiesUpdate(void)
 			}
 			ent->update_type = false; //no longer valid
 			ent->model = NULL;
+			ent->spawntime = 0; // woods (iw) #democontrols
 			continue;
 		}
 		else if (ent->update_type)
@@ -748,6 +749,8 @@ static void CLFTE_ParseEntitiesUpdate(void)
 		{	//we had no previous copy of this entity...
 			ent->update_type = true;
 			CLFTE_ReadDelta(newnum, &ent->netstate, NULL, &ent->baseline);
+
+			ent->spawntime = cl.mtime[0]; // woods (iw) #democontrols
 
 			//stupid interpolation junk.
 			ent->lerpflags |= LERP_RESETMOVE|LERP_RESETANIM;
@@ -1896,8 +1899,6 @@ static void CL_ParseBaseline (entity_t *ent, int version) //johnfitz -- added ar
 }
 
 
-#define CL_SetStati(stat, val) cl.statsf[stat] = (cl.stats[stat] = val)
-#define CL_SetHudStat(stat, val) if (cl.stats[stat] != val)Sbar_Changed(); CL_SetStati(stat,val)
 
 /*
 ==================
@@ -2095,8 +2096,7 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	ent->trailstate = NULL;
 	ent->emitstate = NULL;
 	ent->model = cl.model_precache[ent->baseline.modelindex];
-	ent->lerpflags |= LERP_RESETANIM | LERP_RESETMOVE; //johnfitz -- lerping  Baker: Added LERP_RESETMOVE to list // woods #demorewind (Baker Fitzquake Mark V)
-	//ent->lerpflags |= LERP_RESETANIM; //johnfitz -- lerping
+	ent->lerpflags |= LERP_RESETANIM; //johnfitz -- lerping
 	ent->frame = ent->baseline.frame;
 
 	ent->skinnum = ent->baseline.skin;
@@ -3289,6 +3289,7 @@ void CL_ParseServerMessage (void)
 				CL_EntitiesDeltaed();
 			if (*cl.stuffcmdbuf && net_message.cursize < 512)
 				CL_ParseStuffText("\n");	//there's a few mods that forget to write \ns, that then fuck up other things too. So make sure it gets flushed to the cbuf. the cursize check is to reduce backbuffer overflows that would give a false positive.
+			CL_FinishDemoFrame(); // woods (iw) #democontrols
 			return;		// end of message
 		}
 
@@ -3501,17 +3502,11 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_killedmonster:
-			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
-				cl.stats[STAT_MONSTERS]--;
-			else
 			cl.stats[STAT_MONSTERS]++;
 			cl.statsf[STAT_MONSTERS] = cl.stats[STAT_MONSTERS];
 			break;
 
 		case svc_foundsecret:
-			if (cls.demoplayback && cls.demorewind)  // woods #demorewind (Baker Fitzquake Mark V)
-				cl.stats[STAT_SECRETS]--;
-			else
 			cl.stats[STAT_SECRETS]++;
 			cl.statsf[STAT_SECRETS] = cl.stats[STAT_SECRETS];
 			break;
@@ -3535,9 +3530,6 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_intermission:
-			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
-				cl.intermission = 0;
-			else
 			cl.intermission = 1;
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen
@@ -3545,9 +3537,6 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_finale:
-			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
-				cl.intermission = 0;
-			else
 			cl.intermission = 2;
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen
@@ -3558,9 +3547,6 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svc_cutscene:
-			if (cls.demoplayback && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
-				cl.intermission = 0;
-			else
 			cl.intermission = 3;
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen

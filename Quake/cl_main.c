@@ -62,7 +62,6 @@ cvar_t	cl_minpitch = {"cl_minpitch", "-90", CVAR_ARCHIVE}; //johnfitz -- variabl
 
 cvar_t cl_recordingdemo = {"cl_recordingdemo", "", CVAR_ROM};	//the name of the currently-recording demo.
 cvar_t	cl_demoreel = {"cl_demoreel", "0", CVAR_ARCHIVE};
-cvar_t	cl_demospeed = { "cl_demospeed", "1", CVAR_NONE }; // woods #demotools
 
 cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
@@ -574,6 +573,7 @@ dlight_t *CL_AllocDlight (int key)
 				memset (dl, 0, sizeof(*dl));
 				dl->key = key;
 				dl->color[0] = dl->color[1] = dl->color[2] = 1; //johnfitz -- lit support via lordhavoc
+				dl->spawn = cl.time - 0.1; // woods (iw) #democontrols
 				return dl;
 			}
 		}
@@ -583,11 +583,12 @@ dlight_t *CL_AllocDlight (int key)
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
 	{
-		if (dl->die < cl.time)
+		if (dl->die < cl.time || dl->spawn < cl.time) // woods (iw) #democontrols
 		{
 			memset (dl, 0, sizeof(*dl));
 			dl->key = key;
 			dl->color[0] = dl->color[1] = dl->color[2] = 1; //johnfitz -- lit support via lordhavoc
+			dl->spawn = cl.time - 0.1; // woods (iw) #democontrols
 			return dl;
 		}
 	}
@@ -596,6 +597,7 @@ dlight_t *CL_AllocDlight (int key)
 	memset (dl, 0, sizeof(*dl));
 	dl->key = key;
 	dl->color[0] = dl->color[1] = dl->color[2] = 1; //johnfitz -- lit support via lordhavoc
+	dl->spawn = cl.time - 0.1; // woods (iw) #democontrols
 	return dl;
 }
 
@@ -612,15 +614,14 @@ void CL_DecayLights (void)
 	dlight_t	*dl;
 	float		time;
 
-	time = fabs(cl.time - cl.oldtime); // To make sure it stays forward oriented time // woods #demorewind (Baker Fitzquake Mark V)
-	//time = cl.time - cl.oldtime;
+	time = cl.time - cl.oldtime;
 	if (time < 0)
 		return;
 
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
 	{
-		if (dl->die < cl.time || !dl->radius)
+		if (dl->die < cl.time || dl->spawn > cl.time || !dl->radius) // woods (iw) #democontrols
 			continue;
 
 		dl->radius -= time*dl->decay;
@@ -640,15 +641,13 @@ should be put at.
 */
 float	CL_LerpPoint (void)
 {
-	extern qboolean bumper_on; // woods #demorewind (Baker Fitzquake Mark V)
 	float	f, frac;
 
 	f = cl.mtime[0] - cl.mtime[1];
 
 	if (!f || cls.timedemo || (sv.active && !host_netinterval))
 	{
-		cl.time = cl.ctime = cl.mtime[0]; // woods #demorewind (Baker Fitzquake Mark V)
-	//	cl.time = cl.mtime[0];
+		cl.time = cl.mtime[0];
 		return 1;
 	}
 
@@ -658,19 +657,13 @@ float	CL_LerpPoint (void)
 		f = 0.1;
 	}
 
-	frac = (cl.ctime - cl.mtime[1]) / f;
-	//frac = (cl.time - cl.mtime[1]) / f;
+	frac = (cl.time - cl.mtime[1]) / f;
 
 	if (frac < 0)
 	{
 		if (frac < -0.01)
 		{
-			if (bumper_on) // woods #demorewind (Baker Fitzquake Mark V)
-			{
-				cl.ctime = cl.mtime[1];
-			}
-			else cl.time = cl.ctime = cl.mtime[1];
-			//cl.time = cl.mtime[1];
+		cl.time = cl.mtime[1];
 		frac = 0;
 		}
 	}
@@ -678,10 +671,7 @@ float	CL_LerpPoint (void)
 	{
 		if (frac > 1.01)
 		{
-			if (bumper_on) // woods #demorewind (Baker Fitzquake Mark V)
-				cl.ctime = cl.mtime[0];
-			else cl.time = cl.ctime = cl.mtime[0]; // Here is where we get foobar'd
-		//	cl.time = cl.mtime[0];
+			cl.time = cl.mtime[0];
 			frac = 1;
 		}
 	}
@@ -1004,7 +994,7 @@ void CL_RelinkEntities (void)
 		if (!ent->model)
 		{	// empty slot, ish.
 			
-			// ericw -- efrags are only used for static entities in GLQuake
+ 			// ericw -- efrags are only used for static entities in GLQuake
 			// ent can't be static, so this is a no-op.
 			//if (ent->forcelink)
 			//	R_RemoveEfrags (ent);	// just became empty
@@ -1017,6 +1007,14 @@ void CL_RelinkEntities (void)
 		{
 			ent->model = NULL;
 			ent->lerpflags |= LERP_RESETMOVE|LERP_RESETANIM; //johnfitz -- next time this entity slot is reused, the lerp will need to be reset
+			continue;
+		}
+
+		if (ent->spawntime > cl.mtime[0] && (cls.demoplayback && cl.protocol_pext2)) // woods (iw) #democontrols
+		{
+			ent->model = NULL;
+			ent->lerpflags |= LERP_RESETMOVE | LERP_RESETANIM;
+
 			continue;
 		}
 
@@ -2081,14 +2079,7 @@ int CL_ReadFromServer (void)
 	dlight_t	*l; //johnfitz
 	int			i; //johnfitz
 
-
-	cl.oldtime = cl.time;
-	cl.time += host_frametime;
-
-	if (!cls.demorewind || !cls.demoplayback)	// by joe // woods #demorewind (Baker Fitzquake Mark V)
-		cl.ctime += host_frametime;
-	else
-		cl.ctime -= host_frametime;
+	CL_AdvanceTime(); // woods (iw) #democontrols
 
 	do
 	{
@@ -2126,7 +2117,7 @@ int CL_ReadFromServer (void)
 
 	//beams
 	for (i=0, b=cl_beams ; i< MAX_BEAMS ; i++, b++)
-		if (b->model && b->endtime >= cl.time)
+		if (b->model && b->starttime <= cl.time && b->endtime >= cl.time) // woods (iw) #democontrols
 			num_beams++;
 	if (num_beams > 24 && dev_peakstats.beams <= 24)
 		Con_DWarning ("%i beams exceeded standard limit of 24 (max = %d).\n", num_beams, MAX_BEAMS);
@@ -2135,7 +2126,7 @@ int CL_ReadFromServer (void)
 
 	//dlights
 	for (i=0, l=cl_dlights ; i<MAX_DLIGHTS ; i++, l++)
-		if (l->die >= cl.time && l->radius)
+		if (l->die >= cl.time && l->spawn <= cl.time && l->radius) // woods (iw) #democontrols
 			num_dlights++;
 	if (num_dlights > 32 && dev_peakstats.dlights <= 32)
 		Con_DWarning ("%i dlights exceeded standard limit of 32 (max = %d).\n", num_dlights, MAX_DLIGHTS);
@@ -2598,7 +2589,6 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_minpitch); //johnfitz -- variable pitch clamping
 	Cvar_RegisterVariable (&cl_recordingdemo); //spike -- for mod hacks. combine with cvar_string or something
 	Cvar_RegisterVariable (&cl_demoreel);
-	Cvar_RegisterVariable (&cl_demospeed); // woods
 
 	Cvar_RegisterVariable (&cl_truelightning); // woods for #truelight
 	Cvar_RegisterVariable (&gl_lightning_alpha); // woods for lighting alpha #lightalpha

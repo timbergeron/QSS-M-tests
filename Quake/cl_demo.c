@@ -24,16 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static void CL_FinishTimeDemo (void);
 
-typedef struct framepos_s // woods #demorewind (Baker Fitzquake Mark V)
-{
-	long				baz;
-	struct framepos_s* next;
-} framepos_t;
-
-framepos_t* dem_framepos = NULL;
-qboolean	start_of_demo = false;
-qboolean	bumper_on = false;
-
 char		demoplaying[MAX_OSPATH]; // woods for window title
 
 /*
@@ -48,6 +38,378 @@ Whenever cl.time gets past the last received message, another message is
 read from the demo file.
 ==============================================================================
 */
+
+// woods (iw) #democontrols
+// Demo rewinding
+typedef struct
+{
+	long			fileofs;
+	unsigned short	datasize;
+	byte			intermission;
+	byte			forceunderwater;
+} demoframe_t;
+
+typedef struct
+{
+	sfx_t* sfx;
+	int				ent;
+	unsigned short	channel;
+	byte			volume;
+	byte			attenuation;
+	vec3_t			pos;
+} soundevent_t;
+
+typedef enum
+{
+	DFE_LIGHTSTYLE,
+	DFE_CSHIFT,
+	DFE_SOUND,
+} framevent_t;
+
+static struct
+{
+	demoframe_t* frames;
+	byte* frame_events;
+	soundevent_t* pending_sounds;
+	qboolean		backstop;
+
+	struct
+	{
+		cshift_t	cshift;
+		char		lightstyles[MAX_LIGHTSTYLES][MAX_STYLESTRING];
+	}				prev;
+}					demo_rewind;
+
+int demo_target_offset = -1; // woods -- target offset for seeking, -1 when not seeking
+qboolean is_seeking = false; // woods -- flag to indicate seeking status
+
+
+/*
+===============
+CL_AddDemoRewindSound
+===============
+*/
+void CL_AddDemoRewindSound(int entnum, int channel, sfx_t* sfx, vec3_t pos, int vol, float atten)
+{
+	soundevent_t sound;
+
+	if (entnum <= 0 || channel <= 0)
+		return;
+
+	sound.sfx = sfx;
+	sound.ent = entnum;
+	sound.channel = channel;
+	sound.volume = vol;
+	sound.attenuation = (int)(atten + 0.5f) * 64.f;
+	sound.pos[0] = pos[0];
+	sound.pos[1] = pos[1];
+	sound.pos[2] = pos[2];
+
+	VEC_PUSH(demo_rewind.pending_sounds, sound);
+}
+
+/*
+===============
+CL_UpdateDemoSpeed
+===============
+*/
+static void CL_UpdateDemoSpeed(void)
+{
+	extern qboolean keydown[256];
+	int adjust, singleframe;
+
+	if (key_dest != key_game)
+	{
+		cls.demospeed = cls.basedemospeed * !cls.demopaused;
+		return;
+	}
+
+	const int dynamic_threshold = q_max(100, cls.demo_file_length * 0.001); // 0.1% of the demo file length, with a minimum of 100 for very small files
+	const float seeking_speed = 256;
+
+	if (is_seeking) 
+	{
+
+		{
+			if (cls.demo_offset_current < demo_target_offset) 
+				cls.demospeed = seeking_speed; // Move forward to target
+			else if (cls.demo_offset_current > demo_target_offset) 
+				cls.demospeed = -seeking_speed; // Example for moving backward
+
+			if (abs(cls.demo_offset_current - demo_target_offset) < dynamic_threshold)
+			{
+				cls.demo_offset_current = demo_target_offset; // Align with the target
+				cls.demospeed = cls.basedemospeed; // Reset speed to normal
+				is_seeking = false; // Stop seeking
+			}
+		}
+		return;
+	}
+
+	for (int key = '1'; key <= '9'; ++key)
+	{
+		if (keydown[key])
+		{
+			float targetPercentage = (key - '0') / 10.0f;
+			demo_target_offset = cls.demo_offset_start + (int)(targetPercentage * (float)((cls.demo_file_length + cls.demo_offset_start) - cls.demo_offset_start)); // sometimes start is not 0
+			is_seeking = true;
+			break;
+		}
+	}
+
+	adjust = keydown[K_RIGHTARROW] - keydown[K_LEFTARROW];
+	singleframe = keydown['.'] - keydown[','];
+
+	if (adjust)
+	{
+		cls.demospeed = adjust * 5.f;
+		if (cls.basedemospeed)
+			cls.demospeed *= cls.basedemospeed;
+	}
+	else if (singleframe && cls.demopaused)
+	{
+		cls.demospeed = singleframe * 0.03215f;
+		if (cls.basedemospeed)
+			cls.demospeed *= cls.basedemospeed;
+	}
+	else if (keydown[K_HOME] || keydown['0'])
+	{
+		cls.demospeed = -1e9f;
+		if (cls.basedemospeed)
+			cls.demospeed *= cls.basedemospeed;
+	}
+	else if (keydown[K_END])
+	{
+		cls.demospeed = 1e9f;
+		if (cls.basedemospeed)
+			cls.demospeed *= cls.basedemospeed;
+	}
+	else
+	{
+		cls.demospeed = cls.basedemospeed * !cls.demopaused;
+	}
+
+	if (keydown[K_CTRL])
+		cls.demospeed *= 0.25f;
+
+	if (cls.demospeed > 0.f)
+		demo_rewind.backstop = false;
+}
+
+
+/*
+====================
+CL_AdvanceTime
+====================
+*/
+void CL_AdvanceTime(void)
+{
+	cl.oldtime = cl.time;
+
+	if (cls.demoplayback)
+	{
+		CL_UpdateDemoSpeed();
+		cl.time += cls.demospeed * host_frametime;
+		if (demo_rewind.backstop)
+			cl.time = cl.mtime[0];
+	}
+	else
+	{
+		cl.time += host_frametime;
+	}
+}
+
+
+/*
+====================
+CL_NextDemoFrame
+====================
+*/
+static qboolean CL_NextDemoFrame(void)
+{
+	size_t		i, framecount;
+	demoframe_t* lastframe;
+
+	VEC_CLEAR(demo_rewind.pending_sounds);
+
+	// Forward playback
+	if (cls.demospeed > 0.f)
+	{
+		if (cls.signon < SIGNONS)
+		{
+			VEC_CLEAR(demo_rewind.frames);
+			VEC_CLEAR(demo_rewind.frame_events);
+		}
+		else
+		{
+			demoframe_t newframe;
+
+			memset(&newframe, 0, sizeof(newframe));
+			newframe.fileofs = ftell(cls.demofile);
+			newframe.intermission = cl.intermission;
+			//	newframe.forceunderwater = cl.forceunderwater;
+			VEC_PUSH(demo_rewind.frames, newframe);
+
+			// Take a snapshot of the tracked data at the beginning of this frame
+			for (i = 0; i < MAX_LIGHTSTYLES; i++)
+				q_strlcpy(demo_rewind.prev.lightstyles[i], cl_lightstyle[i].map, MAX_STYLESTRING);
+			memcpy(&demo_rewind.prev.cshift, &cshift_empty, sizeof(cshift_empty));
+		}
+		return true;
+	}
+
+	// If we're rewinding we should always have at least one frame to go back to
+	framecount = VEC_SIZE(demo_rewind.frames);
+	if (!framecount)
+		return false;
+
+	lastframe = &demo_rewind.frames[framecount - 1];
+	fseek(cls.demofile, lastframe->fileofs, SEEK_SET);
+
+	if (framecount == 1)
+		demo_rewind.backstop = true;
+
+	return true;
+}
+
+/*
+===============
+CL_FinishDemoFrame
+===============
+*/
+void CL_FinishDemoFrame(void)
+{
+	size_t		i, len, numframes;
+	demoframe_t* lastframe;
+
+	if (!cls.demoplayback || !cls.demospeed)
+		return;
+
+	// Flush any pending stuffcmds (such as v_chifts)
+	// so that they take effect this frame, not the next
+	Cbuf_Execute();
+
+	// We're not going to rewind before the first frame,
+	// so we only track state changes from the second one onwards
+	numframes = VEC_SIZE(demo_rewind.frames);
+	if (numframes < 2)
+		return;
+
+	lastframe = &demo_rewind.frames[numframes - 1];
+
+	if (cls.demospeed > 0.f) // forward playback
+	{
+		SDL_assert(lastframe->datasize == 0);
+
+		// Save the previous cshift value if it changed this frame
+		if (memcmp(&demo_rewind.prev.cshift, &cshift_empty, sizeof(cshift_t)) != 0)
+		{
+			VEC_PUSH(demo_rewind.frame_events, DFE_CSHIFT);
+			Vec_Append((void**)&demo_rewind.frame_events, 1, &demo_rewind.prev.cshift, sizeof(cshift_t));
+			lastframe->datasize += 1 + sizeof(cshift_t);
+		}
+
+		// Save the previous value for any changed lightstyle
+		for (i = 0; i < MAX_LIGHTSTYLES; i++)
+		{
+			if (strcmp(demo_rewind.prev.lightstyles[i], cl_lightstyle[i].map) == 0)
+				continue;
+			len = strlen(demo_rewind.prev.lightstyles[i]);
+			VEC_PUSH(demo_rewind.frame_events, DFE_LIGHTSTYLE);
+			VEC_PUSH(demo_rewind.frame_events, (byte)i);
+			VEC_PUSH(demo_rewind.frame_events, (byte)len);
+			Vec_Append((void**)&demo_rewind.frame_events, 1, demo_rewind.prev.lightstyles[i], len);
+			lastframe->datasize += 3 + len;
+		}
+
+		// Play back pending sounds in reverse order
+		len = VEC_SIZE(demo_rewind.pending_sounds);
+		while (len > 0)
+		{
+			soundevent_t* snd = &demo_rewind.pending_sounds[--len];
+			VEC_PUSH(demo_rewind.frame_events, DFE_SOUND);
+			Vec_Append((void**)&demo_rewind.frame_events, 1, snd, sizeof(*snd));
+			lastframe->datasize += 1 + sizeof(*snd);
+		}
+		VEC_CLEAR(demo_rewind.pending_sounds);
+	}
+	else // rewinding
+	{
+
+		
+
+		// Revert tracked state changes in this frame
+		if (lastframe->datasize > 0)
+		{
+			size_t end = VEC_SIZE(demo_rewind.frame_events);
+			size_t begin = end - lastframe->datasize;
+
+			while (begin < end)
+			{
+				byte* data = &demo_rewind.frame_events[begin++];
+				byte	datatype = *data++;
+
+				switch (datatype)
+				{
+				case DFE_LIGHTSTYLE:
+				{
+					char	str[MAX_STYLESTRING];
+					byte	style;
+
+					style = *data++;
+					len = *data++;
+					memcpy(str, data, len);
+					str[len] = '\0';
+					CL_UpdateLightstyle(style, str);
+
+					begin += 2 + len;
+				}
+				break;
+
+				case DFE_CSHIFT:
+				{
+					memcpy(&cshift_empty, data, sizeof(cshift_empty));
+					begin += sizeof(cshift_empty);
+				}
+				break;
+
+				case DFE_SOUND:
+				{
+					soundevent_t snd;
+
+					memcpy(&snd, data, sizeof(snd));
+					if (snd.sfx)
+						S_StartSound(snd.ent, snd.channel, snd.sfx, snd.pos, snd.volume / 255.0, snd.attenuation / 64.f);
+					else
+						S_StopSound(snd.ent, snd.channel);
+
+					begin += sizeof(snd);
+				}
+				break;
+
+				default:
+					Sys_Error("CL_NextDemoFrame: bad event type %d", datatype);
+					break;
+				}
+			}
+
+			SDL_assert(begin == end);
+
+			VEC_POP_N(demo_rewind.frame_events, lastframe->datasize);
+			lastframe->datasize = 0;
+		}
+
+		if (cl.intermission != lastframe->intermission && !lastframe->intermission)
+			cl.completed_time = 0;
+		cl.intermission = lastframe->intermission;
+		//cl.forceunderwater = lastframe->forceunderwater;
+
+		cl.faceanimtime = 0; // woods
+		CL_SetStati(STAT_VIEWHEIGHT, DEFAULT_VIEWHEIGHT); // woods
+
+		VEC_POP(demo_rewind.frames);
+	}
+}
 
 /*
 ==============
@@ -64,8 +426,17 @@ void CL_StopPlayback (void)
 	fclose (cls.demofile);
 	cls.demoplayback = false;
 	cls.demopaused = false;
+	cls.demospeed = 1.f; // woods (iw) #democontrols
 	cls.demofile = NULL;
+	cls.demofilesize = 0; // woods (iw) #democontrols
+	cls.demofilestart = 0; // woods (iw) #democontrols
+	cls.demofilename[0] = '\0'; // woods (iw) #democontrols
 	cls.state = ca_disconnected;
+
+	VEC_CLEAR(demo_rewind.frames); // woods (iw) #democontrols
+	VEC_CLEAR(demo_rewind.frame_events); // woods (iw) #democontrols
+	VEC_CLEAR(demo_rewind.pending_sounds); // woods (iw) #democontrols
+	demo_rewind.backstop = false; // woods (iw) #democontrols
 
 	if (cls.timedemo)
 		CL_FinishTimeDemo ();
@@ -95,48 +466,13 @@ static void CL_WriteDemoMessage (void)
 	fflush (cls.demofile);
 }
 
-void PushFrameposEntry(long fbaz) // woods #demorewind (Baker Fitzquake Mark V)
-{
-	framepos_t* newf;
-
-	newf = malloc(sizeof(framepos_t)); // Demo rewind
-	newf->baz = fbaz;
-
-	if (!dem_framepos)
-	{
-		newf->next = NULL;
-		start_of_demo = false;
-	}
-	else
-	{
-		newf->next = dem_framepos;
-	}
-	dem_framepos = newf;
-}
-
-static void EraseTopEntry(void) // woods #demorewind (Baker Fitzquake Mark V)
-{
-	framepos_t* top;
-
-	top = dem_framepos;
-	dem_framepos = dem_framepos->next;
-	free(top);
-}
-
 static int CL_GetDemoMessage (void)
 {
 	int	r, i;
 	float	f;
 
-	if (cls.demopaused)
+	if (!cls.demospeed || demo_rewind.backstop) // woods (iw) #democontrols
 		return 0;
-
-	if (start_of_demo && cls.demorewind) // woods #demorewind (Baker Fitzquake Mark V)
-		return 0;
-
-	if (cls.signon < SIGNONS)	// clear stuffs if new demo 
-		while (dem_framepos)
-			EraseTopEntry(); // end woods #demorewind (Baker Fitzquake Mark V)
 
 	// decide if it is time to grab the next message
 	if (cls.signon == SIGNONS)	// always grab until fully connected
@@ -151,25 +487,15 @@ static int CL_GetDemoMessage (void)
 			if (host_framecount == cls.td_startframe + 1)
 				cls.td_starttime = realtime;
 		}
-
-		else if (!cls.demorewind && cl.ctime <= cl.mtime[0]) // woods #demorewind (Baker Fitzquake Mark V)
-			return 0;		// don't need another message yet
-		else if (cls.demorewind && cl.ctime >= cl.mtime[0])
-			return 0;
-
-		// joe: fill in the stack of frames' positions
-		// enable on intermission or not...?
-		// NOTE: it can't handle fixed intermission views!
-		if (!cls.demorewind /*&& !cl.intermission*/)
-			PushFrameposEntry(ftell(cls.demofile)); 
-
-	//	else if (/* cl.time > 0 && */ cl.time <= cl.mtime[0])
-	//	{
-	//		return 0;	// don't need another message yet
-	//	} // end woods #demorewind (Baker Fitzquake Mark V)
+		else if (/* cl.time > 0 && */ cls.demospeed > 0.f ? cl.time <= cl.mtime[0] : cl.time >= cl.mtime[0]) // woods(iw) #democontrols
+		{
+			return 0;	// don't need another message yet
+		}
 	}
 
 // get the next message
+	if (!CL_NextDemoFrame()) // woods (iw) #democontrols
+		return 0;
 
 	cls.demo_offset_current = ftell(cls.demofile); // woods #demopercent (Baker Fitzquake Mark V)
 
@@ -189,19 +515,6 @@ static int CL_GetDemoMessage (void)
 	{
 		CL_StopPlayback ();
 		return 0;
-	}
-
-	// woods #demorewind (Baker Fitzquake Mark V)
-	// joe: get out framestack's top entry
-	if (cls.demorewind /*&& !cl.intermission*/)
-	{
-		if (dem_framepos/* && dem_framepos->baz*/)	// Baker: in theory, if this occurs we ARE at the start of the demo with demo rewind on
-		{
-			fseek(cls.demofile, dem_framepos->baz, SEEK_SET);
-			EraseTopEntry(); // Baker: we might be able to improve this better but not right now.
-		}
-		if (!dem_framepos)
-			bumper_on = start_of_demo = true;
 	}
 
 	return 1;
@@ -642,6 +955,7 @@ void CL_Record_f (void)
 
 	cls.forcetrack = track;
 	fprintf (cls.demofile, "%i\n", cls.forcetrack);
+	q_strlcpy(cls.demofilename, name, sizeof(cls.demofilename)); // woods (iw) #democontrols
 
 	cls.demorecording = true;
 
@@ -687,12 +1001,7 @@ void CL_PlayDemo_f (void)
 	}
 
 // disconnect from server
-	CL_Disconnect (); // woods #demorewind (Baker Fitzquake Mark V)
-
-	// Revert
-	cls.demorewind = false;
-	cls.demospeed = 0; // 0 = Don't use
-	bumper_on = false;
+	CL_Disconnect ();
 
 // open the demo file
 	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
@@ -740,7 +1049,15 @@ void CL_PlayDemo_f (void)
 
 	cls.demoplayback = true;
 	cls.demopaused = false;
+	cls.demospeed = 1.f; // woods (iw) #democontrols
+	// Only change basedemospeed if it hasn't been initialized,
+	// otherwise preserve the existing value
+	//if (!cls.basedemospeed) // woods (iw) #democontrols
+	cls.basedemospeed = 1.f; // woods (iw) #democontrols
+	q_strlcpy(cls.demofilename, name, sizeof(cls.demofilename)); // woods (iw) #democontrols
 	cls.state = ca_connected;
+	cls.demofilestart = ftell(cls.demofile); // woods(iw) #democontrols
+	cls.demofilesize = com_filesize; // woods (iw) #democontrols
 
 // get rid of the menu and/or console
 	key_dest = key_game;
