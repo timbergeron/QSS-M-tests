@@ -5443,6 +5443,8 @@ void M_Demos_Draw (void)
 	y = 32;
 	cols = 36;
 
+	char demofilename[MAX_OSPATH];
+
 	demosmenu.x = x;
 	demosmenu.y = y;
 	demosmenu.cols = cols;
@@ -5467,7 +5469,13 @@ void M_Demos_Draw (void)
 		int idx = i + firstvis;
 		qboolean selected = (idx == demosmenu.list.cursor);
 
-		M_PrintScroll(x, y + i * 8, (cols - 2) * 8, demosmenu.items[idx].name, selected ? demosmenu.ticker.scroll_time : 0.0, true);
+		COM_StripExtension(cls.demofilename, demofilename, sizeof(demofilename));
+
+		demosmenu.items[idx].active = !strcmp(demofilename, demosmenu.items[idx].name);
+
+		int color = demosmenu.items[idx].active ? 0 : 1;
+
+		M_PrintScroll(x, y + i * 8, (cols - 2) * 8, demosmenu.items[idx].name, selected ? demosmenu.ticker.scroll_time : 0.0, color);
 
 		if (selected) 
 			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
