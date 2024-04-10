@@ -4849,7 +4849,7 @@ void RemoveDuplicateServers (servertitem_t** items, int* actualServerCount)
 	for (int i = 0; i < *actualServerCount; i++) {
 		qboolean isDuplicate = false;
 		for (int j = 0; j < i; j++) {
-			if (strcmp((*items)[i].ip, (*items)[j].ip) == 0) {
+			if (strcmp((*items)[i].name, (*items)[j].name) == 0) {
 				isDuplicate = true;
 				break;
 			}
