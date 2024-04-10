@@ -1279,8 +1279,8 @@ void Sbar_DrawFrags(void)
 					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.match_pause_time - cl.last_match_time));
 				else
 					match_time = ceil(60.0 * cl.minutes + cl.seconds - (cl.time - cl.last_match_time));
-				minutes = match_time / 60;
-				seconds = match_time - 60 * minutes;
+				minutes = q_max(0, floor(match_time / 60));
+				seconds = q_max(0, match_time - 60 * floor(match_time / 60));
 				sprintf(num, "%3d:%02d", minutes, seconds);
 				if (!minutes)
 					mask = 128;
