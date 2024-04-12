@@ -1376,37 +1376,46 @@ static qboolean CompleteFileListDemo (const char* partial, void* param) // woods
 	return true;
 }
 
-static qboolean CompleteBindKeys (const char* partial, void* unused) // woods #iwtabcomplete
+#define MAX_LENGTH 60 // woods #iwtabcomplete
+char truncatedStrings[MAX_KEYS][MAX_LENGTH] = { 0 }; // woods #iwtabcomplete
+
+static void ProcessKeyBinding (int i, const char* partial) // woods #iwtabcomplete
 {
-	int i;
-
-	if (Cmd_Argc() > 2)
-		return false;
-
-	for (i = 0; i < MAX_KEYS; i++)
+	if (keybindings[i]) 
 	{
 		const char* name = Key_KeynumToString(i);
 		if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
-			Con_AddToTabList (name, partial, keybindings[0][i], NULL); // #demolistsort add arg
+		{
+			char* keybindingValue = keybindings[0][i];
+			if (keybindingValue && strlen(keybindingValue) > MAX_LENGTH) 
+			{
+				int copyLength = MAX_LENGTH - 4; 
+				Q_strncpy(truncatedStrings[i], keybindingValue, copyLength);
+				truncatedStrings[i][copyLength] = '\0';
+				Q_strcat(truncatedStrings[i], "...");
+				keybindingValue = truncatedStrings[i];
+			}
+			Con_AddToTabList(name, partial, keybindingValue, NULL);
+		}
 	}
+}
 
+static qboolean CompleteBindKeys (const char* partial, void* unused) // woods #iwtabcomplete
+{
+	if (Cmd_Argc() > 2) return false;
+	for (int i = 0; i < MAX_KEYS; i++) 
+	{
+		ProcessKeyBinding (i, partial);
+	}
 	return true;
 }
 
 static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods #iwtabcomplete
 {
-	int i;
-
-	for (i = 0; i < MAX_KEYS; i++)
+	for (int i = 0; i < MAX_KEYS; i++)
 	{
-		if (keybindings[i])
-		{
-			const char* name = Key_KeynumToString(i);
-			if (strcmp(name, "<UNKNOWN KEYNUM>") != 0)
-				Con_AddToTabList (name, partial, keybindings[0][i], NULL); // #demolistsort add arg
-		}
+		ProcessKeyBinding (i, partial);
 	}
-
 	return true;
 }
 
