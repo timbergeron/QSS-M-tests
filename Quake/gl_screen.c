@@ -107,6 +107,7 @@ cvar_t		scr_sbaralpha = {"scr_sbaralpha", "0.75", CVAR_ARCHIVE}; // woods #sbars
 cvar_t		scr_sbaralphaqwammo = {"scr_sbaralphaqwammo", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarshowqeammo = {"scr_sbarshowqeammo", "1", CVAR_ARCHIVE}; // woods
 cvar_t		scr_sbar = {"scr_sbar", "1", CVAR_ARCHIVE}; // woods #sbarstyles
+cvar_t		scr_sbarfacecolor = {"scr_sbarfacecolor", "1", CVAR_ARCHIVE}; // woods #teamface
 cvar_t		scr_conwidth = {"scr_conwidth", "0", CVAR_ARCHIVE};
 cvar_t		scr_conscale = {"scr_conscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_consize = {"scr_consize", ".5", CVAR_ARCHIVE}; // woods #consize (joequake)
@@ -790,6 +791,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_sbaralphaqwammo); // woods #sbarstyles
 	Cvar_RegisterVariable (&scr_sbarshowqeammo); // woods #sbarstyles
 	Cvar_RegisterVariable (&scr_sbar); // woods #sbarstyles
+	Cvar_RegisterVariable (&scr_sbarfacecolor); // woods #teamface
 	Cvar_SetCallback (&scr_conwidth, &SCR_Conwidth_f);
 	Cvar_SetCallback (&scr_conscale, &SCR_Conwidth_f);
 	Cvar_RegisterVariable (&scr_conwidth);

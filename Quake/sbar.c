@@ -81,6 +81,7 @@ void Sbar_DeathmatchOverlay (void);
 void M_DrawPic (int x, int y, qpic_t *pic);
 void Draw_SubPic_QW (int x, int y, qpic_t* pic, int ofsx, int ofsy, int w, int h); // woods #sbarstyles for qw hud
 extern cvar_t scr_showspeed; // woods
+extern cvar_t scr_sbarfacecolor; // #teamface
 
 qboolean Sbar_CSQCCommand(void)
 {
@@ -1527,6 +1528,9 @@ Sbar_DrawFace_Team -- woods to color face in sbar when on a match team #teamface
 
 void Sbar_DrawFace_Team (void)
 {
+	if (!scr_sbarfacecolor.value)
+		return;
+	
 	int color;
 
 	color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
