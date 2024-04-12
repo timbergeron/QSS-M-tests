@@ -1817,6 +1817,8 @@ qboolean CL_CheckDownload(const char *filename)
 		return false;	//no need to download anything.
 	if (!COM_DownloadNameOkay(filename))
 		return false;	//diediedie
+	if (cls.demoplayback)
+		return false;
 
 	// woods, lets try curl web download first #webdl (much faster) #webdl
 
@@ -1839,8 +1841,6 @@ qboolean CL_CheckDownload(const char *filename)
 		if (!cl.protocol_dpdownload && cl.protocol != 666) // woods, allow downloads on qecrx (nq physics, FTE server) -- hack
 			return false;	//can't download anyway
 		if (netquakeio)
-			return false;
-		if (cls.demoplayback)
 			return false;
 	}
 	else
