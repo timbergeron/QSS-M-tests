@@ -4938,7 +4938,7 @@ void M_ServerList_Draw (void)
 	int firstvis, numvis;
 
 	x = 16;
-	y = 32;
+	y = 28;
 	cols = 36;
 
 	serversmenu.x = x;
@@ -4991,7 +4991,12 @@ void M_ServerList_Draw (void)
 		q_snprintf(serverStr, sizeof(serverStr), "%-34.34s", serversmenu.items[idx].name);
 
 		if (selected)
-		M_PrintWhite(x, y + serversmenu.list.viewsize * 8 + 12, serverStr);
+			M_PrintWhite(x, y + serversmenu.list.viewsize * 8 + 12, serverStr);
+
+		q_snprintf(serverStr, sizeof(serverStr), "%-34.34s", serversmenu.items[idx].ip);
+
+		if (selected)
+			M_PrintWhite(x, y + serversmenu.list.viewsize * 8 + 20, serverStr);
 	}
 
 	if (M_List_GetOverflow(&serversmenu.list) > 0) {
