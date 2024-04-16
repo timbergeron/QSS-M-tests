@@ -1107,6 +1107,7 @@ void CL_RelinkEntities (void)
 				model = cl.model_precache[grenadecache];
 				cl.model_precache[grenadecache]->fromrl = 1;
 				ent->model = model;
+				modelflags -= EF_ROCKET;
 			}
 		}
 		else
