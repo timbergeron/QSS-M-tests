@@ -269,12 +269,12 @@ void CL_ParseTEnt (void)
 			dl->radius = 150 + 200 * bound(0, r_explosionlight.value, 1);
 			dl->die = cl.time + 0.5;
 			dl->decay = 300;
-		}
-		if (type == TENEH_EXPLOSION3)
-		{	//the *2 is to match dp's expectations, for some reason.
-			dl->color[0] = MSG_ReadCoord(cl.protocolflags)*2.0;
-			dl->color[1] = MSG_ReadCoord(cl.protocolflags)*2.0;
-			dl->color[2] = MSG_ReadCoord(cl.protocolflags)*2.0;
+			if (type == TENEH_EXPLOSION3)
+			{	//the *2 is to match dp's expectations, for some reason.
+				dl->color[0] = MSG_ReadCoord(cl.protocolflags)*2.0;
+				dl->color[1] = MSG_ReadCoord(cl.protocolflags)*2.0;
+				dl->color[2] = MSG_ReadCoord(cl.protocolflags)*2.0;
+			}
 		}
 		S_StartSound (-1, 0, cl_sfx_r_exp3, pos, 1, 1);
 
