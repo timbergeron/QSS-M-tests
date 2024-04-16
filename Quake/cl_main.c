@@ -68,6 +68,7 @@ cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
 cvar_t  cl_afk = {"cl_afk", "0", CVAR_ARCHIVE }; // woods #smartafk
 cvar_t  cl_idle = {"cl_idle", "0", CVAR_NONE }; // woods #smartafk
 cvar_t  r_rocketlight = {"r_rocketlight", "0", CVAR_ARCHIVE }; // woods #rocketlight
+cvar_t  r_explosionlight = {"r_explosionlight", "0", CVAR_ARCHIVE}; // woods #explosionlight
 cvar_t  cl_muzzleflash = {"cl_muzzleflash", "0", CVAR_ARCHIVE}; // woods #muzzleflash
 cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #deadbody
 cvar_t	cl_r2g = {"cl_r2g","0",CVAR_ARCHIVE}; // woods #r2g
@@ -2597,6 +2598,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_afk); // woods #smartafk
 	Cvar_RegisterVariable (&cl_idle); // woods #smartafk
 	Cvar_RegisterVariable (&r_rocketlight); // woods #rocketlight
+	Cvar_RegisterVariable (&r_explosionlight); // woods #explosionlight
 	Cvar_RegisterVariable (&cl_muzzleflash); // woods #muzzleflash
 	Cvar_RegisterVariable (&cl_deadbodyfilter); // woods #deadbody
 	Cvar_RegisterVariable (&cl_r2g); // woods #r2g

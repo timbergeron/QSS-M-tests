@@ -262,11 +262,14 @@ void CL_ParseTEnt (void)
 		pos[2] = MSG_ReadCoord (cl.protocolflags);
 		if (PScript_RunParticleEffectTypeString(pos, NULL, 1, (type==TEDP_EXPLOSIONQUAD)?"TE_EXPLOSIONQUAD":"TE_EXPLOSION"))
 			R_ParticleExplosion (pos);
-		dl = CL_AllocDlight (0);
-		VectorCopy (pos, dl->origin);
-		dl->radius = 0; // woods no explosion light
-		dl->die = cl.time + 0.5;
-		dl->decay = 300;
+		if (r_explosionlight.value) // woods #explosionlight
+		{
+			dl = CL_AllocDlight (0);
+			VectorCopy (pos, dl->origin);
+			dl->radius = 150 + 200 * bound(0, r_explosionlight.value, 1);
+			dl->die = cl.time + 0.5;
+			dl->decay = 300;
+		}
 		if (type == TENEH_EXPLOSION3)
 		{	//the *2 is to match dp's expectations, for some reason.
 			dl->color[0] = MSG_ReadCoord(cl.protocolflags)*2.0;
