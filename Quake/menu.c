@@ -1019,8 +1019,10 @@ void M_Main_Key (int key) // woods #modsmenu #demosmenu (iw)
 
 void M_Main_Mousemove(int cx, int cy) // woods #mousemenu
 {
-	M_UpdateCursor(cy, 32, 20, MAIN_ITEMS - !m_main_mods, &m_main_cursor);
+	M_UpdateCursor(cy, 32, 20, MAIN_ITEMS - !m_main_mods - !m_main_demos, &m_main_cursor);
 	if (m_main_cursor >= MAIN_MODS && !m_main_mods)
+		++m_main_cursor;
+	if (m_main_cursor >= MAIN_DEMOS && !m_main_demos)
 		++m_main_cursor;
 }
 
