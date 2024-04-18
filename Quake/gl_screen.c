@@ -2363,6 +2363,10 @@ SCR_DrawCrosshair -- johnfitz -- woods major change #crosshair
 */
 void SCR_DrawCrosshair (void)
 {
+	
+	if (key_dest == key_menu)
+		return;
+
 	if (scr_viewsize.value >= 130)
 		return;
 
