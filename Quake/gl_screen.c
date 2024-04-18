@@ -725,7 +725,7 @@ void SCR_SizeDown_f (void)
 static void SCR_Callback_refdef (cvar_t *var)
 {
 	vid.recalc_refdef = 1;
-	if (key_dest != key_console && host_initialized && scr_viewsize.value != 140 && scr_viewsize.value != 20) // woods
+	if (key_dest == key_game && host_initialized && scr_viewsize.value != 140 && scr_viewsize.value != 20) // woods
 		Con_Printf("screen size: ^m%i\n", (int)scr_viewsize.value);
 }
 
