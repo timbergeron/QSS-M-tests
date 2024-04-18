@@ -1932,9 +1932,9 @@ void SCR_DrawSpeed (void)
 		x = 0;
 		y = 0;
 
-		if (clampedSbar <= 100)
+		if (scr_viewsize.value <= 100)
 			y = 208;
-		else if (clampedSbar == 110)
+		else if (scr_viewsize.value == 110)
 			y = 233;
 		if (clampedSbar == 2)
 			y = 233;
