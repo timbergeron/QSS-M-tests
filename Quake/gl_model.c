@@ -50,6 +50,7 @@ static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
 static cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
 cvar_t gl_load24bit_skins = {"gl_load24bit_skins", "0", CVAR_ARCHIVE }; // woods #loadskins
+cvar_t gl_load24bit_hud = {"gl_load24bit_hud", "1", CVAR_ARCHIVE}; // woods #24bithud
 void Cache_Flush_f (cvar_t* var); // woods #loadskins
 
 extern cvar_t	r_fastturb; // woods #fastturb
@@ -83,6 +84,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&gl_loadlitfiles); // woods #loadlits
 	Cvar_RegisterVariable (&gl_load24bit_skins); // woods #loadskins
 	Cvar_SetCallback (&gl_load24bit_skins, Cache_Flush_f); // woods #loadskins
+	Cvar_RegisterVariable (&gl_load24bit_hud); // woods #24bithud
 	Cvar_RegisterVariable (&mod_lightscale_broken);
 	Cvar_RegisterVariable (&mod_lightgrid);
 

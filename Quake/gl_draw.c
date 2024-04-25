@@ -39,6 +39,8 @@ gltexture_t *char_texture; //johnfitz
 qpic_t		*pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 qpic_t		*pic_nul; //johnfitz -- for missing gfx, don't crash
 
+extern cvar_t gl_load24bit_hud; // woods #24bithud
+
 //johnfitz -- new pics
 byte pic_ovr_data[8][8] =
 {
@@ -455,7 +457,7 @@ void Draw_LoadPics (void)
 
 	const unsigned int conchar_texflags = (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_NOPICMIP | TEXPREF_CONCHARS;	//Spike - we use nearest with 8bit, but not replacements. replacements also use mipmaps because they're just noise otherwise.
 
-	if (gl_load24bit.value > 0) // woods #load24bit2
+	if (gl_load24bit.value > 0 && gl_load24bit_hud.value) // woods #24bithud
 		draw_load24bit = true;
 	else
 		draw_load24bit = false;
@@ -519,6 +521,9 @@ qboolean Draw_ReloadTextures(qboolean force)
 {
 	extern cvar_t gl_load24bit;
 	if (draw_load24bit != !!gl_load24bit.value)
+		force = true;
+
+	if (draw_load24bit != !!gl_load24bit_hud.value) // woods #24bithud
 		force = true;
 
 	if (force)
