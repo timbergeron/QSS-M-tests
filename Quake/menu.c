@@ -4763,11 +4763,22 @@ void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* 
 		const char* name = JSON_FindString(serverEntry, "hostname");
 		const char* address = JSON_FindString(serverEntry, "address");
 		const double* currentStatus = JSON_FindNumber(serverEntry, "currentStatus");
-		const double* currentPlayers = JSON_FindNumber(serverEntry, "currentPlayers");
 		const double* maxPlayers = JSON_FindNumber(serverEntry, "maxPlayers");
 		const char* map = JSON_FindString(serverEntry, "map");
 		const double* gameId = JSON_FindNumber(serverEntry, "gameId");
 		const double* port = JSON_FindNumber(serverEntry, "port");
+
+		const jsonentry_t* playersArray = JSON_Find(serverEntry, "players", JSON_ARRAY);
+
+		int numPlayers = 0;
+		if (playersArray)
+		{
+			const jsonentry_t* playerEntry;
+			for (playerEntry = playersArray->firstchild; playerEntry; playerEntry = playerEntry->next) 
+			{
+				numPlayers++;
+			}
+		}
 
 		if (!name || !address || *currentStatus !=0 || !port || !gameId || *gameId != 0) continue; // Skip if essential info is missing or gametype is 0 (0 is netquake compat)
 
@@ -4789,7 +4800,7 @@ void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* 
 		newItem->name = strdup(name ? name : "Unknown");
 		newItem->ip = strdup(addressWithPort);
 		free(addressWithPort);
-		newItem->users = currentPlayers ? (int)*currentPlayers : 0;
+		newItem->users = numPlayers;
 		newItem->maxusers = maxPlayers ? (int)*maxPlayers : 0;
 		newItem->map = strdup(map ? map : "Unknown");
 		newItem->active = true;
