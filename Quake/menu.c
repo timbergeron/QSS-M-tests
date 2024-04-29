@@ -35,6 +35,10 @@ enum m_state_e m_state;
 extern qboolean	keydown[256]; // woods #modsmenu (iw)
 int m_mousex, m_mousey; // woods #mousemenu
 
+const char* ResolveHostname(const char* hostname); // woods #serversmenu
+extern qboolean Valid_IP(const char* ip_str); // woods #serversmenu
+extern qboolean Valid_Domain(const char* domain_str); // woods #serversmenu
+
 void M_Menu_Main_f (void);
 	void M_Menu_SinglePlayer_f (void);
 		void M_Menu_Load_f (void);
@@ -49,6 +53,7 @@ void M_Menu_Main_f (void);
 		void M_Menu_GameOptions_f (void);
 		void M_Menu_Search_f (enum slistScope_e scope);
 		void M_Menu_ServerList_f (void);
+		void M_Menu_History_f(void); // woods #historymenu
 	void M_Menu_Options_f (void);
 		void M_Menu_Keys_f (void);
 		void M_Menu_Extras_f (void);
@@ -72,6 +77,7 @@ void M_NameMaker_Draw(void); // woods #namemaker
 		void M_GameOptions_Draw (void);
 		void M_Search_Draw (void);
 		void M_ServerList_Draw (void);
+		void M_History_Draw(void); // woods #historymenu
 	void M_Options_Draw (void);
 		void M_Keys_Draw (void);
 		void M_Video_Draw (void);
@@ -93,6 +99,7 @@ void M_Main_Key (int key);
 		void M_GameOptions_Key (int key);
 		void M_Search_Key (int key);
 		void M_ServerList_Key (int key);
+		void M_History_Key(int key); // woods #historymenu
 	void M_Options_Key (int key);
 		void M_Keys_Key (int key);
 	void M_Mods_Key(int key);
@@ -117,6 +124,7 @@ void M_Main_Key (int key);
 	void M_GameOptions_Mousemove(int cx, int cy);
 	//void M_Search_Mousemove (int cx, int cy);
 	void M_ServerList_Mousemove(int cx, int cy);
+	void M_History_Mousemove(int cx, int cy); // woods #historymenu
 	void M_Options_Mousemove(int cx, int cy);
 	void M_Keys_Mousemove(int cx, int cy);
 	void M_Video_Mousemove (int cx, int cy);
@@ -3878,8 +3886,8 @@ void M_Quit_Draw (void) //johnfitz -- modified for new quit message -- woods mod
 /* LAN CONFIG MENU */
 
 int		lanConfig_cursor = -1;
-int		lanConfig_cursor_table[] = { 68, 88, 96, 128 }; // woods #mousemenu
-#define NUM_LANCONFIG_CMDS	4
+int		lanConfig_cursor_table[] = { 68, 88, 96, 108, 128 }; // woods #mousemenu
+#define NUM_LANCONFIG_CMDS	5
 
 int 	lanConfig_port;
 char	lanConfig_portname[6];
@@ -3999,11 +4007,16 @@ void M_LanConfig_Draw (void)
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
 		y+=8;
 
+		M_Print(basex, y, "History"); // woods #historymenu
+		if (lanConfig_cursor == 3)
+			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
+		y += 8;
+
 		M_Print (basex, y, "Join game at:");
 		y+=24;
 		M_DrawTextBox (basex+8, y-8, 22, 1);
 		M_Print (basex+16, y, lanConfig_joinname);
-		if (lanConfig_cursor == 3)
+		if (lanConfig_cursor == 4) // woods #historymenu
 		{
 			M_DrawCharacter (basex+16 + 8*strlen(lanConfig_joinname), y, 10+((int)(realtime*4)&1));
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
@@ -4073,7 +4086,9 @@ void M_LanConfig_Key (int key)
 				M_Menu_Search_f(SLIST_LAN);
 			else if (lanConfig_cursor == 2)
 				M_Menu_Search_f(SLIST_INTERNET);
-			else if (lanConfig_cursor == 3)
+			else if (lanConfig_cursor == 3) // woods #historymenu
+				M_Menu_History_f ();
+			else if (lanConfig_cursor == 4)
 			{
 				m_return_state = m_state;
 				m_return_onerror = true;
@@ -4093,7 +4108,7 @@ void M_LanConfig_Key (int key)
 				lanConfig_portname[strlen(lanConfig_portname)-1] = 0;
 		}
 
-		if (lanConfig_cursor == 3)
+		if (lanConfig_cursor == 4) // woods #historymenu
 		{
 			if (strlen(lanConfig_joinname))
 				lanConfig_joinname[strlen(lanConfig_joinname)-1] = 0;
@@ -4134,7 +4149,7 @@ void M_LanConfig_Char (int key)
 			lanConfig_portname[l] = key;
 		}
 		break;
-	case 3:
+	case 4: // woods #historymenu
 		l = strlen(lanConfig_joinname);
 		if (l < 21)
 		{
@@ -4145,10 +4160,263 @@ void M_LanConfig_Char (int key)
 	}
 }
 
+//=============================================================================
+
+// woods #historymenu
+
+/* Connection History menu */
+
+#define MAX_VIS_HISTORY	19
+
+typedef struct
+{
+	const char* name;
+	qboolean	active;
+} historyitem_t;
+
+static struct
+{
+	menulist_t			list;
+	enum m_state_e		prev;
+	int					x, y, cols;
+	int					democount;
+	int					prev_cursor;
+	menuticker_t		ticker;
+	historyitem_t* items;
+	qboolean			scrollbar_grab;
+} historymenu;
+
+static qboolean M_History_IsActive(const char* server)
+{
+	return cls.state == ca_connected && cls.signon == SIGNONS && !strcmp(lastmphost, server);
+}
+
+static void M_History_Add(const char* name)
+{
+	historyitem_t history;
+	history.name = name;
+	history.active = M_History_IsActive(name);
+
+	if (history.active && historymenu.list.cursor == -1)
+		historymenu.list.cursor = historymenu.list.numitems;
+
+	// Ensure there's enough space for one more item
+	VEC_PUSH(historymenu.items, history);
+
+	historymenu.items[historymenu.list.numitems] = history;
+	historymenu.list.numitems++;
+}
+
+static void M_History_Init(void)
+{
+	filelist_item_t* item;
+
+	historymenu.list.viewsize = MAX_VIS_HISTORY;
+	historymenu.list.cursor = -1;
+	historymenu.list.scroll = 0;
+	historymenu.list.numitems = 0;
+	historymenu.democount = 0;
+	historymenu.scrollbar_grab = false;
+	VEC_CLEAR(historymenu.items);
+
+	M_Ticker_Init(&historymenu.ticker);
+
+	for (item = serverlist; item; item = item->next)
+		M_History_Add(item->name);
+
+	if (historymenu.list.cursor == -1)
+		historymenu.list.cursor = 0;
+
+	M_List_CenterCursor(&historymenu.list);
+}
+
+void M_Menu_History_f(void)
+{
+	key_dest = key_menu;
+	historymenu.prev = m_state;
+	m_state = m_history;
+	m_entersound = true;
+	M_History_Init();
+}
+
+void M_History_Draw(void)
+{
+	int x, y, i, cols;
+	int firstvis, numvis;
+
+	x = 16;
+	y = 32;
+	cols = 36;
+
+	historymenu.x = x;
+	historymenu.y = y;
+	historymenu.cols = cols;
+
+	if (!keydown[K_MOUSE1]) // woods #mousemenu
+		historymenu.scrollbar_grab = false;
+
+	if (historymenu.prev_cursor != historymenu.list.cursor)
+	{
+		historymenu.prev_cursor = historymenu.list.cursor;
+		M_Ticker_Init(&historymenu.ticker);
+	}
+	else
+		M_Ticker_Update(&historymenu.ticker);
+
+	Draw_String(x, y - 28, "History");
+	M_DrawQuakeBar(x - 8, y - 16, cols + 2);
+
+	M_List_GetVisibleRange(&historymenu.list, &firstvis, &numvis);
+	for (i = 0; i < numvis; i++)
+	{
+		int idx = i + firstvis;
+		qboolean selected = (idx == historymenu.list.cursor);
+
+		historyitem_t history;
+		history.active = false;
+
+		const char* lastmphostWithoutPort = COM_StripPort(lastmphost);
+		const char* HistoryEntryWithoutPort = COM_StripPort(historymenu.items[idx].name);
+		const char* ResolvedLastmphostWithoutPort = COM_StripPort(ResolveHostname(lastmphost));
+
+		char portStr[10];
+		q_snprintf(portStr, sizeof(portStr), "%d", DEFAULTnet_hostport);
+
+		if (cls.state == ca_connected && lanConfig_port == DEFAULTnet_hostport) // highlight if connected to a server in the list
+		{
+			qboolean hasNonStandardPort = (strstr(lastmphost, ":") && !strstr(lastmphost, portStr)) ||
+				(strstr(historymenu.items[idx].name, ":") && !strstr(historymenu.items[idx].name, portStr));
+			
+			if (hasNonStandardPort) // ports > 26000
+			{
+				if (!strcmp(historymenu.items[idx].name, lastmphost)) // exact match
+					history.active = true;
+
+				if (!strcmp(historymenu.items[idx].name, ResolveHostname(lastmphost))) // exact match but convert name to ip
+					history.active = true;
+			}
+			else
+			{
+				if (!strcmp(HistoryEntryWithoutPort, lastmphostWithoutPort)) // treat 26000 and blank portthe same
+					history.active = true;
+
+				if (!strcmp(HistoryEntryWithoutPort, ResolvedLastmphostWithoutPort)) // convert name to ip
+					history.active = true;
+			}
+		}
+		else
+			history.active = false;
+
+		M_PrintScroll(x, y + i * 8, (cols - 2) * 8, historymenu.items[idx].name, selected ? historymenu.ticker.scroll_time : 0.0, !history.active);
+
+		if (selected)
+			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
+
+		if (lastmphostWithoutPort) free((void*)lastmphostWithoutPort);
+		if (HistoryEntryWithoutPort) free((void*)HistoryEntryWithoutPort);
+		if (ResolvedLastmphostWithoutPort) free((void*)ResolvedLastmphostWithoutPort);
+
+	}
+
+	if (M_List_GetOverflow(&historymenu.list) > 0)
+	{\
+		M_List_DrawScrollbar(&historymenu.list, x + cols * 8 - 8, y);
+
+		if (historymenu.list.scroll > 0)
+			M_DrawEllipsisBar(x, y - 8, cols);
+		if (historymenu.list.scroll + historymenu.list.viewsize < historymenu.list.numitems)
+			M_DrawEllipsisBar(x, y + historymenu.list.viewsize * 8, cols);
+	}
+}
+
+qboolean M_History_Match(int index, char initial)
+{
+	return q_tolower(historymenu.items[index].name[0]) == initial;
+}
+
+void M_History_Key(int key)
+{
+	int x, y; // woods #mousemenu
+
+	if (historymenu.scrollbar_grab)
+	{
+		switch (key)
+		{
+		case K_ESCAPE:
+		case K_BBUTTON:
+		case K_MOUSE4:
+		case K_MOUSE2:
+			historymenu.scrollbar_grab = false;
+			break;
+		}
+		return;
+	}
+
+	if (M_List_Key(&historymenu.list, key))
+		return;
+
+	if (M_List_CycleMatch(&historymenu.list, key, M_History_Match))
+		return;
+
+	if (M_Ticker_Key(&historymenu.ticker, key))
+		return;
+
+	switch (key)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+	case K_MOUSE4: // woods #mousemenu
+	case K_MOUSE2:
+		M_Menu_LanConfig_f();
+		break;
+
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+	enter:
+		m_return_state = m_state;
+		m_return_onerror = true;
+		key_dest = key_game;
+		m_state = m_none;
+		IN_UpdateGrabs();
+		Cbuf_AddText(va("connect \"%s\"\n", historymenu.items[historymenu.list.cursor].name));
+		break;
+
+	case K_MOUSE1: // woods #mousemenu
+		x = m_mousex - historymenu.x - (historymenu.cols - 1) * 8;
+		y = m_mousey - historymenu.y;
+		if (x < -8 || !M_List_UseScrollbar(&historymenu.list, y))
+			goto enter;
+		historymenu.scrollbar_grab = true;
+		M_History_Mousemove(m_mousex, m_mousey);
+		break;
+
+	default:
+		break;
+	}
+}
+
+void M_History_Mousemove(int cx, int cy) // woods #mousemenu
+{
+	cy -= historymenu.y;
+
+	if (historymenu.scrollbar_grab)
+	{
+		if (!keydown[K_MOUSE1])
+		{
+			historymenu.scrollbar_grab = false;
+			return;
+		}
+		M_List_UseScrollbar(&historymenu.list, cy);
+		// Note: no return, we also update the cursor
+	}
+
+	M_List_Mousemove(&historymenu.list, cy);
+}
 
 qboolean M_LanConfig_TextEntry (void)
 {
-	return (lanConfig_cursor == 0 || lanConfig_cursor == 3);
+	return (lanConfig_cursor == 0 || lanConfig_cursor == 4); // woods #historymenu
 }
 
 void M_LanConfig_Mousemove(int cx, int cy) // woods #mousemenu
@@ -4713,10 +4981,6 @@ static struct {
 	int slist_first;
 	int sorted;
 } serversmenu;
-
-const char* ResolveHostname (const char* hostname);
-qboolean Valid_IP (const char* ip_str);
-qboolean Valid_Domain (const char* domain_str);
 
 //=============================================================================
 // woods servers.quakeone.com support curl+json parsing #serversmenu
@@ -5858,6 +6122,10 @@ void M_Draw (void)
 		M_MultiPlayer_Draw ();
 		break;
 
+	case m_history: // woods #historymenu
+		M_History_Draw();
+		break;
+
 	case m_setup:
 		M_Setup_Draw ();
 		break;
@@ -5973,6 +6241,10 @@ void M_Keydown (int key)
 		M_MultiPlayer_Key (key);
 		return;
 
+	case m_history: // woods #historymenu
+		M_History_Key(key);
+		return;
+
 	case m_setup:
 		M_Setup_Key (key);
 		return;
@@ -6081,6 +6353,10 @@ void M_Mousemove(int x, int y) // woods #mousemenu
 
 	case m_multiplayer:
 		M_MultiPlayer_Mousemove(x, y);
+		return;
+
+	case m_history: // woods #historymenu
+		M_History_Mousemove(x, y);
 		return;
 
 	case m_setup:

@@ -2539,8 +2539,8 @@ const char* ResolveHostname (const char* hostname) // woods #serversmenu
 
 	if (!resolved) 
 	{
-		Con_Printf("Could not resolve %s\n", hostname);
-		return "Hostname could not be resolved";
+		Con_DPrintf("Could not resolve %s\n", hostname);
+		return hostname;
 	}
 
 	return resolvedIP;
