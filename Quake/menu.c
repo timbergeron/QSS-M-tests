@@ -54,6 +54,8 @@ void M_Menu_Main_f (void);
 		void M_Menu_Search_f (enum slistScope_e scope);
 		void M_Menu_ServerList_f (void);
 		void M_Menu_History_f(void); // woods #historymenu
+		void M_Menu_Bookmarks_f(void); // woods #bookmarksmenu
+		void M_Menu_Bookmarks_Edit_f(void); // woods #bookmarksmenu
 	void M_Menu_Options_f (void);
 		void M_Menu_Keys_f (void);
 		void M_Menu_Extras_f (void);
@@ -78,6 +80,8 @@ void M_NameMaker_Draw(void); // woods #namemaker
 		void M_Search_Draw (void);
 		void M_ServerList_Draw (void);
 		void M_History_Draw(void); // woods #historymenu
+		void M_Bookmarks_Draw(void); // woods #bookmarksmenu
+		void M_Bookmarks_Edit_Draw(void); // woods #bookmarksmenu
 	void M_Options_Draw (void);
 		void M_Keys_Draw (void);
 		void M_Video_Draw (void);
@@ -100,6 +104,8 @@ void M_Main_Key (int key);
 		void M_Search_Key (int key);
 		void M_ServerList_Key (int key);
 		void M_History_Key(int key); // woods #historymenu
+		void M_Bookmarks_Key(int key); // woods #bookmarksmenu
+		void M_Bookmarks_Edit_Key(int key); // woods #bookmarksmenu
 	void M_Options_Key (int key);
 		void M_Keys_Key (int key);
 	void M_Mods_Key(int key);
@@ -125,6 +131,8 @@ void M_Main_Key (int key);
 	//void M_Search_Mousemove (int cx, int cy);
 	void M_ServerList_Mousemove(int cx, int cy);
 	void M_History_Mousemove(int cx, int cy); // woods #historymenu
+	void M_Bookmarks_Mousemove(int cx, int cy); // woods #bookmarksmenu
+	void M_Bookmarks_Edit_Mousemove(int cx, int cy); // woods #bookmarksmenu
 	void M_Options_Mousemove(int cx, int cy);
 	void M_Keys_Mousemove(int cx, int cy);
 	void M_Video_Mousemove (int cx, int cy);
@@ -3886,8 +3894,8 @@ void M_Quit_Draw (void) //johnfitz -- modified for new quit message -- woods mod
 /* LAN CONFIG MENU */
 
 int		lanConfig_cursor = -1;
-int		lanConfig_cursor_table[] = { 68, 88, 96, 108, 128 }; // woods #mousemenu
-#define NUM_LANCONFIG_CMDS	5
+int		lanConfig_cursor_table[] = { 68, 88, 96, 104, 112, 144 }; // woods #mousemenu #bookmarksmenu
+#define NUM_LANCONFIG_CMDS	6
 
 int 	lanConfig_port;
 char	lanConfig_portname[6];
@@ -4012,11 +4020,16 @@ void M_LanConfig_Draw (void)
 			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
 		y += 8;
 
+		M_Print(basex, y, "Bookmarks"); // woods #bookmarksmenu
+		if (lanConfig_cursor == 4)
+			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
+		y += 8;
+
 		M_Print (basex, y, "Join game at:");
 		y+=24;
 		M_DrawTextBox (basex+8, y-8, 22, 1);
 		M_Print (basex+16, y, lanConfig_joinname);
-		if (lanConfig_cursor == 4) // woods #historymenu
+		if (lanConfig_cursor == 5) // woods #historymenu #bookmarksmenu
 		{
 			M_DrawCharacter (basex+16 + 8*strlen(lanConfig_joinname), y, 10+((int)(realtime*4)&1));
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
@@ -4088,7 +4101,9 @@ void M_LanConfig_Key (int key)
 				M_Menu_Search_f(SLIST_INTERNET);
 			else if (lanConfig_cursor == 3) // woods #historymenu
 				M_Menu_History_f ();
-			else if (lanConfig_cursor == 4)
+			else if (lanConfig_cursor == 4) // woods #bookmarksmenu
+				M_Menu_Bookmarks_f();
+			else if (lanConfig_cursor == 5)
 			{
 				m_return_state = m_state;
 				m_return_onerror = true;
@@ -4108,7 +4123,7 @@ void M_LanConfig_Key (int key)
 				lanConfig_portname[strlen(lanConfig_portname)-1] = 0;
 		}
 
-		if (lanConfig_cursor == 4) // woods #historymenu
+		if (lanConfig_cursor == 5) // woods #historymenu #bookmarksmenu
 		{
 			if (strlen(lanConfig_joinname))
 				lanConfig_joinname[strlen(lanConfig_joinname)-1] = 0;
@@ -4149,7 +4164,7 @@ void M_LanConfig_Char (int key)
 			lanConfig_portname[l] = key;
 		}
 		break;
-	case 4: // woods #historymenu
+	case 5: // woods #historymenu #bookmarksmenu
 		l = strlen(lanConfig_joinname);
 		if (l < 21)
 		{
@@ -4194,17 +4209,17 @@ static qboolean M_History_IsActive(const char* server)
 static void M_History_Add(const char* name)
 {
 	historyitem_t history;
-	history.name = name;
-	history.active = M_History_IsActive(name);
+		history.name = name;
+		history.active = M_History_IsActive(name);
 
-	if (history.active && historymenu.list.cursor == -1)
-		historymenu.list.cursor = historymenu.list.numitems;
+		if (history.active && historymenu.list.cursor == -1)
+			historymenu.list.cursor = historymenu.list.numitems;
 
-	// Ensure there's enough space for one more item
-	VEC_PUSH(historymenu.items, history);
+		// Ensure there's enough space for one more item
+		VEC_PUSH(historymenu.items, history);
 
-	historymenu.items[historymenu.list.numitems] = history;
-	historymenu.list.numitems++;
+		historymenu.items[historymenu.list.numitems] = history;
+		historymenu.list.numitems++;
 }
 
 static void M_History_Init(void)
@@ -4319,7 +4334,7 @@ void M_History_Draw(void)
 	}
 
 	if (M_List_GetOverflow(&historymenu.list) > 0)
-	{\
+	{
 		M_List_DrawScrollbar(&historymenu.list, x + cols * 8 - 8, y);
 
 		if (historymenu.list.scroll > 0)
@@ -4414,9 +4429,512 @@ void M_History_Mousemove(int cx, int cy) // woods #mousemenu
 	M_List_Mousemove(&historymenu.list, cy);
 }
 
+//=============================================================================
+
+// woods #bookmarksmenu
+
+/* Bookmarks menu */
+
+#define MAX_VIS_BOOKMARKS	16
+
+void FileList_Subtract(const char* name, filelist_item_t** list);
+void FileList_Add(const char* name, const char* data, filelist_item_t** list);
+
+static qboolean bookmarks_edit_new = false;
+static qboolean bookmarks_edit_shortcut = false;
+
+typedef struct
+{
+	const char* name;
+	const char* alias;
+	qboolean	active;
+} bookmarksitem_t;
+
+static struct
+{
+	menulist_t			list;
+	enum m_state_e		prev;
+	int					x, y, cols;
+	int					democount;
+	int					prev_cursor;
+	menuticker_t		ticker;
+	bookmarksitem_t* items;
+	qboolean			scrollbar_grab;
+} bookmarksmenu;
+
+static qboolean M_Bookmarks_IsActive(const char* server)
+{
+	return cls.state == ca_connected && cls.signon == SIGNONS && !strcmp(lastmphost, server);
+}
+
+static void M_Bookmarks_Add(const char* name, const char* alias)
+{
+	if (!strcmp(alias, ""))
+		return;
+
+	bookmarksitem_t bookmarks;
+	bookmarks.name = name;
+	bookmarks.alias = alias;  // Set the alias
+	bookmarks.active = M_Bookmarks_IsActive(name);
+
+	if (bookmarks.active && bookmarksmenu.list.cursor == -1)
+		bookmarksmenu.list.cursor = bookmarksmenu.list.numitems;
+
+	// Ensure there's enough space for one more item
+	VEC_PUSH(bookmarksmenu.items, bookmarks);
+
+	bookmarksmenu.items[bookmarksmenu.list.numitems] = bookmarks;
+	bookmarksmenu.list.numitems++;
+}
+
+static void M_Bookmarks_Init(void)
+{
+	filelist_item_t* item;
+
+	bookmarksmenu.list.viewsize = MAX_VIS_BOOKMARKS;
+	bookmarksmenu.list.cursor = -1;
+	bookmarksmenu.list.scroll = 0;
+	bookmarksmenu.list.numitems = 0;
+	bookmarksmenu.democount = 0;
+	bookmarksmenu.scrollbar_grab = false;
+	VEC_CLEAR(bookmarksmenu.items);
+
+	M_Ticker_Init(&bookmarksmenu.ticker);
+
+	for (item = bookmarkslist; item; item = item->next)
+		M_Bookmarks_Add(item->name, item->data);
+
+	if (bookmarksmenu.list.cursor == -1)
+		bookmarksmenu.list.cursor = 0;
+
+	M_List_CenterCursor(&bookmarksmenu.list);
+}
+
+void M_Menu_Bookmarks_f(void)
+{
+	key_dest = key_menu;
+	bookmarksmenu.prev = m_state;
+	m_state = m_bookmarks;
+	m_entersound = true;
+	M_Bookmarks_Init();
+}
+
+void M_Bookmarks_Draw(void)
+{
+	int x, y, i, cols;
+	int firstvis, numvis;
+
+	x = 16;
+	y = 32;
+	cols = 36;
+
+	bookmarksmenu.x = x;
+	bookmarksmenu.y = y;
+	bookmarksmenu.cols = cols;
+
+	if (!keydown[K_MOUSE1]) // woods #mousemenu
+		bookmarksmenu.scrollbar_grab = false;
+
+	if (bookmarksmenu.prev_cursor != bookmarksmenu.list.cursor)
+	{
+		bookmarksmenu.prev_cursor = bookmarksmenu.list.cursor;
+		M_Ticker_Init(&bookmarksmenu.ticker);
+	}
+	else
+		M_Ticker_Update(&bookmarksmenu.ticker);
+
+	Draw_String(x, y - 28, "Bookmarks");
+	M_DrawQuakeBar(x - 8, y - 16, cols + 2);
+
+	M_List_GetVisibleRange(&bookmarksmenu.list, &firstvis, &numvis);
+	for (i = 0; i < numvis; i++)
+	{
+		int idx = i + firstvis;
+		qboolean selected = (idx == bookmarksmenu.list.cursor);
+
+		bookmarksitem_t bookmarks;
+		bookmarks.active = false;
+
+		const char* lastmphostWithoutPort = COM_StripPort(lastmphost);
+		const char* HistoryEntryWithoutPort = COM_StripPort(bookmarksmenu.items[idx].name);
+		const char* ResolvedLastmphostWithoutPort = COM_StripPort(ResolveHostname(lastmphost));
+
+		char portStr[10];
+		q_snprintf(portStr, sizeof(portStr), "%d", DEFAULTnet_hostport);
+
+		if (cls.state == ca_connected && lanConfig_port == DEFAULTnet_hostport) // highlight if connected to a server in the list
+		{
+			qboolean hasNonStandardPort = (strstr(lastmphost, ":") && !strstr(lastmphost, portStr)) ||
+				(strstr(bookmarksmenu.items[idx].name, ":") && !strstr(bookmarksmenu.items[idx].name, portStr));
+
+			if (hasNonStandardPort) // ports > 26000
+			{
+				if (!strcmp(bookmarksmenu.items[idx].name, lastmphost)) // exact match
+					bookmarks.active = true;
+
+				if (!strcmp(bookmarksmenu.items[idx].name, ResolveHostname(lastmphost))) // exact match but convert name to ip
+					bookmarks.active = true;
+			}
+			else
+			{
+				if (!strcmp(HistoryEntryWithoutPort, lastmphostWithoutPort)) // treat 26000 and blank portthe same
+					bookmarks.active = true;
+
+				if (!strcmp(HistoryEntryWithoutPort, ResolvedLastmphostWithoutPort)) // convert name to ip
+					bookmarks.active = true;
+			}
+		}
+		else
+			bookmarks.active = false;
+
+		M_PrintScroll(x, y + i * 8, (cols - 2) * 8, bookmarksmenu.items[idx].alias, selected ? bookmarksmenu.ticker.scroll_time : 0.0, !bookmarks.active);
+
+		if (selected)
+			M_DrawCharacter(x - 8, y + i * 8, 12 + ((int)(realtime * 4) & 1));
+
+		char serverStr[40];
+		q_snprintf(serverStr, sizeof(serverStr), "%-34.34s", bookmarksmenu.items[idx].name);
+
+		if (selected)
+			M_PrintWhite(x, y + bookmarksmenu.list.viewsize * 8 + 12, serverStr);
+
+		if (lastmphostWithoutPort) free((void*)lastmphostWithoutPort);
+		if (HistoryEntryWithoutPort) free((void*)HistoryEntryWithoutPort);
+		if (ResolvedLastmphostWithoutPort) free((void*)ResolvedLastmphostWithoutPort);
+
+	}
+
+	if (M_List_GetOverflow(&bookmarksmenu.list) > 0)
+	{
+		M_List_DrawScrollbar(&bookmarksmenu.list, x + cols * 8 - 8, y);
+
+		if (bookmarksmenu.list.scroll > 0)
+			M_DrawEllipsisBar(x, y - 8, cols);
+		if (bookmarksmenu.list.scroll + bookmarksmenu.list.viewsize < bookmarksmenu.list.numitems)
+			M_DrawEllipsisBar(x, y + bookmarksmenu.list.viewsize * 8, cols);
+	}
+
+	M_Print(x, y + 2 + bookmarksmenu.list.viewsize * 8 + 20, "ins: add   e: edit   del: delete");
+}
+
+qboolean M_Bookmarks_Match(int index, char initial)
+{
+	return q_tolower(bookmarksmenu.items[index].name[0]) == initial;
+}
+
+void M_Bookmarks_Key(int key)
+{
+	int x, y; // woods #mousemenu
+
+	if (bookmarksmenu.scrollbar_grab)
+	{
+		switch (key)
+		{
+		case K_ESCAPE:
+		case K_BBUTTON:
+		case K_MOUSE4:
+		case K_MOUSE2:
+			bookmarksmenu.scrollbar_grab = false;
+			break;
+		}
+		return;
+	}
+
+	if (M_List_Key(&bookmarksmenu.list, key))
+		return;
+
+	//if (M_List_CycleMatch(&bookmarksmenu.list, key, M_Bookmarks_Match))
+		//return;
+
+	if (M_Ticker_Key(&bookmarksmenu.ticker, key))
+		return;
+
+	switch (key)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+	case K_MOUSE4: // woods #mousemenu
+	case K_MOUSE2:
+		M_Menu_LanConfig_f();
+		break;
+
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+	enter:
+		m_return_state = m_state;
+		m_return_onerror = true;
+		key_dest = key_game;
+		m_state = m_none;
+		IN_UpdateGrabs();
+		Cbuf_AddText(va("connect \"%s\"\n", bookmarksmenu.items[bookmarksmenu.list.cursor].name));
+		break;
+
+	case K_MOUSE1: // woods #mousemenu
+		x = m_mousex - bookmarksmenu.x - (bookmarksmenu.cols - 1) * 8;
+		y = m_mousey - bookmarksmenu.y;
+		if (x < -8 || !M_List_UseScrollbar(&bookmarksmenu.list, y))
+			goto enter;
+		bookmarksmenu.scrollbar_grab = true;
+		M_Bookmarks_Mousemove(m_mousex, m_mousey);
+		break;
+
+	case K_INS:
+	case 'a':
+	case 'A':
+		bookmarks_edit_new = true;
+		M_Menu_Bookmarks_Edit_f();
+		break;
+
+	case 'e':
+	case 'E':
+		if (bookmarksmenu.items != NULL)
+			M_Menu_Bookmarks_Edit_f();
+		break;
+
+	case 'd':
+	case 'D':
+	case K_DEL:
+		if (bookmarksmenu.items != NULL)
+		{ 
+			FileList_Subtract(bookmarksmenu.items[bookmarksmenu.list.cursor].name, &bookmarkslist);
+			Write_Bookmarks ();
+			M_Menu_Bookmarks_f();
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+void M_Bookmarks_Mousemove(int cx, int cy) // woods #mousemenu
+{
+	cy -= bookmarksmenu.y;
+
+	if (bookmarksmenu.scrollbar_grab)
+	{
+		if (!keydown[K_MOUSE1])
+		{
+			bookmarksmenu.scrollbar_grab = false;
+			return;
+		}
+		M_List_UseScrollbar(&bookmarksmenu.list, cy);
+		// Note: no return, we also update the cursor
+	}
+
+	M_List_Mousemove(&bookmarksmenu.list, cy);
+}
+
+/* Bookmarks Edit menu */
+
+static int		bookmarks_edit_cursor = 2;
+static int		bookmarks_edit_cursor_table[] = { 54, 86, 106 }; // woods add value, change position #namemaker #colorbar
+
+static char temp_alias[45];
+static char temp_name[45];
+
+#define	NUM_BOOKMARKS_EDIT_CMDS	3
+
+void M_Menu_Bookmarks_Edit_f (void)
+{
+	key_dest = key_menu;
+	m_state = m_bookmarks_edit;
+	m_entersound = true;
+	IN_UpdateGrabs();
+
+	bookmarks_edit_cursor = 2;
+
+	if (bookmarks_edit_new)
+	{
+		if (cls.state == ca_connected)
+			q_snprintf(temp_name, sizeof(temp_name), "%s", lastmphost);
+		else
+			temp_name[0] = 0;
+		temp_alias[0] = 0;
+
+	}
+	else if (bookmarksmenu.list.cursor >= 0 && bookmarksmenu.list.cursor < bookmarksmenu.list.numitems)
+	{
+		strncpy(temp_alias, bookmarksmenu.items[bookmarksmenu.list.cursor].alias, sizeof(temp_alias) - 2);
+		strncpy(temp_name, bookmarksmenu.items[bookmarksmenu.list.cursor].name, sizeof(temp_name) - 2);
+	}
+	else 
+	{
+		M_Menu_Bookmarks_f();  // Fall back to the bookmarks menu if the index is invalid
+		return;
+	}
+}
+
+void M_Shortcut_Bookmarks_Edit_f(void)
+{
+	bookmarks_edit_new = true;
+	bookmarks_edit_shortcut = true;
+	M_Menu_Bookmarks_Edit_f();
+}
+
+
+void M_Bookmarks_Edit_Draw(void)
+{
+	M_Print(10, 40, "Hostname/IP");
+	M_DrawTextBox(6, 46, 38, 1);
+	M_PrintWhite(14, 54, temp_name);
+
+	M_Print(10, 72, "Bookmark Name");
+	M_DrawTextBox(6, 78, 38, 1);
+	M_PrintWhite(14, 86, temp_alias);
+
+	M_DrawTextBox(6, 106 - 8, 14, 1);
+	M_Print(15, 106, "Accept Changes");
+
+
+	M_DrawCharacter(0, bookmarks_edit_cursor_table[bookmarks_edit_cursor], 12 + ((int)(realtime * 4) & 1));
+
+	if (bookmarks_edit_cursor == 0)
+		M_DrawCharacter(13 + 8 * strlen(temp_name), bookmarks_edit_cursor_table[bookmarks_edit_cursor], 10 + ((int)(realtime * 4) & 1));
+
+	if (bookmarks_edit_cursor == 1)
+		M_DrawCharacter(13 + 8 * strlen(temp_alias), bookmarks_edit_cursor_table[bookmarks_edit_cursor], 10 + ((int)(realtime * 4) & 1));
+}
+
+void M_Bookmarks_Edit_Key(int k)
+{
+
+	switch (k)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+	case K_MOUSE4: // woods #mousemenu
+	case K_MOUSE2: // woods #mousemenu
+		if (bookmarks_edit_shortcut)
+		{
+			key_dest = key_game;
+			m_state = m_none;
+			bookmarks_edit_shortcut = false;
+			bookmarks_edit_new = false;
+		}
+		else
+		{
+			M_Menu_Bookmarks_f();
+			bookmarks_edit_new = false;
+		}
+		break;
+
+	case K_UPARROW:
+		S_LocalSound("misc/menu1.wav");
+		bookmarks_edit_cursor--;
+		if (bookmarks_edit_cursor < 0)
+			bookmarks_edit_cursor = NUM_BOOKMARKS_EDIT_CMDS - 1;
+		break;
+
+	case K_DOWNARROW:
+	case K_TAB:
+		S_LocalSound("misc/menu1.wav");
+		bookmarks_edit_cursor++;
+		if (bookmarks_edit_cursor >= NUM_BOOKMARKS_EDIT_CMDS)
+			bookmarks_edit_cursor = 0;
+		break;
+
+	case K_MWHEELDOWN:
+	case K_LEFTARROW:
+		if (bookmarks_edit_cursor < 2)
+			return;
+		S_LocalSound("misc/menu3.wav");
+		break;
+	case K_MWHEELUP:
+	case K_RIGHTARROW:
+		if (bookmarks_edit_cursor < 2)
+			return;
+		S_LocalSound("misc/menu3.wav");
+		break;
+
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+	case K_MOUSE1: // woods #mousemenu
+		if (bookmarks_edit_cursor == 0 || bookmarks_edit_cursor == 1)
+			return;
+
+		// (Accept Changes)
+		if (!bookmarks_edit_new) // edit + save
+		{
+			if ((Q_strcmp(bookmarksmenu.items[bookmarksmenu.list.cursor].alias, temp_alias) != 0 || Q_strcmp(bookmarksmenu.items[bookmarksmenu.list.cursor].name, temp_name) != 0)
+				&& (strcmp(temp_alias, "") && (Valid_IP(temp_name) || Valid_Domain(temp_name))))
+			{
+				FileList_Subtract(bookmarksmenu.items[bookmarksmenu.list.cursor].name, &bookmarkslist);
+				FileList_Add(temp_name, temp_alias, &bookmarkslist);
+				Write_Bookmarks ();
+				bookmarks_edit_new = false;
+
+			}
+		}
+		
+		if (bookmarks_edit_new && (strcmp(temp_alias, "") && (Valid_IP(temp_name) || Valid_Domain(temp_name)))) // new + save
+			{
+			FileList_Add(temp_name, temp_alias, &bookmarkslist);
+			Write_Bookmarks ();
+			bookmarks_edit_new = false;
+		}
+
+		m_entersound = true;
+
+		M_Menu_Bookmarks_f();
+		break;
+
+	case K_BACKSPACE:
+		if (bookmarks_edit_cursor == 0)
+		{
+			if (strlen(temp_name))
+				temp_name[strlen(temp_name) - 1] = 0;
+		}
+
+		if (bookmarks_edit_cursor == 1)
+		{
+			if (strlen(temp_alias))
+				temp_alias[strlen(temp_alias) - 1] = 0;
+		}
+		break;
+	}
+}
+
+void M_Bookmarks_Edit_Char(int k)
+{
+	int l;
+
+	switch (bookmarks_edit_cursor)
+	{
+	case 0:
+		l = strlen(temp_name);
+		if (l < 37)
+		{
+			temp_name[l + 1] = 0;
+			temp_name[l] = k;
+		}
+		break;
+	case 1:
+		l = strlen(temp_alias);
+		if (l < 37)
+		{
+			temp_alias[l + 1] = 0;
+			temp_alias[l] = k;
+		}
+		break;
+	}
+}
+
+qboolean M_Bookmarks_Edit_TextEntry(void)
+{
+	return (bookmarks_edit_cursor == 0 || bookmarks_edit_cursor == 1);
+}
+
+void M_Bookmarks_Edit_Mousemove(int cx, int cy) // woods #mousemenu
+{
+	M_UpdateCursorWithTable(cy, bookmarks_edit_cursor_table, NUM_BOOKMARKS_EDIT_CMDS, &bookmarks_edit_cursor);
+}
+
 qboolean M_LanConfig_TextEntry (void)
 {
-	return (lanConfig_cursor == 0 || lanConfig_cursor == 4); // woods #historymenu
+	return (lanConfig_cursor == 0 || lanConfig_cursor == 5); // woods #historymenu #bookmarksmenu
 }
 
 void M_LanConfig_Mousemove(int cx, int cy) // woods #mousemenu
@@ -5889,6 +6407,8 @@ static struct
 	{"menu_mods", M_Menu_Mods_f}, // woods
 	{"menu_demos", M_Menu_Demos_f}, // woods
 	{"menu_maps", M_Menu_Maps_f}, // woods
+	{"menu_bookmarks", M_Menu_Bookmarks_f}, // woods #bookmarksmenu
+	{"bookmark", M_Shortcut_Bookmarks_Edit_f}, // woods #bookmarksmenu
 };
 
 //=============================================================================
@@ -6126,6 +6646,14 @@ void M_Draw (void)
 		M_History_Draw();
 		break;
 
+	case m_bookmarks: // woods #bookmarksmenu
+		M_Bookmarks_Draw();
+		break;
+
+	case m_bookmarks_edit: // woods #bookmarksmenu
+		M_Bookmarks_Edit_Draw();
+		break;
+
 	case m_setup:
 		M_Setup_Draw ();
 		break;
@@ -6245,6 +6773,14 @@ void M_Keydown (int key)
 		M_History_Key(key);
 		return;
 
+	case m_bookmarks: // woods #bookmarksmenu
+		M_Bookmarks_Key(key);
+		return;
+
+	case m_bookmarks_edit: // woods #bookmarksmenu
+		M_Bookmarks_Edit_Key(key);
+		return;
+
 	case m_setup:
 		M_Setup_Key (key);
 		return;
@@ -6359,6 +6895,14 @@ void M_Mousemove(int x, int y) // woods #mousemenu
 		M_History_Mousemove(x, y);
 		return;
 
+	case m_bookmarks: // woods#bookmarksmenu
+		M_Bookmarks_Mousemove(x, y);
+		return;
+
+	case m_bookmarks_edit: // woods #bookmarksmenu
+		M_Bookmarks_Edit_Mousemove(x, y);
+		return;
+
 	case m_setup:
 		M_Setup_Mousemove(x, y);
 		return;
@@ -6432,6 +6976,9 @@ void M_Charinput (int key)
 	case m_setup:
 		M_Setup_Char (key);
 		return;
+	case m_bookmarks_edit: // woods #bookmarksmenu
+		M_Bookmarks_Edit_Char(key);
+		return;
 	case m_quit:
 		M_Quit_Char (key);
 		return;
@@ -6450,6 +6997,8 @@ qboolean M_TextEntry (void)
 	{
 	case m_setup:
 		return M_Setup_TextEntry ();
+	case m_bookmarks_edit: // woods #bookmarksmenu
+		return M_Bookmarks_Edit_TextEntry();
 	case m_quit:
 		return M_Quit_TextEntry ();
 	case m_lanconfig:

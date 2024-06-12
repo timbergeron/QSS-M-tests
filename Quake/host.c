@@ -1446,6 +1446,7 @@ void Host_Init (void)
 		ExecList_Init(); // woods #execlist
 		ParticleList_Init (); // woods #particlelist
 		ServerList_Init(); // woods #serverlist
+		BookmarksList_Init (); // woods #bookmarksmenu
 		FolderList_Init(); // woods #folderlist
 		MusicList_Init (); // woods #musiclist
 		M_CheckMods (); // woods #modsmenu (iw)

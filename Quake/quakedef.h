@@ -271,6 +271,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	SOUND_CHANNELS		8
 
 #define	SERVERLIST	"servers.txt"	// woods for server history + tab complete #serverlist
+#define	BOOKMARKSLIST	"bookmarks.txt"	// woods #bookmarksmenu
 
 typedef struct
 {
@@ -390,6 +391,7 @@ extern filelist_item_t  *skylist; // woods #skylist
 extern filelist_item_t	*execlist; // woods #execlist
 extern filelist_item_t  *particlelist; // woods #particlelist
 extern filelist_item_t  *serverlist; // woods #serverlist
+extern filelist_item_t  *bookmarkslist; // woods #bookmarksmenu
 extern filelist_item_t*	 folderlist; // woods #folderlist
 extern filelist_item_t  *musiclist; // woods #musiclist
 
@@ -428,6 +430,7 @@ void DemoList_Init (void);
 void ExecList_Init(void);
 void ParticleList_Init (void); // woods #particlelist
 void ServerList_Init(void); // woods #serverlist
+void BookmarksList_Init (void); // woods #bookmarksmenu
 void FolderList_Init (void); // woods #folderlist
 void SkyList_Init (void); // woods #folderlist
 void MusicList_Init (void); // woods #musiclist

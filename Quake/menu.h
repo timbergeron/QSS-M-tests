@@ -47,6 +47,8 @@ enum m_state_e {
 	m_search,
 	m_slist,
 	m_history,
+	m_bookmarks, // woods #bookmarksmenu
+	m_bookmarks_edit, // woods #bookmarksmenu
 	m_namemaker // woods #namemaker
 };
 

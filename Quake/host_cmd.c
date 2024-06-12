@@ -556,6 +556,56 @@ void ServerList_Init(void)
 }
 
 //==============================================================================
+// woods -- bookmarks list management #bookmarksmenu
+//==============================================================================
+
+filelist_item_t* bookmarkslist;
+
+static void BookmarksList_Clear(void)
+{
+	FileList_Clear(&bookmarkslist);
+}
+
+void BoomarksList_Rebuild(void)
+{
+	BookmarksList_Clear();
+	BookmarksList_Init();
+}
+
+void BookmarksList_Init(void)
+{
+	char	name[MAX_OSPATH];
+
+	q_snprintf(name, sizeof(name), "%s/id1", com_basedir); //  make an id1 folder if it doesnt exist already #smartafk
+	Sys_mkdir(name);
+
+	q_snprintf(name, sizeof(name), "%s/id1/backups", com_basedir); //  create backups folder if not there
+	Sys_mkdir(name);
+
+	FILE* file = fopen(va("%s/id1/backups/%s", com_basedir, BOOKMARKSLIST), "r");
+
+	if (file == NULL) {
+		return;
+	}
+
+	char buffer[256];
+	while (fgets(buffer, sizeof(buffer), file) != NULL) {
+		// Remove newline character
+		buffer[strcspn(buffer, "\n")] = '\0';
+
+		char* extra_info = NULL;
+		char* token = strtok(buffer, ","); // Split the string at the comma
+
+		if (token != NULL) {
+			extra_info = strtok(NULL, ""); // Get the remainder of the string after the comma
+		}
+
+		FileList_Add(token, extra_info, &bookmarkslist); // Pass the split parts to FileList_Add
+	}
+	fclose(file);
+}
+
+//==============================================================================
 // woods -- exec list management (adapted from demolist) #execlist
 //			search in id1, configs, aliases, names folders
 //==============================================================================

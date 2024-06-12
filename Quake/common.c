@@ -4524,6 +4524,30 @@ void Write_Log (const char* log_message, const char* filename)
 	fclose(log_file);
 }
 
+void Write_Bookmarks (void) // woods #bookmarksmenu
+{
+	filelist_item_t* current_server = bookmarkslist;
+	char fname[MAX_OSPATH];
+	FILE* log_file;
+
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, BOOKMARKSLIST);
+
+	log_file = fopen(fname, "w");
+	if (!log_file)
+	{
+		Con_DPrintf("Write_Log: Unable to open file %s for reading\n", fname);
+		return;
+	}
+
+	while (current_server != NULL)
+	{
+		fprintf(log_file, "%s,%s\n", current_server->name, current_server->data);
+		current_server = current_server->next;
+	}
+
+	fclose(log_file);
+}
+
 qboolean isSpecialMap (const char* name) // woods for bmodels
 {
 	const char* specialMaps[] = 
