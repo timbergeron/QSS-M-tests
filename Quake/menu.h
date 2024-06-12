@@ -46,6 +46,7 @@ enum m_state_e {
 	m_gameoptions,
 	m_search,
 	m_slist,
+	m_history,
 	m_namemaker // woods #namemaker
 };
 
