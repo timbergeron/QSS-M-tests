@@ -2517,8 +2517,17 @@ int Datagram_QueryAddresses(qhostaddr_t *addresses, int maxaddresses)
 	return result;
 }
 
+extern qboolean Valid_Domain(const char* domain_str);
+
 const char* ResolveHostname (const char* hostname) // woods #serversmenu
 {
+	
+	if (!Valid_Domain(hostname))
+	{
+		Con_DPrintf("Invalid domain: %s\n", hostname);
+		return hostname;
+	}
+	
 	static char resolvedIP[NET_NAMELEN] = { 0 }; // Buffer to store the resolved IP address as a string
 	struct qsockaddr sendaddr;
 	int resolved = 0;
