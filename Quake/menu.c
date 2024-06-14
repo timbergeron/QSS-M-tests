@@ -5527,7 +5527,21 @@ static size_t WriteMemoryCallback (void* contents, size_t size, size_t nmemb, vo
 	mem->memory[mem->size] = 0;
 
 	return realSize;
-}	
+}
+
+void setStatusFlagBasedOnTimestamp (const char* timestamp, const char* lastQuery, qboolean* status)
+{
+	char bufTimestamp[20], bufLastQuery[20]; // Extract time components up to seconds
+	Q_strncpy(bufTimestamp, timestamp, 19);
+	bufTimestamp[19] = '\0';
+	Q_strncpy(bufLastQuery, lastQuery, 19);
+	bufLastQuery[19] = '\0';
+
+	if (Q_strcmp(bufTimestamp, bufLastQuery) == 0) // Compare the timestamp and lastQuery to the second
+		*status = true;
+	else
+		*status = false;
+}
 
 void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* actualServerCount)
 {
@@ -5544,11 +5558,13 @@ void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* 
 	{
 		const char* name = JSON_FindString(serverEntry, "hostname");
 		const char* address = JSON_FindString(serverEntry, "address");
-		const double* currentStatus = JSON_FindNumber(serverEntry, "currentStatus");
 		const double* maxPlayers = JSON_FindNumber(serverEntry, "maxPlayers");
 		const char* map = JSON_FindString(serverEntry, "map");
+		const char* parameters = JSON_FindString(serverEntry, "parameters");
 		const double* gameId = JSON_FindNumber(serverEntry, "gameId");
 		const double* port = JSON_FindNumber(serverEntry, "port");
+		const char* timestamp = JSON_FindString(serverEntry, "timestamp");
+		const char* lastQuery = JSON_FindString(serverEntry, "lastQuery");
 
 		const jsonentry_t* playersArray = JSON_Find(serverEntry, "players", JSON_ARRAY);
 
@@ -5562,7 +5578,10 @@ void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* 
 			}
 		}
 
-		if (!name || !address || *currentStatus !=0 || !port || !gameId || *gameId != 0) continue; // Skip if essential info is missing or gametype is 0 (0 is netquake compat)
+		qboolean status;
+		setStatusFlagBasedOnTimestamp(timestamp, lastQuery, &status);
+
+		if (!status || !name || !address || !port || !gameId || (*gameId != 0 && (*gameId != 5 || !parameters || !strstr(parameters, "fte")))) continue; // Skip if essential info is missing or server is down
 
 		*items = realloc(*items, sizeof(servertitem_t) * (*actualServerCount + 1));
 		if (!*items) {
@@ -5644,7 +5663,7 @@ void RemoveDuplicateServers (servertitem_t** items, int* actualServerCount)
 	for (int i = 0; i < *actualServerCount; i++) {
 		qboolean isDuplicate = false;
 		for (int j = 0; j < i; j++) {
-			if (strcmp((*items)[i].name, (*items)[j].name) == 0) {
+			if (strcmp((*items)[i].ip, (*items)[j].ip) == 0) {
 				isDuplicate = true;
 				break;
 			}
@@ -5764,7 +5783,9 @@ void M_ServerList_Draw (void)
 
 		if (cls.state == ca_connected) // highlight if connected to a server in the list
 		{ 
-			if (Valid_Domain(lastmphost))
+			if (!strcmp(lastmphost, serversmenu.items[idx].ip))
+				server.active = true;
+			else if (Valid_Domain(lastmphost))
 				server.active = !strcmp((ResolveHostname(lastmphost)), serversmenu.items[idx].ip);
 			else if (Valid_IP(lastmphost))
 				server.active = !strcmp(lastmphost, serversmenu.items[idx].ip);
