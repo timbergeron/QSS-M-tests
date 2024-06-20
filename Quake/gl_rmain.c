@@ -1271,10 +1271,11 @@ void R_RenderView (void)
 	//Spike: flag whether the skyroom was actually visible, so we don't needlessly draw it when its not (1 frame's lag, hopefully not too noticable)
 	if (r_refdef.drawworld)
 	{
-		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe)
+		extern cvar_t r_fastsky;
+		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe || r_fastsky.value)
 			skyroom_visible = false;	//don't do skyrooms when the view is in the void, for framerate reasons while debugging.
 		else
-			skyroom_visible = R_SkyroomWasVisible();
+			skyroom_visible = RSceneCache_HasSky() || R_SkyroomWasVisible();
 		skyroom_drawn = false;
 	}
 	//skyroom end

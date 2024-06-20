@@ -1796,6 +1796,7 @@ void PR_spawnfunc_misc_model(edict_t *self)
 	//make sure the model is precached, to avoid errors.
 	G_INT(OFS_PARM0) = self->v.model;
 	PF_sv_precache_model();
+	self->v.modelindex = SV_ModelIndex(PR_GetString(self->v.model));
 
 	//and lets just call makestatic instead of worrying if it'll interfere with the rest of the qc.
 	G_INT(OFS_PARM0) = EDICT_TO_PROG(self);

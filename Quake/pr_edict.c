@@ -1020,7 +1020,9 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 			//johnfitz -- HACK -- suppress error becuase fog/sky/alpha fields might not be mentioned in defs.qc
 			else
 #endif
-				if (strncmp(keyname, "sky", 3) && strcmp(keyname, "fog") && strcmp(keyname, "alpha"))
+			if (!strcmp(keyname, "skyroom") && ent == sv.qcvm.edicts)
+				SV_SetupSkyRoom(com_token); //*barf* mapper should have used a leading underscore. hack around their bugs.
+			else if (strncmp(keyname, "sky", 3) && strcmp(keyname, "fog") && strcmp(keyname, "alpha"))
 				Con_DPrintf ("\"%s\" is not a field\n", keyname); //johnfitz -- was Con_Printf
 			continue;
 		}

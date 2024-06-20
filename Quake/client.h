@@ -269,6 +269,7 @@ typedef struct
 	unsigned	protocol_pext1;	//spike -- flag of fte protocol extensions
 	unsigned	protocol_pext2;	//spike -- flag of fte protocol extensions
 	qboolean	protocol_dpdownload;
+	qboolean	wronggamedir;	//blocks downloads
 
 #ifdef PSET_SCRIPT
 	qboolean	protocol_particles;
