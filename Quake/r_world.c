@@ -2122,6 +2122,15 @@ static void RSceneCache_Draw(qboolean water)
 	RSceneCache_Finish(cache);
 	skipsubmodels = cache->cachedsubmodels;
 
+	glDepthMask(GL_TRUE);
+	glDisable (GL_BLEND);
+	if (skyroom_drawn)
+	{	//draw skies first, so we don't end up drawing overlapping non-skies behind
+		glColorMask(GL_FALSE,GL_FALSE,GL_FALSE,GL_FALSE);
+		RSceneCache_DrawSkySurfDepth();
+		glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
+	}
+
 	GL_BindBuffer (GL_ARRAY_BUFFER, gl_bmodel_vbo);
 	GL_BindBuffer (GL_ELEMENT_ARRAY_BUFFER, cache->ebo); // indices come from client memory!
 
@@ -2133,10 +2142,7 @@ static void RSceneCache_Draw(qboolean water)
 	GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, VERTEXSIZE * sizeof(float), ((float *)0) + 3);
 	GL_VertexAttribPointerFunc (LMCoordsAttrIndex,  2, GL_FLOAT, GL_FALSE, VERTEXSIZE * sizeof(float), ((float *)0) + 5);
 
-	rs_brushpolys += cache->brushpolys; //for r_speeds.
-
-	glDepthMask (GL_TRUE);
-	glDisable (GL_BLEND);
+	rs_brushpolys += cache->brushpolys; //for r_speeds.;
 
 	for (i = 0; i < cache->numtextures; i++)
 	{
@@ -2214,7 +2220,9 @@ static void RSceneCache_Draw(qboolean water)
 					GL_SelectTexture (GL_TEXTURE2);
 					GL_Bind(tex->fullbright);
 
-					if (lastprog != r_water[mode].program)
+					if (skyroom_drawn)
+						continue;	//already drew them
+					else if (lastprog != r_water[mode].program)
 					{
 						lastprog = r_water[mode].program;
 						GL_UseProgramFunc (r_water[mode].program);
@@ -2276,6 +2284,24 @@ static void RSceneCache_Draw(qboolean water)
 
 	GL_BindBuffer (GL_ARRAY_BUFFER, 0);
 	GL_BindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+qboolean RSceneCache_HasSky(void)
+{
+	struct rscenecache_s *cache = rscenecache.drawing;
+	int i;
+	texture_t *tex;
+
+	if (cache)
+	{
+		for (i = 0; i < cache->numtextures; i++)
+		{
+			tex = cache->worldmodel->textures[i];
+			if (!tex || !(tex->name[0]=='s'&&tex->name[1]=='k'&&tex->name[2]=='y'))
+				continue;	//we only want sky textures.
+			return true;
+		}
+	}
+	return false;
 }
 qboolean RSceneCache_DrawSkySurfDepth(void)
 {	//legacy skyboxes are a serious pain, but oh well...

@@ -692,7 +692,7 @@ static qboolean CL_LerpEntity(entity_t *ent, vec3_t org, vec3_t ang, float frac)
 	vec3_t delta;
 	qboolean teleported = false;
 
-	if (ent->netstate.pmovetype && ent-cl.entities==cl.viewentity && qcvm->worldmodel && !cl_nopred.value)
+	if (ent->netstate.pmovetype && ent-cl.entities==cl.viewentity && qcvm->worldmodel && !cl_nopred.value && cls.signon == SIGNONS)
 	{	//note: V_CalcRefdef will copy from cl.entities[viewent] to get its origin, so doing it here is the proper place anyway.
 		static struct
 		{
@@ -1813,6 +1813,13 @@ qboolean CL_CheckDownload(const char *filename)
 		return false;	//don't download these...
 	if (cls.download.active)
 		return true;	//block while we're already downloading something
+<<<<<<< HEAD
+=======
+	if (!cl.protocol_dpdownload)
+		return false;	//can't download anyway
+	if (cl.wronggamedir)
+		return false;	//don't download them into the wrong place. this may be awkward for id1 content though (if such a thing logically exists... like custom maps).
+>>>>>>> upstream/qsrebase
 	if (*cls.download.current && !strcmp(cls.download.current, filename))
 		return false;	//if the previous download failed, don't endlessly retry.
 	if (COM_FileExists(filename, NULL))

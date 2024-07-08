@@ -1443,7 +1443,7 @@ static void CL_ParseServerInfo (void)
 		q_strlcpy(gamedir, MSG_ReadString(), sizeof(gamedir));
 		if (!COM_GameDirMatches(gamedir))
 		{
-			gamedirswitchwarning = true;
+			cl.wronggamedir = true;
 		}
 	}
 
@@ -1505,8 +1505,9 @@ static void CL_ParseServerInfo (void)
 		q_snprintf(protname, sizeof(protname), "fte%i", cl.protocol);
 	else
 		q_snprintf(protname, sizeof(protname), "%i", cl.protocol);
-	Con_Printf ("Using protocol %s", protname);
-	Con_Printf ("\n");
+	if (con_x)	//some servers try to save spam by skipping the \n. don't make it ugly.
+		Con_Printf ("\n");
+	Con_Printf ("Using protocol %s\n", protname);
 
 	// seperate the printfs so the server message can have a color
 	Con_Printf ("\n%s\n", Con_Quakebar(40)); //johnfitz
@@ -1618,10 +1619,13 @@ static void CL_ParseServerInfo (void)
 		cl.ackframes[cl.ackframes_count++] = -1;
 
 	//this is here, to try to make sure its a little more obvious that its there.
-	if (gamedirswitchwarning)
+	if (cl.wronggamedir)
 	{
+		const char *curgame = COM_GetGameNames(false);
+		if (!*curgame)
+			curgame = COM_GetGameNames(true);
 		Con_Warning("Server is using a different gamedir.\n");
-		Con_Warning("Current: %s\n", COM_GetGameNames(false));
+		Con_Warning("Current: %s\n", curgame);
 		Con_Warning("Server: %s\n", gamedir);
 		Con_Warning("You will probably want to switch gamedir to match the server.\n");
 	}
@@ -2149,6 +2153,8 @@ static void CL_ParsePrecache(void)
 	case 0:	//models
 		if (index < MAX_MODELS)
 		{
+			if (cl.model_count == index)
+				cl.model_count = index+1;
 			q_strlcpy (cl.model_name[index], name, MAX_QPATH);
 			Mod_TouchModel (name);
 			if (!cl.sendprespawn)
@@ -2179,7 +2185,12 @@ static void CL_ParsePrecache(void)
 #endif
 	case 2:	//sounds
 		if (index < MAX_SOUNDS)
+		{
+			if (cl.sound_count == index)
+				cl.sound_count = index+1;
+			q_strlcpy (cl.sound_name[index], name, MAX_QPATH);
 			cl.sound_precache[index] = S_PrecacheSound (name);
+		}
 		break;
 //	case 3:	//unused
 	default:
