@@ -731,7 +731,7 @@ void CL_RunParticles (void)
 	for ( ;; )
 	{
 		kill = active_particles;
-		if (kill && (kill->die < cl.time || kill->spawn > cl.time)) // woods (iw) #democontrols
+		if (kill && (kill->die < cl.time || (kill->spawn > cl.mtime[0] && cls.demoplayback))) // woods (iw) #democontrols
 		{
 			active_particles = kill->next;
 			kill->next = free_particles;
@@ -746,7 +746,7 @@ void CL_RunParticles (void)
 		for ( ;; )
 		{
 			kill = p->next;
-			if (kill && (kill->die < cl.time || kill->spawn > cl.time)) // woods (iw) #democontrols
+			if (kill && (kill->die < cl.time || (kill->spawn > cl.mtime[0] && cls.demoplayback))) // woods (iw) #democontrols
 			{
 				p->next = kill->next;
 				kill->next = free_particles;

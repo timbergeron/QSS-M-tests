@@ -3289,7 +3289,8 @@ void CL_ParseServerMessage (void)
 				CL_EntitiesDeltaed();
 			if (*cl.stuffcmdbuf && net_message.cursize < 512)
 				CL_ParseStuffText("\n");	//there's a few mods that forget to write \ns, that then fuck up other things too. So make sure it gets flushed to the cbuf. the cursize check is to reduce backbuffer overflows that would give a false positive.
-			CL_FinishDemoFrame(); // woods (iw) #democontrols
+			if (cls.demoplayback)
+				CL_FinishDemoFrame(); // woods (iw) #democontrols
 			return;		// end of message
 		}
 

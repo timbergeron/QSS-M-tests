@@ -6781,7 +6781,7 @@ static void PF_cl_clearscene(void)
 		if (dl->decay == -1)
 			dl->radius = 0;
 
-		if (dl->spawn > cl.time) // woods (iw) #democontrols
+		if (dl->spawn > cl.mtime[0] && cls.demoplayback) // woods (iw) #democontrols
 		{
 			dl->die = 0.f;
 			continue;

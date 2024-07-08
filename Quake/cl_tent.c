@@ -98,7 +98,7 @@ void CL_UpdateBeam (qmodel_t *m, const char *trailname, const char *impactname, 
 // find a free beam
 	for (i=0, b=cl_beams ; i< MAX_BEAMS ; i++, b++)
 	{
-		if (!b->model || b->starttime > cl.time || b->endtime < cl.time) // woods (iw) #democontrols
+		if (!b->model || (b->starttime > cl.time && cls.demoplayback) || b->endtime < cl.time) // woods (iw) #democontrols
 		{
 			b->entity = ent;
 			b->model = m;
@@ -583,7 +583,7 @@ void CL_UpdateTEnts (void)
 // update lightning
 	for (i=0, b=cl_beams ; i< MAX_BEAMS ; i++, b++)
 	{
-		if (!b->model || b->starttime > cl.time || b->endtime < cl.time) // woods (iw) #democontrols
+		if (!b->model || (b->starttime > cl.mtime[0] && cls.demoplayback) || b->endtime < cl.time) // woods (iw) #democontrols
 			continue;
 
 	// if coming from the player, update the start position

@@ -943,6 +943,11 @@ void SCR_DrawDemoControls(void)
 	float				frac;
 	const char* str;
 	char				name[31]; // size chosen to avoid overlap with side text
+	
+	static float smoothedFrameTime = 0.002f;  // Initial frame time for 500 FPS
+	const float smoothingFactor = 0.1f;
+
+	smoothedFrameTime = (host_frametime * smoothingFactor) + (smoothedFrameTime * (1.0f - smoothingFactor));
 
 	canvasleft = 0;
 	canvasright = 320;
@@ -966,7 +971,7 @@ void SCR_DrawDemoControls(void)
 	}
 	else
 	{
-		showtime -= host_frametime;
+		showtime -= smoothedFrameTime; // woods
 		if (showtime < 0.f)
 		{
 			showtime = 0.f;

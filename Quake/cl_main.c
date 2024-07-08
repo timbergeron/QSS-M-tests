@@ -574,7 +574,7 @@ dlight_t *CL_AllocDlight (int key)
 				memset (dl, 0, sizeof(*dl));
 				dl->key = key;
 				dl->color[0] = dl->color[1] = dl->color[2] = 1; //johnfitz -- lit support via lordhavoc
-				dl->spawn = cl.time - 0.1; // woods (iw) #democontrols
+				dl->spawn = cl.mtime[0] - 0.001; // woods (iw) #democontrols
 				return dl;
 			}
 		}
@@ -584,12 +584,12 @@ dlight_t *CL_AllocDlight (int key)
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
 	{
-		if (dl->die < cl.time || dl->spawn < cl.time) // woods (iw) #democontrols
+		if (dl->die < cl.time || (dl->spawn < cl.time && cl.protocol_pext2 && cls.demoplayback)) // woods (iw) #democontrols
 		{
 			memset (dl, 0, sizeof(*dl));
 			dl->key = key;
 			dl->color[0] = dl->color[1] = dl->color[2] = 1; //johnfitz -- lit support via lordhavoc
-			dl->spawn = cl.time - 0.1; // woods (iw) #democontrols
+			dl->spawn = cl.mtime[0] - 0.001; // woods (iw) #democontrols
 			return dl;
 		}
 	}
@@ -598,7 +598,7 @@ dlight_t *CL_AllocDlight (int key)
 	memset (dl, 0, sizeof(*dl));
 	dl->key = key;
 	dl->color[0] = dl->color[1] = dl->color[2] = 1; //johnfitz -- lit support via lordhavoc
-	dl->spawn = cl.time - 0.1; // woods (iw) #democontrols
+	dl->spawn = cl.mtime[0] - 0.001; // woods (iw) #democontrols
 	return dl;
 }
 
@@ -622,7 +622,7 @@ void CL_DecayLights (void)
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
 	{
-		if (dl->die < cl.time || dl->spawn > cl.time || !dl->radius) // woods (iw) #democontrols
+		if (dl->die < cl.time || (dl->spawn > cl.mtime[0] && cls.demoplayback) || !dl->radius) // woods (iw) #democontrols
 			continue;
 
 		dl->radius -= time*dl->decay;
@@ -2081,7 +2081,13 @@ int CL_ReadFromServer (void)
 	dlight_t	*l; //johnfitz
 	int			i; //johnfitz
 
-	CL_AdvanceTime(); // woods (iw) #democontrols
+	if (cls.demoplayback)
+		CL_AdvanceTime(); // woods (iw) #democontrols
+	else
+	{
+		cl.oldtime = cl.time;
+		cl.time += host_frametime;
+	}
 
 	do
 	{
@@ -2118,8 +2124,8 @@ int CL_ReadFromServer (void)
 	dev_peakstats.tempents = q_max(num_temp_entities, dev_peakstats.tempents);
 
 	//beams
-	for (i=0, b=cl_beams ; i< MAX_BEAMS ; i++, b++)
-		if (b->model && b->starttime <= cl.time && b->endtime >= cl.time) // woods (iw) #democontrols
+	for (i = 0, b = cl_beams; i < MAX_BEAMS; i++, b++)
+		if (b->model && (cls.demoplayback ? b->starttime <= cl.time : true) && b->endtime >= cl.time) // woods (iw) #democontrols
 			num_beams++;
 	if (num_beams > 24 && dev_peakstats.beams <= 24)
 		Con_DWarning ("%i beams exceeded standard limit of 24 (max = %d).\n", num_beams, MAX_BEAMS);
@@ -2128,7 +2134,7 @@ int CL_ReadFromServer (void)
 
 	//dlights
 	for (i=0, l=cl_dlights ; i<MAX_DLIGHTS ; i++, l++)
-		if (l->die >= cl.time && l->spawn <= cl.time && l->radius) // woods (iw) #democontrols
+		if (l->die >= cl.time && (cls.demoplayback ? l->spawn <= cl.mtime[0] : true) && l->radius) // woods (iw) #democontrols
 			num_dlights++;
 	if (num_dlights > 32 && dev_peakstats.dlights <= 32)
 		Con_DWarning ("%i dlights exceeded standard limit of 32 (max = %d).\n", num_dlights, MAX_DLIGHTS);

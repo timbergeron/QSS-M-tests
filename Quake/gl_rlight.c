@@ -169,7 +169,7 @@ void R_RenderDlights (void)
 	l = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, l++)
 	{
-		if (l->die < cl.time || !l->radius)
+		if (l->die < cl.time || (l->spawn > cl.mtime[0] && cls.demoplayback) || !l->radius) // woods (iw) #democontrols
 			continue;
 		R_RenderDlight (l);
 	}
@@ -277,7 +277,7 @@ void R_PushDlights (void)
 
 	for (i=0 ; i<MAX_DLIGHTS ; i++, l++)
 	{
-		if (l->spawn > cl.time) // woods (iw) #democontrols
+		if (l->spawn > cl.mtime[0] && cls.demoplayback) // woods (iw) #democontrols
 		{
 			l->die = 0.f;
 			continue;

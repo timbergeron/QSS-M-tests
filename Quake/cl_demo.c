@@ -82,7 +82,7 @@ static struct
 
 int demo_target_offset = -1; // woods -- target offset for seeking, -1 when not seeking
 qboolean is_seeking = false; // woods -- flag to indicate seeking status
-
+static qboolean initialized = false; // woods (iw) #democontrols
 
 /*
 ===============
@@ -116,7 +116,7 @@ CL_UpdateDemoSpeed
 static void CL_UpdateDemoSpeed(void)
 {
 	extern qboolean keydown[256];
-	int adjust, singleframe;
+	int adjust, singleframe, i;
 
 	if (key_dest != key_game)
 	{
@@ -124,25 +124,32 @@ static void CL_UpdateDemoSpeed(void)
 		return;
 	}
 
-	const int dynamic_threshold = q_max(100, cls.demo_file_length * 0.001); // 0.1% of the demo file length, with a minimum of 100 for very small files
+	const int dynamic_threshold = q_max(100, cls.demo_file_length * 0.03); // 0.1% of the demo file length, with a minimum of 100 for very small files
 	const float seeking_speed = 256;
 
 	if (is_seeking) 
 	{
-
-		{
-			if (cls.demo_offset_current < demo_target_offset) 
+			if (cls.demo_offset_current < demo_target_offset)
 				cls.demospeed = seeking_speed; // Move forward to target
-			else if (cls.demo_offset_current > demo_target_offset) 
-				cls.demospeed = -seeking_speed; // Example for moving backward
+			else if (cls.demo_offset_current >= demo_target_offset) // move to start vert fast
+			{
+				cls.demospeed = -1e9f;
+				if (cls.basedemospeed)
+					cls.demospeed *= cls.basedemospeed;
+
+				for (i = 0; i < cl.maxclients; i++)
+					cl.scores[i].frags = 0;
+				is_seeking = false; // Stop seeking
+				return;
+			}
 
 			if (abs(cls.demo_offset_current - demo_target_offset) < dynamic_threshold)
 			{
-				cls.demo_offset_current = demo_target_offset; // Align with the target
-				cls.demospeed = cls.basedemospeed; // Reset speed to normal
+				//cls.demo_offset_current = demo_target_offset; // Align with the target
+				if (cls.basedemospeed)
+					cls.demospeed *= cls.basedemospeed;
 				is_seeking = false; // Stop seeking
 			}
-		}
 		return;
 	}
 
@@ -177,6 +184,11 @@ static void CL_UpdateDemoSpeed(void)
 		cls.demospeed = -1e9f;
 		if (cls.basedemospeed)
 			cls.demospeed *= cls.basedemospeed;
+		for (i = 0; i < cl.maxclients; i++)
+		{
+			cl.scores[i].frags = 0;
+			//memset(cl.scores[i].name, 0, sizeof(cl.scores[i].name));
+		}
 	}
 	else if (keydown[K_END])
 	{
@@ -406,6 +418,8 @@ void CL_FinishDemoFrame(void)
 
 		cl.faceanimtime = 0; // woods
 		CL_SetStati(STAT_VIEWHEIGHT, DEFAULT_VIEWHEIGHT); // woods
+		memset(cl_dlights, 0, sizeof(cl_dlights)); // woods
+		//memset(cl_temp_entities, 0, sizeof(cl_temp_entities));
 
 		VEC_POP(demo_rewind.frames);
 	}
@@ -440,6 +454,8 @@ void CL_StopPlayback (void)
 
 	if (cls.timedemo)
 		CL_FinishTimeDemo ();
+
+	initialized = false; // woods (iw) #democontrols
 }
 
 /*
@@ -515,6 +531,18 @@ static int CL_GetDemoMessage (void)
 	{
 		CL_StopPlayback ();
 		return 0;
+	}
+
+	if (cls.signon == SIGNONS && !initialized) // woods (iw) #democontrols
+	{
+		for (i = 0; i < cl.maxclients; i++)
+		{
+			cl.scores[i].frags = 0;
+			//memset(cl.scores[i].name, 0, sizeof(cl.scores[i].name));
+		}
+		demo_target_offset = -1;
+
+		initialized = true; // Prevent reinitialization
 	}
 
 	return 1;
@@ -1061,6 +1089,8 @@ void CL_PlayDemo_f (void)
 
 // get rid of the menu and/or console
 	key_dest = key_game;
+
+	memset(cl_dlights, 0, sizeof(cl_dlights)); // woods (iw) #democontrols
 }
 
 /*

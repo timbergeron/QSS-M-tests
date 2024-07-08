@@ -1135,7 +1135,7 @@ void R_SetupAliasLighting (entity_t	*e)
 		//add dlights
 		for (i=0 ; i<MAX_DLIGHTS ; i++)
 		{
-			if (cl_dlights[i].die >= cl.time)
+			if (cl_dlights[i].die >= cl.time || (cl_dlights[i].spawn > cl.mtime[0] && cls.demoplayback)) // woods (iw) #democontrols
 			{
 				VectorSubtract (origin, cl_dlights[i].origin, dist);
 				add = cl_dlights[i].radius - VectorLength(dist);
