@@ -4524,25 +4524,32 @@ void Write_Log (const char* log_message, const char* filename)
 	fclose(log_file);
 }
 
-void Write_Bookmarks (void) // woods #bookmarksmenu
+void Write_List(filelist_item_t* list, const char* list_name) // woods #bookmarksmenu #historymenu #serverlist
 {
-	filelist_item_t* current_server = bookmarkslist;
 	char fname[MAX_OSPATH];
 	FILE* log_file;
 
-	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, BOOKMARKSLIST);
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, list_name);
 
 	log_file = fopen(fname, "w");
 	if (!log_file)
 	{
-		Con_DPrintf("Write_Log: Unable to open file %s for reading\n", fname);
+		Con_DPrintf("Write_Log: Unable to open file %s for writing\n", fname);
 		return;
 	}
 
-	while (current_server != NULL)
+	filelist_item_t* current_item = list;
+	while (current_item != NULL)
 	{
-		fprintf(log_file, "%s,%s\n", current_server->name, current_server->data);
-		current_server = current_server->next;
+		if (current_item->data && strlen(current_item->data) > 0)
+		{
+			fprintf(log_file, "%s,%s\n", current_item->name, current_item->data);
+		}
+		else
+		{
+			fprintf(log_file, "%s\n", current_item->name);
+		}
+		current_item = current_item->next;
 	}
 
 	fclose(log_file);

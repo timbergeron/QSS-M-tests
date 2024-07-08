@@ -159,6 +159,8 @@ char		m_return_reason [32];
 void M_ConfigureNetSubsystem(void);
 void M_SetSkillMenuMap(const char* name); // woods #skillmenu (iw)
 
+void FileList_Subtract(const char* name, filelist_item_t** list); // woods #historymenu
+
 /*
 ================
 M_DrawCharacter
@@ -4181,7 +4183,7 @@ void M_LanConfig_Char (int key)
 
 /* Connection History menu */
 
-#define MAX_VIS_HISTORY	19
+#define MAX_VIS_HISTORY	17
 
 typedef struct
 {
@@ -4342,6 +4344,7 @@ void M_History_Draw(void)
 		if (historymenu.list.scroll + historymenu.list.viewsize < historymenu.list.numitems)
 			M_DrawEllipsisBar(x, y + historymenu.list.viewsize * 8, cols);
 	}
+	M_PrintWhite(x, y + 2 + historymenu.list.viewsize * 8 + 10, "backspace: delete");
 }
 
 qboolean M_History_Match(int index, char initial)
@@ -4406,6 +4409,15 @@ void M_History_Key(int key)
 		M_History_Mousemove(m_mousex, m_mousey);
 		break;
 
+	case K_BACKSPACE:
+		if (historymenu.items != NULL)
+		{
+			FileList_Subtract(historymenu.items[historymenu.list.cursor].name, &serverlist);
+			Write_List(serverlist, SERVERLIST);
+			M_Menu_History_f();
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -4437,7 +4449,6 @@ void M_History_Mousemove(int cx, int cy) // woods #mousemenu
 
 #define MAX_VIS_BOOKMARKS	16
 
-void FileList_Subtract(const char* name, filelist_item_t** list);
 void FileList_Add(const char* name, const char* data, filelist_item_t** list);
 
 static qboolean bookmarks_edit_new = false;
@@ -4698,7 +4709,7 @@ void M_Bookmarks_Key(int key)
 		if (bookmarksmenu.items != NULL)
 		{ 
 			FileList_Subtract(bookmarksmenu.items[bookmarksmenu.list.cursor].name, &bookmarkslist);
-			Write_Bookmarks ();
+			Write_List(bookmarkslist, BOOKMARKSLIST);
 			M_Menu_Bookmarks_f();
 		}
 		break;
@@ -4863,7 +4874,7 @@ void M_Bookmarks_Edit_Key(int k)
 			{
 				FileList_Subtract(bookmarksmenu.items[bookmarksmenu.list.cursor].name, &bookmarkslist);
 				FileList_Add(temp_name, temp_alias, &bookmarkslist);
-				Write_Bookmarks ();
+				Write_List(bookmarkslist, BOOKMARKSLIST);
 				bookmarks_edit_new = false;
 
 			}
@@ -4872,7 +4883,7 @@ void M_Bookmarks_Edit_Key(int k)
 		if (bookmarks_edit_new && (strcmp(temp_alias, "") && (Valid_IP(temp_name) || Valid_Domain(temp_name)))) // new + save
 			{
 			FileList_Add(temp_name, temp_alias, &bookmarkslist);
-			Write_Bookmarks ();
+			Write_List(bookmarkslist, BOOKMARKSLIST);
 			bookmarks_edit_new = false;
 		}
 

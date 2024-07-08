@@ -395,6 +395,8 @@ extern filelist_item_t  *bookmarkslist; // woods #bookmarksmenu
 extern filelist_item_t*	 folderlist; // woods #folderlist
 extern filelist_item_t  *musiclist; // woods #musiclist
 
+void Write_List(filelist_item_t* list, const char* list_name); // woods #bookmarksmenu #serverlist
+
 extern qboolean descriptionsParsed; // woods #mapdescriptions
 void ExtraMaps_ParseDescriptions (void); // woods #mapdescriptions
 extern int max_word_length; // woods #mapdescriptions
