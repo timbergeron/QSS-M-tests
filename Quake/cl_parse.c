@@ -2516,8 +2516,9 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				}
 
 				char qfClanRing[9] = { 195, 236, 225, 238, 210, 233, 238, 231, '\0' }; // woods -- quake font red 'ClanRing'
+				char qfCRMod[6] = { 195, 210, 205, 239, 228, '\0' }; // woods -- quake font red 'CRMod'
 
-				if (!strncmp(string, qfClanRing, 8)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
+				if (!strncmp(string, qfClanRing, 8) && strstr(string, qfCRMod)) // crmod wierd chars // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 3; // woods #modtype [crmod server check]
 					if (COM_FileExists("dm.cfg", NULL))
