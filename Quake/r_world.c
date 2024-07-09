@@ -578,7 +578,8 @@ static struct
 	GLuint time;
 	GLuint eyepos;
 	GLuint fogalpha;
-} r_water[3];	//
+	GLuint colour;
+} r_water[4];	//
 
 #define vertAttrIndex 0
 #define texCoordsAttrIndex 1
@@ -726,6 +727,36 @@ static void GLWater_CreateShaders (void)
 			"gl_FragColor = vec4(sky, 1.0);\n"
 		"}\n";
 
+	const GLchar *vertSource_fastsky =
+		"#version 110\n"
+		"attribute vec4 Vert;\n"
+		"varying float FogFragCoord;\n"
+		"void main()\n"
+		"{\n"
+			"gl_Position = gl_ModelViewProjectionMatrix * Vert;\n"
+			"FogFragCoord = gl_Position.w;\n"
+		"}\n";
+	const GLchar *fragSource_fastsky =
+		"#version 110\n"
+		"\n"
+		"uniform float Alpha, FogAlpha;\n"
+		"uniform vec3 SkyColour;\n"
+		"varying float FogFragCoord;\n"
+		"void main ()\n"
+		"{\n"
+			"vec3 sky = SkyColour.rgb;\n"
+
+#if 1	//sky is logically an infinite distance away, so fog is just an alpha blend with the colour, no distance calcs needed.
+			"if (gl_Fog.density > 0.0)\n"
+				"sky.rgb = mix(sky.rgb, gl_Fog.color.rgb, FogAlpha);\n"
+#else	//do fog as normal. we actually have distance values.
+			"float fog = exp(-gl_Fog.density * gl_Fog.density * FogFragCoord * FogFragCoord);\n"
+			"fog = clamp(fog, 0.0, 1.0) * FogAlpha + (1.0-FogAlpha);\n"
+			"sky.rgb = mix(gl_Fog.color.rgb, sky.rgb, fog);\n"
+#endif
+			"gl_FragColor = vec4(sky, 1.0);\n"
+		"}\n";
+
 	size_t i;
 	char vtext[1024];
 	char ftext[1024];
@@ -736,7 +767,9 @@ static void GLWater_CreateShaders (void)
 
 	for (i = 0; i < countof(r_water); i++)
 	{
-		if (i == 2)
+		if (i == 3)
+			r_water[i].program = GL_CreateProgram (vertSource_fastsky, fragSource_fastsky, sizeof(bindings)/sizeof(bindings[0]), bindings);
+		else if (i == 2)
 			r_water[i].program = GL_CreateProgram (vertSource_sky, fragSource_sky, sizeof(bindings)/sizeof(bindings[0]), bindings);
 		else
 		{
@@ -748,14 +781,15 @@ static void GLWater_CreateShaders (void)
 		if (r_water[i].program != 0)
 		{
 			// get uniform locations
-			GLuint texLoc				= GL_GetUniformLocation (&r_water[i].program, "Tex");
+			GLuint texLoc				= ((i!=3)?GL_GetUniformLocation (&r_water[i].program, "Tex"):-1);
 			GLuint LMTexLoc				= ((i==1)?GL_GetUniformLocation (&r_water[i].program, "LMTex"):-1);
 			GLuint CloudTexLoc			= ((i==2)?GL_GetUniformLocation (&r_water[i].program, "CloudTex"):-1);
 			r_water[i].light_scale		= ((i==1)?GL_GetUniformLocation (&r_water[i].program, "LightScale"):-1);
-			r_water[i].alpha_scale		= GL_GetUniformLocation (&r_water[i].program, "Alpha");
-			r_water[i].time				= GL_GetUniformLocation (&r_water[i].program, "WarpTime");
+			r_water[i].alpha_scale		= ((i!=3)?GL_GetUniformLocation (&r_water[i].program, "Alpha"):-1);
+			r_water[i].time				= ((i!=3)?GL_GetUniformLocation (&r_water[i].program, "WarpTime"):-1);
 			r_water[i].eyepos			= ((i==2)?GL_GetUniformLocation (&r_water[i].program, "EyePos"):-1);
-			r_water[i].fogalpha			= ((i==2)?GL_GetUniformLocation (&r_water[i].program, "FogAlpha"):-1);
+			r_water[i].fogalpha			= ((i>=2)?GL_GetUniformLocation (&r_water[i].program, "FogAlpha"):-1);
+			r_water[i].colour			= ((i==3)?GL_GetUniformLocation (&r_water[i].program, "SkyColour"):-1);
 
 			if (!r_water[i].program)
 				return;
@@ -2205,8 +2239,9 @@ static void RSceneCache_Draw(qboolean water)
 				else if (tex->name[0]=='s'&&tex->name[1]=='k'&&tex->name[2]=='y')
 				{
 					//sky. because why not.
-					extern cvar_t r_skyalpha, r_skyfog;
-					mode = 2;
+					extern cvar_t r_skyalpha, r_skyfog, r_fastsky;
+					extern float skyflatcolor[3];
+					mode = r_fastsky.value?3:2;
 
 					if (rscenecache.doingskybox)
 						break;	//we're doing skies weirdly. FIXME: replace with cubemap skies, where possible.
@@ -2225,6 +2260,8 @@ static void RSceneCache_Draw(qboolean water)
 						GL_Uniform1fFunc (r_water[mode].alpha_scale, r_skyalpha.value);
 						GL_Uniform3fFunc (r_water[mode].eyepos, r_origin[0], r_origin[1], r_origin[2]);
 						GL_Uniform1fFunc (r_water[mode].fogalpha, r_skyfog.value);
+						if (r_water[mode].colour != (GLuint)-1)
+							GL_Uniform3fFunc (r_water[mode].colour, skyflatcolor[0], skyflatcolor[1], skyflatcolor[2]);
 					}
 				}
 				else
