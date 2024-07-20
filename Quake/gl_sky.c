@@ -1210,7 +1210,7 @@ void Sky_DrawSky (void)
 	else
 		glColor3fv (skyflatcolor);
 #ifndef SDL_THREADS_DISABLED
-	if (skybox_name[0] && !r_fastsky.value && RSceneCache_DrawSkySurfDepth())
+	if (skybox_name[0] && (!r_fastsky.value || (r_fastsky.value == 2 && skybox_name[0])) && RSceneCache_DrawSkySurfDepth()) // woods -- #fastsky2
 	{	//we have no surfaces to process... fill all sides. its probably still faster.
 		for (i=0 ; i<6 ; i++)
 		{

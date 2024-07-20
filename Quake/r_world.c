@@ -32,6 +32,7 @@ static qboolean RSceneCache_Queue(byte *vis);
 static void RSceneCache_Draw(qboolean water);
 void RSceneCache_Shutdown(void);
 extern qboolean lightmaps_skipupdates;
+extern char	skybox_name[1024]; // woods -- #fastsky2
 
 //==============================================================================
 //
@@ -2247,7 +2248,12 @@ static void RSceneCache_Draw(qboolean water)
 					//sky. because why not.
 					extern cvar_t r_skyalpha, r_skyfog, r_fastsky;
 					extern float skyflatcolor[3];
-					mode = r_fastsky.value?3:2;
+					if (r_fastsky.value == 1)  // woods -- #fastsky2
+						mode = 3;
+					else if (r_fastsky.value == 2)
+						mode = skybox_name[0] ? 2 : 3;
+					else
+						mode = 2;
 
 					if (rscenecache.doingskybox)
 						break;	//we're doing skies weirdly. FIXME: replace with cubemap skies, where possible.

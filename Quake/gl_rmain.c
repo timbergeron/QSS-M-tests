@@ -51,6 +51,7 @@ float r_fovx, r_fovy; //johnfitz -- rendering fov may be different becuase of r_
 extern byte* SV_FatPVS (vec3_t org, qmodel_t* worldmodel); // woods #iwshowbboxes
 extern qboolean SV_EdictInPVS (edict_t* test, byte* pvs); // woods #iwshowbboxes
 extern qboolean SV_BoxInPVS (vec3_t mins, vec3_t maxs, byte* pvs, mnode_t* node); // woods #iwshowbboxes
+extern char	skybox_name[1024]; // woods -- #fastsky2
 
 //
 // screen size info
@@ -1726,7 +1727,7 @@ static qboolean R_SkyroomWasVisible(void)
 	texture_t *t;
 	size_t i;
 	extern cvar_t r_fastsky;
-	if (!skyroom_enabled || r_fastsky.value)
+	if (!skyroom_enabled || r_fastsky.value != 2 || !skybox_name[0]) // woods -- #fastsky2
 		return false;
 	for (i=0 ; i<model->numtextures ; i++)
 	{
@@ -1856,7 +1857,7 @@ void R_RenderView (void)
 	if (r_refdef.drawworld)
 	{
 		extern cvar_t r_fastsky;
-		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe || r_fastsky.value)
+		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe || r_fastsky.value != 2 || !skybox_name[0]) // woods -- #fastsky2
 			skyroom_visible = false;	//don't do skyrooms when the view is in the void, for framerate reasons while debugging.
 		else
 			skyroom_visible = RSceneCache_HasSky() || R_SkyroomWasVisible();
