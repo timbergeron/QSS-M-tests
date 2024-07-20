@@ -4344,7 +4344,7 @@ void M_History_Draw(void)
 		if (historymenu.list.scroll + historymenu.list.viewsize < historymenu.list.numitems)
 			M_DrawEllipsisBar(x, y + historymenu.list.viewsize * 8, cols);
 	}
-	M_PrintWhite(x, y + 2 + historymenu.list.viewsize * 8 + 10, "backspace: delete");
+	M_PrintWhite(x, y + 2 + historymenu.list.viewsize * 8 + 10, "ctrl+backspace: delete");
 }
 
 qboolean M_History_Match(int index, char initial)
@@ -4410,7 +4410,7 @@ void M_History_Key(int key)
 		break;
 
 	case K_BACKSPACE:
-		if (historymenu.items != NULL)
+		if (historymenu.items != NULL && keydown[K_CTRL])
 		{
 			FileList_Subtract(historymenu.items[historymenu.list.cursor].name, &serverlist);
 			Write_List(serverlist, SERVERLIST);
@@ -4498,6 +4498,13 @@ static void M_Bookmarks_Add(const char* name, const char* alias)
 	bookmarksmenu.list.numitems++;
 }
 
+int BookmarkCompare(const void* a, const void* b)
+{
+	const bookmarksitem_t* itemA = (const bookmarksitem_t*)a;
+	const bookmarksitem_t* itemB = (const bookmarksitem_t*)b;
+	return strcmp(itemA->alias, itemB->alias);
+}
+
 static void M_Bookmarks_Init(void)
 {
 	filelist_item_t* item;
@@ -4514,6 +4521,8 @@ static void M_Bookmarks_Init(void)
 
 	for (item = bookmarkslist; item; item = item->next)
 		M_Bookmarks_Add(item->name, item->data);
+
+	qsort(bookmarksmenu.items, bookmarksmenu.list.numitems, sizeof(bookmarksitem_t), BookmarkCompare);
 
 	if (bookmarksmenu.list.cursor == -1)
 		bookmarksmenu.list.cursor = 0;
@@ -4625,12 +4634,12 @@ void M_Bookmarks_Draw(void)
 			M_DrawEllipsisBar(x, y + bookmarksmenu.list.viewsize * 8, cols);
 	}
 
-	M_Print(x, y + 2 + bookmarksmenu.list.viewsize * 8 + 20, "ins: add   e: edit   del: delete");
+	M_Print(x, y + 2 + bookmarksmenu.list.viewsize * 8 + 20, "ctrl+  a:add  e:edit  backspace:delete");
 }
 
 qboolean M_Bookmarks_Match(int index, char initial)
 {
-	return q_tolower(bookmarksmenu.items[index].name[0]) == initial;
+	return q_tolower(bookmarksmenu.items[index].alias[0]) == initial;
 }
 
 void M_Bookmarks_Key(int key)
@@ -4654,8 +4663,8 @@ void M_Bookmarks_Key(int key)
 	if (M_List_Key(&bookmarksmenu.list, key))
 		return;
 
-	//if (M_List_CycleMatch(&bookmarksmenu.list, key, M_Bookmarks_Match))
-		//return;
+	if (M_List_CycleMatch(&bookmarksmenu.list, key, M_Bookmarks_Match) && !keydown[K_CTRL])
+		return;
 
 	if (M_Ticker_Key(&bookmarksmenu.ticker, key))
 		return;
@@ -4690,23 +4699,26 @@ void M_Bookmarks_Key(int key)
 		M_Bookmarks_Mousemove(m_mousex, m_mousey);
 		break;
 
-	case K_INS:
 	case 'a':
 	case 'A':
-		bookmarks_edit_new = true;
-		M_Menu_Bookmarks_Edit_f();
+		if (keydown[K_CTRL])
+		{
+			bookmarks_edit_new = true;
+			M_Menu_Bookmarks_Edit_f();
+		}
 		break;
 
 	case 'e':
 	case 'E':
-		if (bookmarksmenu.items != NULL)
-			M_Menu_Bookmarks_Edit_f();
+		if (keydown[K_CTRL])
+		{
+			if (bookmarksmenu.items != NULL)
+				M_Menu_Bookmarks_Edit_f();
+		}
 		break;
 
-	case 'd':
-	case 'D':
-	case K_DEL:
-		if (bookmarksmenu.items != NULL)
+	case K_BACKSPACE:
+		if (bookmarksmenu.items != NULL && keydown[K_CTRL])
 		{ 
 			FileList_Subtract(bookmarksmenu.items[bookmarksmenu.list.cursor].name, &bookmarkslist);
 			Write_List(bookmarkslist, BOOKMARKSLIST);
