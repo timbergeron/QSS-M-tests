@@ -115,6 +115,7 @@ cvar_t		scr_crosshairscale = {"scr_crosshairscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_crosshaircolor = {"scr_crosshaircolor", "0xffffff", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_crosshairalpha = {"scr_crosshairalpha", "1", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_crosshaircshift = { "scr_crosshaircshift", "0xfc7303", CVAR_ARCHIVE}; // woods #crosshair
+cvar_t		scr_crosshairoutline = { "scr_crosshairoutline", "1", CVAR_ARCHIVE }; // woods #crosshair
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_ARCHIVE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_ARCHIVE};
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_ARCHIVE};  // woods #scrping
@@ -801,6 +802,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_crosshaircolor); // woods #crosshair
 	Cvar_RegisterVariable (&scr_crosshairalpha); // woods #crosshair
 	Cvar_RegisterVariable (&scr_crosshaircshift); // woods #crosshair
+	Cvar_RegisterVariable (&scr_crosshairoutline); // woods #crosshair
 	Cvar_RegisterVariable (&scr_showfps);
 	Cvar_RegisterVariable (&scr_clock);
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
@@ -2400,38 +2402,51 @@ void SCR_DrawCrosshair (void)
 	GL_SetCanvas (CANVAS_CROSSHAIR);
 
 	if (crosshair.value == 1)
+		Draw_CharacterRGBA (-4, -4, '+', color, alpha); //0,0 is center of viewport
+
+	if (crosshair.value == 2) 
+	{
+		if (scr_crosshairoutline.value)
+			Draw_FillPlayer (-2, -2, 4, 4, outline, alpha); // simple dot (black bg)
 		Draw_FillPlayer (-1, -1, 2, 2, color, alpha); // simple dot
-	if (crosshair.value == 2)
-	{ 
-		Draw_FillPlayer (-1, 6, 2, 10, color, alpha);//  SOUTH
-		Draw_FillPlayer (-16, -1, 10, 2, color, alpha); //  WEST
+	}
+
+	if (crosshair.value == 3)
+	{
+		if (scr_crosshairoutline.value) 
+		{
+			Draw_FillPlayer (-2, 5, 4, 12, outline, alpha); // SOUTH (black bg)
+			Draw_FillPlayer (-17, -2, 12, 4, outline, alpha); // WEST (black bg)
+			Draw_FillPlayer (5, -2, 12, 4, outline, alpha); // EAST (black bg)
+			Draw_FillPlayer (-2, -17, 4, 12, outline, alpha); // NORTH (black bg)
+		}
+		Draw_FillPlayer (-1, 6, 2, 10, color, alpha); // SOUTH
+		Draw_FillPlayer (-16, -1, 10, 2, color, alpha); // WEST
 		Draw_FillPlayer (6, -1, 10, 2, color, alpha); // EAST
 		Draw_FillPlayer (-1, -16, 2, 10, color, alpha); // NORTH
 	}
-	if (crosshair.value == 3)
-	{
-		Draw_FillPlayer (-1, -9, 2, 18, color, alpha); // vertical
-		Draw_FillPlayer (-9, -1, 18, 2, color, alpha); //  horizontal
-	}
+
 	if (crosshair.value == 4)
 	{
-		Draw_FillPlayer (-2, -9, 4, 18, color, alpha); // vertical (thicker)
-		Draw_FillPlayer (-9, -2, 18, 4, color, alpha); //  horizontal (thicker)
+		if (scr_crosshairoutline.value)
+		{
+			Draw_FillPlayer (-2, -10, 4, 20, outline, alpha); // vertical (black bg)
+			Draw_FillPlayer (-10, -2, 20, 4, outline, alpha); // horizontal (black bg)
+		}
+		Draw_FillPlayer (-1, -9, 2, 18, color, alpha); // vertical
+		Draw_FillPlayer (-9, -1, 18, 2, color, alpha); // horizontal
 	}
+
 	if (crosshair.value == 5)
 	{
-		Draw_FillPlayer (-2, -2, 4, 4, outline, 1); // simple dot (black bg)
-		Draw_FillPlayer (-1, -1, 2, 2, color, alpha); // simple dot
-	}
-	if (crosshair.value == 6)
-	{
-		Draw_FillPlayer (-3, -10, 6, 20, outline, 1); // vertical (black bg)
-		Draw_FillPlayer (-10, -3, 20, 6, outline, 1); //  horizontal (black bg)
+		if (scr_crosshairoutline.value) 
+		{
+			Draw_FillPlayer (-3, -10, 6, 20, outline, 1); // vertical (black bg)
+			Draw_FillPlayer (-10, -3, 20, 6, outline, 1); // horizontal (black bg)
+		}
 		Draw_FillPlayer (-2, -9, 4, 18, color, alpha); // vertical (thicker)
-		Draw_FillPlayer (-9, -2, 18, 4, color, alpha); //  horizontal (thicker)
+		Draw_FillPlayer (-9, -2, 18, 4, color, alpha); // horizontal (thicker)
 	}
-	if (crosshair.value == 7)
-		Draw_CharacterRGBA (-4, -4, '+', color, alpha); //0,0 is center of viewport
 }
 
 /*
