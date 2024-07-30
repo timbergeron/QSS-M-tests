@@ -6447,12 +6447,14 @@ static struct
 	{"help", M_Menu_Help_f},
 	{"menu_quit", M_Menu_Quit_f},
 	{"menu_credits", M_Menu_Credits_f}, // needed by the 2021 re-release
-	{"namemaker", M_Shortcut_NameMaker_f}, // woods
+	{"menu_namemaker", M_Menu_NameMaker_f}, // woods #namemaker
+	{"namemaker", M_Shortcut_NameMaker_f}, // woods #namemaker
 	{"menu_mods", M_Menu_Mods_f}, // woods
 	{"menu_demos", M_Menu_Demos_f}, // woods
 	{"menu_maps", M_Menu_Maps_f}, // woods
 	{"menu_bookmarks", M_Menu_Bookmarks_f}, // woods #bookmarksmenu
 	{"bookmark", M_Shortcut_Bookmarks_Edit_f}, // woods #bookmarksmenu
+	{"menu_history", M_Menu_History_f}, // woods #historymenu
 };
 
 //=============================================================================
