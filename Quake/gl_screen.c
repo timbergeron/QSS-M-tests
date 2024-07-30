@@ -148,6 +148,7 @@ cvar_t		scr_printspeed = {"scr_printspeed","8",CVAR_NONE};
 cvar_t		gl_triplebuffer = {"gl_triplebuffer", "1", CVAR_ARCHIVE};
 
 cvar_t		cl_gun_fovscale = {"cl_gun_fovscale","1",CVAR_ARCHIVE}; // Qrack
+cvar_t		cl_menucrosshair = { "cl_menucrosshair","0",CVAR_ARCHIVE}; // woods #menucrosshair
 
 extern	cvar_t	crosshair;
 extern	cvar_t	con_notifyfade; // woods #confade
@@ -838,6 +839,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_printspeed);
 	Cvar_RegisterVariable (&gl_triplebuffer);
 	Cvar_RegisterVariable (&cl_gun_fovscale);
+	Cvar_RegisterVariable (&cl_menucrosshair); // woods #menucrosshair
 
 	Cmd_AddCommand ("screenshot",SCR_ScreenShot_f);
 	Cmd_AddCommand ("sizeup",SCR_SizeUp_f);
@@ -2371,7 +2373,7 @@ SCR_DrawCrosshair -- johnfitz -- woods major change #crosshair
 void SCR_DrawCrosshair (void)
 {
 	
-	if (key_dest == key_menu)
+	if (key_dest == key_menu && !cl_menucrosshair.value)
 		return;
 
 	if (scr_viewsize.value >= 130)
