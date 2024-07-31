@@ -169,7 +169,7 @@ static void CL_UpdateDemoSpeed(void)
 
 	if (adjust)
 	{
-		cls.demospeed = adjust * 5.f;
+		cls.demospeed = adjust * 60.f;
 		if (cls.basedemospeed)
 			cls.demospeed *= cls.basedemospeed;
 	}
