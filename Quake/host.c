@@ -1422,7 +1422,8 @@ void Host_Init (void)
 	SV_Init ();
 
 	LOC_PQ_Init (); // rook / woods #pqteam (added PQ to name)
-	IPLog_Init ();		// JPG 1.05 - ip address logging // woods #iplog
+	if (cls.state != ca_dedicated)
+		IPLog_Init ();		// JPG 1.05 - ip address logging // woods #iplog
 
 #ifdef QSS_DATE	//avoid non-determinism.
 	Con_Printf ("Exe: " ENGINE_NAME_AND_VER "\n");

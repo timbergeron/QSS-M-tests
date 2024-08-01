@@ -3891,7 +3891,7 @@ void Host_Identify_f(void)
 
 	if (!iplog_size)
 	{
-		Con_Printf("IP logging not available\nUse -iplog command line option\n");
+		Con_Printf("IP logging not available\n");
 		return;
 	}
 

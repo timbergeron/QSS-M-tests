@@ -72,9 +72,9 @@ void IPLog_Import (void)
 	FILE *f;
 	iplog_t temp;
 
-	if (!iplog_size)
+	if (!iplog_size) // woods
 	{
-		Con_Printf("IP logging not available\nUse -iplog command line option\n");
+		Con_Printf("IP logging not available\n");
 		return;
 	}
 
@@ -317,7 +317,7 @@ void IPLog_Dump (void)
 
 	if (!iplog_size)
 	{
-		Con_Printf("IP logging not available\nUse -iplog command line option\n");
+		Con_Printf("IP logging not available\n");
 		return;
 	}
 
