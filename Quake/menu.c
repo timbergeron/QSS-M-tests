@@ -2060,8 +2060,6 @@ char lastColorSelected[10]; // woods
 
 void M_Setup_Key (int k)
 {
-	int	l; // woods #namemaker
-
 	switch (k)
 	{
 	case K_ESCAPE:
@@ -2212,32 +2210,6 @@ void M_Setup_Key (int k)
 				SDL_SetClipboardText (CL_PLColours_ToString (setup_bottom));
 			const char* soundFile = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
 			S_LocalSound(soundFile); // woods add sound to screenshot
-		}
-		break;
-
-	default: // woods #namemaker
-		if (k < 32 || k > 127)
-			break;
-
-		Key_Extra (&k);
-
-		if (setup_cursor == 0)
-		{
-			l = strlen(setup_hostname);
-			if (l < 15)
-			{
-				setup_hostname[l] = k;
-				setup_hostname[l + 1] = 0;
-			}
-		}
-		else if (setup_cursor == 2)
-		{
-			l = strlen(setup_myname);
-			if (l < 15)
-			{
-				setup_myname[l] = k;
-				setup_myname[l + 1] = 0;
-			}
 		}
 		break;
 	}
@@ -2588,8 +2560,11 @@ void M_Net_Mousemove(int cx, int cy) // woods #mousemenu
 enum
 {
 	OPT_CUSTOMIZE = 0,
-	OPT_CONSOLE,	// 1
-	OPT_DEFAULTS,	// 2
+	OPT_EXTRAS, // 1
+	OPT_VIDEO, // 2
+	OPT_SPACE,
+	OPT_CONSOLE,
+	OPT_DEFAULTS,
 	OPT_SCALE,
 	OPT_SCRSIZE,
 	OPT_GAMMA,
@@ -2609,8 +2584,6 @@ enum
 //#ifdef _WIN32
 //	OPT_USEMOUSE,
 //#endif
-	OPT_EXTRAS,
-	OPT_VIDEO,	// This is the last before OPTIONS_ITEMS
 	OPTIONS_ITEMS
 };
 
@@ -2622,7 +2595,7 @@ enum
 	ALWAYSRUN_ITEMS
 };
 
-#define	SLIDER_RANGE	10
+#define	SLIDER_RANGE	6
 
 int		options_cursor;
 qboolean slider_grab; // woods #mousemenu
@@ -2666,6 +2639,7 @@ void M_AdjustSliders (int dir)
 		Cvar_SetValue ("scr_conscale", f);
 		Cvar_SetValue ("scr_menuscale", f);
 		Cvar_SetValue ("scr_sbarscale", f);
+		Cvar_SetValue ("scr_crosshairscale", f);
 		break;
 	case OPT_SCRSIZE:	// screen size
 		f = scr_viewsize.value + dir * 10;
@@ -2698,7 +2672,7 @@ void M_AdjustSliders (int dir)
 		Cvar_SetValue ("scr_sbaralpha", f);
 		break;
 	case OPT_MUSICVOL:	// music volume
-		f = bgmvolume.value + dir * 0.1;
+		f = bgmvolume.value + dir * 0.05f;
 		if (f < 0)	f = 0;
 		else if (f > 1)	f = 1;
 		Cvar_SetValue ("bgmvolume", f);
@@ -2707,7 +2681,7 @@ void M_AdjustSliders (int dir)
 		Cvar_Set ("bgm_extmusic", bgm_extmusic.value ? "0" : "1");
 		break;
 	case OPT_SNDVOL:	// sfx volume
-		f = sfxvolume.value + dir * 0.1;
+		f = sfxvolume.value + dir * 0.05f;
 		if (f < 0)	f = 0;
 		else if (f > 1)	f = 1;
 		Cvar_SetValue ("volume", f);
@@ -2766,9 +2740,10 @@ void M_AdjustSliders (int dir)
 }
 
 
-void M_DrawSlider (int x, int y, float range)
+void M_DrawSlider (int x, int y, float range, float value, const char* format)
 {
 	int	i;
+	char	buffer[6];
 
 	if (range < 0)
 		range = 0;
@@ -2779,6 +2754,10 @@ void M_DrawSlider (int x, int y, float range)
 		M_DrawCharacter (x + i*8, y, 129);
 	M_DrawCharacter (x+i*8, y, 130);
 	M_DrawCharacter (x + (SLIDER_RANGE-1)*8 * range, y, 131);
+
+	q_snprintf(buffer, sizeof(buffer), format, value);
+	i = x + (SLIDER_RANGE + 2) * 8;
+	M_Print(i, y, buffer);
 }
 
 void M_DrawCheckbox (int x, int y, int on)
@@ -2804,20 +2783,18 @@ qboolean M_SetSliderValue(int option, float f) // woods #mousemenu
 	{
 	case OPT_SCALE:	// console and menu scale
 		target_scale_frac = f;
+		l = (vid.width / 320.0) - 1;
+		f = l > 0 ? f * l + 1 : 0;
 		// Delay the actual update until we release the mouse button
 		// to keep the UI layout stable while adjusting the scale
+		Cvar_SetValue("scr_conscale", f);
+		Cvar_SetValue("scr_crosshairscale", f);
+		Cvar_SetValue("scr_sbarscale", f);
 		if (!slider_grab)
-		{
-			l = (vid.width / 320.0) - 1;
-			f = l > 0 ? f * l + 1 : 0;
-			Cvar_SetValue("scr_conscale", f);
 			Cvar_SetValue("scr_menuscale", f);
-			Cvar_SetValue("scr_sbarscale", f);
-			Cvar_SetValue("scr_crosshairscale", f);
-		}
 		return true;
 	case OPT_SCRSIZE:	// screen size
-		f = f * (120 - 30) + 30;
+		f = f * (130 - 30) + 30;
 		if (f >= 100)
 			f = floor(f / 10 + 0.5) * 10;
 		Cvar_SetValue("viewsize", f);
@@ -2897,6 +2874,14 @@ void M_Options_Draw (void)
 	// Draw the items in the order of the enum defined above:
 	// OPT_CUSTOMIZE:
 	M_Print (16, 32,			"              Controls   ..."); // woods add '...'
+
+	// OPT_EXTRAS:
+	M_Print(16, 32 + 8 * OPT_EXTRAS, "         Extra Options   ..."); // woods add '...'
+
+	// OPT_VIDEO:
+	if (vid_menudrawfn)
+		M_Print(16, 32 + 8 * OPT_VIDEO, "         Video Options   ..."); // woods add '...'
+
 	// OPT_CONSOLE:
 	M_Print (16, 32 + 8*OPT_CONSOLE,	"          Goto console");
 	// OPT_DEFAULTS:
@@ -2908,42 +2893,42 @@ void M_Options_Draw (void)
 	r = l > 0 ? (scr_conscale.value - 1) / l : 0;
 	if (slider_grab && options_cursor == OPT_SCALE) // woods #mousemenu
 		r = target_scale_frac;
-	M_DrawSlider (220, 32 + 8*OPT_SCALE, r);
+	M_DrawSlider (220, 32 + 8*OPT_SCALE, r, scr_conscale.value, "%.1f");
 
 	// OPT_SCRSIZE:
 	M_Print (16, 32 + 8*OPT_SCRSIZE,	"           Screen size");
 	r = (scr_viewsize.value - 30) / (130 - 30);
-	M_DrawSlider (220, 32 + 8*OPT_SCRSIZE, r);
+	M_DrawSlider (220, 32 + 8*OPT_SCRSIZE, r, scr_viewsize.value, "%.0f");
 
 	// OPT_GAMMA:
 	M_Print (16, 32 + 8*OPT_GAMMA,		"            Brightness");
 	r = (1.0 - vid_gamma.value) / 0.5;
-	M_DrawSlider (220, 32 + 8*OPT_GAMMA, r);
+	M_DrawSlider (220, 32 + 8*OPT_GAMMA, r, 10.f * r, "%.0f");
 
 	// OPT_CONTRAST:
 	M_Print (16, 32 + 8*OPT_CONTRAST,	"              Contrast");
 	r = vid_contrast.value - 1.0;
-	M_DrawSlider (220, 32 + 8*OPT_CONTRAST, r);
+	M_DrawSlider (220, 32 + 8*OPT_CONTRAST, r, 10.f * r, "%.0f");
 	
 	// OPT_MOUSESPEED:
 	M_Print (16, 32 + 8*OPT_MOUSESPEED,	"           Mouse Speed");
 	r = (sensitivity.value - 1)/10;
-	M_DrawSlider (220, 32 + 8*OPT_MOUSESPEED, r);
+	M_DrawSlider (220, 32 + 8*OPT_MOUSESPEED, r, sensitivity.value, "%.1f");
 
 	// OPT_SBALPHA:
 	M_Print (16, 32 + 8*OPT_SBALPHA,	"       Statusbar alpha");
 	r = (1.0 - scr_sbaralpha.value) ; // scr_sbaralpha range is 1.0 to 0.0
-	M_DrawSlider (220, 32 + 8*OPT_SBALPHA, r);
+	M_DrawSlider (220, 32 + 8*OPT_SBALPHA, r, 100.0f * r, "%.0f%%");
 
 	// OPT_SNDVOL:
 	M_Print (16, 32 + 8*OPT_SNDVOL,		"          Sound Volume");
 	r = sfxvolume.value;
-	M_DrawSlider (220, 32 + 8*OPT_SNDVOL, r);
+	M_DrawSlider (220, 32 + 8*OPT_SNDVOL, r, 100.f * sfxvolume.value, "%.0f%%");
 
 	// OPT_MUSICVOL:
 	M_Print (16, 32 + 8*OPT_MUSICVOL,	"          Music Volume");
 	r = bgmvolume.value;
-	M_DrawSlider (220, 32 + 8*OPT_MUSICVOL, r);
+	M_DrawSlider (220, 32 + 8*OPT_MUSICVOL, r, 100.f * bgmvolume.value, "%.0f%%");
 
 	// OPT_MUSICEXT:
 	M_Print (16, 32 + 8*OPT_MUSICEXT,	"        External Music");
@@ -2974,12 +2959,6 @@ void M_Options_Draw (void)
 	M_Print (16, 32 + 8*OPT_LOOKSTRAFE,	"            Lookstrafe");
 	M_DrawCheckbox (220, 32 + 8*OPT_LOOKSTRAFE, lookstrafe.value);
 #endif
-	// OPT_EXTRAS:
-	M_Print (16, 32 + 8*OPT_EXTRAS,	    "         Extra Options   ..."); // woods add '...'
-
-	// OPT_VIDEO:
-	if (vid_menudrawfn)
-		M_Print (16, 32 + 8*OPT_VIDEO,	"         Video Options   ..."); // woods add '...'
 
 // cursor
 	M_DrawCharacter (200, 32 + options_cursor*8, 12+((int)(realtime*4)&1));
