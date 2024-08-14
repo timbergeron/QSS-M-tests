@@ -4090,6 +4090,12 @@ static void Host_Download_f(void)
 			MSG_WriteString (&host_client->message, va("\ncl_downloadbegin %u \"%s\"\n", host_client->download.size, fname));
 			q_strlcpy(host_client->download.name, fname, sizeof(host_client->download.name));
 		}
+		else if (!COM_FileExists(fname, NULL) && strstr(fname, ".loc")) // woods, more info for .loc refusals
+		{
+			Con_Printf("%s attempted download of %s, server does not have file\n", host_client->name, fname);
+			MSG_WriteByte(&host_client->message, svc_stufftext);
+			MSG_WriteString(&host_client->message, "\nstopdownload\n");
+		}
 		else
 		{
 			Con_Printf("refusing download of %s to %s\n", fname, host_client->name);
