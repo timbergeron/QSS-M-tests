@@ -2389,6 +2389,33 @@ void SCR_DrawLoading (void)
 	scr_tileclear_updates = 0; //johnfitz
 }
 
+void renderCircle (float cx, float cy, float r, int num_segments, float line_width) // woods #crosshair
+{
+	glLineWidth(line_width);
+
+	glBegin(GL_LINE_LOOP);
+	for (int i = 0; i < num_segments; i++) {
+		float theta = 2.0f * M_PI * (float)i / (float)num_segments; // get the current angle
+		float x = r * cosf(theta);
+		float y = r * sinf(theta);
+
+		glVertex2f(x + cx, y + cy);
+	}
+	glEnd();
+
+	glLineWidth(1.0f);
+}
+
+void renderSmoothDot (float cx, float cy, float size) // woods #crosshair
+{
+	glEnable(GL_POINT_SMOOTH);
+	glPointSize(size);
+	glBegin(GL_POINTS);
+	glVertex2f(cx, cy);
+	glEnd();
+	glDisable(GL_POINT_SMOOTH);
+}
+
 /*
 ==============
 SCR_DrawCrosshair -- johnfitz -- woods major change #crosshair
@@ -2476,6 +2503,67 @@ void SCR_DrawCrosshair (void)
 		Draw_FillPlayer (-2, -9, 4, 18, color, alpha); // vertical (thicker)
 		Draw_FillPlayer (-9, -2, 18, 4, color, alpha); // horizontal (thicker)
 	}
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_ALPHA_TEST);
+	glEnable(GL_MULTISAMPLE);
+	glEnable(GL_LINE_SMOOTH);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	glEnable(GL_POLYGON_SMOOTH);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	float r = color.rgb[0] / 255.0f;
+	float g = color.rgb[1] / 255.0f;
+	float b = color.rgb[2] / 255.0f;
+	float ro = outline.rgb[0] / 255.0f;
+	float go = outline.rgb[1] / 255.0f;
+	float bo = outline.rgb[2] / 255.0f;
+
+	float dotSize = 3.0f * scr_crosshairscale.value;
+	float outlineWidth = 4.0f;
+	float outlineSize = dotSize + outlineWidth;
+	float scaledLineWidth = scr_crosshairscale.value * 1.9f;
+
+	if (crosshair.value == 6)
+	{
+		if (scr_crosshairoutline.value)
+		{
+			glColor4f(ro, go, bo, alpha); // Black color for outline
+			renderSmoothDot(0.0f, 0.0f, outlineSize); // Slightly larger dot for outline
+		}
+
+		glColor4f(r, g, b, alpha); // Set color for actual dot
+		renderSmoothDot(0.0f, 0.0f, dotSize); // Actual dot size
+	}
+
+	if (crosshair.value == 7)
+	{
+		glColor4f(r, g, b, alpha / 12); // Set color with alpha
+		renderCircle(0.0f, 0.0f, 10.0f, 200, scaledLineWidth); // Draw circle at center with radius 10, more segments for smoothness
+
+		if (scr_crosshairoutline.value)
+		{
+			glColor4f(ro, go, bo, 1.0f); // Black color for outline
+			renderSmoothDot(0.0f, 0.0f, outlineSize); // Slightly larger dot for outline
+		}
+
+		glColor4f(r, g, b, 1.0f);
+		renderSmoothDot(0.0f, 0.0f, dotSize); // Actual dot size
+	}
+
+	glColor4f(1, 1, 1, 1);
+	glDisable(GL_MULTISAMPLE);
+	glDisable(GL_LINE_SMOOTH);
+	glDisable(GL_POLYGON_SMOOTH);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	GL_PolygonOffset(OFFSET_NONE);
+	glDisable(GL_BLEND);
+	glEnable(GL_ALPHA_TEST);
+	glEnable(GL_TEXTURE_2D);
 }
 
 /*
