@@ -960,7 +960,7 @@ void Sbar_DrawInventory_QW (void)
 		}
 		else
 			if (!scr_sbaralphaqwammo.value) // woods #sbarstyles
-				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 0);
+				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 0); 
 			else
 				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 1);
 	}
@@ -1239,6 +1239,8 @@ void Sbar_DrawFrags(void)
 	int				teamscores, colors, minutes, seconds, mask; // JPG - added these
 	int				match_time; // JPG - added this
 
+	extern qboolean crxintermission; // woods #crxintermission
+
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 	
 	if (clampedSbar > 1) // woods #sbarstyles
@@ -1292,7 +1294,11 @@ void Sbar_DrawFrags(void)
 			minutes = cl.time / 60;
 			seconds = cl.time - 60 * minutes;
 			minutes = minutes & 511;
-			sprintf (num, "%3d:%02d", minutes, seconds);
+
+			if (crxintermission) // woods #crxintermission
+				sprintf(num, "%3d:%02d", 0, 0);
+			else
+				sprintf(num, "%3d:%02d", minutes, seconds);
 		}
 
 		for (i = 0; i < 6; i++)

@@ -198,6 +198,7 @@ qboolean	countdown; // #clearcrxcountdown
 qboolean	cameras; // woods #crxcamera
 qboolean	qeintermission; // woods #qeintermission
 qboolean draw; // woods #crxcamera #qeintermission
+qboolean crxintermission; // woods #crxintermission
 
 /*
 ==============
@@ -219,7 +220,24 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	if (strstr(str, "eyecam") || strstr(str, "chasecam")) // woods #crxcamera
 		cameras = true;
 
-	
+	if (cl.modtype == 1) // woods #crxintermission
+	{
+		const char* val1;
+		char buf6[5];
+		val1 = Info_GetKey(cl.serverinfo, "timelimit", buf6, sizeof(buf6));
+
+		const char* val2;
+		char buf7[10];
+		val2 = Info_GetKey(cl.serverinfo, "playmode", buf7, sizeof(buf7));
+
+		const char* val3;
+		char buf8[12];
+		val3 = Info_GetKey(cl.serverinfo, "intermission", buf8, sizeof(buf8));
+
+		if ((cl.time > atoi(val1) * 60 && (!strcmp(val2, "ffa") || !strcmp(val2, "pug"))) || !strcmp(val3, "on"))
+			crxintermission = true;
+	}
+
 	if (cl.modtype == 4) // woods #qeintermission
 	{ 
 		char qfVote[5] = { 214, 239, 244, 229, '\0' }; // quake font red 'Vote'
@@ -1353,11 +1371,14 @@ void SCR_DrawMatchClock(void)
 	{
 		if (cl.playmode == 2 || (cl.modetype != 3 && cl.playmode == 2) || netquakeio || (!teamscores && cl.modtype == 3)) // display count up to timelimit in normal/ffa mode
 		{
-			
 			minutes = cl.time / 60;
 			seconds = cl.time - 60 * minutes;
 			minutes = minutes & 511;
-			sprintf(num, "%3d:%02d", minutes, seconds);
+			
+			if (crxintermission) // woods #crxintermission
+				sprintf(num, "%3d:%02d", 0, 0);
+			else
+				sprintf(num, "%3d:%02d", minutes, seconds);
 		}
 
 		if (cl.teamcolor[0] && cl.modetype != 3) // display timelimit if we can get it if there is a team
@@ -1412,6 +1433,9 @@ void SCR_DrawMatchClock(void)
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 		}
 
+		if (crxintermission) // woods #crxintermission
+			return;
+		
 		if (key_dest == key_menu) // woods #menuclear
 			return;
 
@@ -2384,7 +2408,10 @@ void SCR_DrawCrosshair (void)
 
 	if (qeintermission && draw) // woods #qeintermission
 		return;
-	
+
+	if (crxintermission) // woods #crxintermission
+		return;
+
 	plcolour_t color;
 	if (strcmp(scr_crosshaircolor.string, "") == 0)
 		color = CL_PLColours_Parse("0xffffff");

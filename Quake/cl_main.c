@@ -99,6 +99,7 @@ extern float	host_netinterval;	//Spike
 extern cvar_t	allow_download; // woods #ftehack
 extern cvar_t	pq_lag; // woods
 extern qboolean	qeintermission; // woods #qeintermission
+extern qboolean	crxintermission; // woods #crxintermission
 
 char			lastmphost[NET_NAMELEN]; // woods - connected server address
 int				maptime;		// woods connected map time #maptime
@@ -423,6 +424,7 @@ void CL_SignonReply (void)
 			Con_Printf("\n^mWarning:^m emulating shareware mode, install pak1.pak assets to enable all client features\n\n");
 
 		qeintermission = false; // woods #qeintermission
+		crxintermission = false; // woods #crxintermission
 
 		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
 
