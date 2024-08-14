@@ -2485,7 +2485,7 @@ LaserSight - port from quakespasm-shalrathy / qrack --  woods #laser
 */
 void LaserSight (void)
 {
-	if (cl.viewent.model->name == NULL || cl.intermission || qeintermission || scr_viewsize.value >= 130 || 
+	if (cl.viewent.model->name == NULL || cl.intermission || qeintermission || crxintermission || scr_viewsize.value >= 130 || 
 		(countdown && draw) || (qeintermission && draw) || cl.stats[STAT_HEALTH] <= 0 || 
 		!strcmp(cl.viewent.model->name, "progs/v_axe.mdl") || chase_active.value) //R00k: dont show laserpoint when observer!
 	{
@@ -2528,10 +2528,12 @@ void LaserSight (void)
 
 		if (gl_laserpoint.value == 1)
 		{
+			glEnable(GL_POINT_SMOOTH);
 			glPointSize(12.0f); // set the size of the point
 			glBegin(GL_POINTS);
 			glVertex3f(wall[0], wall[1], wall[2]);
 			glEnd();
+			glDisable(GL_POINT_SMOOTH);
 			glPointSize(1.0f);
 
 			PScript_RunParticleEffectTypeString(wall, NULL, 1, "laserpoint"); // particle cfg "r_part laserpoint" for dot on wall
