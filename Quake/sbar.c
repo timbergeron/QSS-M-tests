@@ -942,11 +942,15 @@ void Sbar_DrawInventory_QW (void)
 	int	flashon;
 	int extraguns = 2 * hipnotic;
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+	qpic_t* pic = NULL;
 
 	if (clampedSbar == 3)
 		GL_SetCanvas(CANVAS_IBAR_QWQE);
 	else
 		GL_SetCanvas(CANVAS_IBAR_QW);
+
+	if (COM_FileExists("gfx/ibar2.lmp", NULL))
+		pic = Draw_CachePic("gfx/ibar2.lmp");
 
 	//for qw hud, ammo backgrounds
 	for (i = 0; i < 4; i++)
@@ -960,7 +964,12 @@ void Sbar_DrawInventory_QW (void)
 		}
 		else
 			if (!scr_sbaralphaqwammo.value) // woods #sbarstyles
-				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 0); 
+			{
+				if (pic != NULL)
+					Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, pic, 3 + (i * 48), 0, 42, 11, 1);
+				else
+					Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 0);
+			}
 			else
 				Sbar_DrawSubPicAlpha(2, 188 - 11 * (4 - i) - 24, sb_ibar, 3 + (i * 48), 0, 42, 11, 1);
 	}
@@ -1067,7 +1076,7 @@ void Sbar_DrawInventory_QW (void)
 	{
 		int x;
 		x = 0;
-		if (!scr_sbaralphaqwammo.value) // woods #sbarstyles
+		if (!scr_sbaralphaqwammo.value && !COM_FileExists("gfx/ibar2.lmp", NULL)) // woods #sbarstyles
 			x = 8;
 		val = cl.stats[STAT_SHELLS + i];
 		val = (val < 0) ? 0 : q_min(999, val);//johnfitz -- cap displayed value to 999
