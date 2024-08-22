@@ -586,7 +586,7 @@ dlight_t *CL_AllocDlight (int key)
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
 	{
-		if (dl->die < cl.time || (dl->spawn < cl.time && cl.protocol_pext2 && cls.demoplayback)) // woods (iw) #democontrols
+		if (dl->die < cl.time || (dl->spawn > cl.time && cl.protocol_pext2 && cls.demoplayback)) // woods (iw) #democontrols
 		{
 			memset (dl, 0, sizeof(*dl));
 			dl->key = key;
