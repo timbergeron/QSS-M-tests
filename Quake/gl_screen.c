@@ -100,6 +100,9 @@ extern qboolean netquakeio; // woods
 
 void TexturePointer_Draw(void); // woods #texturepointer
 
+extern qpic_t* sb_nums[2][11]; // woods #varmatchclock
+extern qpic_t* sb_colon; // woods #varmatchclock
+
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
@@ -1374,7 +1377,7 @@ void SCR_DrawMatchClock(void)
 			minutes = cl.time / 60;
 			seconds = cl.time - 60 * minutes;
 			minutes = minutes & 511;
-			
+
 			if (crxintermission) // woods #crxintermission
 				sprintf(num, "%3d:%02d", 0, 0);
 			else
@@ -1435,7 +1438,7 @@ void SCR_DrawMatchClock(void)
 
 		if (crxintermission) // woods #crxintermission
 			return;
-		
+
 		if (key_dest == key_menu) // woods #menuclear
 			return;
 
@@ -1445,15 +1448,77 @@ void SCR_DrawMatchClock(void)
 		if (qeintermission && draw) // woods #qeintermission
 			return;
 
-		if (scr_matchclock.value) // woods #varmatchclock draw variable clock where players wants based on their x, y cvar
+		if (scr_matchclock.value) // woods #varmatchclock draw variable clock where players want based on their x, y cvar
 		{
+			GL_SetCanvas(CANVAS_MATCHCLOCK);
+
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 			{
-				GL_SetCanvas(CANVAS_MATCHCLOCK);
-				if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
-					M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num); // M_Print is colored text
-				else
-					Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
+				int scr_matchclock_int = (int)scr_matchclock.value; // get the integer part of scr_matchclock.value
+
+				if (scr_matchclock_int == 1 || scr_matchclock_int == 2)
+				{
+					int color = 0; // Default to brown
+
+					if (scr_matchclock.value == 2)
+						color = 1; // red
+
+					// calculate the border thickness based on the tenths place of scr_matchclock.value
+					float border = fmod(scr_matchclock.value, 1.0f); // extract the decimal part for the border thickness
+					if (border == 0.0f) border = 0.4f; // default border if no tenths place is provided
+
+					char* p = num; // manually parse the `num` string to extract minutes and seconds
+
+					while (*p == ' ') p++;  // skip leading spaces
+					minutes = (*p++ - '0');  // get the first digit of minutes
+					if (*p >= '0' && *p <= '9')
+						minutes = minutes * 10 + (*p++ - '0');  // get the second digit of minutes if present
+					if (*p >= '0' && *p <= '9')
+						minutes = minutes * 10 + (*p++ - '0');  // get the third digit of minutes if present
+
+					if (*p == ':') p++; // skip the colon
+
+					seconds = (*p++ - '0') * 10;  // get the tens place of seconds
+					seconds += (*p++ - '0');  // get the ones place of seconds
+
+					if (scr_matchclock.value == 1 && (minutes == 0 && seconds < 15 && seconds > 0) && teamscores) // check if we are in the final 15 seconds
+						color = 1;
+
+					int x_offset = 0;
+
+					if (minutes >= 100)
+					{
+						int hundreds = minutes / 100;
+						Draw_Pic_RGBA_Outline(scr_matchclock_x.value, scr_matchclock_y.value, sb_nums[color][hundreds], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw hundreds place of minutes
+						x_offset = 24; // Move the x position for the tens place
+					}
+					if (minutes >= 10) {
+						int tens = (minutes / 10) % 10;
+						Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset, scr_matchclock_y.value, sb_nums[color][tens], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw tens place of minutes
+						x_offset += 24; // Move the x position for the ones place
+					}
+
+					int ones = minutes % 10;
+					Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset, scr_matchclock_y.value, sb_nums[color][ones], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw ones place of minutes
+
+					if (scr_matchclock.value == 2 || ((minutes == 0 && seconds < 15 && seconds > 0) && teamscores))
+						Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 24, scr_matchclock_y.value, sb_colon, CL_PLColours_Parse("0xff0000"), 1.0f, border); // red, there is no red colon in wad
+					else
+						Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 24, scr_matchclock_y.value, sb_colon, CL_PLColours_Parse("0xffffff"), 1.0f, border);
+
+					int tens = seconds / 10;
+					ones = seconds % 10;
+
+					Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 38, scr_matchclock_y.value, sb_nums[color][tens], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw tens place of seconds
+					Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 62, scr_matchclock_y.value, sb_nums[color][ones], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw ones place of seconds
+				}
+				else if (scr_matchclock.value == 3)
+				{
+					if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128) // color last 15 seconds or CRMOD condition
+						M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num);
+					else
+						Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
+				}
 			}
 		}
 	}

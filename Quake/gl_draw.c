@@ -771,6 +771,67 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	glEnd ();
 }
 
+/*
+=============
+Draw_Pic_RGBA_Outline -- woods #varmatchclock
+=============
+*/
+void Draw_Pic_RGBA_Outline (int x, int y, qpic_t* pic, plcolour_t c, float alpha, float outlineThickness)
+{
+	if (!pic) return;
+
+	glpic_t* gl;
+
+	if (scrap_dirty)
+		Scrap_Upload();
+	gl = (glpic_t*)pic->data;
+
+	if ((uintptr_t)gl < 0x1000)
+		return;
+
+	glEnable(GL_BLEND);
+
+	float red, green, blue;
+	if (c.type == 2) {
+		red = c.rgb[0] / 255.0;
+		green = c.rgb[1] / 255.0;
+		blue = c.rgb[2] / 255.0;
+	}
+	else {
+		byte* pal = (byte*)&d_8to24table[(c.basic << 4) + 8];
+		red = pal[0] / 255.0;
+		green = pal[1] / 255.0;
+		blue = pal[2] / 255.0;
+	}
+
+	glDisable(GL_ALPHA_TEST);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	// Draw the outline by drawing a slightly larger quad behind the original
+	glColor4f(0.0f, 0.0f, 0.0f, alpha);
+	GL_Bind(gl->gltexture);
+	glBegin(GL_QUADS);
+	glTexCoord2f(gl->sl, gl->tl); glVertex2f(x - outlineThickness, y - outlineThickness);
+	glTexCoord2f(gl->sh, gl->tl); glVertex2f(x + pic->width + outlineThickness, y - outlineThickness);
+	glTexCoord2f(gl->sh, gl->th); glVertex2f(x + pic->width + outlineThickness, y + pic->height + outlineThickness);
+	glTexCoord2f(gl->sl, gl->th); glVertex2f(x - outlineThickness, y + pic->height + outlineThickness);
+	glEnd();
+
+	// Draw the filled quad
+	glColor4f(red, green, blue, alpha);
+	glBegin(GL_QUADS);
+	glTexCoord2f(gl->sl, gl->tl); glVertex2f(x, y);
+	glTexCoord2f(gl->sh, gl->tl); glVertex2f(x + pic->width, y);
+	glTexCoord2f(gl->sh, gl->th); glVertex2f(x + pic->width, y + pic->height);
+	glTexCoord2f(gl->sl, gl->th); glVertex2f(x, y + pic->height);
+	glEnd();
+
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+}
+
 // woods #sbarstyles for qw hud
 
 void Draw_SubPic_QW (int x, int y, qpic_t *pic, int ofsx, int ofsy, int w, int h)
@@ -1171,9 +1232,9 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho(scr_vrect.width / -2 / s, scr_vrect.width / 2 / s, scr_vrect.height / 2 / s, scr_vrect.height / -2 / s, -99999, 99999);
 		glViewport(scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
 		break;
-	case CANVAS_MATCHCLOCK: //0,0 is center of viewport // woods #varmatchclock
+	case CANVAS_MATCHCLOCK: // 0,0 is now the top left of the viewport // woods #varmatchclock
 		s = CLAMP (1.0, scr_matchclockscale.value, 10.0);
-		glOrtho(scr_vrect.width / -2 / s, scr_vrect.width / 2 / s, scr_vrect.height / 2 / s, scr_vrect.height / -2 / s, -99999, 99999);
+		glOrtho(0, scr_vrect.width / s, scr_vrect.height / s, 0, -99999, 99999);
 		glViewport(scr_vrect.x, glheight - scr_vrect.y - scr_vrect.height, scr_vrect.width & ~1, scr_vrect.height & ~1);
 		break;
 	case CANVAS_BOTTOMLEFT: //used by devstats
