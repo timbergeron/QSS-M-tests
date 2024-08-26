@@ -874,6 +874,8 @@ void SCR_Init (void)
 	SCR_LoadPics (); //johnfitz
 
 	scr_initialized = true;
+
+	LoadCustomCursorImage (); // woods #customcursor
 }
 
 //============================================================================

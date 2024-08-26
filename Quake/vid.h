@@ -94,6 +94,7 @@ void	VID_SetWindowCaption(const char *newcaption);
 void	VID_SetWindowTitle(const char* title); // github.com/andrei-drexler/ironwail (Show game summary in window title)
 
 void VID_UpdateCursor(void);
+void LoadCustomCursorImage (void); // woods #customcursor
 void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float cursorscale);
 
 #endif	/* __VID_DEFS_H */

@@ -893,6 +893,7 @@ static void VID_Restart (void)
 // update mouse grab
 //
 	IN_UpdateGrabs();
+	LoadCustomCursorImage (); // woods #customcursor
 }
 
 /*
@@ -2598,6 +2599,70 @@ void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float c
 	VID_UpdateCursor();
 	if (oldcursor)
 		SDL_FreeCursor(oldcursor);
+}
+
+/*
+===================
+LoadCustomCursorImage -- woods #customcursor
+===================
+*/
+void LoadCustomCursorImage (void)
+{
+	int width, height;
+	enum srcformat fmt;
+	qboolean malloced;
+
+	if (!COM_FileExists("gfx/qssmcursor.png", NULL))
+	{
+		Con_DPrintf("No cursor image found\n");
+		return;
+	}
+
+	byte* cursorData = Image_LoadImage("gfx/qssmcursor", &width, &height, &fmt, &malloced);
+
+	Con_DPrintf("Loaded cursor image: %dx%d\n", width, height);
+
+	const int baseWidth = 40, baseHeight = 40;
+	const int baseResolutionWidth = 1920, baseResolutionHeight = 1080;
+
+	int targetWidth = (baseWidth * vid_width.value) / baseResolutionWidth;
+	int targetHeight = (baseHeight * vid_height.value) / baseResolutionHeight;
+
+	targetWidth = SDL_clamp(targetWidth, 32, 128);
+	targetHeight = SDL_clamp(targetHeight, 32, 128);
+
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+		cursorData, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32
+	);
+
+	if (width != targetWidth || height != targetHeight)
+	{
+		SDL_Surface* scaledSurface = SDL_CreateRGBSurfaceWithFormat(0, targetWidth, targetHeight, 32, SDL_PIXELFORMAT_RGBA32);
+		if (SDL_BlitScaled(surface, NULL, scaledSurface, NULL) < 0)
+		{
+			Con_DPrintf("Failed to scale surface: %s\n", SDL_GetError());
+			SDL_FreeSurface(surface);
+			SDL_FreeSurface(scaledSurface);
+			if (malloced) free(cursorData);
+			return;
+		}
+		SDL_FreeSurface(surface);
+		surface = scaledSurface;
+	}
+
+	SDL_Cursor* cursor = SDL_CreateColorCursor(surface, 30, 2);
+	if (cursor)
+	{
+		SDL_SetCursor(cursor);
+		Con_DPrintf("Custom cursor set successfully\n");
+	}
+	else
+	{
+		Con_DPrintf("Failed to create custom cursor: %s\n", SDL_GetError());
+	}
+
+	SDL_FreeSurface(surface);
+	if (malloced) free(cursorData);
 }
 
 void VID_Minimize (void) // woods for mac command-tab
