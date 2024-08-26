@@ -1740,15 +1740,23 @@ COM_StripPort -- woods #historymenu
 */
 const char* COM_StripPort (const char* str)
 {
-	const char* colon = strchr(str, ':');
-	size_t length = colon ? (colon - str) : strlen(str);
-	char* newStr = malloc(length + 1);
-	if (newStr) 
-	{
-		strncpy(newStr, str, length);
-		newStr[length] = '\0';
-	}
-	return newStr;
+	static char	noport[MAX_QPATH];
+	char* p;
+
+	if (!str || !*str)
+		return str;
+
+	q_strlcpy(noport, str, sizeof(noport));
+
+	if ((p = Q_strrchr(noport, ':')) == NULL) // look for the colon in a regular address
+		return str;
+
+	if (strchr(p, ']')) // look for the colon after the IPv6 address
+		return str;
+
+	*p = '\0';
+
+	return noport;
 }
 
 /*
