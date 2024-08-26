@@ -1563,6 +1563,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "connect",				CompleteFileList,		&serverlist },
 	{ "test",					CompleteFileList,		&serverlist },
 	{ "test2",					CompleteFileList,		&serverlist },
+	{ "ping",					CompleteFileList,		&serverlist },
 	{ "open",					CompleteFileList,		&folderlist },
 	{ "music",					CompleteFileList,		&musiclist },
 	{ "r_showbboxes_filter",	CompleteClassnames,		NULL },

@@ -44,6 +44,8 @@ extern		char afk_name[16]; // woods #smartafk
 cvar_t sv_adminnick = {"sv_adminnick", "server admin", CVAR_ARCHIVE}; // woods (darkpaces) #adminnick
 extern char lastconnected[3]; // woods -- #identify+
 extern qboolean ctrlpressed; // woods #saymodifier
+extern qboolean Valid_IP(const char* ip_str); // woods #icmp
+extern qboolean Valid_Domain(const char* domain_str); // woods #icmp
 
 void CL_ManualDownload_f (const char* filename); // woods #manualdownload
 
@@ -1640,7 +1642,111 @@ static void Host_Fly_f (void)
 
 /*
 ==================
-Host_Ping_f
+ICMP_Ping_Host -- woods #icmp
+==================
+*/
+
+#ifdef _WIN32
+int ICMP_Ping_Host(const char* host)
+{
+	char command[256];
+	char buffer[128];
+	snprintf(command, sizeof(command), "ping -n 1 -w 150 %s", host);
+
+	HANDLE hRead, hWrite;
+	SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
+
+	if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
+		Con_DPrintf("Failed to create pipe\n");
+		return -1;
+	}
+
+	STARTUPINFO si = { sizeof(STARTUPINFO) };
+	PROCESS_INFORMATION pi;
+	si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+	si.hStdOutput = hWrite;
+	si.hStdError = hWrite;
+	si.wShowWindow = SW_HIDE;  // Prevents a window from popping up
+
+	if (!CreateProcess(NULL, command, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+		Con_DPrintf("Failed to execute command: %s\n", command);
+		CloseHandle(hWrite);
+		CloseHandle(hRead);
+		return -1;
+	}
+
+	CloseHandle(hWrite);
+
+	// Read the output
+	DWORD bytesRead;
+	BOOL success;
+	float rtt = -1;
+	while (success = ReadFile(hRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL), success&& bytesRead > 0) {
+		buffer[bytesRead] = '\0';
+		char* rtt_start = strstr(buffer, "time=");
+		if (rtt_start != NULL) {
+			sscanf(rtt_start, "time=%f", &rtt);
+			break;
+		}
+	}
+
+	CloseHandle(hRead);
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+	if (rtt >= 0) {
+		Con_DPrintf("RTT calculated: %.2f ms\n", rtt);
+		return (int)rtt;
+	}
+	else {
+		Con_DPrintf("Failed to retrieve RTT\n");
+		return -1;
+	}
+}
+#else  //  linux/macOS
+int ICMP_Ping_Host(const char* host)
+{
+	char command[256];
+	char buffer[128];
+
+	snprintf(command, sizeof(command), "ping -c 1 -W 200 %s", host);
+	FILE* fp = popen(command, "r");
+	if (fp == NULL) {
+		perror("popen failed");
+		return -1;
+	}
+
+	Con_DPrintf("Executing command: %s\n", command);
+
+	float rtt = -1;
+
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) // Read the output line by line to find the RTT
+	{ 
+		char* rtt_start = strstr(buffer, "time=");
+		if (rtt_start != NULL) {
+			rtt_start += 5; // Move past "time=" to the number
+			rtt = strtof(rtt_start, NULL);
+			Con_DPrintf("RTT calculated: %.2f ms\n", rtt);
+			break;
+		}
+	}
+
+	int status = pclose(fp);
+	if (status == 0 && rtt != -1) {
+		Con_DPrintf("Host %s is reachable with RTT %.2f ms.\n", host, rtt);
+		return (int)rtt;
+	}
+	else {
+		Con_DPrintf("Host %s is not reachable or RTT calculation failed.\n", host);
+		return -1;
+	}
+}
+#endif
+
+/*
+==================
+Host_Ping_f -- woods add support for external ping command #icmp
 
 ==================
 */
@@ -1651,16 +1757,41 @@ static void Host_Ping_f (void)
 	client_t	*client;
 	const char* n;	// JPG - for ping +N // woods #pqlag (add const)
 
+	n = Cmd_Argv(1);
+
 	// JPG - check for ping +N // woods #pqlag
 	if (Cmd_Argc() == 2)
 	{
-		if (cls.state != ca_connected)
-			return;
-
-		n = Cmd_Argv(1);
 		if (*n == '+')
 		{
+			if (cls.state != ca_connected)
+			{
+				Con_Printf("You must be connected to a server to use ping +N\n");
+				return;
+			}
+			
 			Cvar_Set("pq_lag", n + 1);
+			return;
+		}
+
+		const char* host_no_port = COM_StripPort(n);
+
+		if (Valid_IP(host_no_port) || Valid_Domain(host_no_port))
+		{
+			int rtt = ICMP_Ping_Host(host_no_port);
+			if (rtt >= 0)
+			{
+				Con_Printf("%i ms\n", rtt);
+			}
+			else
+			{
+				Con_Printf("ping failed, host may not accept ICMP pings or is non-responsive\n");
+			}
+			return;
+		}
+		else
+		{
+			Con_Printf("address not valid %s\n", n);
 			return;
 		}
 	}

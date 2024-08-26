@@ -5476,7 +5476,7 @@ void M_Search_Key (int key)
 
 //=============================================================================
 /* SLIST MENU */
-// woods #serversmenu
+// woods #serversmenu #icmp
 
 #define MAX_VIS_SERVERS 18
 
@@ -5486,6 +5486,7 @@ typedef struct {
 	int users;
 	int maxusers;
 	const char* map;
+	int ping;
 	qboolean active;
 } servertitem_t;
 
@@ -5500,11 +5501,112 @@ static struct {
 	int servercount;
 	int slist_first;
 	int sorted;
+	SDL_Thread* pingThreads[2];
 } serversmenu;
 
 //=============================================================================
 // woods servers.quakeone.com support curl+json parsing #serversmenu
 //=============================================================================
+
+static volatile qboolean pingThreadsShouldExit = false;
+SDL_mutex* pingMutex = NULL;
+
+int ICMP_Ping_Host(const char* host);
+
+void InitializePingMutex(void)
+{
+	pingMutex = SDL_CreateMutex();
+	if (pingMutex == NULL) {
+		Con_DPrintf("SDL_CreateMutex failed: %s\n", SDL_GetError());
+	}
+}
+
+void CleanupPingMutex(void)
+{
+	if (pingMutex != NULL) {
+		SDL_DestroyMutex(pingMutex);
+		pingMutex = NULL;
+	}
+}
+
+int PingServers(void* data)
+{
+	if (!data) {
+		Con_DPrintf("PingServers received a null pointer\n");
+		return -1; // Return an error if data is null
+	}
+
+	int start = ((int*)data)[0];
+	int end = ((int*)data)[1];
+
+	for (int i = start; i < end; i++)
+	{
+		if (pingThreadsShouldExit)
+			break;
+
+		SDL_LockMutex(pingMutex);
+		if (serversmenu.items && serversmenu.items[i].ip) {
+			const char* serverIP = COM_StripPort(serversmenu.items[i].ip);
+			SDL_UnlockMutex(pingMutex);
+
+			int ping = ICMP_Ping_Host(serverIP);
+
+			SDL_LockMutex(pingMutex);
+			serversmenu.items[i].ping = (ping >= 0) ? ping : -1;
+			SDL_UnlockMutex(pingMutex);
+		}
+		else {
+			SDL_UnlockMutex(pingMutex);
+			Con_DPrintf("Invalid server item or IP\n");
+		}
+	}
+
+	free(data);
+	return 0;
+}
+
+void WaitForPingThreads(SDL_Thread* thread1, SDL_Thread* thread2)
+{
+	pingThreadsShouldExit = true; // Signal threads to exit
+
+	if (thread1)
+		SDL_WaitThread(thread1, NULL);
+	if (thread2)
+		SDL_WaitThread(thread2, NULL);
+
+	pingThreadsShouldExit = false; // Reset the exit flag
+}
+
+void PingAllServers(void)
+{
+	int servercount = serversmenu.servercount;
+	int mid = servercount / 2;
+
+	int* range1 = (int*)malloc(2 * sizeof(int));
+	int* range2 = (int*)malloc(2 * sizeof(int));
+
+	if (!range1 || !range2) {
+		Con_DPrintf("Memory allocation failed\n");
+		if (range1) free(range1);
+		if (range2) free(range2);
+		return;
+	}
+
+	range1[0] = 0;
+	range1[1] = mid;
+
+	range2[0] = mid;
+	range2[1] = servercount;
+
+	serversmenu.pingThreads[0] = SDL_CreateThread(PingServers, "PingServersThread1", (void*)range1);
+	serversmenu.pingThreads[1] = SDL_CreateThread(PingServers, "PingServersThread2", (void*)range2);
+
+	if (serversmenu.pingThreads[0] == NULL)
+		Con_DPrintf("SDL_CreateThread failed: %s\n", SDL_GetError());
+
+	if (serversmenu.pingThreads[1] == NULL)
+		Con_DPrintf("SDL_CreateThread failed: %s\n", SDL_GetError());
+}
 
 struct MemoryStruct
 {
@@ -5607,6 +5709,7 @@ void populateServersFromJSON (const char* jsonText, servertitem_t** items, int* 
 		newItem->maxusers = maxPlayers ? (int)*maxPlayers : 0;
 		newItem->map = strdup(map ? map : "Unknown");
 		newItem->active = true;
+		newItem->ping = -1;
 
 		(*actualServerCount)++;
 	}
@@ -5704,6 +5807,7 @@ void FetchAndSortServers (void)
 			serversmenu.items[actualServerCount].maxusers = maxusers;
 			serversmenu.items[actualServerCount].map = strdup(map);
 			serversmenu.items[actualServerCount].active = true;
+			serversmenu.items[actualServerCount].ping = -1;
 
 			actualServerCount++;
 		}
@@ -5740,6 +5844,8 @@ void M_Menu_ServerList_f (void)
 	serversmenu.scrollbar_grab = false;
 
 	FetchAndSortServers();
+	InitializePingMutex();
+	PingAllServers();
 
 	serversmenu.list.viewsize = MAX_VIS_SERVERS;
 
@@ -5796,7 +5902,15 @@ void M_ServerList_Draw (void)
 				server.active = false;
 
 		char serverStr[40];
-		q_snprintf(serverStr, sizeof(serverStr), "%-20.20s  %-6.6s %2u/%2u\n", serversmenu.items[idx].name, serversmenu.items[idx].map, serversmenu.items[idx].users, serversmenu.items[idx].maxusers);
+
+		char pingStr[8];
+
+		if (serversmenu.items[idx].ping == -1)
+			pingStr[0] = '\0';
+		else 
+			q_snprintf(pingStr, sizeof(pingStr), "%3i", serversmenu.items[idx].ping);
+
+		q_snprintf(serverStr, sizeof(serverStr), "%-16.16s  %-6.6s %2u/%2u %s\n", serversmenu.items[idx].name, serversmenu.items[idx].map, serversmenu.items[idx].users, serversmenu.items[idx].maxusers, pingStr);
 
 		if (server.active)
 			M_PrintWhite(x, y + i * 8, serverStr);
@@ -5866,7 +5980,9 @@ void M_ServerList_Key(int key)
 	case K_BBUTTON:
 	case K_MOUSE4: // woods #mousemenu
 	case K_MOUSE2:
+		WaitForPingThreads(serversmenu.pingThreads[0], serversmenu.pingThreads[1]);
 		M_Menu_LanConfig_f();
+		CleanupPingMutex();
 		break;
 
 	case K_ENTER:
