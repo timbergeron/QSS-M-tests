@@ -4627,3 +4627,13 @@ size_t UTF8_WriteCodePoint(char* dst, size_t maxbytes, uint32_t codepoint)
 
 	return 0;
 }
+
+void SetChatInfo (int flags) // woods #chatinfo
+{
+	char command[16];
+
+	int chat_value = (flags & CIF_AFK) ? CIF_AFK : (flags & CIF_CHAT) ? CIF_CHAT : 0;
+
+	snprintf(command, sizeof(command), "setinfo chat %d\n", chat_value);
+	Cbuf_AddText(command);
+}

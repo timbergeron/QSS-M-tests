@@ -344,6 +344,11 @@ qboolean isSpecialMap (const char* name); // woods for bmodels
 // Unicode
 size_t UTF8_WriteCodePoint(char* dst, size_t maxbytes, uint32_t codepoint); // woods #serversmenu (ironwail)
 
+#define CIF_CHAT  (1<<0) // set this flag if user is in console, mm1, mm2 etc but not in game -- woods #chatinfo
+#define CIF_AFK   (1<<1) // set this flag if app loses focus, ie alt+tab -- woods #chatinfo
+
+void SetChatInfo (int flags); // woods #chatinfo
+
 //============================================================================
 
 // QUAKEFS

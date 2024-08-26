@@ -1027,17 +1027,53 @@ void Key_Console (int key)
 	}
 }
 
-void Char_Console (int key)
+/*
+====================
+woods #chatinfo -- deletct chat typing and set userinfo chat key, with a 3 second delay to set it back to 0
+====================
+*/
+
+SDL_TimerID chatTimerID = 0;
+qboolean isChatTimerRunning = false; // Track whether the timer is running
+#define CHAT_TIMER_DELAY 3000 // 3000ms = 3 second delay
+
+void ExecuteSetInfoChat()
+{
+	if (cl_say.value)
+		SetChatInfo (0);
+}
+
+Uint32 ChatTimerCallback(Uint32 interval, void* param)
+{
+	ExecuteSetInfoChat(); // function to execute the delayed code
+	chatTimerID = 0; // the timer has run
+	isChatTimerRunning = false;
+	return 0; // stop the timer after it's called once
+}
+
+void Char_Console(int key) // woods -- added detection for when typing in console to set chat to 1 for multiplayer games
 {
 	size_t		len;
 	char *workline = key_lines[edit_line];
 	int max;
 
+	if (cl_say.value) // woods #chatinfo
+	{
+		char tmp[3];
+		int chat;
+
+		Info_GetKey(cls.userinfo, "chat", tmp, sizeof(tmp));
+		chat = atoi(tmp);
+
+		if (chat == 0)
+			SetChatInfo(CIF_CHAT);
+	}
+
 	if (cl_say.value && (cls.state == ca_connected && cl.gametype == GAME_DEATHMATCH))
 		if ((cl.modtype == 1) || (cl.modtype == 4))
 			max = MAX_CHAT_SIZE_EX;
 		else
-		max = MAX_CHAT_SIZE;
+			max = MAX_CHAT_SIZE;
 	else
 		max = MAXCMDLINE;
 	if (key_linepos < max) // woods limit chat to 45 server limit  #chatlimit
@@ -1068,6 +1104,19 @@ void Char_Console (int key)
 
 		Con_TabComplete (TABCOMPLETE_AUTOHINT);
 	}
+
+	if (cl_say.value) // woods #chatinfo --3 second delay to set chat to 0
+	{
+		if (isChatTimerRunning) // kill the existing timer if a new char event happens -- woods #chatinfo
+		{
+			SDL_RemoveTimer(chatTimerID);
+			isChatTimerRunning = false;
+		}
+
+		chatTimerID = SDL_AddTimer(CHAT_TIMER_DELAY, ChatTimerCallback, NULL); // woods #chatinfo
+		if (chatTimerID != 0)
+			isChatTimerRunning = true;
+	}
 }
 
 //============================================================================
@@ -1091,6 +1140,7 @@ void Key_EndChat (void)
 	key_dest = key_game;
 	chat_bufferlen = 0;
 	chat_buffer[0] = 0;
+	SetChatInfo (0); // woods #chatinfo
 }
 
 void PasteToMessage (void) // woods zircon (baker)

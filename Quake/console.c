@@ -91,6 +91,8 @@ extern qboolean	endscoreprint; // woods -- don't filter end scores pq_confilter+
 char lastconnected[3]; // woods -- #identify+
 char lc[3]; // woods -- #identify+
 int retry_counter = 0; // woods #ms
+extern SDL_TimerID chatTimerID; // woods #chatinfo
+extern qboolean isChatTimerRunning; // woods #chatinfo
 
 /*
 ================
@@ -155,6 +157,18 @@ void Con_ToggleConsole_f (void)
 
 	if ((key_linepos == 1) && (cl_say.value == 2 || cl_say.value == 3)) // woods #ezsay add leading space for mode 2
 		Char_Console2(32);
+
+	if (cl_say.value) // woods #chatinfo
+	{ 
+		SetChatInfo (0);
+
+		if (isChatTimerRunning) // woods #chatinfo
+		{
+			SDL_RemoveTimer(chatTimerID);
+			isChatTimerRunning = false;
+			chatTimerID = 0;
+		}
+	}
 
 	SCR_EndLoadingPlaque ();
 	memset (con_times, 0, sizeof(con_times));
@@ -276,6 +290,7 @@ static void Con_MessageMode_f (void)
 		return;
 	chat_team = false;
 	key_dest = key_message;
+	SetChatInfo (CIF_CHAT); // woods #chatinfo
 }
 
 /*
@@ -289,6 +304,7 @@ static void Con_MessageMode2_f (void)
 		return;
 	chat_team = true;
 	key_dest = key_message;
+	SetChatInfo (CIF_CHAT); // woods #chatinfo
 }
 
 /*

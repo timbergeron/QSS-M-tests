@@ -1229,8 +1229,12 @@ void IN_SendKeyEvents (void)
 					Sound_Toggle_Mute_Off_f();
 
 				if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+				{
 					if (cl.modtype == 1 || cl.modtype == 4)
 						Cmd_ExecuteString("cmd afkoff", src_command); // afk
+
+					SetChatInfo (0); // woods #chatinfo
+				}
 
 				if (cl_afk.value) // woods #smartafk
 				{
@@ -1254,9 +1258,12 @@ void IN_SendKeyEvents (void)
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
 				
 				if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+				{
 					if (cl.modtype == 1 || cl.modtype == 4) // woods if afk is NO
 						Cmd_ExecuteString("cmd afkon", src_command); // afk
 
+					SetChatInfo (CIF_AFK); // woods #chatinfo
+				}
 				if (cl_afk.value) // woods #smartafk
 				{
 					if (!strstr(cl_name.string, afktype)) // initiate AFK-in-name if AFK not already in the name
