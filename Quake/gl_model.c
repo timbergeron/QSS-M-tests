@@ -41,6 +41,7 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash);
 static void Mod_Print (void);
 
 static cvar_t	external_ents = {"external_ents", "1", CVAR_ARCHIVE};
+static cvar_t	external_ents_dir = {"external_ents_dir", "", CVAR_ARCHIVE};
 cvar_t	gl_load24bit = {"gl_load24bit", "1", CVAR_ARCHIVE};
 static cvar_t	mod_ignorelmscale = {"mod_ignorelmscale", "0"};
 static cvar_t	mod_lightscale_broken = {"mod_lightscale_broken", "1"};	//match vanilla's brokenness bug with dlights and scaled textures. decoupled_lm bypasses this obviously buggy setting because zomgletmefixstuffffs
@@ -78,6 +79,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&gl_subdivide_size);
 	Cvar_RegisterVariable (&external_vis);
 	Cvar_RegisterVariable (&external_ents);
+	Cvar_RegisterVariable (&external_ents_dir);
 	Cvar_RegisterVariable (&gl_load24bit);
 	Cvar_RegisterVariable (&r_replacemodels);
 	Cvar_RegisterVariable (&mod_ignorelmscale);
@@ -1283,15 +1285,34 @@ static void Mod_LoadEntities (lump_t *l)
 	q_strlcpy(basemapname, loadmodel->name, sizeof(basemapname));
 	COM_StripExtension(basemapname, basemapname, sizeof(basemapname));
 
-	q_snprintf(entfilename, sizeof(entfilename), "%s@%04x.ent", basemapname, crc);
-	Con_DPrintf2("trying to load %s\n", entfilename);
-	ents = (char *) COM_LoadHunkFile (entfilename, &path_id);
+	
+	q_snprintf(entfilename, sizeof(entfilename), "maps/%s/%s@%04x.ent", external_ents_dir.string, COM_SkipPath(basemapname), crc);
+	if (external_ents_dir.string && COM_FileExists(entfilename, NULL))
+	{
+		Con_DPrintf2("trying to load %s\n", entfilename);
+		ents = (char*)COM_LoadHunkFile(entfilename, &path_id);
+	}
+	else
+	{
+		q_snprintf(entfilename, sizeof(entfilename), "%s@%04x.ent", basemapname, crc);
+		Con_DPrintf2("trying to load %s\n", entfilename);
+		ents = (char *) COM_LoadHunkFile (entfilename, &path_id);
+	}
 
 	if (!ents)
 	{
-		q_snprintf(entfilename, sizeof(entfilename), "%s.ent", basemapname);
-		Con_DPrintf2("trying to load %s\n", entfilename);
-		ents = (char *) COM_LoadHunkFile (entfilename, &path_id);
+		q_snprintf(entfilename, sizeof(entfilename), "maps/%s/%s.ent", external_ents_dir.string, COM_SkipPath(basemapname));
+		if (external_ents_dir.string && COM_FileExists(entfilename, NULL))
+		{
+			Con_DPrintf2("trying to load %s\n", entfilename);
+			ents = (char*)COM_LoadHunkFile(entfilename, &path_id);
+		}
+		else
+		{
+			q_snprintf(entfilename, sizeof(entfilename), "%s.ent", basemapname);
+			Con_DPrintf2("trying to load %s\n", entfilename);
+			ents = (char *) COM_LoadHunkFile (entfilename, &path_id);
+		}
 	}
 
 	if (ents)
