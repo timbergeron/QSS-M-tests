@@ -2191,9 +2191,8 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 		Con_DrawInput ();
 
 //draw version number in bottom right
-	y += 8;
 	for (x = 0; x < (int)strlen(ver); x++)
-		Draw_Character ((con_linewidth - strlen(ver) + x + 2)<<3, y, ver[x] /*+ 128*/);
+		Draw_Character ((con_linewidth - strlen(ver) + x + 2)<<3, vid.conheight - 8, ver[x] /*+ 128*/); // woods iw
 }
 
 
