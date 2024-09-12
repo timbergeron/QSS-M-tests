@@ -591,7 +591,8 @@ SCR_UpdateZoom
 */
 void SCR_UpdateZoom(void)
 {
-	float delta = cl.zoomdir * scr_zoomspeed.value * (cl.time - cl.oldtime);
+	float speed = scr_zoomspeed.value > 0.f ? scr_zoomspeed.value : 1e6;
+	float delta = cl.zoomdir * speed * (cl.time - cl.oldtime);
 	if (!delta)
 		return;
 	cl.zoom += delta;
