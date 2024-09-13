@@ -2809,7 +2809,7 @@ void SCR_SetUpToDrawConsole (void)
 		scr_conlines = 0; //none visible
 
 	timescale = (host_timescale.value > 0) ? host_timescale.value : 1; //johnfitz -- timescale
-	conspeed = (scr_conspeed.value > 0) ? scr_conspeed.value : 1e6f;
+	conspeed = (scr_conspeed.value > 0 && !cls.timedemo) ? scr_conspeed.value : 1e6f;
 
 	if (scr_conlines < scr_con_current)
 	{
