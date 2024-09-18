@@ -1787,6 +1787,7 @@ static void Host_Ping_f (void)
 			{
 				Con_Printf("ping failed, host may not accept ICMP pings or is non-responsive\n");
 			}
+			free((void*)host_no_port);
 			return;
 		}
 		else
