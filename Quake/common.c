@@ -4645,3 +4645,46 @@ void SetChatInfo (int flags) // woods #chatinfo
 	snprintf(command, sizeof(command), "setinfo chat %d\n", chat_value);
 	Cbuf_AddText(command);
 }
+
+int LevenshteinDistance (const char* s, const char* t) // woods -- #smartquit -- function to calculate the Levenshtein Distance
+{
+	int len_s = strlen(s);
+	int len_t = strlen(t);
+
+	// Allocate a matrix dynamically
+	int** matrix = malloc((len_s + 1) * sizeof(int*));
+	for (int i = 0; i <= len_s; i++)
+	{
+		matrix[i] = malloc((len_t + 1) * sizeof(int));
+	}
+
+	// Initialize the matrix
+	for (int i = 0; i <= len_s; i++) matrix[i][0] = i;
+	for (int j = 0; j <= len_t; j++) matrix[0][j] = j;
+
+
+	for (int i = 1; i <= len_s; i++) // Compute the Levenshtein distance
+	{
+		for (int j = 1; j <= len_t; j++) {
+			if (tolower(s[i - 1]) == tolower(t[j - 1]))
+				matrix[i][j] = matrix[i - 1][j - 1];
+			else {
+				int insert = matrix[i][j - 1] + 1;
+				int delete = matrix[i - 1][j] + 1;
+				int substitute = matrix[i - 1][j - 1] + 1;
+				matrix[i][j] = insert < delete ? (insert < substitute ? insert : substitute) :
+					(delete < substitute ? delete : substitute);
+			}
+		}
+	}
+
+	int distance = matrix[len_s][len_t];
+
+	// Free the matrix
+	for (int i = 0; i <= len_s; i++) {
+		free(matrix[i]);
+	}
+	free(matrix);
+
+	return distance;
+}

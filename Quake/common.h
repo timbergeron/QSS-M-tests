@@ -348,6 +348,7 @@ size_t UTF8_WriteCodePoint(char* dst, size_t maxbytes, uint32_t codepoint); // w
 #define CIF_AFK   (1<<1) // set this flag if app loses focus, ie alt+tab -- woods #chatinfo
 
 void SetChatInfo (int flags); // woods #chatinfo
+int LevenshteinDistance (const char* s, const char* t); // woods -- #smartquit
 
 //============================================================================
 

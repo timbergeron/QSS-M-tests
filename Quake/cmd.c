@@ -1242,6 +1242,22 @@ const char *Cmd_CompleteCommand (const char *partial)
 	return NULL;
 }
 
+qboolean Cmd_IsQuitMistype (const char* input) // woods -- #smartquit
+{
+	if (Cvar_FindVar(input) || Cmd_Exists2(input) || Cmd_AliasExists(input))
+		return false;
+
+	if (q_strncasecmp(input, "qu", 2) != 0) 
+		return false; // Not a mistype for "quit"
+
+	const char* correct_cmd = "quit"; // Define the correct command
+
+	int threshold = 2; 	// Define a threshold for mistypes (e.g., distance <= 2)
+	int distance = LevenshteinDistance(input, correct_cmd); // Calculate the Levenshtein distance
+
+	return distance > 0 && distance <= threshold; 	// Return true if within the threshold, else false
+}
+
 /*
 ============
 Cmd_ExecuteString
@@ -1261,6 +1277,13 @@ qboolean	Cmd_ExecuteString (const char *text, cmd_source_t src)
 // execute the command line
 	if (!Cmd_Argc())
 		return true;		// no tokens
+
+	if (Cmd_IsQuitMistype(Cmd_Argv(0))) // // woods -- #smartquit -- check for mistyped "quit" command
+	{
+		if (SCR_ModalMessage(va("you typed: %s\n\n do you want to quit? (y/n)\n", Cmd_Argv(0)), 0.0f))
+			Host_Quit_f();
+		return true;
+	}
 
 // check functions
 	for (cmd=cmd_functions ; cmd ; cmd=cmd->next)
