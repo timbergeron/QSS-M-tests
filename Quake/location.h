@@ -27,4 +27,6 @@ void LOC_Clear_f (void);
 void LOC_StartPoint_f (void);
 void LOC_EndPoint_f (void);
 void LOC_Save_f (void);
+void TP_DrawLocsWithWirePoints(void); // woods #locext
+void LOC_ShowLocs(void); // woods #locext
 

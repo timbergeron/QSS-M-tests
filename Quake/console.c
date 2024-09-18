@@ -1538,6 +1538,53 @@ static qboolean CompleteWriteCfg (const char* partial, void* unused) // woods #i
 	return true;
 }
 
+static qboolean CompleteCurrentMap(const char* partial, void* unused) // woods #locext
+{
+	if (Cmd_Argc() != 2)
+		return false;
+
+	if (cls.state == ca_connected)
+		Con_AddToTabList(cl.mapname, partial, NULL, NULL);
+
+	return true;
+}
+
+static qboolean CompleteAddLoc(const char* partial, void* unused) // woods #locext
+{
+	if (Cmd_Argc() != 2)
+		return false;
+
+	// Only process if connected
+	if (cls.state == ca_connected)
+	{
+		const char* Names[] = {
+			"quad",
+			"suit",
+			"ring",
+			"pent",
+			"lg",
+			"gl",
+			"rl",
+			"sng",
+			"ssg",
+			"ng",
+			"blue-flag",
+			"red-flag",
+			"tele-exit",
+			"tele",
+			"mh",
+			"auto"
+		};
+
+		for (int i = 0; i < sizeof(Names) / sizeof(Names[0]); i++)
+		{
+			Con_AddToTabList(Names[i], partial, NULL, NULL);
+		}
+	}
+
+	return true;
+}
+
 qboolean CompleteImageList (const char* partial, void* unused); // woods
 qboolean CompleteSoundList (const char* partial, void* unused); // woods
 
@@ -1553,6 +1600,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "map",					CompleteFileList,		&extralevels },
 	{ "maps",					CompleteFileList,		&extralevels },
 	{ "changelevel",			CompleteFileList,		&extralevels },
+	{ "loadloc",				CompleteFileList,		&extralevels },
 	{ "game",					CompleteFileList,		&modlist },
 	{ "gamedir",				CompleteFileList,		&modlist },
 	{ "record",					CompleteFileListDemo,	&demolist },
@@ -1584,6 +1632,8 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "playvol",				CompleteSoundList,		NULL },
 	{ "screenshot",				CompleteScreenshotList,	NULL },
 	{ "writeconfig",			CompleteWriteCfg,		NULL },
+	{ "saveloc",				CompleteCurrentMap,		NULL },
+	{ "addloc",					CompleteAddLoc,			NULL },
 };
 
 static const int num_arg_completion_types =

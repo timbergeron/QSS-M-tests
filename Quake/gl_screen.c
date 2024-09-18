@@ -176,6 +176,7 @@ float		scr_disabled_time;
 int	scr_tileclear_updates = 0; //johnfitz
 
 void SCR_ScreenShot_f (void);
+void TP_DrawClosestLocText(void); // woods #locext
 
 /*
 ===============================================================================
@@ -3280,6 +3281,7 @@ void SCR_UpdateScreen (void)
 		SCR_ShowFlagStatus (); // woods #matchhud #flagstatus
 		SCR_ShowObsFrags (); // woods #observerhud
 		SCR_DrawSpeed (); // woods #speed
+		TP_DrawClosestLocText (); // woods #locext
 		SCR_Mute (); // woods #usermute
 		SCR_Observing (); // woods
 		TexturePointer_Draw (); // woods #texturepointer

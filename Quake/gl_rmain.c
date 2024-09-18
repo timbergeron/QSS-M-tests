@@ -108,6 +108,7 @@ cvar_t	r_oldskyleaf = {"r_oldskyleaf", "0", CVAR_NONE};
 cvar_t	r_drawworld = {"r_drawworld", "1", CVAR_NONE};
 cvar_t	r_showtris = {"r_showtris", "0", CVAR_NONE};
 cvar_t	r_showbboxes = {"r_showbboxes", "0", CVAR_NONE};
+cvar_t	r_showlocs = {"r_showlocs", "0", CVAR_NONE}; // woods #locext
 cvar_t	r_lerpmodels = {"r_lerpmodels", "1", CVAR_ARCHIVE};
 cvar_t	r_lerpmove = {"r_lerpmove", "1", CVAR_ARCHIVE};
 cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs/braztall.mdl,progs/brazshrt.mdl,progs/longtrch.mdl,progs/flame_pyre.mdl,progs/v_saw.mdl,progs/v_xfist.mdl,progs/h2stuff/newfire.mdl", CVAR_ARCHIVE};
@@ -822,6 +823,101 @@ void R_EmitWireBox (vec3_t mins, vec3_t maxs, uint32_t color) // woods #iwshowbb
 	glVertex3f (mins[0], mins[1], mins[2]);
 	glVertex3f (mins[0], mins[1], maxs[2]);
 	glEnd ();
+}
+
+void R_EmitFullSphere (vec3_t origin, float radius, uint32_t color, int segments) // woods #locext
+{
+	float r = ((color >> 24) & 0xFF) / 255.0f;
+	float g = ((color >> 16) & 0xFF) / 255.0f;
+	float b = ((color >> 8) & 0xFF) / 255.0f;
+	float a = (color & 0xFF) / 255.0f;
+
+	glPushMatrix();
+	glTranslatef(origin[0], origin[1], origin[2]);
+
+	glColor4f(r, g, b, a);
+
+	for (int i = 0; i < segments; i++)
+	{
+		float lat0 = M_PI * (-0.5 + (float)(i) / segments);
+		float z0 = sin(lat0);
+		float zr0 = cos(lat0);
+
+		float lat1 = M_PI * (-0.5 + (float)(i + 1) / segments);
+		float z1 = sin(lat1);
+		float zr1 = cos(lat1);
+
+		glBegin(GL_TRIANGLE_STRIP);
+		for (int j = 0; j <= segments; j++)
+		{
+			float lng = 2 * M_PI * (float)(j) / segments;
+			float x = cos(lng);
+			float y = sin(lng);
+
+			glVertex3f(x * zr0 * radius, y * zr0 * radius, z0 * radius);
+			glVertex3f(x * zr1 * radius, y * zr1 * radius, z1 * radius);
+		}
+		glEnd();
+	}
+
+	glPopMatrix();
+}
+
+void R_EmitPin (vec3_t origin, float radius, uint32_t color, int segments) // woods #locext
+{
+	float r = ((color >> 24) & 0xFF) / 255.0f;
+	float g = ((color >> 16) & 0xFF) / 255.0f;
+	float b = ((color >> 8) & 0xFF) / 255.0f;
+	float a = (color & 0xFF) / 255.0f;
+
+	// Adjust the cone height to make it proportionate to the radius
+	float coneHeight = radius * 2.0f;
+	float zOffset = coneHeight / 2.0f - 0.1f;
+
+	glPushMatrix();
+	glTranslatef(origin[0], origin[1], origin[2]);
+	glColor4f(r, g, b, a);
+
+	// Draw the top hemisphere
+	for (int i = 0; i <= segments / 2; i++)
+	{
+		float lat0 = M_PI * (float)(i) / segments;
+		float z0 = sin(lat0);
+		float zr0 = cos(lat0);
+		float lat1 = M_PI * (float)(i + 1) / segments;
+		float z1 = sin(lat1);
+		float zr1 = cos(lat1);
+
+		glBegin(GL_TRIANGLE_STRIP);
+		for (int j = 0; j <= segments; j++)
+		{
+			float lng = 2 * M_PI * (float)(j) / segments;
+			float x = cos(lng);
+			float y = sin(lng);
+
+			glVertex3f(x * zr0 * radius, y * zr0 * radius, z0 * radius - zOffset);
+			glVertex3f(x * zr1 * radius, y * zr1 * radius, z1 * radius - zOffset);
+		}
+		glEnd();
+	}
+
+	// Draw the cone part (extending down from the bottom of the hemisphere)
+	glBegin(GL_TRIANGLE_FAN);
+	// Draw the tip of the cone
+	glVertex3f(0.0f, 0.0f, -radius - coneHeight);  // Cone tip
+
+	for (int j = 0; j <= segments*2; j++)
+	{
+		float lng = 2 * M_PI * (float)(j) / segments/2;
+		float x = cos(lng);
+		float y = sin(lng);
+
+		// Base of the cone at the adjusted bottom of the hemisphere
+		glVertex3f(x * radius, y * radius, -radius);
+	}
+	glEnd();
+
+	glPopMatrix();
 }
 
 /*
@@ -1612,6 +1708,9 @@ void R_RenderScene (void)
 	R_ShowBoundingBoxes (); //johnfitz
 
 	R_DrawTracers(); // woods #tracers
+
+	TP_DrawLocsWithWirePoints(); // woods #locext
+	LOC_ShowLocs(); // woods #locext
 }
 
 static GLuint r_scaleview_texture;
