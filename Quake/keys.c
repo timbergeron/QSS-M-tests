@@ -1893,23 +1893,35 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 		return;
 	}
 
-	if (sfxvolume.value < 1) // min clamp
+	if (sfxvolume.value <= 1) // min clamp
 		if (down && (key == K_MWHEELUP) && (keydown[K_ALT] && keydown[K_SHIFT])) // woods #shortcuts
 		{
-			Cmd_ExecuteString("inc volume .02\n", src_command);
-			if (!strcmp(mute, "y"))
-				Sound_Toggle_Mute_f();	
-			Con_Printf("volume: %.2f\n", sfxvolume.value);
+			if (sfxvolume.value < 0.98) // Prevent going over 100%
+			{
+				Cmd_ExecuteString("inc volume .02\n", src_command);
+				if (!strcmp(mute, "y"))
+					Sound_Toggle_Mute_f();
+			}
+			else
+				sfxvolume.value = 1.0; // Set to exactly 100% if we would exceed it
+			
+			Con_Printf("volume: %d%%\n", (int)(sfxvolume.value * 100 + 0.5));
 			return;
 		}
 
-	if (sfxvolume.value > 0)// min clamp
+	if (sfxvolume.value >= 0)// min clamp
 		if (down && (key == K_MWHEELDOWN) && (keydown[K_ALT] && keydown[K_SHIFT])) // woods #shortcuts
 		{
-			Cmd_ExecuteString("inc volume -.02\n", src_command);
-			if (!strcmp(mute, "y"))
-				Sound_Toggle_Mute_f();
-			Con_Printf("volume: %.2f\n", sfxvolume.value);
+			if (sfxvolume.value > 0.02) // Prevent going below 0%
+			{
+				Cmd_ExecuteString("inc volume -.02\n", src_command);
+				if (!strcmp(mute, "y"))
+					Sound_Toggle_Mute_f();
+			}
+			else
+				sfxvolume.value = 0.0; // Set to exactly 0% if we would go below it
+
+			Con_Printf("volume: %d%%\n", (int)(sfxvolume.value * 100 + 0.5));
 			return;
 		}
 
