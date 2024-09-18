@@ -3979,9 +3979,9 @@ static void *Mod_LoadSpriteFrame (void * pin, mspriteframe_t **ppframe, int fram
 
 		if (data)
 		{
-			pspriteframe->gltexture = 
+			pspriteframe->gltexture =
 				TexMgr_LoadImage(loadmodel, name, fwidth, fheight, rfmt,
-				data, name, 0, TEXPREF_PAD | TEXPREF_NOPICMIP | TEXPREF_LINEAR | TEXPREF_ALPHA);
+					data, name, 0, TEXPREF_PAD | TEXPREF_NOPICMIP | TEXPREF_LINEAR | TEXPREF_ALPHA);
 
 			if (malloced)
 				free(data);
