@@ -466,6 +466,7 @@ static cvar_t r_part_density = {"r_part_density", "1"};
 static cvar_t r_part_maxparticles = {"r_part_maxparticles", "65536"};
 static cvar_t r_part_maxdecals = {"r_part_maxdecals", "8192"};
 static cvar_t r_lightflicker = {"r_lightflicker", "1"};
+extern cvar_t r_particles; // woods (vk)
 
 static float particletime;
 
@@ -7762,6 +7763,9 @@ void PScript_DrawParticles (void)
 	if (pframetime > 1)
 		pframetime = 1;
 	oldtime = cl.time;
+
+	if (!r_particles.value) // woodd (vk)
+		return;
 
 	if (r_part_rain.value)
 	{
