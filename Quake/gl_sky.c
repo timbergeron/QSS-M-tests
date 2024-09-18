@@ -223,6 +223,60 @@ void Sky_LoadTextureQ64 (qmodel_t *mod, texture_t *mt)
 }
 
 /*
+=============
+Sky_LoadExternalTextures -- woods #extsky
+Load external sky textures
+==============
+*/
+qboolean Sky_LoadExternalTextures (qmodel_t* mod, texture_t* mt)
+{
+	if (r_fastsky.value == 1)
+		return false;
+	
+	char texturename_back[MAX_OSPATH], texturename_front[MAX_OSPATH];
+	char mapname[MAX_OSPATH];
+	byte* back_data = NULL, * front_data = NULL;
+	int fwidth_back = 0, fheight_back = 0, fwidth_front = 0, fheight_front = 0;
+	enum srcformat rfmt_back = SRC_EXTERNAL, rfmt_front = SRC_EXTERNAL;
+	qboolean malloced_back = false, malloced_front = false;
+
+	int mark = Hunk_LowMark();
+
+	COM_StripExtension(mod->name + 5, mapname, sizeof(mapname));
+
+	q_snprintf(texturename_back, sizeof(texturename_back), "textures/%s/%s_back", mapname, mt->name);
+	back_data = Image_LoadImage(texturename_back, &fwidth_back, &fheight_back, &rfmt_back, &malloced_back);
+	if (!back_data) {
+		q_snprintf(texturename_back, sizeof(texturename_back), "textures/%s_back", mt->name);
+		back_data = Image_LoadImage(texturename_back, &fwidth_back, &fheight_back, &rfmt_back, &malloced_back);
+	}
+
+	q_snprintf(texturename_front, sizeof(texturename_front), "textures/%s/%s_front", mapname, mt->name);
+	front_data = Image_LoadImage(texturename_front, &fwidth_front, &fheight_front, &rfmt_front, &malloced_front);
+	if (!front_data) {
+		q_snprintf(texturename_front, sizeof(texturename_front), "textures/%s_front", mt->name);
+		front_data = Image_LoadImage(texturename_front, &fwidth_front, &fheight_front, &rfmt_front, &malloced_front);
+	}
+
+	if (back_data && front_data) // If both textures loaded successfully
+	{
+		mt->gltexture = solidskytexture = TexMgr_LoadImage(mod, texturename_back, fwidth_back, fheight_back, rfmt_back, back_data, texturename_back, 0, TEXPREF_NONE);
+		mt->fullbright = alphaskytexture = TexMgr_LoadImage(mod, texturename_front, fwidth_front, fheight_front, rfmt_front, front_data, texturename_front, 0, TEXPREF_ALPHA);
+
+		if (malloced_back) free(back_data);
+		if (malloced_front) free(front_data);
+		Hunk_FreeToLowMark(mark);
+		return true; // success: both textures loaded
+	}
+
+	if (malloced_back) free(back_data);
+	if (malloced_front) free(front_data);
+	Hunk_FreeToLowMark(mark);
+
+	return false;
+}
+
+/*
 ==================
 Sky_LoadSkyBox
 ==================

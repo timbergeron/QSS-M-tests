@@ -459,6 +459,7 @@ void Sky_DrawSky (void);
 void Sky_NewMap (void);
 void Sky_LoadTexture (qmodel_t *mod, texture_t *mt, enum srcformat fmt, unsigned int width, unsigned int height);
 void Sky_LoadTextureQ64 (qmodel_t *mod, texture_t *mt);
+qboolean  Sky_LoadExternalTextures (qmodel_t* mod, texture_t* mt); // woods #extsky
 void Sky_LoadSkyBox (const char *name);
 extern qboolean skyroom_drawn, skyroom_drawing;		//we draw a skyroom this frame
 extern qboolean skyroom_enabled;	//we know where the skyroom is ...

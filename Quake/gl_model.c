@@ -855,10 +855,13 @@ static void Mod_LoadTextures (lump_t *l)
 		{
 			if (!q_strncasecmp(tx->name,"sky",3)) //sky texture //also note -- was Q_strncmp, changed to match qbsp
 			{
-				if (loadmodel->bspversion == BSPVERSION_QUAKE64)
-					Sky_LoadTextureQ64 (loadmodel, tx);
-				else
-					Sky_LoadTexture (loadmodel, tx, fmt, imgwidth, imgheight);
+				if (!gl_load24bit.value || !Sky_LoadExternalTextures(loadmodel, tx)) // woods #extsky
+				{
+					if (loadmodel->bspversion == BSPVERSION_QUAKE64)
+						Sky_LoadTextureQ64 (loadmodel, tx);
+					else
+						Sky_LoadTexture (loadmodel, tx, fmt, imgwidth, imgheight);
+				}
 			}
 			else if (tx->name[0] == '*') //warping texture
 			{
@@ -3936,6 +3939,11 @@ static void *Mod_LoadSpriteFrame (void * pin, mspriteframe_t **ppframe, int fram
 	int					width, height, size, origin[2];
 	char				name[64];
 	src_offset_t			offset; //johnfitz
+	byte* data = NULL;
+	qboolean malloced = false;
+	int fwidth = 0, fheight = 0;
+	enum srcformat rfmt = SRC_RGBA;
+	int hunkmark;
 
 	pinframe = (dspriteframe_t *)pin;
 
@@ -3962,6 +3970,26 @@ static void *Mod_LoadSpriteFrame (void * pin, mspriteframe_t **ppframe, int fram
 	pspriteframe->smax = (float)width/(float)TexMgr_PadConditional(width);
 	pspriteframe->tmax = (float)height/(float)TexMgr_PadConditional(height);
 	//johnfitz
+
+	if (gl_load24bit.value) // woods #extsprites
+	{
+		hunkmark = Hunk_LowMark();
+		q_snprintf(name, sizeof(name), "%s_%i", loadmodel->name, framenum);
+		data = Image_LoadImage(name, &fwidth, &fheight, &rfmt, &malloced);
+
+		if (data)
+		{
+			pspriteframe->gltexture = 
+				TexMgr_LoadImage(loadmodel, name, fwidth, fheight, rfmt,
+				data, name, 0, TEXPREF_PAD | TEXPREF_NOPICMIP | TEXPREF_LINEAR | TEXPREF_ALPHA);
+
+			if (malloced)
+				free(data);
+			Hunk_FreeToLowMark(hunkmark);
+
+			return (void*)((byte*)pinframe + sizeof(dspriteframe_t) + size);
+		}
+	}
 
 	q_snprintf (name, sizeof(name), "%s:frame%i", loadmodel->name, framenum);
 	offset = (src_offset_t)(pinframe+1) - (src_offset_t)mod_base; //johnfitz
