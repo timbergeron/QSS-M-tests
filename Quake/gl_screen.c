@@ -2184,7 +2184,7 @@ void SCR_Mute(void)
 
 				if (!scr_showspeed.value || !cls.demoplayback)
 					x = 0;
-				if (scr_showspeed.value)
+				if (scr_showspeed.value == 1)
 					x = 40;
 			}
 
