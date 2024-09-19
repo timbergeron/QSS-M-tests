@@ -1308,6 +1308,7 @@ qboolean web2check = false;
 qboolean webcheck = false;
 qboolean stop_curl_download = false;
 qboolean curl_download_active = false;
+qboolean downloadedctf = false;
 
 typedef struct {
 	char* url;
@@ -1829,8 +1830,22 @@ qboolean CL_CheckDownload(const char *filename)
 	// woods, lets try curl web download first #webdl (much faster) #webdl
 
 	char local_path[MAX_OSPATH]; // Define the max path length	
+	char modified_filename[MAX_OSPATH];
 
 	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, filename);
+
+	if (!strcmp(filename, "progs/star.mdl") && downloadedctf == false) // since we don't download files inside a pak, lets download the pak for ctf
+	{
+		q_strlcpy(modified_filename, "paks/ctf.pak", sizeof(modified_filename));
+		filename = modified_filename;
+		Con_Printf("\nfull ctf installation not detected, downloading ctf pak...\n\n^mrestart required to take effect\n\n");
+		downloadedctf = true;
+
+		if (COM_FileExists("ctf.pak", NULL))
+			q_snprintf(local_path, sizeof(local_path), "%s/full%s", com_gamedir, COM_SkipPath(filename));
+		else
+			q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, COM_SkipPath(filename));
+	}
 
 	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
 		if (Curl_DownloadFile (cl_web_download_url.string, filename, local_path))
@@ -1996,21 +2011,27 @@ void CL_ManualDownload_f (const char* filename)
 
 	const char* extension = COM_FileGetExtension(Cmd_Argv(1));
 
-	if (strlen(extension) == 0)
+	char prefixedArg[MAX_OSPATH];
+
+	if (strcmp(filename, "ctf") == 0)
+	{
+		snprintf(prefixedArg, sizeof(prefixedArg), "paks/%s.pak", Cmd_Argv(1));
+	}
+	else if (strcmp(filename, "ra") == 0)
+	{
+		snprintf(prefixedArg, sizeof(prefixedArg), "paks/%s.pak", Cmd_Argv(1));
+	}
+	else if (strlen(extension) == 0)
 	{
 		Con_Printf("Please use a filename with an extension (bsp, lit, loc, mdl, or wav)\n");
 		return;
 	}
-
-	if (strcmp(extension, "bsp") != 0 && strcmp(extension, "lit") != 0 && strcmp(extension, "loc") != 0 && strcmp(extension, "mdl") != 0 && strcmp(extension, "wav") != 0)
+	else if (strcmp(extension, "bsp") != 0 && strcmp(extension, "lit") != 0 && strcmp(extension, "loc") != 0 && strcmp(extension, "mdl") != 0 && strcmp(extension, "wav") != 0)
 	{
 		Con_Printf("Unsupported file extension. Use bsp, lit, loc, mdl, or wav extensions\n");
 		return;
 	}
-
-	char prefixedArg[MAX_OSPATH];
-
-	if (strcmp(extension, "bsp") == 0 || strcmp(extension, "lit") == 0)
+	else if (strcmp(extension, "bsp") == 0 || strcmp(extension, "lit") == 0)
 	{
 		snprintf(prefixedArg, sizeof(prefixedArg), "maps/%s", Cmd_Argv(1));
 	}
@@ -2057,7 +2078,22 @@ void CL_ManualDownload_f (const char* filename)
 
 	char local_path[MAX_OSPATH]; // Define the max path length	
 
-	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, prefixedArg);
+	if (strcmp(filename, "ctf") == 0)
+	{
+		if (COM_FileExists("ctf.pak", NULL))
+			q_snprintf(local_path, sizeof(local_path), "%s/full%s.pak", com_gamedir, filename);
+		else
+			q_snprintf(local_path, sizeof(local_path), "%s/%s.pak", com_gamedir, filename);
+	}
+	else if (strcmp(filename, "ra") == 0)
+	{
+		if (COM_FileExists("ra.pak", NULL))
+			q_snprintf(local_path, sizeof(local_path), "%s/full%s.pak", com_gamedir, filename);
+		else
+			q_snprintf(local_path, sizeof(local_path), "%s/%s.pak", com_gamedir, filename);
+	}
+	else
+		q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, prefixedArg);
 
 	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
 		if (Curl_DownloadFile(cl_web_download_url.string, prefixedArg, local_path))
