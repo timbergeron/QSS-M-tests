@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -28,14 +28,14 @@
  *  Header for the SDL thread management routines.
  */
 
-#include "SDL_stdinc.h"
-#include "SDL_error.h"
+#include <SDL2/SDL_stdinc.h>
+#include <SDL2/SDL_error.h>
 
 /* Thread synchronization primitives */
-#include "SDL_atomic.h"
-#include "SDL_mutex.h"
+#include <SDL2/SDL_atomic.h>
+#include <SDL2/SDL_mutex.h>
 
-#if defined(__WIN32__) && !defined(__WINRT__)
+#if (defined(__WIN32__) || defined(__GDK__)) && !defined(__WINRT__)
 #include <process.h> /* _beginthreadex() and _endthreadex() */
 #endif
 #if defined(__OS2__) /* for _beginthread() and _endthread() */
@@ -46,7 +46,7 @@
 #endif
 #endif
 
-#include "begin_code.h"
+#include <SDL2/begin_code.h>
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus
 extern "C" {
@@ -88,7 +88,7 @@ typedef enum {
 typedef int (SDLCALL * SDL_ThreadFunction) (void *data);
 
 
-#if defined(__WIN32__) && !defined(__WINRT__)
+#if (defined(__WIN32__) || defined(__GDK__)) && !defined(__WINRT__)
 /**
  *  \file SDL_thread.h
  *
@@ -457,7 +457,7 @@ extern DECLSPEC void SDLCALL SDL_TLSCleanup(void);
 #ifdef __cplusplus
 }
 #endif
-#include "close_code.h"
+#include <SDL2/close_code.h>
 
 #endif /* SDL_thread_h_ */
 
