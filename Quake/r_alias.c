@@ -1699,6 +1699,35 @@ cleanup:
 #define SHADOW_HEIGHT 0.1 //how far above the floor to render the shadow
 //johnfitz
 
+#define SHADOW_COMPUTED (1 << 0) // woods #shadow
+#define SHADOW_VALID    (1 << 1) // woods #shadow
+
+qboolean GL_DrawAliasShadowCheck (entity_t* e) // woods check for shadows not on the ground (ultrav quad, ctf2m8 quad, etc) #shadow
+{
+	const float shadowRadius = 55.0f;  // Distance from the entity to cast the shadow
+	const float traceDistance = 50.0f; // How far down to trace
+
+	vec3_t start, end, impact;
+
+	VectorCopy(e->origin, start); // Set the starting point as the entity's origin shifted based on SHADOW_SKEW_X (westward in this case)
+	start[0] += SHADOW_SKEW_X * shadowRadius; // Skew along x-axis (westward)
+
+	VectorCopy(start, end); // Set the ending point directly below the starting point
+	end[2] -= traceDistance;  // Trace directly downwards
+
+	TraceLine(start, end, 0, impact); // Perform the trace to check if there's ground below
+
+	if (VectorCompare(impact, end)) // If the trace hits the maximum distance, there is no ground, so no shadow
+	{
+		e->shadow_state |= SHADOW_COMPUTED;  // Mark as computed
+		e->shadow_state &= ~SHADOW_VALID;    // Shadow is not valid
+		return false;  // No ground detected, skip shadow
+	}
+
+	e->shadow_state |= (SHADOW_COMPUTED | SHADOW_VALID);  // Mark as computed and valid
+	return true;
+}
+
 /*
 =============
 GL_DrawAliasShadow -- johnfitz -- rewritten
@@ -1725,6 +1754,15 @@ void GL_DrawAliasShadow (entity_t *e)
 
 	entalpha = ENTALPHA_DECODE(e->alpha);
 	if (entalpha == 0) return;
+
+	if (r_shadows_groundcheck.value) // woods #shadow
+	{
+		if (!(e->shadow_state & SHADOW_COMPUTED))
+			GL_DrawAliasShadowCheck(e);
+
+		if (!(e->shadow_state & SHADOW_VALID))
+			return;
+	}
 
 	paliashdr = (aliashdr_t *)Mod_Extradata (e->model);
 	R_SetupAliasFrame (paliashdr, e, &lerpdata);
