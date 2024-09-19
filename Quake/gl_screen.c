@@ -1293,7 +1293,8 @@ SCR_ShowPL -- added by woods #scrpl
 */
 void SCR_ShowPL(void)
 {
-	int pl;
+	static int lastPL = 0;
+	static int lastPLTime = 0;
 	char			num[12];
 
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
@@ -1303,46 +1304,53 @@ void SCR_ShowPL(void)
 
 	ct = (SDL_GetTicks() - maptime) / 1000; // woods connected map time #maptime
 
-	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected) {
+	if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)
+	{
+		int currentPL = cl.packetloss; // directly use the integer value
 
-		pl = atoi(cl.scrpacketloss); // convert string to integer
+		// If there is a new packet loss value, store it and reset scrpacketloss
+		if (currentPL > 0) {
+			lastPL += currentPL;
+			lastPLTime = SDL_GetTicks(); // Update the time when the new value is received
+			cl.packetloss = 0; // Reset scrpacketloss to 0
+		}
 
-		int	x, y;
+		// Determine if the stored value should be displayed
+		int elapsedTime = SDL_GetTicks() - lastPLTime;
+		if (elapsedTime < 3000) { // Show for 1 second
 
-		if (clampedSbar == 3) // #qehud
-		{
-			GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
-			x = 20;
-			if (cl.stats[STAT_ARMOR] < 1)
-				y = 129;
+			int	x, y;
+
+			if (clampedSbar == 3) // #qehud
+			{
+				GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
+				x = 20;
+				if (cl.stats[STAT_ARMOR] < 1)
+					y = 129;
+				else
+					y = 103;
+				if (!scr_ping.value)
+					y += 10;
+			}
 			else
-				y = 103;
-			if (!scr_ping.value)
-				y += 10;
+			{
+				GL_SetCanvas(CANVAS_BOTTOMLEFT2);
+				x = 6;
+				y = 77;
+				if (!scr_ping.value)
+					y += 10;
+			}
+
+			if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 6)))
+			{
+				sprintf(num, "%-4i", lastPL);
+				M_Print(x, y, num);
+
+			}
 		}
 		else
 		{
-			GL_SetCanvas(CANVAS_BOTTOMLEFT2);
-			x = 6;
-			y = 77;
-			if (!scr_ping.value)
-				y += 10;
-		}
-
-		if (cl.expectingpltimes < realtime)
-		{
-			cl.expectingpltimes = realtime + 5;   // update frequency
-			Cmd_ExecuteString("pl\n", src_command);
-
-		}
-
-		if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 6)))
-		{
-			if (pl > 0) // color red
-			{
-				sprintf(num, "%-4i", pl);
-				M_Print(x, y, num);
-			}
+			lastPL = 0;
 		}
 	}
 }

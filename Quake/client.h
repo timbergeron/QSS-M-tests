@@ -382,8 +382,8 @@ typedef struct
 	vec3_t			death_location;		// JPG 3.20 - used for %d formatting #loc // woods #pqteam
 
 	int			conflag;			// woods for keeping track of what's coming in string for parsing #confilter #ghostcode
-	char		scrpacketloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
-	char		packetloss[12];			// woods for keeping track of what's coming in string for parsing #scrpl
+	int			packetloss;			// woods for keeping track of what's coming in string for parsing #scrpl
+	int			pltotal;			// woods for keeping track of what's coming in string for parsing #scrpl
 	char		flagstatus[2];		// woods for #flagstatus
 	char		ghostcode[4];		// woods for ghost code to memory #ghostcode
 	char		observer[2];		// woods for ghost code to memory #observer

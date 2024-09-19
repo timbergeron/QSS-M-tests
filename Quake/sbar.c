@@ -625,7 +625,7 @@ void Sbar_SoloScoreboard (void)
 		ct = ticks - maptime; // map connected time
 		st = ticks - mpservertime;
 		mpc = ticks / 1000; // client open time
-		pl = atoi(cl.packetloss);
+		pl = cl.pltotal;
 		
 		min = ct / 60000;
 		smin = st / 60000;
