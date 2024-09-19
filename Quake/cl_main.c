@@ -445,6 +445,11 @@ void CL_SignonReply (void)
 		if (strstr(val, "FTE"))
 			cl.modtype = 5;
 
+		char buf6[10]; // woods #servertype
+		val = Info_GetKey(cl.serverinfo, "*version", buf6, sizeof(buf6));
+		if (!strncmp(val, "QSS-M", 5))
+			cl.server = 1;
+
 		// woods lets detect the mode of the server for hybrid/nq crx
 
 		char buf3[16];

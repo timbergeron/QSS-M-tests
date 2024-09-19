@@ -387,6 +387,7 @@ typedef struct
 	char		flagstatus[2];		// woods for #flagstatus
 	char		ghostcode[4];		// woods for ghost code to memory #ghostcode
 	char		observer[2];		// woods for ghost code to memory #observer
+	int			server;				// woods for server type detection #servertype
 	int			fps;				// woods #f_config
 	int			modtype;			// woods #modtype detect mp server mod type 5 - FTE, 4 - hybrid crx, 3 - crmod, 2 - crctf, 1 - crx
 	int			modetype;			// woods crx mode detection -- 1 - ctf, 2 - dm, 3 - ra, 4 - ca, 5 - airshot, 6 - wipeout, 7 - freetag
