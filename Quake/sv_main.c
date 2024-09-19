@@ -3740,6 +3740,8 @@ void SV_SpawnServer (const char *server)
 		}
 	}
 
+	Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo), "*version", ENGINE_NAME_AND_VER); // woods send version info
+
 	PR_SwitchQCVM(vm);
 // load progs to get entity field count
 	PR_LoadProgs ("progs.dat", true, PROGHEADER_CRC, pr_ssqcbuiltins, pr_ssqcnumbuiltins);
