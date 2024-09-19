@@ -674,6 +674,52 @@ void Draw_CharacterRGBA (int x, int y, int num, plcolour_t c, float alpha)
 	glColor4f (1, 1, 1, 1);
 }
 
+void Draw_Character_Rotation (int x, int y, int num, int rotation) // woods #movementkeys
+{
+	num &= 255;
+
+	if (num == 32)
+		return; // don't waste verts on spaces
+
+	GL_Bind(char_texture);
+	glPushMatrix(); // Save the current transformation state
+
+	glTranslatef(x + 4, y + 4, 0); // Move the center of rotation to the character's center
+
+	glRotatef(rotation, 0, 0, 1); // Rotate clockwise by using a positive angle
+
+	if (rotation == 360 || rotation == -360) 
+		glScalef(-1, 1, 1); // Flip horizontally
+
+	glTranslatef(-4, -4, 0); // Move back by the offset
+
+	glBegin(GL_QUADS);
+
+	int row, col;
+	float frow, fcol, size;
+
+	row = num >> 4;
+	col = num & 15;
+
+	frow = row * 0.0625;
+	fcol = col * 0.0625;
+	size = 0.0625;
+
+	// Normal rendering
+	glTexCoord2f(fcol, frow);
+	glVertex2f(0, 0);
+	glTexCoord2f(fcol + size, frow);
+	glVertex2f(8, 0);
+	glTexCoord2f(fcol + size, frow + size);
+	glVertex2f(8, 8);
+	glTexCoord2f(fcol, frow + size);
+	glVertex2f(0, 8);
+
+	glEnd();
+
+	glPopMatrix(); // Restore the previous transformation state
+}
+
 /*
 ================
 Draw_String -- johnfitz -- modified to call Draw_CharacterQuad

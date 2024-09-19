@@ -125,6 +125,7 @@ cvar_t		scr_ping = {"scr_ping", "1", CVAR_ARCHIVE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_ARCHIVE};  // woods #matchhud
 cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_ARCHIVE}; // woods #speed
 cvar_t		scr_showspeed_y = {"scr_showspeed_y", "176", CVAR_ARCHIVE}; // woods - #speedometer
+cvar_t		scr_movekeys = {"scr_movekeys", "0", CVAR_ARCHIVE}; // woods #movementkeys
 cvar_t		scr_matchclock = {"scr_matchclock", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_y = {"scr_matchclock_y", "0",CVAR_ARCHIVE}; // woods #varmatchclock
 cvar_t		scr_matchclock_x = {"scr_matchclock_x", "0",CVAR_ARCHIVE}; // woods #varmatchclock
@@ -832,6 +833,7 @@ void SCR_Init (void)
 	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
 	Cvar_RegisterVariable (&scr_showspeed); // woods #speed
 	Cvar_RegisterVariable (&scr_showspeed_y); // woods #speedometer
+	Cvar_RegisterVariable (&scr_movekeys); // woods #movementkeys
 	Cvar_RegisterVariable (&scr_matchclock); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_y); // woods #varmatchclock
 	Cvar_RegisterVariable (&scr_matchclock_x); // woods #varmatchclock
@@ -2071,6 +2073,59 @@ void SCR_DrawSpeed (void)
 }
 
 /*
+===============
+SCR_DrawMovementKeys -- woods #movementkeys (soruced from: https://github.com/j0zzz/JoeQuake/commit/bc56fea)
+===============
+*/
+void SCR_DrawMovementKeys(void)
+{
+	if (!scr_movekeys.value || cl.intermission || qeintermission || scr_viewsize.value > 110)
+		return;
+
+	extern kbutton_t in_moveleft, in_moveright, in_forward, in_back, in_jump, in_up;
+
+	int x, y, size = 8;
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
+	switch (clampedSbar)
+	{
+	case 1:
+		x = 10;
+		y = (scr_showspeed.value == 1) ? 186 : 198;
+		if (scr_viewsize.value == 110)
+			y += 26;
+		GL_SetCanvas(CANVAS_SBAR2);
+		break;
+	case 2:
+		x = 10;
+		y = (scr_showspeed.value == 1 || !strcmp(mute, "y")) ? 210 : 224;
+		GL_SetCanvas(CANVAS_SBAR2);
+		break;
+	case 3: // #qehud
+		x = (scr_showspeed.value == 1) ? 172 : 174;
+		y = (scr_showspeed.value == 1) ? 148 : 166;
+		GL_SetCanvas(CANVAS_BOTTOMLEFTQESMALL);
+		break;
+	default:
+		return; // Invalid clampedSbar value
+	}
+
+	// Draw movement keys
+	if (in_forward.state & 1)
+		Draw_Character_Rotation(x, y - size, '^', 0);
+	if (in_back.state & 1)
+		Draw_Character_Rotation(x, y + size, '^', 180);
+	if (in_moveleft.state & 1)
+		Draw_Character_Rotation(x - size, y, '^', 270);
+	if (in_moveright.state & 1)
+		Draw_Character_Rotation(x + size, y, '^', 90);
+	if (in_jump.state & 1)
+		M_Print(x, y - 1, "j");
+	else if (in_up.state & 1)
+		M_Print(x, y -1, "s");
+}
+
+/*
 ==============
 SCR_DrawMute -- woods #usermute
 ==============
@@ -3289,6 +3344,7 @@ void SCR_UpdateScreen (void)
 		SCR_ShowFlagStatus (); // woods #matchhud #flagstatus
 		SCR_ShowObsFrags (); // woods #observerhud
 		SCR_DrawSpeed (); // woods #speed
+		SCR_DrawMovementKeys (); // woods #movementkeys
 		TP_DrawClosestLocText (); // woods #locext
 		SCR_Mute (); // woods #usermute
 		SCR_Observing (); // woods

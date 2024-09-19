@@ -47,6 +47,7 @@ extern	qboolean	custom_conchars; // woods (iw) #democontrols
 void Draw_Init (void);
 void Draw_Character (int x, int y, int num);
 void Draw_CharacterRGBA (int x, int y, int num, plcolour_t c, float alpha); // woods #iwtabcomplete
+void Draw_Character_Rotation (int x, int y, int num, int rotation); // woods #movementkeys
 void Draw_DebugChar (char num);
 void Draw_Pic (int x, int y, qpic_t *pic);
 void Draw_Pic_RGBA_Outline (int x, int y, qpic_t* pic, plcolour_t c, float alpha, float outlineThickness); // woods #varmatchclock
