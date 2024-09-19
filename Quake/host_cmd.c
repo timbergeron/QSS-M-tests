@@ -4383,9 +4383,6 @@ void Host_Setinfo_f(void)
 		}
 		else
 		{
-			if (cls.signon > 2) // woods, allow initial only #*ver
-				if (*key == '*')
-					return;	//users may not change * keys (beyond initial connection anyway).
 			SV_UpdateInfo((host_client - svs.clients)+1, key, val);
 		}
 	}
