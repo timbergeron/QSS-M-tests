@@ -5737,6 +5737,8 @@ int PingServers(void* data)
 			SDL_LockMutex(pingMutex);
 			serversmenu.items[i].ping = (ping >= 0) ? ping : -1;
 			SDL_UnlockMutex(pingMutex);
+
+			free((void*)serverIP);
 		}
 		else {
 			SDL_UnlockMutex(pingMutex);
