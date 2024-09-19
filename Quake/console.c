@@ -1585,6 +1585,26 @@ static qboolean CompleteAddLoc(const char* partial, void* unused) // woods #loce
 	return true;
 }
 
+static qboolean CompleteProtocols(const char* partial, void* unused)
+{
+	if (Cmd_Argc() != 2)
+		return false;
+
+	Con_AddToTabList("Base-15", partial, "netquake", NULL);      // PROTOCOL_NETQUAKE
+	Con_AddToTabList("Base-666", partial, "fitzquake", NULL);     // PROTOCOL_FITZQUAKE
+	Con_AddToTabList("Base-999", partial, "rmq", NULL);     // PROTOCOL_RMQ
+	Con_AddToTabList("Base-10002", partial, "bjp3", NULL);   // PROTOCOL_VERSION_BJP3
+	Con_AddToTabList("Base-3504", partial, "dp", NULL);    // PROTOCOL_VERSION_DP7
+
+	Con_AddToTabList("FTE+15", partial, "netquake+pext", NULL);      // PROTOCOL_NETQUAKE with FTE extensions
+	Con_AddToTabList("FTE+666", partial, "fitzquake+pext", NULL);     // PROTOCOL_FITZQUAKE with FTE extensions
+	Con_AddToTabList("FTE+999", partial, "rmq+pext", NULL);     // PROTOCOL_RMQ with FTE extensions
+	Con_AddToTabList("FTE+10002", partial, "bjp3+pext", NULL);   // PROTOCOL_VERSION_BJP3 with FTE extensions
+	Con_AddToTabList("FTE+3504", partial, "dp+pext", NULL);    // PROTOCOL_VERSION_DP7 with FTE extensions
+
+	return true;
+}
+
 qboolean CompleteImageList (const char* partial, void* unused); // woods
 qboolean CompleteSoundList (const char* partial, void* unused); // woods
 
@@ -1632,6 +1652,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "playvol",				CompleteSoundList,		NULL },
 	{ "screenshot",				CompleteScreenshotList,	NULL },
 	{ "writeconfig",			CompleteWriteCfg,		NULL },
+	{ "sv_protocol",			CompleteProtocols,		NULL },
 	{ "saveloc",				CompleteCurrentMap,		NULL },
 	{ "addloc",					CompleteAddLoc,			NULL },
 };

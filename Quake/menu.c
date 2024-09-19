@@ -3875,18 +3875,127 @@ void M_Quit_Draw (void) //johnfitz -- modified for new quit message -- woods mod
 /* LAN CONFIG MENU */
 
 int		lanConfig_cursor = -1;
-int		lanConfig_cursor_table[] = { 68, 88, 96, 104, 112, 144 }; // woods #mousemenu #bookmarksmenu
-#define NUM_LANCONFIG_CMDS	6
+int     lanConfig_cursor_table_newgame[] = { 68, 88, 96 }; // Updated cursor positions for "New Game"
+int		lanConfig_cursor_table[] = { 68, 76, 84, 92, 100, 130 }; // woods #mousemenu #bookmarksmenu
+int*	lanConfig_cursor_ptr = NULL; // Pointer to the current cursor table
+
+int     NUM_LANCONFIG_CMDS;
+#define NUM_LANCONFIG_CMDS_NEWGAME 3
+#define NUM_LANCONFIG_CMDS_JOINGAME 6
 
 int 	lanConfig_port;
 char	lanConfig_portname[6];
 char	lanConfig_joinname[22];
+int     lanConfig_protocol_cursor = 0; // Track selected protocol
+
+extern int sv_protocol;
+extern unsigned int	sv_protocol_pext2;
+
+void SetProtocol(int protocol_cursor)
+{
+	if (protocol_cursor < 5)
+	{
+		// Set base protocols (no FTE extensions)
+		switch (protocol_cursor)
+		{
+		case 0: Cbuf_AddText("sv_protocol Base-15\n"); break; // PROTOCOL_NETQUAKE
+		case 1: Cbuf_AddText("sv_protocol Base-666\n"); break; // PROTOCOL_FITZQUAKE
+		case 2: Cbuf_AddText("sv_protocol Base-999\n"); break; // PROTOCOL_RMQ
+		case 3: Cbuf_AddText("sv_protocol Base-10002\n"); break; // PROTOCOL_VERSION_BJP3
+		case 4: Cbuf_AddText("sv_protocol Base-3504\n"); break; // PROTOCOL_VERSION_DP7
+		}
+	}
+	else
+	{
+		// Set FTE+ protocols (with extensions)
+		switch (protocol_cursor - 5) // Adjust cursor for FTE+ options
+		{
+		case 0: Cbuf_AddText("sv_protocol FTE+15\n"); break; // PROTOCOL_NETQUAKE with FTE extensions
+		case 1: Cbuf_AddText("sv_protocol FTE+666\n"); break; // PROTOCOL_FITZQUAKE with FTE extensions
+		case 2: Cbuf_AddText("sv_protocol FTE+999\n"); break; // PROTOCOL_RMQ with FTE extensions
+		case 3: Cbuf_AddText("sv_protocol FTE+10002\n"); break; // PROTOCOL_VERSION_BJP3 with FTE extensions
+		case 4: Cbuf_AddText("sv_protocol FTE+3504\n"); break; // PROTOCOL_VERSION_DP7 with FTE extensions
+		}
+	}
+}
+
+const char* GetProtocolDescription(int protocol_cursor)
+{
+	if (protocol_cursor < 5)
+	{
+		// Base protocols (no FTE extensions)
+		switch (protocol_cursor)
+		{
+		case 0: return "15 (netquake)";
+		case 1: return "666 (fitzquake)";
+		case 2: return "999 (rmq)";
+		case 3: return "10002 (bjp3)";
+		case 4: return "3504 (dp)";
+		default: return "Unknown";
+		}
+	}
+	else
+	{
+		// FTE+ protocols (with extensions)
+		switch (protocol_cursor - 5) // Adjust cursor for FTE+ options
+		{
+		case 0: return "FTE+15 (netquake+pext)";
+		case 1: return "FTE+666 (fitzquake+pext)";
+		case 2: return "FTE+999 (rmq+pext)";
+		case 3: return "FTE+10002 (bjp3+pext)";
+		case 4: return "FTE+3504 (dp+pext)";
+		default: return "Unknown";
+		}
+	}
+}
 
 void M_Menu_LanConfig_f (void)
 {
 	key_dest = key_menu;
 	m_state = m_lanconfig;
 	m_entersound = true;
+	
+	if (StartingGame)
+	{
+		// Use New Game configuration
+		lanConfig_cursor_ptr = lanConfig_cursor_table_newgame;
+		NUM_LANCONFIG_CMDS = NUM_LANCONFIG_CMDS_NEWGAME;
+		// Map sv_protocol to corresponding protocol cursor
+		switch (sv_protocol)
+		{
+		case 15:
+			lanConfig_protocol_cursor = 0; // PROTOCOL_NETQUAKE
+			break;
+		case 666:
+			lanConfig_protocol_cursor = 1; // PROTOCOL_FITZQUAKE
+			break;
+		case 999:
+			lanConfig_protocol_cursor = 2; // PROTOCOL_RMQ
+			break;
+		case 10002:
+			lanConfig_protocol_cursor = 3; // PROTOCOL_VERSION_BJP3
+			break;
+		case 3504:
+			lanConfig_protocol_cursor = 4; // PROTOCOL_VERSION_DP7
+			break;
+		default:
+			lanConfig_protocol_cursor = 0; // Default to base protocol if unknown
+			break;
+		}
+
+		// If FTE extensions are enabled, shift by 5 to reflect FTE+ versions
+		if (sv_protocol_pext2)
+		{
+			lanConfig_protocol_cursor += 5; // Shift to FTE+ versions
+		}
+	}
+	else
+	{
+		// Use Join Game configuration
+		lanConfig_cursor_ptr = lanConfig_cursor_table;
+		NUM_LANCONFIG_CMDS = NUM_LANCONFIG_CMDS_JOINGAME;
+	}
+
 	if (lanConfig_cursor == -1)
 	{
 		if (JoiningGame && TCPIPConfig)
@@ -3894,7 +4003,7 @@ void M_Menu_LanConfig_f (void)
 		else
 			lanConfig_cursor = 1;
 	}
-	if (StartingGame && lanConfig_cursor >= 2)
+	if (StartingGame && lanConfig_cursor >= 3)
 		lanConfig_cursor = 1;
 	lanConfig_port = DEFAULTnet_hostport;
 	sprintf(lanConfig_portname, "%u", lanConfig_port);
@@ -3913,7 +4022,7 @@ void M_LanConfig_Draw (void)
 	int		numaddresses;
 	qhostaddr_t addresses[16];
 	const char	*startJoin;
-	const char	*protocol;
+	//const char	*protocol;
 
 	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
 	p = Draw_CachePic ("gfx/p_multi.lmp");
@@ -3929,8 +4038,8 @@ void M_LanConfig_Draw (void)
 	/*if (IPXConfig) // woods #skipipx
 		protocol = "IPX";
 	else*/
-	protocol = "TCP/IP";
-	M_Print (basex, 32, va ("%s - %s", startJoin, protocol));
+	//protocol = "TCP/IP";
+	M_PrintWhite (basex, 32, va ("%s", startJoin));
 	basex += 8;
 
 	y = 52;
@@ -3939,12 +4048,12 @@ void M_LanConfig_Draw (void)
 	numaddresses = NET_ListAddresses(addresses, sizeof(addresses)/sizeof(addresses[0]));
 	if (!numaddresses)
 	{
-		M_Print (basex+9*8, y, "NONE KNOWN");
+		M_Print (basex+(9*8)+10, y, "NONE KNOWN");
 		y += 8;
 	}
 	else
 	{
-		M_Print (basex+9*8, y, addresses[0]);
+		M_Print (basex+(9*8)+10, y, addresses[0]);
 		y += 8;
 	}
 #else
@@ -3974,15 +4083,35 @@ void M_LanConfig_Draw (void)
 #endif
 
 	y+=8;	//for the port's box
-	M_Print (basex, y, "Port");
-	M_DrawTextBox (basex+8*8, y-8, 6, 1);
-	M_Print (basex+9*8, y, lanConfig_portname);
+	M_Print (basex, y, "Port:");
+	M_DrawTextBox (basex+8*10, y-8, 6, 1);
+	M_Print (basex+9*10, y, lanConfig_portname);
 	if (lanConfig_cursor == 0)
 	{
-		M_DrawCharacter (basex+9*8 + 8*strlen(lanConfig_portname), y, 10+((int)(realtime*4)&1));
-		M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
+		M_DrawCharacter (basex+9*10 + 8*strlen(lanConfig_portname), y, 10+((int)(realtime*4)&1));
+		M_DrawCharacter (basex-10, y, 12+((int)(realtime*4)&1));
 	}
-	y += 20;
+	y += 8;
+
+	if (StartingGame)
+	{
+		y += 8;
+		M_Print(basex, y, "Protocol:");
+
+
+		// Get the protocol description based on the current cursor value
+		const char* protocolDescription = GetProtocolDescription(lanConfig_protocol_cursor);
+
+		// Print the protocol description
+		M_Print(basex + 9 * 9 + 1, y, protocolDescription);
+
+		if (lanConfig_cursor == 1)
+		{
+			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
+		}
+
+		y += 16;
+	}
 
 	if (JoiningGame)
 	{
@@ -4021,7 +4150,7 @@ void M_LanConfig_Draw (void)
 	{
 		M_DrawTextBox (basex, y-8, 2, 1);
 		M_Print (basex+8, y, "OK");
-		if (lanConfig_cursor == 1)
+		if (lanConfig_cursor == 2)
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
 		y += 16;
 	}
@@ -4029,7 +4158,6 @@ void M_LanConfig_Draw (void)
 	if (*m_return_reason)
 		M_PrintWhite (basex, 148, m_return_reason);
 }
-
 
 void M_LanConfig_Key (int key)
 {
@@ -4045,17 +4173,61 @@ void M_LanConfig_Key (int key)
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound("misc/menu1.wav");
 		lanConfig_cursor--;
-		if (lanConfig_cursor < 0)
-			lanConfig_cursor = NUM_LANCONFIG_CMDS-1;
+
+		if (StartingGame) {
+			if (lanConfig_cursor < 0) {
+				lanConfig_cursor = NUM_LANCONFIG_CMDS_NEWGAME - 1;
+			}
+		}
+		else {
+			if (lanConfig_cursor < 0) {
+				lanConfig_cursor = NUM_LANCONFIG_CMDS_JOINGAME - 1;
+			}
+		}
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound("misc/menu1.wav");
 		lanConfig_cursor++;
-		if (lanConfig_cursor >= NUM_LANCONFIG_CMDS)
-			lanConfig_cursor = 0;
+
+		if (StartingGame) {
+			if (lanConfig_cursor >= NUM_LANCONFIG_CMDS_NEWGAME) {
+				lanConfig_cursor = 0;
+			}
+		}
+		else {
+			if (lanConfig_cursor >= NUM_LANCONFIG_CMDS_JOINGAME) {
+				lanConfig_cursor = 0;
+			}
+		}
+		break;
+
+	case K_MWHEELUP:
+	case K_LEFTARROW:
+		if (StartingGame && lanConfig_cursor == 1)
+		{
+			S_LocalSound("misc/menu1.wav");
+			lanConfig_protocol_cursor--;
+			if (lanConfig_protocol_cursor < 0)
+				lanConfig_protocol_cursor = 9; // Wrap around to the last protocol
+
+			SetProtocol(lanConfig_protocol_cursor);
+		}
+		break;
+
+	case K_MWHEELDOWN:
+	case K_RIGHTARROW:
+		if (StartingGame && lanConfig_cursor == 1)
+		{
+			S_LocalSound("misc/menu1.wav");
+			lanConfig_protocol_cursor++;
+			if (lanConfig_protocol_cursor > 9)
+				lanConfig_protocol_cursor = 0; // Wrap around to the first protocol
+
+			SetProtocol(lanConfig_protocol_cursor);
+		}
 		break;
 
 	case K_ENTER:
@@ -4071,8 +4243,18 @@ void M_LanConfig_Key (int key)
 
 		if (StartingGame)
 		{
+
 			if (lanConfig_cursor == 1)
-				M_Menu_GameOptions_f ();
+			{
+				S_LocalSound("misc/menu1.wav");
+				lanConfig_protocol_cursor++;
+				if (lanConfig_protocol_cursor > 9)
+					lanConfig_protocol_cursor = 0; // Wrap around to the first protocol
+
+				SetProtocol(lanConfig_protocol_cursor);
+			}
+			if (lanConfig_cursor == 2)
+				M_Menu_GameOptions_f();
 		}
 		else
 		{
@@ -4112,7 +4294,7 @@ void M_LanConfig_Key (int key)
 		break;
 	}
 
-	if (StartingGame && lanConfig_cursor >= 2)
+	if (StartingGame && lanConfig_cursor >= 3)
 	{
 		if (key == K_UPARROW)
 			lanConfig_cursor = 1;
@@ -4941,7 +5123,8 @@ qboolean M_LanConfig_TextEntry (void)
 
 void M_LanConfig_Mousemove(int cx, int cy) // woods #mousemenu
 {
-	M_UpdateCursorWithTable(cy, lanConfig_cursor_table, NUM_LANCONFIG_CMDS - StartingGame, &lanConfig_cursor);
+	int numCommands = StartingGame ? NUM_LANCONFIG_CMDS_NEWGAME : NUM_LANCONFIG_CMDS_JOINGAME;
+	M_UpdateCursorWithTable(cy, lanConfig_cursor_ptr, numCommands, &lanConfig_cursor);
 }
 
 //=============================================================================
