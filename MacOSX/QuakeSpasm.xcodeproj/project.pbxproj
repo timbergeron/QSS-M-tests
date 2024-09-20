@@ -112,6 +112,7 @@
 		85AC9B2C2A70521E00228EF3 /* pmove.c in Sources */ = {isa = PBXBuildFile; fileRef = 85AC9B2A2A70521E00228EF3 /* pmove.c */; };
 		85AC9B2D2A70521E00228EF3 /* pmovetst.c in Sources */ = {isa = PBXBuildFile; fileRef = 85AC9B2B2A70521E00228EF3 /* pmovetst.c */; };
 		85C58F442B9D79580010F658 /* json.c in Sources */ = {isa = PBXBuildFile; fileRef = 85C58F432B9D79580010F658 /* json.c */; };
+		85F640312C9E1EE300615B7F /* macos_instructions.html in CopyFiles */ = {isa = PBXBuildFile; fileRef = 85F640302C9E1EE300615B7F /* macos_instructions.html */; };
 		932AE8F92944103F0062F917 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 932AE8F3294410200062F917 /* libopus.a */; };
 		93B34FA22946BA0300FB5B72 /* libmad.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA02946BA0300FB5B72 /* libmad.a */; };
 		93B34FA32946BA0300FB5B72 /* libFLAC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 93B34FA12946BA0300FB5B72 /* libFLAC.a */; };
@@ -147,6 +148,7 @@
 			files = (
 				8558644E2B8421810016F8F6 /* qssm.pak in CopyFiles */,
 				668A0137277D80B0009D9427 /* Quakespasm-Spiked.txt in CopyFiles */,
+				85F640312C9E1EE300615B7F /* macos_instructions.html in CopyFiles */,
 				66991C071DBAB4A600C373C0 /* quakespasm.pak in CopyFiles */,
 				66991C081DBAB4A600C373C0 /* LICENSE.txt in CopyFiles */,
 				66991C091DBAB4A600C373C0 /* Quakespasm-Music.txt in CopyFiles */,
@@ -356,6 +358,7 @@
 		85C58F432B9D79580010F658 /* json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = json.c; path = ../Quake/json.c; sourceTree = "<group>"; };
 		85C58F452B9D79680010F658 /* json.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = json.h; path = ../Quake/json.h; sourceTree = SOURCE_ROOT; };
 		85C58F472B9D7AAB0010F658 /* jsmn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = jsmn.h; path = ../Quake/jsmn.h; sourceTree = SOURCE_ROOT; };
+		85F640302C9E1EE300615B7F /* macos_instructions.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = macos_instructions.html; path = ../Quake/macos_instructions.html; sourceTree = "<group>"; };
 		85F94F5A2A606C26005D9F52 /* libmad.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmad.a; path = libs_universal/libmad.a; sourceTree = "<group>"; };
 		85F94F5B2A606C31005D9F52 /* libFLAC.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libFLAC.a; path = libs_universal/libFLAC.a; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -774,6 +777,7 @@
 			children = (
 				66991C061DBAB48000C373C0 /* quakespasm.pak */,
 				8558644D2B8421770016F8F6 /* qssm.pak */,
+				85F640302C9E1EE300615B7F /* macos_instructions.html */,
 				66991C021DBAB47000C373C0 /* LICENSE.txt */,
 				66991C031DBAB47000C373C0 /* Quakespasm-Music.txt */,
 				668A0133277D8068009D9427 /* Quakespasm-Spiked.txt */,
