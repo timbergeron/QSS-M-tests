@@ -1755,7 +1755,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	entalpha = ENTALPHA_DECODE(e->alpha);
 	if (entalpha == 0) return;
 
-	if (r_shadows_groundcheck.value) // woods #shadow
+	if (r_shadows_groundcheck.value && e->model->flags & EF_ROTATE) // woods #shadow
 	{
 		if (!(e->shadow_state & SHADOW_COMPUTED))
 			GL_DrawAliasShadowCheck(e);
