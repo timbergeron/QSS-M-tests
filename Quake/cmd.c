@@ -455,6 +455,70 @@ void Cmd_Alias_f (void)
 }
 
 /*
+==============
+Alias_Edit_f -- woods #aliasedit
+
+Allows the user to edit an existing alias by placing the alias command
+into the console's edit line for modification.
+==============
+*/
+void Alias_Edit_f (void)
+{
+	int argc = Cmd_Argc();
+
+	if (argc < 2)
+	{
+		Con_Printf("\nusage:\n");
+		Con_Printf("  %s <alias>\n\n", Cmd_Argv(0));
+		return;
+	}
+
+	const char* alias_name = Cmd_Argv(1);
+
+	cmdalias_t* current_alias = cmd_alias;
+	while (current_alias != NULL)
+	{
+		if (strcmp(alias_name, current_alias->name) == 0)
+		{
+			break; // Alias found
+		}
+		current_alias = current_alias->next;
+	}
+
+	if (current_alias == NULL)
+	{
+		Con_Printf("\nno alias named \"%s\" found\n\n", alias_name);
+		return;
+	}
+
+	char alias_value_cleaned[MAXCMDLINE]; // Prepare a buffer to store the cleaned alias value
+
+	q_snprintf(alias_value_cleaned, sizeof(alias_value_cleaned), "%s", current_alias->value);
+
+	size_t alias_len = strlen(alias_value_cleaned); // Remove the trailing newline character if present
+	if (alias_len > 0 && alias_value_cleaned[alias_len - 1] == '\n')
+		alias_value_cleaned[alias_len - 1] = '\0';
+
+	char final_command[MAXCMDLINE]; // Construct the alias command string without the newline
+	q_snprintf(final_command, sizeof(final_command), "alias \"%s\" \"%s\"", alias_name, alias_value_cleaned);
+
+	if (edit_line < 0 || (size_t)edit_line >= CMDLINES) // Validate the edit_line index
+
+	{
+		Con_Printf("edit line index (%d) is out of bounds. valid range is 0 to %d.\n", edit_line, CMDLINES - 1);
+		return;
+	}
+
+	// Initialize the edit line with the prompt character ']'
+	key_lines[edit_line][0] = ']';
+	key_lines[edit_line][1] = '\0';
+
+	q_snprintf(key_lines[edit_line] + 1, sizeof(key_lines[edit_line]) - 1, "%s", final_command);
+
+	key_linepos = strlen(key_lines[edit_line]); // Update the cursor position to the end of the line
+}
+
+/*
 ===============
 Cmd_Unalias_f -- johnfitz
 ===============
@@ -964,6 +1028,7 @@ void Cmd_Init (void)
 	Cmd_AddCommand ("exec",Cmd_Exec_f);
 	Cmd_AddCommand ("echo",Cmd_Echo_f);
 	Cmd_AddCommand ("alias",Cmd_Alias_f);
+	Cmd_AddCommand ("aliasedit", Alias_Edit_f); // woods #aliaslist
 	Cmd_AddCommand ("cmd", Cmd_ForwardToServer);
 	Cmd_AddCommand ("wait", Cmd_Wait_f);
 
