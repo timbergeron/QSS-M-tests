@@ -1396,6 +1396,52 @@ void Key_Bindlist_f (void)
 }
 
 /*
+============
+Key_EditBind_f -- woods #editbind
+============
+*/
+void Key_EditBind_f (void)
+{
+	int argc = Cmd_Argc();
+
+	if (argc < 2) {
+		Con_Printf("\n%s <key> : modify a bind\n", Cmd_Argv(0));
+		Con_Printf("bindlist : list all binds\n\n");
+		return;
+	}
+
+	// Determine if a bindmap is specified
+	int keyarg = 1;
+	int bindmap = 0;
+
+	// Convert key string to keynum
+	int keynum = Key_StringToKeynum(Cmd_Argv(keyarg));
+	if (keynum == -1) 
+	{
+		Con_Printf("\"%s\" isn't a valid key\n\n", Cmd_Argv(keyarg));
+		return;
+	}
+
+	const char* keybinding = (keybindings[bindmap][keynum] ? keybindings[bindmap][keynum] : ""); // Retrieve the current binding for the key
+
+	char final_string[MAXCMDLINE]; 	// Construct the bind command string
+	q_snprintf(final_string, sizeof(final_string), "bind \"%s\" \"%s\"", Cmd_Argv(keyarg), keybinding);
+
+	if (edit_line < 0 || edit_line >= CMDLINES) // Ensure edit_line is within bounds
+	{
+		Con_Printf("\nedit line index out of bounds.\n\n");
+		return;
+	}
+
+	key_lines[edit_line][0] = ']'; // Prompt character
+	key_lines[edit_line][1] = '\0'; // Null terminate
+
+	q_snprintf(key_lines[edit_line] + 1, MAXCMDLINE - 1, "%s", final_string);
+
+	key_linepos = (int)strlen(key_lines[edit_line]); // Set key_linepos to the end of the line
+}
+
+/*
 ===================
 Key_Bind_f
 ===================
@@ -1643,6 +1689,7 @@ void Key_Init (void)
 //
 	Cmd_AddCommand ("bindlist",Key_Bindlist_f); //johnfitz
 	Cmd_AddCommand ("bind",Key_Bind_f);
+	Cmd_AddCommand ("bindedit", Key_EditBind_f); // woods #editbind
 	Cmd_AddCommand ("unbind",Key_Unbind_f);
 	Cmd_AddCommand ("unbindall",Key_Unbindall_f);
 
