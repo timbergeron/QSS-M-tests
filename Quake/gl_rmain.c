@@ -216,6 +216,7 @@ void GLSLGamma_GammaCorrect (void)
 {
 	int tw=glwidth,th=glheight;
 	float smax, tmax;
+	float gamma_value; // woods #gammaclamp
 
 	if (!gl_glsl_gamma_able)
 		return;
@@ -257,12 +258,14 @@ void GLSLGamma_GammaCorrect (void)
 		}
 	}
 
+	gamma_value = q_min(GAMMA_MAX, q_max(GAMMA_MIN-.3, vid_gamma.value)); // woods #gammaclamp
+
 // copy the framebuffer to the texture
 	glCopyTexSubImage2D (GL_TEXTURE_2D, 0, 0, 0, glx, gly, glwidth, glheight);
 
 // draw the texture back to the framebuffer with a fragment shader
 	GL_UseProgramFunc (r_gamma_program);
-	GL_Uniform1fFunc (gammaLoc, vid_gamma.value);
+	GL_Uniform1fFunc (gammaLoc, gamma_value); // woods #gammaclamp
 	GL_Uniform1fFunc (contrastLoc, q_min(2.0f, q_max(1.0f, vid_contrast.value)));
 	GL_Uniform1iFunc (textureLoc, 0); // use texture unit 0
 

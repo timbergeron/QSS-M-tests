@@ -217,6 +217,9 @@ static void VID_Gamma_SetGamma (void)
 		else
 			value = GAMMA_MAX;
 
+		if (value < GAMMA_MIN) // woods #gammaclamp
+			value = GAMMA_MIN;
+
 #if defined(USE_SDL2)
 # if USE_GAMMA_RAMPS
 		if (SDL_SetWindowGammaRamp(draw_context, vid_gamma_red, vid_gamma_green, vid_gamma_blue) != 0)

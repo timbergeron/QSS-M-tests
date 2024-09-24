@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define VID_GRADES	(1 << VID_CBITS)
 
 #define GAMMA_MAX	3.0
+#define GAMMA_MIN	0.5 // woods #gammaclamp
 
 // moved here for global use -- kristian
 typedef enum { MS_UNINIT, MS_WINDOWED, MS_FULLSCREEN } modestate_t;
