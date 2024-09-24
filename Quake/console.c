@@ -1426,6 +1426,22 @@ static qboolean CompleteBindKeys (const char* partial, void* unused) // woods #i
 	return true;
 }
 
+static qboolean CompleteBoundKeys(const char* partial, void* unused)
+{
+	if (Cmd_Argc() > 2) return false;
+
+	for (int i = 0; i < MAX_KEYS; i++)
+	{
+		char* keybindingValue = keybindings[0][i];
+		
+		if (keybindings[i] && keybindingValue) // Only process keys that have a binding
+		{
+			ProcessKeyBinding(i, partial);
+		}
+	}
+	return true;
+}
+
 static qboolean CompleteUnbindKeys (const char* partial, void* unused) // woods #iwtabcomplete
 {
 	for (int i = 0; i < MAX_KEYS; i++)
@@ -1440,6 +1456,33 @@ static qboolean CompleteViewpos (const char* partial, void* unused) // woods
 	if (Cmd_Argc() != 2)
 		return false;
 	Con_AddToTabList("copy", partial, NULL, NULL); // #demolistsort add arg
+
+	return true;
+}
+
+static qboolean CompleteSetpos(const char* partial, void* unused) // woods
+{
+	if (Cmd_Argc() != 2)
+		return false;
+	
+	extern qboolean has_last_viewpos;
+
+	if (has_last_viewpos)
+		Con_AddToTabList("last", partial, NULL, NULL); // #demolistsort add arg
+
+	return true;
+}
+
+static qboolean CompleteAliasEditList(const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cmdalias_t* alias;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	// Start from the first alias in the linked list
+	for (alias = cmd_alias; alias; alias = alias->next)
+		Con_AddToTabList(alias->name, partial, "alias", NULL); // #demolistsort add arg
 
 	return true;
 }
@@ -1638,8 +1681,10 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "imagelist",				CompleteImageList,		NULL },
 	{ "imagedump",				CompleteImageList,		NULL },
 	{ "bind",					CompleteBindKeys,		NULL },
+	{ "bindedit",				CompleteBoundKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
 	{ "viewpos",				CompleteViewpos,		NULL },
+	{ "setpos",					CompleteSetpos,			NULL },
 	{ "reset",					CompleteCvarList,		NULL },
 	{ "toggle",					CompleteCvarList,		NULL },
 	{ "cycle",					CompleteCvarList,		NULL },
@@ -1655,6 +1700,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "sv_protocol",			CompleteProtocols,		NULL },
 	{ "saveloc",				CompleteCurrentMap,		NULL },
 	{ "addloc",					CompleteAddLoc,			NULL },
+	{ "aliasedit",				CompleteAliasEditList,	NULL },
 };
 
 static const int num_arg_completion_types =
