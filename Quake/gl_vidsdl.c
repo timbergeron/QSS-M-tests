@@ -1757,7 +1757,8 @@ void	VID_Init (void)
 					 "vid_desktopfullscreen",
 					 "vid_borderless",
 					 "gl_load24bit",	//including this here so we don't start up to the wrong setting.
-					 "gl_load24bit_hud" // woods #24bithud
+					 "gl_load24bit_hud", // woods #24bithud
+					 "scr_concolor" // woods #concolor
 					 };
 #define num_readvars	( sizeof(read_vars)/sizeof(read_vars[0]) )
 

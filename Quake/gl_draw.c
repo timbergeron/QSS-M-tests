@@ -980,26 +980,43 @@ void Draw_TransPicTranslate (int x, int y, qpic_t *pic, plcolour_t top, plcolour
 	Draw_Pic (x, y, pic);
 }
 
+extern cvar_t scr_concolor; // woods #concolor
+
 /*
 ================
-Draw_ConsoleBackground -- johnfitz -- rewritten
+Draw_ConsoleBackground -- johnfitz -- rewritten -- woods #concolor
 ================
 */
 void Draw_ConsoleBackground (void)
 {
 	qpic_t *pic;
 	float alpha;
+	plcolour_t conback_color;
+	const char* conback_str = scr_concolor.string;
 
-	pic = Draw_CachePic ("gfx/conback.lmp");
-	pic->width = vid.conwidth;
-	pic->height = vid.conheight;
+	// Parse the scr_conback cvar
+	conback_color = CL_PLColours_Parse(conback_str);
+
+	// Determine if the default background image should be used
+	int use_default = (conback_color.type == 0 ||
+		(conback_color.type == 2 &&
+			conback_color.rgb[0] == 0xFF &&
+			conback_color.rgb[1] == 0xFF &&
+			conback_color.rgb[2] == 0xFF));
+
+	GL_SetCanvas (CANVAS_CONSOLE); // Ensure we're drawing on the console canvas
 
 	alpha = (con_forcedup) ? 1.0f : scr_conalpha.value;
 
-	GL_SetCanvas (CANVAS_CONSOLE); //in case this is called from weird places
+	if (alpha <= 0.0f)
+		return; // Nothing to draw
 
-	if (alpha > 0.0f)
+	if (use_default) // Use the default background image
 	{
+		pic = Draw_CachePic ("gfx/conback.lmp");
+		pic->width = vid.conwidth;
+		pic->height = vid.conheight;
+
 		if (alpha < 1.0f)
 		{
 			if (premul_hud)
@@ -1027,8 +1044,41 @@ void Draw_ConsoleBackground (void)
 			glColor4f (1,1,1,1);
 		}
 	}
-}
+	else
+	{
+		byte* rgb = CL_PLColours_ToRGB(&conback_color); // Render a solid color background based on scr_conback
+		float r, g, b;
 
+		if (rgb)
+		{
+			r = rgb[0] / 255.0f;
+			g = rgb[1] / 255.0f;
+			b = rgb[2] / 255.0f;
+		}
+		else
+			r = g = b = 1.0f; // Fallback to white if RGB is not available
+
+		// Set the color with alpha
+		glColor4f(r, g, b, alpha);
+
+		// Enable blending for transparency
+		glEnable (GL_BLEND);
+		glDisable(GL_TEXTURE_2D); // Disable texture rendering
+
+		// Draw a filled quad covering the console area
+		glBegin(GL_QUADS);
+		glVertex2f(0, 0);
+		glVertex2f(vid.conwidth, 0);
+		glVertex2f(vid.conwidth, vid.conheight);
+		glVertex2f(0, vid.conheight);
+		glEnd();
+
+		// Reset OpenGL states
+		glEnable(GL_TEXTURE_2D); // Re-enable textures
+		glDisable(GL_BLEND);
+		glColor4f(1, 1, 1, 1); // Reset color
+	}
+}
 
 /*
 =============

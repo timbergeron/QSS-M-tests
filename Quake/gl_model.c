@@ -54,6 +54,8 @@ cvar_t gl_load24bit_skins = {"gl_load24bit_skins", "0", CVAR_ARCHIVE }; // woods
 cvar_t gl_load24bit_hud = {"gl_load24bit_hud", "1", CVAR_ARCHIVE}; // woods #24bithud
 void Cache_Flush_f (cvar_t* var); // woods #loadskins
 
+cvar_t	scr_concolor = {"scr_concolor", "", CVAR_ARCHIVE}; // woods #concolor
+
 extern cvar_t	r_fastturb; // woods #fastturb
 
 static byte	*mod_novis;
@@ -89,6 +91,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&gl_load24bit_hud); // woods #24bithud
 	Cvar_RegisterVariable (&mod_lightscale_broken);
 	Cvar_RegisterVariable (&mod_lightgrid);
+	Cvar_RegisterVariable (&scr_concolor); // woods #concolor
 
 	Cmd_AddCommand ("mcache", Mod_Print);
 
