@@ -2912,6 +2912,51 @@ void SCR_ScreenShot_Clipboard_f(void)
 }
 #endif
 
+#ifdef __APPLE__
+static void FlipBuffer(byte* buffer, const int columns, const int rows, const int BytesPerPixel) {
+	int bufsize = columns * BytesPerPixel;
+	byte* temp = malloc(bufsize);
+	if (!temp) return;  // Handle allocation failure
+
+	for (int i = 0; i < rows / 2; i++) {
+		byte* row1 = buffer + i * bufsize;
+		byte* row2 = buffer + (rows - 1 - i) * bufsize;
+
+		memcpy(temp, row1, bufsize);
+		memcpy(row1, row2, bufsize);
+		memcpy(row2, temp, bufsize);
+	}
+
+	free(temp);
+}
+
+void SCR_ScreenShot_Clipboard_f(void) {
+	int width = glwidth;    // Replace with your OpenGL viewport width
+	int height = glheight;  // Replace with your OpenGL viewport height
+	int buffersize = width * height * 4; // 4 bytes per pixel
+
+	byte* buffer = malloc(buffersize);
+	if (!buffer) {
+		// Handle allocation failure
+		fprintf(stderr, "Failed to allocate memory for screenshot buffer.\n");
+		return;
+	}
+
+	// Get data from OpenGL buffer
+	glReadPixels(glx, gly, width, height, GL_BGRA, GL_UNSIGNED_BYTE, buffer);
+
+	// Flip the image vertically
+	FlipBuffer(buffer, width, height, 4 /* bytes per pixel */);
+
+	// Copy the image buffer to the clipboard
+	Sys_Image_BGRA_To_Clipboard(buffer, width, height, buffersize);
+
+	//Con_Printf("\nscreenshot copied to clipboard\n");
+
+	free(buffer);
+}
+#endif
+
 static void SCR_ScreenShot_Usage (void)
 {
 	Con_Printf ("usage: screenshot <format> <quality>\n");
@@ -3009,7 +3054,7 @@ void SCR_ScreenShot_f (void)
 	else
 		Con_Printf ("SCR_ScreenShot_f: Couldn't create %s\n", imagename);
 
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__APPLE__)
 	SCR_ScreenShot_Clipboard_f();	// woods #screenshotcopy
 #endif
 
