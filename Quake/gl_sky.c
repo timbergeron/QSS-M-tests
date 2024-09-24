@@ -42,6 +42,7 @@ vec4_t skyroom_origin;
 vec4_t skyroom_orientation;
 
 char	skybox_name[1024]; //name of current skybox, or "" if no skybox
+qboolean externalskyloaded; // woods #fastsky2
 
 gltexture_t	*skybox_textures[6];
 gltexture_t	*solidskytexture, *alphaskytexture;
@@ -266,6 +267,7 @@ qboolean Sky_LoadExternalTextures (qmodel_t* mod, texture_t* mt)
 		if (malloced_back) free(back_data);
 		if (malloced_front) free(front_data);
 		Hunk_FreeToLowMark(mark);
+		externalskyloaded = true; // #fastsky2
 		return true; // success: both textures loaded
 	}
 
@@ -273,6 +275,7 @@ qboolean Sky_LoadExternalTextures (qmodel_t* mod, texture_t* mt)
 	if (malloced_front) free(front_data);
 	Hunk_FreeToLowMark(mark);
 
+	externalskyloaded = false; // #fastsky2
 	return false;
 }
 
