@@ -2304,6 +2304,10 @@ void CL_Tracepos_f (void)
 		Con_Printf ("Tracepos: (%i %i %i)\n", (int)w[0], (int)w[1], (int)w[2]);
 }
 
+vec3_t last_viewpos; // woods #setlast
+vec3_t last_viewangles; // woods #setlast
+qboolean has_last_viewpos; // woods #setlast
+
 /*
 =============
 CL_Viewpos_f -- johnfitz
@@ -2338,6 +2342,11 @@ void CL_Viewpos_f (void)
 		(int)cl.viewangles[ROLL]
 	);
 #endif
+
+	VectorCopy(cl.entities[cl.viewentity].origin, last_viewpos); // woods #setlast
+	VectorCopy(cl.viewangles, last_viewangles); // woods #setlast
+	has_last_viewpos = true; // woods #setlast
+
 	Con_Printf ("Viewpos: %s\n", buf);
 
 	if (Cmd_Argc () >= 2 && !q_strcasecmp (Cmd_Argv (1), "copy"))

@@ -1527,6 +1527,8 @@ static void Host_Noclip_f (void)
 	//johnfitz
 }
 
+#define VectorClear(v) ((v)[0] = (v)[1] = (v)[2] = 0) // woods #setlast
+
 /*
 ====================
 Host_SetPos_f
@@ -1544,6 +1546,28 @@ static void Host_SetPos_f(void)
 
 	if (pr_global_struct->deathmatch)
 		return;
+
+	extern vec3_t last_viewpos; // woods #setlast
+	extern vec3_t last_viewangles; // woods  #setlast
+	extern qboolean has_last_viewpos; // woods #setlast
+
+	if (Cmd_Argc() == 2 && !q_strcasecmp(Cmd_Argv(1), "last")) // woods #setlast
+	{
+		if (!has_last_viewpos)
+		{
+			SV_ClientPrintf("\nno previous viewpos available\n\n");
+			return;
+		}
+
+		VectorCopy(last_viewpos, sv_player->v.origin);
+		VectorCopy(last_viewangles, sv_player->v.angles);
+		sv_player->v.fixangle = 1;
+
+		VectorClear(sv_player->v.velocity);
+
+		SV_LinkEdict(sv_player, false);
+		return;
+	}
 
 	if (Cmd_Argc() != 7 && Cmd_Argc() != 4)
 	{
