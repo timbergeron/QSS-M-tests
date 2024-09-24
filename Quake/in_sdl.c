@@ -876,6 +876,12 @@ void IN_JoyMove (usercmd_t *cmd)
 #endif
 }
 
+#ifdef __APPLE__ // woods
+#define MOUSE_PLATFORM_SCALE 2.0f
+#else
+#define MOUSE_PLATFORM_SCALE 1.0f
+#endif
+
 void IN_MouseMove(usercmd_t *cmd)
 {
 	float	dmx, dmy;
@@ -884,8 +890,8 @@ void IN_MouseMove(usercmd_t *cmd)
 	sens = tan(DEG2RAD(r_refdef.basefov) * 0.5f) / tan(DEG2RAD(scr_fov.value) * 0.5f); // woods #zoom (ironwail)
 	sens *= sensitivity.value; // woods #zoom (ironwail)
 
-	dmx = total_dx * sens; // woods #zoom (ironwail)
-	dmy = total_dy * sens; // woods #zoom (ironwail)
+	dmx = total_dx * sens * MOUSE_PLATFORM_SCALE; // woods #zoom (ironwail)
+	dmy = total_dy * sens * MOUSE_PLATFORM_SCALE; // woods #zoom (ironwail)
 
 	total_dx = 0;
 	total_dy = 0;
