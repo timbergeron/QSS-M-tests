@@ -1501,6 +1501,23 @@ static qboolean CompleteCvarList (const char* partial, void* unused) // woods #i
 	return true;
 }
 
+static qboolean CompleteCvarArcList(const char* partial, void* unused) // woods #iwtabcomplete
+{
+	cvar_t* cvar;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	cvar = Cvar_FindVarAfter("", CVAR_NONE);
+	for (; cvar; cvar = cvar->next)
+	{
+		if (!(cvar->flags & CVAR_ARCHIVE))
+			Con_AddToTabList(cvar->name, partial, "cvar", NULL);
+	}
+
+	return true;
+}
+
 static qboolean CompleteCommandList (const char* partial, void* unused) // woods #iwtabcomplete
 {
 	cmd_function_t* cmd;
@@ -1688,8 +1705,8 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "reset",					CompleteCvarList,		NULL },
 	{ "toggle",					CompleteCvarList,		NULL },
 	{ "cycle",					CompleteCvarList,		NULL },
-	{ "set",					CompleteCvarList,		NULL },
-	{ "seta",					CompleteCvarList,		NULL },
+	{ "set",					CompleteCvarArcList,	NULL },
+	{ "seta",					CompleteCvarArcList,	NULL },
 	{ "cmdtoggle",				CompleteCommandList,	NULL },
 	{ "if",						CompleteIfList,			NULL },
 	{ "play",					CompleteSoundList,		NULL },
