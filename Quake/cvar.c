@@ -136,6 +136,13 @@ void Cvar_Set_f (void)
 		return;
 	}
 	var = Cvar_Create(varname, varvalue);
+
+	if (!var) // woods -- check if Cvar_Create failed (returned nullptr)
+	{
+		Con_Printf("failed to create cvar \"%s\"", varname);
+		return;
+	}
+
 	Cvar_SetQuick(var, varvalue);
 
 	if (!strcmp(Cmd_Argv(0), "seta"))
