@@ -5662,6 +5662,8 @@ void M_Search_Key (int key)
 // woods #serversmenu #icmp
 
 #define MAX_VIS_SERVERS 18
+#define PING_COOLDOWN 2.0
+#define MAX_PING_QUEUE 5
 
 typedef struct {
 	const char* name;
@@ -5671,6 +5673,8 @@ typedef struct {
 	const char* map;
 	int ping;
 	qboolean active;
+	double lastPingTime;
+	qboolean isLoading;  // New flag to indicate loading state
 } servertitem_t;
 
 static struct {
@@ -5685,6 +5689,11 @@ static struct {
 	int slist_first;
 	int sorted;
 	SDL_Thread* pingThreads[2];
+	qboolean initialPingComplete;
+	int pingQueue[MAX_PING_QUEUE];
+	int pingQueueSize;
+	qboolean pingThreadRunning;
+	SDL_Thread* pingThread;
 } serversmenu;
 
 //=============================================================================
@@ -5709,6 +5718,104 @@ void CleanupPingMutex(void)
 	if (pingMutex != NULL) {
 		SDL_DestroyMutex(pingMutex);
 		pingMutex = NULL;
+	}
+}
+
+void PingSingleServer(int index)
+{
+	if (index < 0 || index >= serversmenu.servercount)
+		return;
+
+	SDL_LockMutex(pingMutex);
+	const char* serverIP = COM_StripPort(serversmenu.items[index].ip);
+	int previousPing = serversmenu.items[index].ping;
+	serversmenu.items[index].isLoading = true;  // Set loading flag
+	SDL_UnlockMutex(pingMutex);
+
+	int ping = ICMP_Ping_Host(serverIP);
+
+	SDL_LockMutex(pingMutex);
+	if (ping >= 0) {
+		serversmenu.items[index].ping = ping;
+	}
+	else if (previousPing >= 0) {
+		serversmenu.items[index].ping = previousPing;
+	}
+	else {
+		serversmenu.items[index].ping = -1;  // -1 indicates "failed"
+	}
+	serversmenu.items[index].isLoading = false;  // Clear loading flag
+	SDL_UnlockMutex(pingMutex);
+
+	free((void*)serverIP);
+}
+
+int ProcessPingQueue(void* data)
+{
+	while (!pingThreadsShouldExit)
+	{
+		int serverIndex = -1;
+
+		SDL_LockMutex(pingMutex);
+		if (serversmenu.pingQueueSize > 0)
+		{
+			serverIndex = serversmenu.pingQueue[0];
+			for (int i = 0; i < serversmenu.pingQueueSize - 1; i++)
+				serversmenu.pingQueue[i] = serversmenu.pingQueue[i + 1];
+			serversmenu.pingQueueSize--;
+		}
+		SDL_UnlockMutex(pingMutex);
+
+		if (serverIndex != -1)
+			PingSingleServer(serverIndex);
+		else
+			SDL_Delay(10);  // Short delay to prevent busy-waiting
+	}
+
+	SDL_LockMutex(pingMutex);
+	serversmenu.pingThreadRunning = false;
+	SDL_UnlockMutex(pingMutex);
+
+	return 0;
+}
+
+int PingSingleServerThread(void* data)
+{
+	int index = (int)(intptr_t)data;
+	PingSingleServer(index);
+	return 0;
+}
+
+void TriggerServerPing(int index)
+{
+	SDL_LockMutex(pingMutex);
+	qboolean canPing = serversmenu.initialPingComplete;
+	SDL_UnlockMutex(pingMutex);
+
+	if (!canPing)
+		return;
+
+	if (index >= 0 && index < serversmenu.servercount)
+	{
+		double currentTime = Sys_DoubleTime();
+		if (currentTime - serversmenu.items[index].lastPingTime >= PING_COOLDOWN)
+		{
+			SDL_LockMutex(pingMutex);
+			if (serversmenu.pingQueueSize < MAX_PING_QUEUE)
+			{
+				serversmenu.pingQueue[serversmenu.pingQueueSize++] = index;
+				serversmenu.items[index].lastPingTime = currentTime;
+			}
+			if (!serversmenu.pingThreadRunning)
+			{
+				serversmenu.pingThread = SDL_CreateThread(ProcessPingQueue, "PingQueueThread", NULL);
+				if (serversmenu.pingThread == NULL)
+					Con_DPrintf("SDL_CreateThread failed: %s\n", SDL_GetError());
+				else
+					serversmenu.pingThreadRunning = true;
+			}
+			SDL_UnlockMutex(pingMutex);
+		}
 	}
 }
 
@@ -5747,6 +5854,12 @@ int PingServers(void* data)
 	}
 
 	free(data);
+
+	// Check if this is the last thread to finish
+	SDL_LockMutex(pingMutex);
+	serversmenu.initialPingComplete = true;
+	SDL_UnlockMutex(pingMutex);
+
 	return 0;
 }
 
@@ -5760,6 +5873,10 @@ void WaitForPingThreads(SDL_Thread* thread1, SDL_Thread* thread2)
 		SDL_WaitThread(thread2, NULL);
 
 	pingThreadsShouldExit = false; // Reset the exit flag
+
+	SDL_LockMutex(pingMutex);
+	serversmenu.initialPingComplete = true;
+	SDL_UnlockMutex(pingMutex);
 }
 
 void PingAllServers(void)
@@ -5993,6 +6110,7 @@ void FetchAndSortServers (void)
 			serversmenu.items[actualServerCount].map = strdup(map);
 			serversmenu.items[actualServerCount].active = true;
 			serversmenu.items[actualServerCount].ping = -1;
+			serversmenu.items[actualServerCount].isLoading = false;
 
 			actualServerCount++;
 		}
@@ -6027,6 +6145,10 @@ void M_Menu_ServerList_f (void)
 	serversmenu.list.numitems = 0;
 	serversmenu.servercount = 0;
 	serversmenu.scrollbar_grab = false;
+	serversmenu.initialPingComplete = false;
+	serversmenu.pingQueueSize = 0;
+	serversmenu.pingThreadRunning = false;
+	pingThreadsShouldExit = false;
 
 	FetchAndSortServers();
 	InitializePingMutex();
@@ -6092,6 +6214,8 @@ void M_ServerList_Draw (void)
 
 		if (serversmenu.items[idx].ping == -1)
 			pingStr[0] = '\0';
+		else if (serversmenu.items[idx].isLoading)
+			q_snprintf(pingStr, sizeof(pingStr), "%3i", serversmenu.items[idx].ping);	
 		else 
 			q_snprintf(pingStr, sizeof(pingStr), "%3i", serversmenu.items[idx].ping);
 
@@ -6131,10 +6255,25 @@ qboolean M_Servers_Match(int index, char initial)
 	return q_tolower(serversmenu.items[index].name[0]) == initial;
 }
 
+void CleanupPingThreads()
+{
+	WaitForPingThreads(serversmenu.pingThreads[0], serversmenu.pingThreads[1]);
+
+	if (!serversmenu.pingThreadRunning)
+	{
+		pingThreadsShouldExit = true;
+		if (serversmenu.pingThread)
+			SDL_WaitThread(serversmenu.pingThread, NULL);
+	}
+
+	CleanupPingMutex();
+}
+
 void M_ServerList_Key(int key)
 {
 
 	int x, y; // woods #mousemenu
+	int prev_cursor = serversmenu.list.cursor;
 
 	if (serversmenu.scrollbar_grab)
 	{
@@ -6151,10 +6290,19 @@ void M_ServerList_Key(int key)
 	}
 
 	if (M_List_Key(&serversmenu.list, key))
+	{
+		if (serversmenu.list.cursor != prev_cursor)
+			TriggerServerPing(serversmenu.list.cursor);
+	
 		return;
+	}
 
-	if (M_List_CycleMatch(&serversmenu.list, key, M_Servers_Match))
-		return;
+		if (M_List_CycleMatch(&serversmenu.list, key, M_Servers_Match))
+		{
+			if (serversmenu.list.cursor != prev_cursor)
+				TriggerServerPing(serversmenu.list.cursor);
+			return;
+		}
 
 	if (M_Ticker_Key(&serversmenu.ticker, key))
 		return;
@@ -6165,9 +6313,8 @@ void M_ServerList_Key(int key)
 	case K_BBUTTON:
 	case K_MOUSE4: // woods #mousemenu
 	case K_MOUSE2:
-		WaitForPingThreads(serversmenu.pingThreads[0], serversmenu.pingThreads[1]);
+		CleanupPingThreads();
 		M_Menu_LanConfig_f();
-		CleanupPingMutex();
 		break;
 
 	case K_ENTER:
@@ -6180,6 +6327,7 @@ void M_ServerList_Key(int key)
 		m_state = m_none;
 		IN_UpdateGrabs();
 		Cbuf_AddText(va("connect \"%s\"\n", serversmenu.items[serversmenu.list.cursor].ip));
+		CleanupPingThreads();
 		break;
 
 	case K_MOUSE1: // woods #mousemenu
@@ -6197,6 +6345,7 @@ void M_ServerList_Key(int key)
 
 void M_ServerList_Mousemove(int cx, int cy) // woods
 {
+	int prev_cursor = serversmenu.list.cursor;
 	cy -= serversmenu.y;
 
 	if (serversmenu.scrollbar_grab)
@@ -6211,6 +6360,9 @@ void M_ServerList_Mousemove(int cx, int cy) // woods
 	}
 
 	M_List_Mousemove(&serversmenu.list, cy);
+
+	if (serversmenu.list.cursor != prev_cursor)
+		TriggerServerPing(serversmenu.list.cursor);
 }
 
 //=============================================================================
