@@ -52,6 +52,8 @@ void BGM_Resume(void); // woods #mute - music
 void Host_Name_Backup_f(void); // woods #smartafk
 void Host_Name_Load_Backup_f(void); // woods #smartafk
 
+qboolean IsOneVsOneMatch (void); // woods #detectmatch
+
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
 #define MACOS_X_ACCELERATION_HACK
@@ -1249,7 +1251,7 @@ void IN_SendKeyEvents (void)
 				}
 
 				// be polite during matches (only) and let teammates know you have alt-tabbed
-				if (cl.notobserver && cl.matchinp && cl.teamcolor[0])
+				if (cl.notobserver && cl.matchinp && cl.teamcolor[0] && !IsOneVsOneMatch())
 					Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 			}
 
@@ -1283,7 +1285,7 @@ void IN_SendKeyEvents (void)
 				}
 
 				// be polite during matches (only) and let teammates know you have alt-tabbed
-				if (cl.notobserver && cl.matchinp && cl.teamcolor[0])
+				if (cl.notobserver && cl.matchinp && cl.teamcolor[0] && !IsOneVsOneMatch())
 					Cmd_ExecuteString("say_team alt-tabbed", src_command);
 			}
 

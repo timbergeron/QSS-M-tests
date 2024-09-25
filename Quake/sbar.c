@@ -1235,6 +1235,40 @@ void Sbar_DrawInventory_QE (void)
 //=============================================================================
 
 /*===============
+IsOneVsOneMatch -- detect if match is 1v1 match #detectmatch
+============== */
+qboolean IsOneVsOneMatch (void)
+{
+	const int TEAM_RED = 4;
+	const int TEAM_BLUE = 13;
+
+	int redTeamCount = 0;
+	int blueTeamCount = 0;
+
+	for (int i = 0; i < scoreboardlines; i++)
+	{
+		int playerIndex = fragsort[i];
+		scoreboard_t* score = &cl.scores[playerIndex];
+
+		if (score->name[0] == '\0') // Skip entries with empty names
+			continue;
+
+		if (score->pants.basic == TEAM_RED) // Count players based on their team
+		{
+			redTeamCount++;
+		}
+		else if (score->pants.basic == TEAM_BLUE)
+		{
+			blueTeamCount++;
+		}
+	}
+
+	int totalTeamPlayers = redTeamCount + blueTeamCount;
+
+	return (totalTeamPlayers <= 2); // accounts for scenarios where a player might leave
+}
+
+/*===============
 Sbar_DrawFrags -- for proquake, HEAVILY modified (draws match time, and teamscores) replace this entire function // woods #pqteam
 ============== */
 void Sbar_DrawFrags(void)
@@ -2422,4 +2456,3 @@ void Sbar_FinaleOverlay (void)
 	pic = Draw_CachePic ("gfx/finale.lmp");
 	Draw_Pic ( (320 - pic->width)/2, 16, pic); //johnfitz -- stretched menus
 }
-
