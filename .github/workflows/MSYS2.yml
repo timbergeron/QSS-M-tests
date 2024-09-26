@@ -54,6 +54,7 @@ jobs:
       env:
         MSYSTEM: MINGW${{ matrix.bits }}
         MSYS2_PATH_TYPE: inherit
+        GITHUB_WORKSPACE: ${{ github.workspace }}
       run: |
         set +e
         set -x
@@ -63,9 +64,18 @@ jobs:
         echo "PATH: $PATH"
         which make
         make --version
+        echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+        echo "Initial directory: $(pwd)"
+        echo "Listing files:"
+        ls -al
+        cd "$GITHUB_WORKSPACE"
+        echo "Current directory after cd: $(pwd)"
+        echo "Listing files after cd:"
+        ls -al
         chmod +x build-${{ matrix.platform }}-msys.sh
         chmod +x Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
         ./build-${{ matrix.platform }}-msys.sh
+
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
