@@ -90,4 +90,9 @@ jobs:
         Copy-Item "Quakespasm-Music.txt" $zipdir
         Copy-Item "LICENSE.txt" $zipdir
 
+    - name: Upload archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.BUILD_ARTIFACT }}
+        path: artifact/*
 
