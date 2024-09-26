@@ -15,6 +15,8 @@ jobs:
 
     - name: Set environment variables
       shell: pwsh
+      env:
+        MATRIX_PLATFORM: ${{ matrix.platform }}
       run: |
         $gitrev = (git describe --always)
         $gitbranch = (git branch --show-current)
@@ -23,7 +25,8 @@ jobs:
         } else {
           $ver_suffix = "-$gitbranch-$gitrev"
         }
-        if ("${{ matrix.platform }}" -eq "x64") {
+        $platform = $env:MATRIX_PLATFORM
+        if ($platform -eq "x64") {
           $platform_alt = "win64"
           $platform_short = "x64"
           $exe_name = "QSS-M-w64.exe"
