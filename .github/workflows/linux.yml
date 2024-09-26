@@ -24,7 +24,7 @@ jobs:
           # Run 'apt-get update' for the selected mirror
           if sudo apt-get update; then
             # Try to install dependencies. If successful, break out of the loop.
-            if sudo apt-get install -y mingw-w64 libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 libz-mingw-w64-dev libcurl4-openssl-dev zip; then
+            if sudo apt-get install -y mingw-w64 libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 libz-mingw-w64-dev libcurl4-openssl-dev zip; then
               echo "Dependencies successfully installed using mirror: $mirror"
               break
             else
@@ -35,17 +35,17 @@ jobs:
           fi
         done
         
-        # Check and update SDL2 if the version is outdated
-        installed_sdl2_version=$(sdl2-config --version)
-        required_sdl2_version="2.26.3" # or whichever version is needed
-        if [ "$(printf '%s\n' "$required_sdl2_version" "$installed_sdl2_version" | sort -V | head -n1)" != "$required_sdl2_version" ]; then
-          echo "Updating SDL2 to the latest version"
-          sudo apt-get remove --purge libsdl2-dev
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-          sudo apt-get update
-          sudo apt-get install -y libsdl2-dev
-        fi
-
+    - name: Install Latest SDL2 from Source
+      run: |
+        sudo apt-get remove --purge libsdl2-dev  # Remove any existing SDL2 version
+        sudo apt-get install -y build-essential cmake libasound2-dev libpulse-dev libudev-dev libx11-dev libxext-dev libxrandr-dev libxi-dev libgl1-mesa-dev
+        wget https://www.libsdl.org/release/SDL2-2.28.3.tar.gz  # Replace with the latest SDL2 version
+        tar -xvzf SDL2-2.28.3.tar.gz
+        cd SDL2-2.28.3
+        ./configure
+        make
+        sudo make install
+        
     - name: Build
       run: |
         chmod 755 build-linux.sh
