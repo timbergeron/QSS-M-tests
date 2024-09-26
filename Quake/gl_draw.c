@@ -987,12 +987,15 @@ extern cvar_t scr_concolor; // woods #concolor
 Draw_ConsoleBackground -- johnfitz -- rewritten -- woods #concolor
 ================
 */
-void Draw_ConsoleBackground (void)
+void Draw_ConsoleBackground(void)
 {
-	qpic_t *pic;
+	qpic_t* pic;
 	float alpha;
 	plcolour_t conback_color;
 	const char* conback_str = scr_concolor.string;
+	float r, g, b;
+	byte* rgb_temp;
+	byte rgb[3];
 
 	// Parse the scr_conback cvar
 	conback_color = CL_PLColours_Parse(conback_str);
@@ -1004,7 +1007,7 @@ void Draw_ConsoleBackground (void)
 			conback_color.rgb[1] == 0xFF &&
 			conback_color.rgb[2] == 0xFF));
 
-	GL_SetCanvas (CANVAS_CONSOLE); // Ensure we're drawing on the console canvas
+	GL_SetCanvas(CANVAS_CONSOLE); // Ensure we're drawing on the console canvas
 
 	alpha = (con_forcedup) ? 1.0f : scr_conalpha.value;
 
@@ -1013,56 +1016,62 @@ void Draw_ConsoleBackground (void)
 
 	if (use_default) // Use the default background image
 	{
-		pic = Draw_CachePic ("gfx/conback.lmp");
+		pic = Draw_CachePic("gfx/conback.lmp");
 		pic->width = vid.conwidth;
 		pic->height = vid.conheight;
 
 		if (alpha < 1.0f)
 		{
 			if (premul_hud)
-				glColor4f (alpha,alpha,alpha,alpha);
+				glColor4f(alpha, alpha, alpha, alpha);
 			else
 			{
-				glEnable (GL_BLEND);
-				glDisable (GL_ALPHA_TEST);
+				glEnable(GL_BLEND);
+				glDisable(GL_ALPHA_TEST);
 				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-				glColor4f (1,1,1,alpha);
+				glColor4f(1, 1, 1, alpha);
 			}
 		}
 
-		Draw_Pic (0, 0, pic);
+		Draw_Pic(0, 0, pic);
 
 		if (alpha < 1.0f)
 		{
 			if (!premul_hud)
 			{
 				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-				glEnable (GL_ALPHA_TEST);
-				glDisable (GL_BLEND);
+				glEnable(GL_ALPHA_TEST);
+				glDisable(GL_BLEND);
 			}
-			glColor4f (1,1,1,1);
+			glColor4f(1, 1, 1, 1);
 		}
 	}
 	else
 	{
-		byte* rgb = CL_PLColours_ToRGB(&conback_color); // Render a solid color background based on scr_conback
-		float r, g, b;
+		rgb_temp = CL_PLColours_ToRGB(&conback_color);
 
-		if (rgb)
+		if (rgb_temp)
 		{
+			// Copy the RGB values to a local array to ensure safe usage
+			rgb[0] = rgb_temp[0];
+			rgb[1] = rgb_temp[1];
+			rgb[2] = rgb_temp[2];
+
 			r = rgb[0] / 255.0f;
 			g = rgb[1] / 255.0f;
 			b = rgb[2] / 255.0f;
 		}
 		else
-			r = g = b = 1.0f; // Fallback to white if RGB is not available
+		{
+			r = g = b = 1.0f; // Fallback to white if RGB conversion fails
+		}
 
 		// Set the color with alpha
 		glColor4f(r, g, b, alpha);
 
 		// Enable blending for transparency
-		glEnable (GL_BLEND);
+		glEnable(GL_BLEND);
 		glDisable(GL_TEXTURE_2D); // Disable texture rendering
 
 		// Draw a filled quad covering the console area
