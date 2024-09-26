@@ -36,16 +36,6 @@ jobs:
           zip
           git
 
-    - name: List Files
-      shell: msys2 {0}
-      run: |
-        echo "Current directory:"
-        pwd
-        echo "Listing root directory:"
-        ls -al
-        echo "Listing Quake directory:"
-        ls -al Quake/
-
     - name: Fix Line Endings
       shell: msys2 {0}
       run: |
@@ -63,11 +53,16 @@ jobs:
       shell: msys2 {0}
       env:
         MSYSTEM: MINGW${{ matrix.bits }}
+        MSYS2_PATH_TYPE: inherit
       run: |
+        set +e
         set -x
-        source /etc/profile
+        source /etc/profile || true
         set -e
-        export PATH=/mingw${{ matrix.bits }}/bin:$PATH
+        export PATH=/usr/bin:/mingw${{ matrix.bits }}/bin:$PATH
+        echo "PATH: $PATH"
+        which make
+        make --version
         chmod +x build-${{ matrix.platform }}-msys.sh
         chmod +x Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
         ./build-${{ matrix.platform }}-msys.sh
