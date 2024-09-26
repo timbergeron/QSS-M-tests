@@ -1,0 +1,49 @@
+name: Windows CI
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build on Windows ${{ matrix.platform }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: w64
+            arch: x86_64
+            bits: 64
+          - platform: w32
+            arch: i686
+            bits: 32
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: |
+          mingw-w64-${{ matrix.arch }}-toolchain
+          mingw-w64-${{ matrix.arch }}-SDL2
+          mingw-w64-${{ matrix.arch }}-libmad
+          mingw-w64-${{ matrix.arch }}-libopus
+          mingw-w64-${{ matrix.arch }}-libvorbis
+          mingw-w64-${{ matrix.arch }}-zlib
+          mingw-w64-${{ matrix.arch }}-libcurl
+          zip
+
+    - name: Build
+      shell: msys2 {0}
+      run: |
+        source /etc/profile
+        export PATH=/mingw${{ matrix.bits }}/bin:$PATH
+        chmod +x build-${{ matrix.platform }}.sh
+        ./build-${{ matrix.platform }}.sh
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QSS-M ${{ matrix.platform }}
+        path: Quake/QSS-M-w*.zip
