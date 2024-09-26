@@ -62,7 +62,12 @@ jobs:
         $zipdir = "artifact\$($env:BUILD_ARTIFACT)"
         mkdir $zipdir -Force
         Copy-Item "$compiledir\*.exe" $zipdir
-        Rename-Item "$zipdir\*.exe" "$zipdir\$($env:EXE_NAME)"
+        $exeFile = Get-ChildItem "$zipdir\*.exe" | Select-Object -First 1
+        if ($exeFile) {
+          Rename-Item $exeFile.FullName "$zipdir\$($env:EXE_NAME)"
+        } else {
+          Write-Error "Executable file not found in $zipdir"
+        }
         Copy-Item "$compiledir\*.dll" $zipdir
         Copy-Item "Quake\qssm.pak" $zipdir
         Copy-Item "Quakespasm.html" $zipdir
