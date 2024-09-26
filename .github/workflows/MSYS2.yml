@@ -28,10 +28,10 @@ jobs:
           mingw-w64-${{ matrix.arch }}-toolchain
           mingw-w64-${{ matrix.arch }}-SDL2
           mingw-w64-${{ matrix.arch }}-libmad
-          mingw-w64-${{ matrix.arch }}-libopus
+          mingw-w64-${{ matrix.arch }}-opus
           mingw-w64-${{ matrix.arch }}-libvorbis
           mingw-w64-${{ matrix.arch }}-zlib
-          mingw-w64-${{ matrix.arch }}-libcurl
+          mingw-w64-${{ matrix.arch }}-curl
           zip
 
     - name: Build
