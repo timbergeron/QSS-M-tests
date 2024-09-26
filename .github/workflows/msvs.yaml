@@ -49,7 +49,7 @@ jobs:
           "-maxcpucount"
           "-verbosity:minimal"
         )
-        & $msbuild Windows\VisualStudio\QSS-M.sln $options
+        & $msbuild Windows\VisualStudio\quakespasm.sln $options
         if (-not $?) { throw "Build failed" }
 
     - name: Prepare archive
