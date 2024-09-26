@@ -1,4 +1,4 @@
-name: Windows CI
+name: Windows CI MSYS
 
 on: [push, pull_request]
 
@@ -58,7 +58,6 @@ jobs:
         MSYSTEM: MINGW${{ matrix.bits }}
       run: |
         set -xe
-        source /etc/profile
         export PATH=/mingw${{ matrix.bits }}/bin:$PATH
         chmod +x build-${{ matrix.platform }}-msys.sh
         chmod +x Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
