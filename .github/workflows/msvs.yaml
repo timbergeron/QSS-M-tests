@@ -26,9 +26,11 @@ jobs:
         if ("${{ matrix.platform }}" -eq "x64") {
           $platform_alt = "win64"
           $platform_short = "x64"
+          $exe_name = "QSS-M-w64.exe"
         } else {
           $platform_alt = "win32"
           $platform_short = "x86"
+          $exe_name = "QSS-M-w32.exe"
         }
         $build_artifact = "QSS-M$ver_suffix-$platform_alt"
         "VER_SUFFIX=$ver_suffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -36,6 +38,7 @@ jobs:
         "BUILD_DIR=$build_artifact" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "PLATFORM_ALT=$platform_alt" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "PLATFORM_SHORT=$platform_short" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "EXE_NAME=$exe_name" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "ForceImportBeforeCppTargets=$($env:GITHUB_WORKSPACE)\Windows\VisualStudio\custom_build.props" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
     - name: Build
@@ -49,7 +52,7 @@ jobs:
           "-maxcpucount"
           "-verbosity:minimal"
         )
-        & $msbuild Windows\VisualStudio\quakespasm.sln $options
+        & $msbuild Windows\VisualStudio\QSS-M.sln $options
         if (-not $?) { throw "Build failed" }
 
     - name: Prepare archive
@@ -59,6 +62,7 @@ jobs:
         $zipdir = "artifact\$($env:BUILD_ARTIFACT)"
         mkdir $zipdir -Force
         Copy-Item "$compiledir\*.exe" $zipdir
+        Rename-Item "$zipdir\*.exe" "$zipdir\$($env:EXE_NAME)"
         Copy-Item "$compiledir\*.dll" $zipdir
         Copy-Item "Quake\qssm.pak" $zipdir
         Copy-Item "Quakespasm.html" $zipdir
