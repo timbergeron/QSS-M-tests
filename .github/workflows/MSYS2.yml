@@ -33,14 +33,26 @@ jobs:
           mingw-w64-${{ matrix.arch }}-zlib
           mingw-w64-${{ matrix.arch }}-curl
           zip
+          git
+
+    - name: Fix Line Endings
+      shell: msys2 {0}
+      run: |
+        pacman -S --noconfirm dos2unix
+        dos2unix build-${{ matrix.platform }}-msys.sh
+        dos2unix build_cross_win${{ matrix.bits }}-sdl2-msys.sh
 
     - name: Build
       shell: msys2 {0}
+      env:
+        MSYSTEM: MINGW${{ matrix.bits }}
       run: |
+        set -xe
         source /etc/profile
         export PATH=/mingw${{ matrix.bits }}/bin:$PATH
-        chmod +x build-${{ matrix.platform }}.sh
-        ./build-${{ matrix.platform }}.sh
+        chmod +x build-${{ matrix.platform }}-msys.sh
+        chmod +x build_cross_win${{ matrix.bits }}-sdl2-msys.sh
+        ./build-${{ matrix.platform }}-msys.sh
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
