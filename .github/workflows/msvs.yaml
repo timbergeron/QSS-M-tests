@@ -55,7 +55,7 @@ jobs:
     - name: Prepare archive
       shell: pwsh
       run: |
-        $compiledir = "Windows\VisualStudio\$($env:BUILD_DIR)"
+        $compiledir = "Windows\VisualStudio\Build-quakespasm-sdl2\$($env:PLATFORM_SHORT)\Release"
         $zipdir = "artifact\$($env:BUILD_ARTIFACT)"
         mkdir $zipdir -Force
         Copy-Item "$compiledir\*.exe" $zipdir
