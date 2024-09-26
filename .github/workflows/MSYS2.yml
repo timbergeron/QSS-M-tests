@@ -40,7 +40,7 @@ jobs:
       run: |
         pacman -S --noconfirm dos2unix
         dos2unix build-${{ matrix.platform }}-msys.sh
-        dos2unix build_cross_win${{ matrix.bits }}-sdl2-msys.sh
+        dos2unix ./build_cross_win${{ matrix.bits }}-sdl2-msys.sh
 
     - name: Build
       shell: msys2 {0}
