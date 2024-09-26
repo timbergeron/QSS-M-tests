@@ -25,6 +25,7 @@ jobs:
       with:
         update: true
         install: |
+          make
           mingw-w64-${{ matrix.arch }}-toolchain
           mingw-w64-${{ matrix.arch }}-SDL2
           mingw-w64-${{ matrix.arch }}-libmad
@@ -52,12 +53,20 @@ jobs:
         dos2unix build-${{ matrix.platform }}-msys.sh
         dos2unix Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
 
+    - name: Verify make installation
+      shell: msys2 {0}
+      run: |
+        which make
+        make --version
+
     - name: Build
       shell: msys2 {0}
       env:
         MSYSTEM: MINGW${{ matrix.bits }}
       run: |
-        set -xe
+        set -x
+        source /etc/profile
+        set -e
         export PATH=/mingw${{ matrix.bits }}/bin:$PATH
         chmod +x build-${{ matrix.platform }}-msys.sh
         chmod +x Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
