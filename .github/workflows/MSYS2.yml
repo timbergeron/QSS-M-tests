@@ -35,13 +35,13 @@ jobs:
           mingw-w64-${{ matrix.arch }}-curl
           zip
           git
+          dos2unix
 
-    - name: Fix Line Endings
+    - name: Fix Line Endings and Set Permissions
       shell: msys2 {0}
       run: |
-        pacman -S --noconfirm dos2unix
-        dos2unix build-${{ matrix.platform }}-msys.sh
-        dos2unix Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
+        find . -name "*.sh" -exec dos2unix {} +
+        find . -name "*.sh" -exec chmod +x {} +
 
     - name: Verify make installation
       shell: msys2 {0}
@@ -56,26 +56,16 @@ jobs:
         MSYS2_PATH_TYPE: inherit
         GITHUB_WORKSPACE: ${{ github.workspace }}
       run: |
-        set +e
         set -x
-        source /etc/profile || true
-        set -e
+        cd "$GITHUB_WORKSPACE"
         export PATH=/usr/bin:/mingw${{ matrix.bits }}/bin:$PATH
-        echo "PATH: $PATH"
         which make
         make --version
         echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-        echo "Initial directory: $(pwd)"
+        echo "Current directory: $(pwd)"
         echo "Listing files:"
         ls -al
-        cd "$GITHUB_WORKSPACE"
-        echo "Current directory after cd: $(pwd)"
-        echo "Listing files after cd:"
-        ls -al
-        chmod +x build-${{ matrix.platform }}-msys.sh
-        chmod +x Quake/build_cross_win${{ matrix.bits }}-sdl2-msys.sh
-        ./build-${{ matrix.platform }}-msys.sh
-
+        ./build-${{ matrix.platform }}.sh
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
