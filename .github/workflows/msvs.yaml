@@ -61,13 +61,20 @@ jobs:
         $compiledir = "Windows\VisualStudio\Build-quakespasm-sdl2\$($env:PLATFORM_SHORT)\Release"
         $zipdir = "artifact\$($env:BUILD_ARTIFACT)"
         mkdir $zipdir -Force
-        Copy-Item "$compiledir\*.exe" $zipdir
-        $exeFile = Get-ChildItem "$zipdir\*.exe" | Select-Object -First 1
+
+        # Copy the executable
+        $exeFile = Get-ChildItem "$compiledir\*.exe" | Select-Object -First 1
         if ($exeFile) {
-          Rename-Item $exeFile.FullName "$zipdir\$($env:EXE_NAME)"
+          $targetExePath = Join-Path $zipdir $env:EXE_NAME
+          if (Test-Path $targetExePath) {
+            Remove-Item $targetExePath
+          }
+          Rename-Item $exeFile.FullName $targetExePath
         } else {
-          Write-Error "Executable file not found in $zipdir"
+          Write-Error "Executable file not found in $compiledir"
         }
+
+        # Copy remaining files
         Copy-Item "$compiledir\*.dll" $zipdir
         Copy-Item "Quake\qssm.pak" $zipdir
         Copy-Item "Quakespasm.html" $zipdir
@@ -75,8 +82,3 @@ jobs:
         Copy-Item "Quakespasm-Music.txt" $zipdir
         Copy-Item "LICENSE.txt" $zipdir
 
-    - name: Upload archive
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.BUILD_ARTIFACT }}
-        path: artifact/*
