@@ -60,7 +60,7 @@ jobs:
         mkdir $zipdir -Force
         Copy-Item "$compiledir\*.exe" $zipdir
         Copy-Item "$compiledir\*.dll" $zipdir
-        Copy-Item "Quake\QSS-M.pak" $zipdir
+        Copy-Item "Quake\qssm.pak" $zipdir
         Copy-Item "Quakespasm.html" $zipdir
         Copy-Item "Quakespasm.txt" $zipdir
         Copy-Item "Quakespasm-Music.txt" $zipdir
