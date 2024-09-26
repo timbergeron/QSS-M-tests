@@ -16,7 +16,7 @@ export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD)"
 export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
 
 make -f Makefile.w64 clean
-../build_cross_win64-sdl2-msys.sh $MAKEARGS
+./build_cross_win64-sdl2-msys.sh $MAKEARGS
 mv quakespasm.exe QSS-M-w64.exe
 
 # Adjust paths to DLLs in MSYS2
