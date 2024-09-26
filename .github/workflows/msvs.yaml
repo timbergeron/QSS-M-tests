@@ -65,14 +65,19 @@ jobs:
         $zipdir = "artifact\$($env:BUILD_ARTIFACT)"
         mkdir $zipdir -Force
 
-        # Copy the executable
+        # Output variables for debugging
+        Write-Host "Compiled directory: $compiledir"
+        Write-Host "Zip directory: $zipdir"
+        Write-Host "Executable name: $env:EXE_NAME"
+
+        # Move and rename the executable
         $exeFile = Get-ChildItem "$compiledir\*.exe" | Select-Object -First 1
         if ($exeFile) {
           $targetExePath = Join-Path $zipdir $env:EXE_NAME
           if (Test-Path $targetExePath) {
             Remove-Item $targetExePath
           }
-          Rename-Item $exeFile.FullName $targetExePath
+          Move-Item $exeFile.FullName $targetExePath
         } else {
           Write-Error "Executable file not found in $compiledir"
         }
@@ -84,4 +89,5 @@ jobs:
         Copy-Item "Quakespasm.txt" $zipdir
         Copy-Item "Quakespasm-Music.txt" $zipdir
         Copy-Item "LICENSE.txt" $zipdir
+
 
