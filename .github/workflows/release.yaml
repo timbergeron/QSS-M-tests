@@ -74,31 +74,28 @@ jobs:
         run: |
           echo "Current directory:"
           pwd
-          echo "\nDirectory structure:"
+          echo "Directory structure:"
           ls -R MacOSX/
-          echo "\nFind all files:"
-          find . -type f
+          echo "Find all files:"
+          find . -type f -name "*.app" -o -name "*.dylib" -o -name "*.framework"
 
       - name: Package macOS Build
         if: matrix.config.name == 'macOS'
         run: |
           cd MacOSX
-          # Create build directories if they don't exist
+          # Create the output directory if it doesn't exist
           mkdir -p build/Release
           
-          # Find and copy all relevant build output files
-          # Adjust these patterns based on your actual build output
-          find . -type f -name "*.app" -o -name "*.dylib" -o -name "*.framework" | while read file; do
-            cp -R "$file" build/Release/
-          done
+          # Find and copy all build artifacts
+          find . -type f \( -name "*.app" -o -name "*.dylib" -o -name "*.framework" \) -exec cp -R {} build/Release/ \;
           
           # Create the zip file
           zip -r QSS-M_MacOS.zip build/Release/
           
-          # Debug: List the contents of the zip
+          # Debug: Show zip contents
           unzip -l QSS-M_MacOS.zip
           
-          # Verify the zip was created
+          # Verify zip was created
           if [ ! -f "QSS-M_MacOS.zip" ]; then
             echo "Failed to create zip file"
             exit 1
@@ -113,7 +110,7 @@ jobs:
             echo "Error: Artifact not found: ${{ matrix.config.artifact-path }}"
             echo "Current directory:"
             pwd
-            echo "\nDirectory structure:"
+            echo "Available zip files:"
             find . -type f -name "*.zip"
             exit 1
           fi
@@ -149,32 +146,35 @@ jobs:
           current_tag="${GITHUB_REF_NAME}"
           previous_tag=$(git tag --sort=-creatordate | grep -v "^${current_tag}$" | head -n 1)
           
+          echo "Generating changelog from $previous_tag to $current_tag"
+          
+          changelog="## What's Changed\n\n"
+          
           if [ -z "$previous_tag" ]; then
-            changelog=$(git log --no-merges -n 30 --pretty=format:"- %s (%h)")
+            changelog+=$(git log --no-merges -n 30 --pretty=format:"* %s (%h)%n")
           else
             total_commits=$(git rev-list --count ${previous_tag}..${current_tag})
             
             if [ $total_commits -le 30 ]; then
-              changelog=$(git log ${previous_tag}..${current_tag} --no-merges --pretty=format:"- %s (%h)")
+              changelog+=$(git log ${previous_tag}..${current_tag} --no-merges --pretty=format:"* %s (%h)%n")
             else
-              changelog=$(git log ${previous_tag}..${current_tag} --no-merges -n 30 --pretty=format:"- %s (%h)")
+              changelog+=$(git log ${previous_tag}..${current_tag} --no-merges -n 30 --pretty=format:"* %s (%h)%n")
               remaining=$((total_commits - 30))
-              changelog="${changelog}\n\n...and ${remaining} more commits"
+              changelog+="\n... and ${remaining} more commits"
             fi
             
-            changelog="${changelog}\n\nFull Changelog: [${previous_tag}...${current_tag}](https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${current_tag})"
+            changelog+="\n\n## Compare\n"
+            changelog+="[$previous_tag → $current_tag](https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${current_tag})"
           fi
-          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          echo "$changelog" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          
+          # Save changelog to file
+          echo -e "$changelog" > CHANGELOG.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: Release ${{ github.ref_name }}
-          body: |
-            Changes in this Release:
-            ${{ env.CHANGELOG }}
+          body_path: CHANGELOG.md
           files: artifacts/**/*.zip
           draft: false
           prerelease: false
