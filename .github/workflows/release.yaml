@@ -4,7 +4,7 @@ on:
       - 'v*'
   pull_request:
 
-name: Build and Release
+name: Build and Releaset
 
 jobs:
   linux-build:
