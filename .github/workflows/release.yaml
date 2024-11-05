@@ -209,9 +209,7 @@ jobs:
       - name: Generate Release Notes
         id: notes
         run: |
-          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          git log --no-merges -n 15 --pretty=format:"- %s (%h)" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          printf "CHANGELOG<<EOF\n%s\nEOF\n" "$(git log --no-merges -n 15 --pretty=format:"- %s (%h)")" >> $GITHUB_ENV
 
       # Create Release with Assets
       - name: Create Release with Assets
