@@ -157,13 +157,42 @@ jobs:
       - name: Generate Release Notes
         id: notes
         run: |
-          printf "CHANGELOG<<EOF\n%s\nEOF\n" "$(git log --no-merges -n 15 --pretty=format:"- %s (%h)")" >> $GITHUB_ENV
+          current_tag="${GITHUB_REF_NAME}"
+          previous_tag=$(git tag --sort=-creatordate | grep -v "^${current_tag}$" | head -n 1)
+
+          if [ -z "$previous_tag" ]; then
+            # If there's no previous tag, list the last 30 commits
+            changelog=$(git log --no-merges -n 30 --pretty=format:"- %s (%h)")
+          else
+            # Count total commits between previous and current tag
+            total_commits=$(git rev-list --count ${previous_tag}..${current_tag})
+
+            if [ $total_commits -le 30 ]; then
+              # If 30 or fewer commits, list all
+              changelog=$(git log ${previous_tag}..${current_tag} --no-merges --pretty=format:"- %s (%h)")
+            else
+              # If more than 30 commits, list the first 30 and note the remaining
+              changelog=$(git log ${previous_tag}..${current_tag} --no-merges -n 30 --pretty=format:"- %s (%h)")
+              remaining=$((total_commits - 30))
+              changelog="${changelog}
+
+...and ${remaining} more commits"
+            fi
+
+            # Append the Full Changelog link
+            changelog_with_link="${changelog}
+
+Full Changelog: [${previous_tag}...${current_tag}](https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${current_tag})"
+          fi
+
+          # Set the CHANGELOG environment variable
+          printf "CHANGELOG<<EOF\n%s\nEOF\n" "$changelog_with_link" >> $GITHUB_ENV
 
       # Create Release with Assets
       - name: Create Release with Assets
         uses: softprops/action-gh-release@v1
         with:
-          name: QSS-M ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           body: |
             Changes in this Release:
             ${{ env.CHANGELOG }}
