@@ -31,12 +31,15 @@ jobs:
           - name: Linux
             build-script: build-linux.sh
             artifact-name: QSS-M-l64
+            artifact-path: Quake/QSS-M-l64
           - name: Windows-64
             build-script: build-w64.sh
             artifact-name: QSS-M-w64
+            artifact-path: Quake/QSS-M-w64
           - name: Windows-32
             build-script: build-w32.sh
             artifact-name: QSS-M-w32
+            artifact-path: Quake/QSS-M-w32
 
     steps:
       - uses: actions/checkout@v4
@@ -59,17 +62,33 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
           
+      - name: Debug Environment
+        run: |
+          pwd
+          ls -la
+          echo "Build script: ${{ matrix.config.build-script }}"
+          
       - name: Build
         run: |
           chmod +x ${{ matrix.config.build-script }}
-          sudo ./${{ matrix.config.build-script }}
+          ./${{ matrix.config.build-script }}
         env:
           CCACHE_DIR: ~/.ccache
+          
+      - name: Debug Build Output
+        run: |
+          echo "Checking build output directory"
+          ls -la Quake/ || echo "Quake directory not found"
           
       - name: Package Artifact
         run: |
           mkdir -p output
-          zip -r output/${{ matrix.config.artifact-name }}.zip Quake/${{ matrix.config.artifact-name }}
+          if [ -d "${{ matrix.config.artifact-path }}" ]; then
+            zip -r output/${{ matrix.config.artifact-name }}.zip ${{ matrix.config.artifact-path }}
+          else
+            echo "Error: Build output directory not found: ${{ matrix.config.artifact-path }}"
+            exit 1
+          fi
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
@@ -89,25 +108,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Build Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.ccache
-          key: macos-build-${{ hashFiles('MacOSX/**') }}
-          restore-keys: |
-            macos-build-
+      - name: Debug Environment
+        run: |
+          pwd
+          ls -la
+          ls -la MacOSX || echo "MacOSX directory not found"
 
       - name: Build macOS Project
         run: |
+          chmod +x MacOSX/build-macos.sh
           cd MacOSX
           ./build-macos.sh
+
+      - name: Debug Build Output
+        run: |
+          echo "Checking build output directory"
+          ls -la MacOSX/build/Release || echo "Release directory not found"
 
       - name: Package macOS Artifact
         run: |
           mkdir -p output
-          zip -r output/QSS-M-mac.zip MacOSX/build/Release/*.zip
+          if [ -d "MacOSX/build/Release" ]; then
+            zip -r output/QSS-M-mac.zip MacOSX/build/Release/*.app
+          else
+            echo "Error: Build output directory not found"
+            exit 1
+          fi
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
@@ -132,6 +158,11 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         
+      - name: List Downloaded Artifacts
+        run: |
+          pwd
+          ls -R
+        
       - name: Generate Release Notes
         id: notes
         run: |
@@ -147,7 +178,7 @@ jobs:
             Changes in this Release:
             ${{ env.CHANGELOG }}
           files: |
-            QSS-M-*/QSS-M-*.zip
+            **/QSS-M-*.zip
           draft: false
           prerelease: false
         env:
