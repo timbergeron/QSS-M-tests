@@ -38,7 +38,7 @@ jobs:
             os: macos-latest
             build-script: MacOSX/build-macos.sh
             artifact-name: QSS-M-mac
-            artifact-path: MacOSX/build/Release/QSS-M_MacOS.zip
+            artifact-path: MacOSX/QSS-M_MacOS.zip  # Updated path
 
     steps:
       - uses: actions/checkout@v4
@@ -62,12 +62,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
 
+      - name: Create Output Directory
+        if: matrix.config.name == 'macOS'
+        run: mkdir -p MacOSX
+
       - name: Build
         run: |
           chmod +x ${{ matrix.config.build-script }}
           ./${{ matrix.config.build-script }}
         env:
           CCACHE_DIR: ~/.ccache
+
+      - name: Package macOS Build
+        if: matrix.config.name == 'macOS'
+        run: |
+          cd MacOSX
+          # Assuming the build output is in a directory like 'build/Release'
+          # Adjust these commands based on your actual build output structure
+          if [ -d "build/Release" ]; then
+            zip -r QSS-M_MacOS.zip build/Release/*
+          else
+            echo "Build directory not found"
+            exit 1
+          fi
 
       - name: Verify Artifact
         run: |
@@ -76,6 +93,8 @@ jobs:
             ls -la "${{ matrix.config.artifact-path }}"
           else
             echo "Error: Artifact not found: ${{ matrix.config.artifact-path }}"
+            pwd
+            find . -name "*.zip" -type f  # Debug: List all zip files
             exit 1
           fi
 
