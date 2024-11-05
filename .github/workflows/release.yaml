@@ -7,47 +7,44 @@ on:
 
 env:
   COMMON_DEPS: >-
-    mingw-w64 
-    libsdl2-dev 
-    libmad0-dev 
-    libopus-dev 
-    libvorbis-dev 
-    zlib1g-dev 
-    libvorbisfile3 
-    libopusfile-dev 
-    libz-mingw-w64 
-    libz-mingw-w64-dev 
-    libcurl4-openssl-dev 
-    zip
+    mingw-w64 libsdl2-dev libmad0-dev libopus-dev libvorbis-dev 
+    zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 
+    libz-mingw-w64-dev libcurl4-openssl-dev zip
 
 jobs:
-  linux-windows-build:
+  build:
     name: Build ${{ matrix.config.name }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
       matrix:
         config:
           - name: Linux
+            os: ubuntu-latest
             build-script: build-linux.sh
             artifact-name: QSS-M-linux
-            artifact-zip: Quake/QSS-M-l64.zip
+            artifact-path: Quake/QSS-M-l64.zip
           - name: Windows-64
+            os: ubuntu-latest
             build-script: build-w64.sh
             artifact-name: QSS-M-w64
-            artifact-zip: Quake/QSS-M-w64.zip
+            artifact-path: Quake/QSS-M-w64.zip
           - name: Windows-32
+            os: ubuntu-latest
             build-script: build-w32.sh
             artifact-name: QSS-M-w32
-            artifact-zip: Quake/QSS-M-w32.zip
+            artifact-path: Quake/QSS-M-w32.zip
+          - name: macOS
+            os: macos-latest
+            build-script: MacOSX/build-macos.sh
+            artifact-name: QSS-M-mac
+            artifact-path: MacOSX/build/Release/QSS-M_MacOS.zip
 
     steps:
-      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Setup Build Cache
       - name: Setup Build Cache
         uses: actions/cache@v4
         with:
@@ -59,13 +56,12 @@ jobs:
             ${{ runner.os }}-build-${{ matrix.config.name }}-
             ${{ runner.os }}-build-
 
-      # Install Dependencies
       - name: Install Dependencies
+        if: matrix.config.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
 
-      # Build
       - name: Build
         run: |
           chmod +x ${{ matrix.config.build-script }}
@@ -73,131 +69,74 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
 
-      # Verify Artifact ZIP Exists
-      - name: Verify Artifact ZIP Exists
+      - name: Verify Artifact
         run: |
-          if [ -f "${{ matrix.config.artifact-zip }}" ]; then
-            echo "Artifact ZIP found: ${{ matrix.config.artifact-zip }}"
-            ls -la "${{ matrix.config.artifact-zip }}"
+          if [ -f "${{ matrix.config.artifact-path }}" ]; then
+            echo "Artifact found: ${{ matrix.config.artifact-path }}"
+            ls -la "${{ matrix.config.artifact-path }}"
           else
-            echo "Error: Artifact ZIP not found: ${{ matrix.config.artifact-zip }}"
+            echo "Error: Artifact not found: ${{ matrix.config.artifact-path }}"
             exit 1
           fi
 
-      # Upload Build Artifact
-      - name: Upload Build Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.config.artifact-name }}
-          path: ${{ matrix.config.artifact-zip }}
-          retention-days: 5
-
-  macos-build:
-    name: macOS CI (Xcode)
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-
-    steps:
-      # Checkout the repository
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Build macOS Project
-      - name: Build macOS Project
-        run: |
-          chmod +x MacOSX/build-macos.sh
-          cd MacOSX
-          ./build-macos.sh
-          cd ..  # Navigate back to the root directory
-        env:
-          CCACHE_DIR: ~/.ccache  # If applicable
-
-      # Verify macOS Artifact ZIP Exists
-      - name: Verify macOS Artifact ZIP Exists
-        run: |
-          if [ -f "MacOSX/build/Release/QSS-M_MacOS.zip" ]; then
-            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_MacOS.zip"
-            ls -la MacOSX/build/Release/QSS-M_MacOS.zip
-          else
-            echo "Error: macOS Artifact ZIP not found."
-            exit 1
-          fi
-
-      # Upload macOS Artifact
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: QSS-M-mac
-          path: MacOSX/build/Release/QSS-M_MacOS.zip
+          path: ${{ matrix.config.artifact-path }}
           retention-days: 5
 
   release:
     name: Create Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux-windows-build, macos-build]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Download All Artifacts
-      - name: Download All Artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      # Generate Release Notes
       - name: Generate Release Notes
         id: notes
         run: |
           current_tag="${GITHUB_REF_NAME}"
           previous_tag=$(git tag --sort=-creatordate | grep -v "^${current_tag}$" | head -n 1)
-
+          
           if [ -z "$previous_tag" ]; then
-            # If there's no previous tag, list the last 30 commits
             changelog=$(git log --no-merges -n 30 --pretty=format:"- %s (%h)")
           else
-            # Count total commits between previous and current tag
             total_commits=$(git rev-list --count ${previous_tag}..${current_tag})
-
+            
             if [ $total_commits -le 30 ]; then
-              # If 30 or fewer commits, list all
               changelog=$(git log ${previous_tag}..${current_tag} --no-merges --pretty=format:"- %s (%h)")
             else
-              # If more than 30 commits, list the first 30 and note the remaining
               changelog=$(git log ${previous_tag}..${current_tag} --no-merges -n 30 --pretty=format:"- %s (%h)")
               remaining=$((total_commits - 30))
-              changelog="${changelog}
-
-...and ${remaining} more commits"
+              changelog="${changelog}\n\n...and ${remaining} more commits"
             fi
-
-            # Append the Full Changelog link
-            changelog_with_link="${changelog}
-
-Full Changelog: [${previous_tag}...${current_tag}](https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${current_tag})"
+            
+            changelog="${changelog}\n\nFull Changelog: [${previous_tag}...${current_tag}](https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${current_tag})"
           fi
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$changelog" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
-          # Set the CHANGELOG environment variable
-          printf "CHANGELOG<<EOF\n%s\nEOF\n" "$changelog_with_link" >> $GITHUB_ENV
-
-      # Create Release with Assets
-      - name: Create Release with Assets
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: Release ${{ github.ref_name }}
           body: |
             Changes in this Release:
             ${{ env.CHANGELOG }}
-          files: |
-            artifacts/**/*.zip
+          files: artifacts/**/*.zip
           draft: false
           prerelease: false
         env:
