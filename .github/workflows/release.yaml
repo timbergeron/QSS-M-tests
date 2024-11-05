@@ -7,44 +7,47 @@ on:
 
 env:
   COMMON_DEPS: >-
-    mingw-w64 libsdl2-dev libmad0-dev libopus-dev libvorbis-dev 
-    zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 
-    libz-mingw-w64-dev libcurl4-openssl-dev zip
+    mingw-w64 
+    libsdl2-dev 
+    libmad0-dev 
+    libopus-dev 
+    libvorbis-dev 
+    zlib1g-dev 
+    libvorbisfile3 
+    libopusfile-dev 
+    libz-mingw-w64 
+    libz-mingw-w64-dev 
+    libcurl4-openssl-dev 
+    zip
 
 jobs:
-  build:
+  linux-windows-build:
     name: Build ${{ matrix.config.name }}
-    runs-on: ${{ matrix.config.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         config:
           - name: Linux
-            os: ubuntu-latest
             build-script: build-linux.sh
             artifact-name: QSS-M-linux
-            artifact-path: Quake/QSS-M-l64.zip
+            artifact-zip: Quake/QSS-M-l64.zip
           - name: Windows-64
-            os: ubuntu-latest
             build-script: build-w64.sh
             artifact-name: QSS-M-w64
-            artifact-path: Quake/QSS-M-w64.zip
+            artifact-zip: Quake/QSS-M-w64.zip
           - name: Windows-32
-            os: ubuntu-latest
             build-script: build-w32.sh
             artifact-name: QSS-M-w32
-            artifact-path: Quake/QSS-M-w32.zip
-          - name: macOS
-            os: macos-latest
-            build-script: MacOSX/build-macos.sh
-            artifact-name: QSS-M-mac
-            artifact-path: MacOSX/QSS-M_MacOS.zip
+            artifact-zip: Quake/QSS-M-w32.zip
 
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Setup Build Cache
       - name: Setup Build Cache
         uses: actions/cache@v4
         with:
@@ -56,12 +59,13 @@ jobs:
             ${{ runner.os }}-build-${{ matrix.config.name }}-
             ${{ runner.os }}-build-
 
+      # Install Dependencies
       - name: Install Dependencies
-        if: matrix.config.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
 
+      # Build
       - name: Build
         run: |
           chmod +x ${{ matrix.config.build-script }}
@@ -69,113 +73,102 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
 
-      - name: Debug Directory Structure (macOS)
-        if: matrix.config.name == 'macOS'
+      # Verify Artifact ZIP Exists
+      - name: Verify Artifact ZIP Exists
         run: |
-          echo "Current directory:"
-          pwd
-          echo "Directory structure:"
-          ls -R MacOSX/
-          echo "Find all files:"
-          find . -type f -name "*.app" -o -name "*.dylib" -o -name "*.framework"
-
-      - name: Package macOS Build
-        if: matrix.config.name == 'macOS'
-        run: |
-          cd MacOSX
-          # Create the output directory if it doesn't exist
-          mkdir -p build/Release
-          
-          # Find and copy all build artifacts
-          find . -type f \( -name "*.app" -o -name "*.dylib" -o -name "*.framework" \) -exec cp -R {} build/Release/ \;
-          
-          # Create the zip file
-          zip -r QSS-M_MacOS.zip build/Release/
-          
-          # Debug: Show zip contents
-          unzip -l QSS-M_MacOS.zip
-          
-          # Verify zip was created
-          if [ ! -f "QSS-M_MacOS.zip" ]; then
-            echo "Failed to create zip file"
-            exit 1
-          fi
-
-      - name: Verify Artifact
-        run: |
-          if [ -f "${{ matrix.config.artifact-path }}" ]; then
-            echo "Artifact found: ${{ matrix.config.artifact-path }}"
-            ls -la "${{ matrix.config.artifact-path }}"
+          if [ -f "${{ matrix.config.artifact-zip }}" ]; then
+            echo "Artifact ZIP found: ${{ matrix.config.artifact-zip }}"
+            ls -la "${{ matrix.config.artifact-zip }}"
           else
-            echo "Error: Artifact not found: ${{ matrix.config.artifact-path }}"
-            echo "Current directory:"
-            pwd
-            echo "Available zip files:"
-            find . -type f -name "*.zip"
+            echo "Error: Artifact ZIP not found: ${{ matrix.config.artifact-zip }}"
             exit 1
           fi
 
-      - name: Upload Artifact
+      # Upload Build Artifact
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.config.artifact-name }}
-          path: ${{ matrix.config.artifact-path }}
+          path: ${{ matrix.config.artifact-zip }}
+          retention-days: 5
+
+  macos-build:
+    name: macOS CI (Xcode)
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+
+    steps:
+      # Checkout the repository
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Build macOS Project
+      - name: Build macOS Project
+        run: |
+          chmod +x MacOSX/build-macos.sh
+          cd MacOSX
+          ./build-macos.sh
+          cd ..  # Navigate back to the root directory
+        env:
+          CCACHE_DIR: ~/.ccache  # If applicable
+
+      # Verify macOS Artifact ZIP Exists
+      - name: Verify macOS Artifact ZIP Exists
+        run: |
+          if [ -f "MacOSX/build/Release/QSS-M_MacOS.zip" ]; then
+            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_MacOS.zip"
+            ls -la MacOSX/build/Release/QSS-M_MacOS.zip
+          else
+            echo "Error: macOS Artifact ZIP not found."
+            exit 1
+          fi
+
+      # Upload macOS Artifact
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QSS-M-mac
+          path: MacOSX/build/Release/QSS-M_MacOS.zip
           retention-days: 5
 
   release:
     name: Create Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [linux-windows-build, macos-build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download Artifacts
+      # Download All Artifacts
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      # Generate Release Notes
       - name: Generate Release Notes
         id: notes
         run: |
-          current_tag="${GITHUB_REF_NAME}"
-          previous_tag=$(git tag --sort=-creatordate | grep -v "^${current_tag}$" | head -n 1)
-          
-          echo "Generating changelog from $previous_tag to $current_tag"
-          
-          changelog="## What's Changed\n\n"
-          
-          if [ -z "$previous_tag" ]; then
-            changelog+=$(git log --no-merges -n 30 --pretty=format:"* %s (%h)%n")
-          else
-            total_commits=$(git rev-list --count ${previous_tag}..${current_tag})
-            
-            if [ $total_commits -le 30 ]; then
-              changelog+=$(git log ${previous_tag}..${current_tag} --no-merges --pretty=format:"* %s (%h)%n")
-            else
-              changelog+=$(git log ${previous_tag}..${current_tag} --no-merges -n 30 --pretty=format:"* %s (%h)%n")
-              remaining=$((total_commits - 30))
-              changelog+="\n... and ${remaining} more commits"
-            fi
-            
-            changelog+="\n\n## Compare\n"
-            changelog+="[$previous_tag → $current_tag](https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${current_tag})"
-          fi
-          
-          # Save changelog to file
-          echo -e "$changelog" > CHANGELOG.md
+          printf "CHANGELOG<<EOF\n%s\nEOF\n" "$(git log --no-merges -n 15 --pretty=format:"- %s (%h)")" >> $GITHUB_ENV
 
-      - name: Create Release
+      # Create Release with Assets
+      - name: Create Release with Assets
         uses: softprops/action-gh-release@v1
         with:
           name: Release ${{ github.ref_name }}
-          body_path: CHANGELOG.md
-          files: artifacts/**/*.zip
+          body: |
+            Changes in this Release:
+            ${{ env.CHANGELOG }}
+          files: |
+            artifacts/**/*.zip
           draft: false
           prerelease: false
         env:
