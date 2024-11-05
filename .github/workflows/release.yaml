@@ -152,7 +152,7 @@ jobs:
           echo "Listing root directory contents:"
           ls -la
 
-      # Additional Debugging: List all zip files
+      # Additional Debugging: List all ZIP files
       - name: List all ZIP files
         run: |
           echo "Searching for all ZIP files:"
@@ -161,10 +161,10 @@ jobs:
       # Verify macOS Artifact ZIP Exists
       - name: Verify macOS Artifact ZIP Exists
         run: |
-          echo "Looking for QSS-M_MacOS.zip in root directory."
-          if [ -f "QSS-M_MacOS.zip" ]; then
-            echo "macOS Artifact ZIP found: QSS-M_MacOS.zip"
-            ls -la QSS-M_MacOS.zip
+          echo "Looking for QSS-M_MacOS.zip in MacOSX/build/Release directory."
+          if [ -f "MacOSX/build/Release/QSS-M_MacOS.zip" ]; then
+            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_MacOS.zip"
+            ls -la MacOSX/build/Release/QSS-M_MacOS.zip
           else
             echo "Error: macOS Artifact ZIP not found."
             exit 1
@@ -175,7 +175,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QSS-M-mac
-          path: QSS-M_MacOS.zip
+          path: MacOSX/build/Release/QSS-M_MacOS.zip
           retention-days: 5
 
   release:
