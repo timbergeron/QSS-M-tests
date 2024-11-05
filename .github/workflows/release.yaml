@@ -136,6 +136,9 @@ jobs:
           chmod +x MacOSX/build-macos.sh
           cd MacOSX
           ./build-macos.sh
+          cd ..  # Navigate back to the root directory
+        env:
+          CCACHE_DIR: ~/.ccache  # If applicable
 
       # Debug Build Output
       - name: Debug Build Output
@@ -150,7 +153,7 @@ jobs:
           ls -la
 
       # Additional Debugging: List all zip files
-      - name: List all zip files
+      - name: List all ZIP files
         run: |
           echo "Searching for all ZIP files:"
           find . -type f -name "*.zip"
@@ -166,8 +169,6 @@ jobs:
             echo "Error: macOS Artifact ZIP not found."
             exit 1
           fi
-
-      # **Removed Rename Step to Maintain Consistency**
 
       # Upload macOS Artifact
       - name: Upload macOS Artifact
