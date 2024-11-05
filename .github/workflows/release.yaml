@@ -117,9 +117,9 @@ jobs:
       # Verify macOS Artifact ZIP Exists
       - name: Verify macOS Artifact ZIP Exists
         run: |
-          if [ -f "MacOSX/build/Release/QSS-M_macOS.zip" ]; then
-            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_macOS.zip"
-            ls -la MacOSX/build/Release/QSS-M_macOS.zip
+          if [ -f "MacOSX/build/Release/QSS-M-macOS.zip" ]; then
+            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M-macOS.zip"
+            ls -la MacOSX/build/Release/QSS-M-macOS.zip
           else
             echo "Error: macOS Artifact ZIP not found."
             exit 1
@@ -130,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QSS-M-mac
-          path: MacOSX/build/Release/QSS-M_macOS.zip
+          path: MacOSX/build/Release/QSS-M-macOS.zip
           retention-days: 5
 
   release:
@@ -157,13 +157,26 @@ jobs:
       - name: Generate Release Notes
         id: notes
         run: |
-          printf "CHANGELOG<<EOF\n%s\nEOF\n" "$(git log --no-merges -n 15 --pretty=format:"- %s (%h)")" >> $GITHUB_ENV
+          # Get the previous tag (latest tag before the current one)
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+
+          # Generate the sorted, unique list of the latest 50 commits
+          printf "CHANGELOG<<EOF\n" >> $GITHUB_ENV
+          printf "%s\n" "$(git log --no-merges -n 50 --pretty=format:"- %s (%h)" | sort | uniq)" >> $GITHUB_ENV
+
+          # Check if there are more than 50 commits since the previous tag
+          COMMIT_COUNT=$(git rev-list ${PREV_TAG}..HEAD --count)
+          if [ "$COMMIT_COUNT" -gt 50 ]; then
+            # Add a link to the full comparison if more than 50 commits
+            echo -e "\n[View all changes](https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${{ github.ref_name }})" >> $GITHUB_ENV
+          fi
+          echo "EOF" >> $GITHUB_ENV
 
       # Create Release with Assets
       - name: Create Release with Assets
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ github.ref_name }}
+          name: QSS-M ${{ github.ref_name }}
           body: |
             Changes in this Release:
             ${{ env.CHANGELOG }}
