@@ -42,10 +42,12 @@ jobs:
             artifact-zip: Quake/QSS-M-w32.zip
 
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Setup Build Cache
       - name: Setup Build Cache
         uses: actions/cache@v4
         with:
@@ -57,29 +59,34 @@ jobs:
             ${{ runner.os }}-build-${{ matrix.config.name }}-
             ${{ runner.os }}-build-
 
+      # Install Dependencies
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
-          
+
+      # Debug Environment
       - name: Debug Environment
         run: |
           pwd
           ls -la
           echo "Build script: ${{ matrix.config.build-script }}"
-          
+
+      # Build
       - name: Build
         run: |
           chmod +x ${{ matrix.config.build-script }}
           ./${{ matrix.config.build-script }}
         env:
           CCACHE_DIR: ~/.ccache
-          
+
+      # List Quake Directory Contents
       - name: List Quake Directory
         run: |
           echo "Contents of Quake/:"
           ls -la Quake/
 
+      # Verify Artifact ZIP Exists
       - name: Verify Artifact ZIP Exists
         run: |
           if [ -f "${{ matrix.config.artifact-zip }}" ]; then
@@ -89,6 +96,7 @@ jobs:
             exit 1
           fi
 
+      # Upload Build Artifact
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -103,41 +111,58 @@ jobs:
       fail-fast: false
 
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Debug Environment
       - name: Debug Environment
         run: |
           pwd
           ls -la
           ls -la MacOSX || echo "MacOSX directory not found"
 
+      # Build macOS Project
       - name: Build macOS Project
         run: |
           chmod +x MacOSX/build-macos.sh
           cd MacOSX
           ./build-macos.sh
 
+      # Debug Build Output
       - name: Debug Build Output
         run: |
           echo "Checking build output directory"
           ls -la MacOSX/build/Release || echo "Release directory not found"
 
+      # List Root Directory Contents
+      - name: List Current Directory
+        run: |
+          echo "Listing root directory contents:"
+          ls -la
+
+      # Verify macOS Artifact ZIP Exists
       - name: Verify macOS Artifact ZIP Exists
         run: |
-          if [ -f "MacOSX/build/Release/QSS-M-mac.zip" ]; then
-            echo "macOS Artifact ZIP found."
+          if [ -f "QSS-M_MacOS.zip" ]; then
+            echo "macOS Artifact ZIP found: QSS-M_MacOS.zip"
           else
             echo "Error: macOS Artifact ZIP not found."
             exit 1
           fi
 
+      # Optional: Rename the ZIP file for consistency
+      - name: Rename macOS Artifact ZIP
+        run: |
+          mv QSS-M_MacOS.zip QSS-M-mac.zip
+
+      # Upload macOS Artifact
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: QSS-M-mac
-          path: MacOSX/build/Release/QSS-M-mac.zip
+          path: QSS-M-mac.zip  # Use "QSS-M_MacOS.zip" if you skip renaming
           retention-days: 5
 
   release:
@@ -147,22 +172,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Download All Artifacts
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      # List Downloaded Artifacts
       - name: List Downloaded Artifacts
         run: |
           pwd
           ls -R artifacts/
 
+      # Generate Release Notes
       - name: Generate Release Notes
         id: notes
         run: |
@@ -170,6 +199,7 @@ jobs:
           git log --no-merges -n 15 --pretty=format:"- %s (%h)" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
+      # Create Release with Assets
       - name: Create Release with Assets
         uses: softprops/action-gh-release@v1
         with:
