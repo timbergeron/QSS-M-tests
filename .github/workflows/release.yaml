@@ -65,15 +65,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
 
-      # Debug Environment
-      - name: Debug Environment
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "List of files:"
-          ls -la
-          echo "Build script: ${{ matrix.config.build-script }}"
-
       # Build
       - name: Build
         run: |
@@ -82,16 +73,9 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
 
-      # List Quake Directory Contents
-      - name: List Quake Directory
-        run: |
-          echo "Contents of Quake/:"
-          ls -la Quake/
-
       # Verify Artifact ZIP Exists
       - name: Verify Artifact ZIP Exists
         run: |
-          echo "Checking for artifact ZIP at path: ${{ matrix.config.artifact-zip }}"
           if [ -f "${{ matrix.config.artifact-zip }}" ]; then
             echo "Artifact ZIP found: ${{ matrix.config.artifact-zip }}"
             ls -la "${{ matrix.config.artifact-zip }}"
@@ -120,16 +104,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Debug Environment
-      - name: Debug Environment
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "List of files in current directory:"
-          ls -la
-          echo "List of files in MacOSX directory:"
-          ls -la MacOSX || echo "MacOSX directory not found"
-
       # Build macOS Project
       - name: Build macOS Project
         run: |
@@ -140,28 +114,9 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache  # If applicable
 
-      # Debug Build Output
-      - name: Debug Build Output
-        run: |
-          echo "Checking build output directory:"
-          ls -la MacOSX/build/Release || echo "Release directory not found"
-
-      # List Root Directory Contents
-      - name: List Current Directory
-        run: |
-          echo "Listing root directory contents:"
-          ls -la
-
-      # Additional Debugging: List all ZIP files
-      - name: List all ZIP files
-        run: |
-          echo "Searching for all ZIP files:"
-          find . -type f -name "*.zip"
-
       # Verify macOS Artifact ZIP Exists
       - name: Verify macOS Artifact ZIP Exists
         run: |
-          echo "Looking for QSS-M_MacOS.zip in MacOSX/build/Release directory."
           if [ -f "MacOSX/build/Release/QSS-M_MacOS.zip" ]; then
             echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_MacOS.zip"
             ls -la MacOSX/build/Release/QSS-M_MacOS.zip
@@ -197,13 +152,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
-      # List Downloaded Artifacts
-      - name: List Downloaded Artifacts
-        run: |
-          echo "Listing downloaded artifacts:"
-          pwd
-          ls -R artifacts/
 
       # Generate Release Notes
       - name: Generate Release Notes
