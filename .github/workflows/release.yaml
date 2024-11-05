@@ -75,10 +75,12 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
           
-      - name: Debug Build Output
+      - name: List Build Directory
         run: |
-          echo "Checking build output directory"
-          ls -la Quake/ || echo "Quake directory not found"
+          echo "Contents of Quake/:"
+          ls -la Quake/
+          echo "Contents of ${{ matrix.config.artifact-path }}/:"
+          ls -la ${{ matrix.config.artifact-path }}/
           
       - name: Package Artifact
         run: |
@@ -157,11 +159,15 @@ jobs:
 
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
-        
+        with:
+          # Optionally specify artifact names if needed
+          # name: QSS-M-*
+          path: artifacts
+
       - name: List Downloaded Artifacts
         run: |
           pwd
-          ls -R
+          ls -R artifacts/
         
       - name: Generate Release Notes
         id: notes
@@ -178,7 +184,7 @@ jobs:
             Changes in this Release:
             ${{ env.CHANGELOG }}
           files: |
-            **/QSS-M-*.zip
+            artifacts/**/*.zip
           draft: false
           prerelease: false
         env:
