@@ -38,7 +38,7 @@ jobs:
             os: macos-latest
             build-script: MacOSX/build-macos.sh
             artifact-name: QSS-M-mac
-            artifact-path: MacOSX/QSS-M_MacOS.zip  # Updated path
+            artifact-path: MacOSX/QSS-M_MacOS.zip
 
     steps:
       - uses: actions/checkout@v4
@@ -62,10 +62,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ${{ env.COMMON_DEPS }}
 
-      - name: Create Output Directory
-        if: matrix.config.name == 'macOS'
-        run: mkdir -p MacOSX
-
       - name: Build
         run: |
           chmod +x ${{ matrix.config.build-script }}
@@ -73,16 +69,38 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
 
+      - name: Debug Directory Structure (macOS)
+        if: matrix.config.name == 'macOS'
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "\nDirectory structure:"
+          ls -R MacOSX/
+          echo "\nFind all files:"
+          find . -type f
+
       - name: Package macOS Build
         if: matrix.config.name == 'macOS'
         run: |
           cd MacOSX
-          # Assuming the build output is in a directory like 'build/Release'
-          # Adjust these commands based on your actual build output structure
-          if [ -d "build/Release" ]; then
-            zip -r QSS-M_MacOS.zip build/Release/*
-          else
-            echo "Build directory not found"
+          # Create build directories if they don't exist
+          mkdir -p build/Release
+          
+          # Find and copy all relevant build output files
+          # Adjust these patterns based on your actual build output
+          find . -type f -name "*.app" -o -name "*.dylib" -o -name "*.framework" | while read file; do
+            cp -R "$file" build/Release/
+          done
+          
+          # Create the zip file
+          zip -r QSS-M_MacOS.zip build/Release/
+          
+          # Debug: List the contents of the zip
+          unzip -l QSS-M_MacOS.zip
+          
+          # Verify the zip was created
+          if [ ! -f "QSS-M_MacOS.zip" ]; then
+            echo "Failed to create zip file"
             exit 1
           fi
 
@@ -93,8 +111,10 @@ jobs:
             ls -la "${{ matrix.config.artifact-path }}"
           else
             echo "Error: Artifact not found: ${{ matrix.config.artifact-path }}"
+            echo "Current directory:"
             pwd
-            find . -name "*.zip" -type f  # Debug: List all zip files
+            echo "\nDirectory structure:"
+            find . -type f -name "*.zip"
             exit 1
           fi
 
