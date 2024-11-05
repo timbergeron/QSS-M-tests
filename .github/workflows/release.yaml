@@ -68,7 +68,9 @@ jobs:
       # Debug Environment
       - name: Debug Environment
         run: |
+          echo "Current directory:"
           pwd
+          echo "List of files:"
           ls -la
           echo "Build script: ${{ matrix.config.build-script }}"
 
@@ -89,8 +91,10 @@ jobs:
       # Verify Artifact ZIP Exists
       - name: Verify Artifact ZIP Exists
         run: |
+          echo "Checking for artifact ZIP at path: ${{ matrix.config.artifact-zip }}"
           if [ -f "${{ matrix.config.artifact-zip }}" ]; then
             echo "Artifact ZIP found: ${{ matrix.config.artifact-zip }}"
+            ls -la "${{ matrix.config.artifact-zip }}"
           else
             echo "Error: Artifact ZIP not found: ${{ matrix.config.artifact-zip }}"
             exit 1
@@ -119,8 +123,11 @@ jobs:
       # Debug Environment
       - name: Debug Environment
         run: |
+          echo "Current directory:"
           pwd
+          echo "List of files in current directory:"
           ls -la
+          echo "List of files in MacOSX directory:"
           ls -la MacOSX || echo "MacOSX directory not found"
 
       # Build macOS Project
@@ -133,7 +140,7 @@ jobs:
       # Debug Build Output
       - name: Debug Build Output
         run: |
-          echo "Checking build output directory"
+          echo "Checking build output directory:"
           ls -la MacOSX/build/Release || echo "Release directory not found"
 
       # List Root Directory Contents
@@ -142,27 +149,32 @@ jobs:
           echo "Listing root directory contents:"
           ls -la
 
+      # Additional Debugging: List all zip files
+      - name: List all zip files
+        run: |
+          echo "Searching for all ZIP files:"
+          find . -type f -name "*.zip"
+
       # Verify macOS Artifact ZIP Exists
       - name: Verify macOS Artifact ZIP Exists
         run: |
+          echo "Looking for QSS-M_MacOS.zip in root directory."
           if [ -f "QSS-M_MacOS.zip" ]; then
             echo "macOS Artifact ZIP found: QSS-M_MacOS.zip"
+            ls -la QSS-M_MacOS.zip
           else
             echo "Error: macOS Artifact ZIP not found."
             exit 1
           fi
 
-      # Optional: Rename the ZIP file for consistency
-      - name: Rename macOS Artifact ZIP
-        run: |
-          mv QSS-M_MacOS.zip QSS-M-mac.zip
+      # **Removed Rename Step to Maintain Consistency**
 
       # Upload macOS Artifact
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: QSS-M-mac
-          path: QSS-M-mac.zip  # Use "QSS-M_MacOS.zip" if you skip renaming
+          path: QSS-M_MacOS.zip
           retention-days: 5
 
   release:
@@ -188,6 +200,7 @@ jobs:
       # List Downloaded Artifacts
       - name: List Downloaded Artifacts
         run: |
+          echo "Listing downloaded artifacts:"
           pwd
           ls -R artifacts/
 
