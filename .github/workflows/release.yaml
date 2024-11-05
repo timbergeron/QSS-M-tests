@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build Release
 
 on:
   push:
@@ -117,9 +117,9 @@ jobs:
       # Verify macOS Artifact ZIP Exists
       - name: Verify macOS Artifact ZIP Exists
         run: |
-          if [ -f "MacOSX/build/Release/QSS-M_MacOS.zip" ]; then
-            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_MacOS.zip"
-            ls -la MacOSX/build/Release/QSS-M_MacOS.zip
+          if [ -f "MacOSX/build/Release/QSS-M_macOS.zip" ]; then
+            echo "macOS Artifact ZIP found: MacOSX/build/Release/QSS-M_macOS.zip"
+            ls -la MacOSX/build/Release/QSS-M_macOS.zip
           else
             echo "Error: macOS Artifact ZIP not found."
             exit 1
@@ -130,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QSS-M-mac
-          path: MacOSX/build/Release/QSS-M_MacOS.zip
+          path: MacOSX/build/Release/QSS-M_macOS.zip
           retention-days: 5
 
   release:
