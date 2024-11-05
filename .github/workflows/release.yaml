@@ -30,16 +30,16 @@ jobs:
         config:
           - name: Linux
             build-script: build-linux.sh
-            artifact-name: QSS-M-l64
-            artifact-path: Quake/QSS-M-l64
+            artifact-name: QSS-M-linux
+            artifact-zip: Quake/QSS-M-l64.zip
           - name: Windows-64
             build-script: build-w64.sh
             artifact-name: QSS-M-w64
-            artifact-path: Quake/QSS-M-w64
+            artifact-zip: Quake/QSS-M-w64.zip
           - name: Windows-32
             build-script: build-w32.sh
             artifact-name: QSS-M-w32
-            artifact-path: Quake/QSS-M-w32
+            artifact-zip: Quake/QSS-M-w32.zip
 
     steps:
       - uses: actions/checkout@v4
@@ -75,20 +75,17 @@ jobs:
         env:
           CCACHE_DIR: ~/.ccache
           
-      - name: List Build Directory
+      - name: List Quake Directory
         run: |
           echo "Contents of Quake/:"
           ls -la Quake/
-          echo "Contents of ${{ matrix.config.artifact-path }}/:"
-          ls -la ${{ matrix.config.artifact-path }}/
-          
-      - name: Package Artifact
+
+      - name: Verify Artifact ZIP Exists
         run: |
-          mkdir -p output
-          if [ -d "${{ matrix.config.artifact-path }}" ]; then
-            zip -r output/${{ matrix.config.artifact-name }}.zip ${{ matrix.config.artifact-path }}
+          if [ -f "${{ matrix.config.artifact-zip }}" ]; then
+            echo "Artifact ZIP found: ${{ matrix.config.artifact-zip }}"
           else
-            echo "Error: Build output directory not found: ${{ matrix.config.artifact-path }}"
+            echo "Error: Artifact ZIP not found: ${{ matrix.config.artifact-zip }}"
             exit 1
           fi
 
@@ -96,7 +93,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.config.artifact-name }}
-          path: output/${{ matrix.config.artifact-name }}.zip
+          path: ${{ matrix.config.artifact-zip }}
           retention-days: 5
 
   macos-build:
@@ -127,13 +124,12 @@ jobs:
           echo "Checking build output directory"
           ls -la MacOSX/build/Release || echo "Release directory not found"
 
-      - name: Package macOS Artifact
+      - name: Verify macOS Artifact ZIP Exists
         run: |
-          mkdir -p output
-          if [ -d "MacOSX/build/Release" ]; then
-            zip -r output/QSS-M-mac.zip MacOSX/build/Release/*.app
+          if [ -f "MacOSX/build/Release/QSS-M-mac.zip" ]; then
+            echo "macOS Artifact ZIP found."
           else
-            echo "Error: Build output directory not found"
+            echo "Error: macOS Artifact ZIP not found."
             exit 1
           fi
 
@@ -141,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: QSS-M-mac
-          path: output/QSS-M-mac.zip
+          path: MacOSX/build/Release/QSS-M-mac.zip
           retention-days: 5
 
   release:
@@ -160,15 +156,13 @@ jobs:
       - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          # Optionally specify artifact names if needed
-          # name: QSS-M-*
           path: artifacts
 
       - name: List Downloaded Artifacts
         run: |
           pwd
           ls -R artifacts/
-        
+
       - name: Generate Release Notes
         id: notes
         run: |
