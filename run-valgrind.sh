@@ -14,12 +14,11 @@ if [ ! -x "$binary" ]; then
 fi
 
 # Use headless drivers to avoid needing a display/audio device on CI.
-export SDL_VIDEODRIVER=dummy
 export SDL_AUDIODRIVER=dummy
 
 cd "$repo_root/Quake"
 
-timeout 120s valgrind \
+timeout 120s xvfb-run -a valgrind \
   --tool=memcheck \
   --leak-check=full \
   --show-leak-kinds=all \

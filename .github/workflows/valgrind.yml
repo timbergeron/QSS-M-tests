@@ -24,6 +24,7 @@ jobs:
           zlib1g-dev \
           libcurl4-openssl-dev \
           libarchive-tools \
+          xvfb \
           pkg-config \
           zip \
           valgrind \
