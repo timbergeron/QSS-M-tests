@@ -99,3 +99,10 @@ jobs:
         name: valgrind-log-server
         path: artifacts/valgrind-server.log
         if-no-files-found: warn
+
+    - name: Upload server stdout log
+      uses: actions/upload-artifact@v4
+      with:
+        name: server-log
+        path: artifacts/server.log
+        if-no-files-found: warn

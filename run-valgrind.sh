@@ -14,6 +14,8 @@ server_dir="$repo_root/Quake/$server_mod"
 server_pid=""
 server_status=0
 server_valgrind_log="$artifacts_dir/valgrind-server.log"
+server_stdout_log="$artifacts_dir/server.log"
+server_started=false
 
 mkdir -p "$artifacts_dir"
 
@@ -41,18 +43,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cat > "$autoexec_path" <<'EOF'
-map start
-wait 30
-connect la.quakeone.com:26002
-wait 300
-disconnect
-connect 127.0.0.1:26000
-wait 300
-disconnect
-quit
-EOF
-
 # Use headless drivers to avoid needing a display/audio device on CI.
 export SDL_AUDIODRIVER=dummy
 
@@ -61,7 +51,20 @@ cd "$repo_root/Quake"
 # Optionally launch a local server using crmod7 if the progs.dat is present.
 if [ -f "$server_dir/progs.dat" ]; then
   echo "Starting local server with -game $server_mod"
-  timeout 90s valgrind \
+  touch "$server_valgrind_log" "$server_stdout_log"
+  server_started=true
+  if ! command -v valgrind >/dev/null 2>&1; then
+    echo "Warning: valgrind not found; running server without it" >&2
+    timeout 90s "$binary" \
+      -basedir "$repo_root/Quake" \
+      -game "$server_mod" \
+      -dedicated 1 \
+      -port 26000 \
+      +map start \
+      +sv_public 0 \
+      >"$server_stdout_log" 2>&1 &
+  else
+    timeout 90s valgrind \
     --tool=memcheck \
     --leak-check=full \
     --show-leak-kinds=definite \
@@ -75,11 +78,33 @@ if [ -f "$server_dir/progs.dat" ]; then
     -port 26000 \
     +map start \
     +sv_public 0 \
-    >"$artifacts_dir/server.log" 2>&1 &
+    >"$server_stdout_log" 2>&1 &
+  fi
   server_pid=$!
 else
   echo "Skipping local server: $server_dir/progs.dat not found"
 fi
+
+# Write autoexec after server decision so we can include/exclude local connect.
+{
+  cat <<'EOF'
+map start
+wait 30
+connect la.quakeone.com:26002
+wait 300
+disconnect
+EOF
+  if [ "$server_started" = true ]; then
+    cat <<'EOF'
+connect 127.0.0.1:26000
+wait 300
+disconnect
+EOF
+  fi
+  cat <<'EOF'
+quit
+EOF
+} > "$autoexec_path"
 
 set +e
 timeout 120s xvfb-run -a valgrind \
@@ -128,6 +153,12 @@ if [ -f "$server_valgrind_log" ]; then
   echo
   echo "==== server valgrind log (tail) ===="
   tail -n 200 "$server_valgrind_log"
+fi
+
+if [ -f "$server_stdout_log" ]; then
+  echo
+  echo "==== server stdout (tail) ===="
+  tail -n 200 "$server_stdout_log"
 fi
 
 exit 0
