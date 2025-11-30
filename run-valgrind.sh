@@ -70,3 +70,9 @@ if [ "$status" -eq 124 ]; then
 elif [ "$status" -ne 0 ]; then
   echo "Valgrind reported errors (exit $status); see $artifacts_dir/valgrind.log" >&2
 fi
+
+if [ -f "$artifacts_dir/valgrind.log" ]; then
+  echo
+  echo "==== valgrind log (tail) ===="
+  tail -n 200 "$artifacts_dir/valgrind.log"
+fi
