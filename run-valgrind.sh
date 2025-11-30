@@ -19,7 +19,7 @@ export SDL_AUDIODRIVER=dummy
 
 cd "$repo_root/Quake"
 
-valgrind \
+timeout 120s valgrind \
   --tool=memcheck \
   --leak-check=full \
   --show-leak-kinds=all \
@@ -28,8 +28,8 @@ valgrind \
   --log-file="$artifacts_dir/valgrind.log" \
   ./quakespasm-valgrind \
   -basedir "$repo_root/Quake" \
-  -dedicated 1 \
   -heapsize 256000 \
   -zone 1024 \
   +map start \
+  +wait 10 \
   +quit
