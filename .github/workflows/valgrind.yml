@@ -18,6 +18,7 @@ jobs:
           libmad0-dev \
           libmpg123-dev \
           libopus-dev \
+          libopusfile-dev \
           libvorbis-dev \
           libogg-dev \
           zlib1g-dev \
