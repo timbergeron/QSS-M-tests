@@ -12,6 +12,8 @@ autoexec_backup=""
 server_mod="crmod7"
 server_dir="$repo_root/Quake/$server_mod"
 server_pid=""
+server_status=0
+server_valgrind_log="$artifacts_dir/valgrind-server.log"
 
 mkdir -p "$artifacts_dir"
 
@@ -59,7 +61,14 @@ cd "$repo_root/Quake"
 # Optionally launch a local server using crmod7 if the progs.dat is present.
 if [ -f "$server_dir/progs.dat" ]; then
   echo "Starting local server with -game $server_mod"
-  timeout 90s "$binary" \
+  timeout 90s valgrind \
+    --tool=memcheck \
+    --leak-check=full \
+    --show-leak-kinds=definite \
+    --track-origins=yes \
+    --suppressions="$supp_file" \
+    --error-exitcode=1 \
+    --log-file="$server_valgrind_log" \
     -basedir "$repo_root/Quake" \
     -game "$server_mod" \
     -dedicated 1 \
@@ -86,20 +95,39 @@ timeout 120s xvfb-run -a valgrind \
   -heapsize 256000 \
   -zone 1024 \
   +exec autoexec.cfg
-status=$?
+client_status=$?
+
+if [ -n "$server_pid" ]; then
+  wait "$server_pid"
+  server_status=$?
+  server_pid=""
+fi
+
 set -e
 
-if [ "$status" -eq 124 ]; then
+if [ "$client_status" -eq 124 ]; then
   echo "Valgrind run timed out after 120s" >&2
-  exit $status
-elif [ "$status" -ne 0 ]; then
-  echo "Valgrind reported errors (exit $status); see $artifacts_dir/valgrind.log" >&2
+  exit $client_status
+elif [ "$client_status" -ne 0 ]; then
+  echo "Valgrind reported errors (exit $client_status); see $artifacts_dir/valgrind.log" >&2
+fi
+
+if [ "$server_status" -eq 124 ]; then
+  echo "Server valgrind timed out after 90s" >&2
+elif [ "$server_status" -ne 0 ]; then
+  echo "Server valgrind reported errors (exit $server_status); see $server_valgrind_log" >&2
 fi
 
 if [ -f "$artifacts_dir/valgrind.log" ]; then
   echo
   echo "==== valgrind log (tail) ===="
   tail -n 200 "$artifacts_dir/valgrind.log"
+fi
+
+if [ -f "$server_valgrind_log" ]; then
+  echo
+  echo "==== server valgrind log (tail) ===="
+  tail -n 200 "$server_valgrind_log"
 fi
 
 exit 0

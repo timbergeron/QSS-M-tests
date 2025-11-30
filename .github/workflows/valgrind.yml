@@ -83,6 +83,7 @@ jobs:
       with:
         name: valgrind-log
         path: artifacts/valgrind.log
+        if-no-files-found: error
 
     - name: Upload valgrind binary
       uses: actions/upload-artifact@v4
@@ -91,3 +92,10 @@ jobs:
         path: |
           Quake/quakespasm-valgrind
           QSS-M-Revision.txt
+
+    - name: Upload server valgrind log
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgrind-log-server
+        path: artifacts/valgrind-server.log
+        if-no-files-found: warn
