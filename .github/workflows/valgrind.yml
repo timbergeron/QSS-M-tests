@@ -1,0 +1,72 @@
+name: Linux Valgrind
+
+on: [push, pull_request]
+
+jobs:
+  valgrind:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        set -eux
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libsdl2-dev \
+          libmad0-dev \
+          libmpg123-dev \
+          libopus-dev \
+          libvorbis-dev \
+          libogg-dev \
+          zlib1g-dev \
+          libcurl4-openssl-dev \
+          pkg-config \
+          zip \
+          valgrind \
+          wget \
+          unzip
+
+    - name: Fetch Quake shareware PAK
+      run: |
+        set -eux
+        mkdir -p Quake/id1
+        if [ ! -f Quake/id1/pak0.pak ]; then
+          tmpdir=$(mktemp -d)
+          url="https://www.quaddicted.com/files/idgames2/quake_shareware.zip"
+          wget -O "$tmpdir/quake_shareware.zip" "$url"
+          unzip -o "$tmpdir/quake_shareware.zip" -d "$tmpdir"
+          pak=$(find "$tmpdir" -iname 'pak0.pak' | head -n 1 || true)
+          if [ -z "$pak" ]; then
+            echo "pak0.pak not found in downloaded archive" >&2
+            exit 1
+          fi
+          cp "$pak" Quake/id1/pak0.pak
+        fi
+
+    - name: Build debug binary for valgrind
+      run: |
+        set -eux
+        chmod +x build-linux-valgrind.sh
+        ./build-linux-valgrind.sh
+
+    - name: Run valgrind
+      run: |
+        set -eux
+        chmod +x scripts/run-valgrind.sh
+        ./scripts/run-valgrind.sh
+
+    - name: Upload valgrind log
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgrind-log
+        path: artifacts/valgrind.log
+
+    - name: Upload valgrind binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: quakespasm-valgrind
+        path: |
+          Quake/quakespasm-valgrind
+          QSS-M-Revision.txt
