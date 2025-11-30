@@ -22,6 +22,7 @@ jobs:
           libogg-dev \
           zlib1g-dev \
           libcurl4-openssl-dev \
+          libarchive-tools \
           pkg-config \
           zip \
           valgrind \
@@ -34,9 +35,10 @@ jobs:
         mkdir -p Quake/id1
         if [ ! -f Quake/id1/pak0.pak ]; then
           tmpdir=$(mktemp -d)
-          url="https://www.quaddicted.com/files/idgames2/quake_shareware.zip"
-          wget -O "$tmpdir/quake_shareware.zip" "$url"
-          unzip -o "$tmpdir/quake_shareware.zip" -d "$tmpdir"
+          url="https://github.com/Jason2Brownlee/QuakeOfficialArchive/raw/main/bin/quake106.zip"
+          wget -O "$tmpdir/quake106.zip" "$url"
+          unzip -o "$tmpdir/quake106.zip" -d "$tmpdir"
+          bsdtar -xf "$tmpdir/resource.1" -C "$tmpdir"
           pak=$(find "$tmpdir" -iname 'pak0.pak' | head -n 1 || true)
           if [ -z "$pak" ]; then
             echo "pak0.pak not found in downloaded archive" >&2
