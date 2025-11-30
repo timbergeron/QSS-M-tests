@@ -5,7 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 artifacts_dir="$repo_root/artifacts"
 binary="$repo_root/Quake/quakespasm-valgrind"
-autoexec_path="$repo_root/Quake/autoexec.cfg"
+autoexec_dir="$repo_root/Quake/id1"
+autoexec_path="$autoexec_dir/autoexec.cfg"
 autoexec_backup=""
 
 mkdir -p "$artifacts_dir"
@@ -16,6 +17,8 @@ if [ ! -x "$binary" ]; then
 fi
 
 # Prepare a tiny autoexec so shareware builds still run scripted commands.
+mkdir -p "$autoexec_dir"
+
 if [ -f "$autoexec_path" ]; then
   autoexec_backup="$(mktemp)"
   cp "$autoexec_path" "$autoexec_backup"
@@ -51,6 +54,7 @@ timeout 120s xvfb-run -a valgrind \
   -basedir "$repo_root/Quake" \
   -heapsize 256000 \
   -zone 1024 \
+  +exec autoexec.cfg \
   +map start \
   +wait 10 \
   +quit
