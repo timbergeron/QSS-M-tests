@@ -1,20 +1,56 @@
 {
-   libGLX_mesa_noise
-   Memcheck:*
+   libGLX_mesa_leak
+   Memcheck:Leak
+   ...
+   obj:*/libGLX_mesa.so*
+}
+{
+   libGLX_mesa_cond
+   Memcheck:Cond
+   ...
+   obj:*/libGLX_mesa.so*
+}
+{
+   libGLX_mesa_addr8
+   Memcheck:Addr8
    ...
    obj:*/libGLX_mesa.so*
 }
 
 {
-   libdbus_noise
-   Memcheck:*
+   libdbus_leak
+   Memcheck:Leak
+   ...
+   obj:*/libdbus-1.so*
+}
+{
+   libdbus_cond
+   Memcheck:Cond
+   ...
+   obj:*/libdbus-1.so*
+}
+{
+   libdbus_addr8
+   Memcheck:Addr8
    ...
    obj:*/libdbus-1.so*
 }
 
 {
-   libSDL2_noise
-   Memcheck:*
+   libSDL2_leak
+   Memcheck:Leak
+   ...
+   obj:*/libSDL2-2.0.so*
+}
+{
+   libSDL2_cond
+   Memcheck:Cond
+   ...
+   obj:*/libSDL2-2.0.so*
+}
+{
+   libSDL2_addr8
+   Memcheck:Addr8
    ...
    obj:*/libSDL2-2.0.so*
 }
