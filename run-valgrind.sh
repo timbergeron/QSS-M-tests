@@ -43,6 +43,7 @@ export SDL_AUDIODRIVER=dummy
 
 cd "$repo_root/Quake"
 
+set +e
 timeout 120s xvfb-run -a valgrind \
   --tool=memcheck \
   --leak-check=full \
@@ -58,3 +59,12 @@ timeout 120s xvfb-run -a valgrind \
   +map start \
   +wait 10 \
   +quit
+status=$?
+set -e
+
+if [ "$status" -eq 124 ]; then
+  echo "Valgrind run timed out after 120s" >&2
+  exit $status
+elif [ "$status" -ne 0 ]; then
+  echo "Valgrind reported errors (exit $status); see $artifacts_dir/valgrind.log" >&2
+fi
