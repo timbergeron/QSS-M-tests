@@ -37,25 +37,6 @@
 }
 
 {
-   libSDL2_leak
-   Memcheck:Leak
-   ...
-   obj:*/libSDL2-2.0.so*
-}
-{
-   libSDL2_cond
-   Memcheck:Cond
-   ...
-   obj:*/libSDL2-2.0.so*
-}
-{
-   libSDL2_addr8
-   Memcheck:Addr8
-   ...
-   obj:*/libSDL2-2.0.so*
-}
-
-{
    libLLVM_globals_reachable
    Memcheck:Leak
    ...
