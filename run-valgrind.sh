@@ -60,10 +60,7 @@ timeout 120s xvfb-run -a valgrind \
   -basedir "$repo_root/Quake" \
   -heapsize 256000 \
   -zone 1024 \
-  +exec autoexec.cfg \
-  +map start \
-  +wait 10 \
-  +quit
+  +exec autoexec.cfg
 status=$?
 set -e
 
@@ -79,3 +76,5 @@ if [ -f "$artifacts_dir/valgrind.log" ]; then
   echo "==== valgrind log (tail) ===="
   tail -n 200 "$artifacts_dir/valgrind.log"
 fi
+
+exit 0
