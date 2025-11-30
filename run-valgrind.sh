@@ -35,7 +35,10 @@ trap cleanup EXIT
 
 cat > "$autoexec_path" <<'EOF'
 map start
-wait 10
+wait 30
+connect la.quakeone.com:26002
+wait 300
+disconnect
 quit
 EOF
 
