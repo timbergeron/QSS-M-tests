@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 artifacts_dir="$repo_root/artifacts"
 binary="$repo_root/Quake/quakespasm-valgrind"
+supp_file="$repo_root/valgrind.supp"
 autoexec_dir="$repo_root/Quake/id1"
 autoexec_path="$autoexec_dir/autoexec.cfg"
 autoexec_backup=""
@@ -49,6 +50,7 @@ timeout 120s xvfb-run -a valgrind \
   --leak-check=full \
   --show-leak-kinds=all \
   --track-origins=yes \
+  --suppressions="$supp_file" \
   --error-exitcode=1 \
   --log-file="$artifacts_dir/valgrind.log" \
   ./quakespasm-valgrind \

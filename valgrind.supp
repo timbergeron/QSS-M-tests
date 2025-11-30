@@ -1,0 +1,20 @@
+{
+   libGLX_mesa_noise
+   Memcheck:*
+   ...
+   obj:*/libGLX_mesa.so*
+}
+
+{
+   libdbus_noise
+   Memcheck:*
+   ...
+   obj:*/libdbus-1.so*
+}
+
+{
+   libSDL2_noise
+   Memcheck:*
+   ...
+   obj:*/libSDL2-2.0.so*
+}
