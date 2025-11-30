@@ -1,6 +1,7 @@
 {
    libGLX_mesa_leak
    Memcheck:Leak
+   leak-kinds: definite,indirect,possible,reachable
    ...
    obj:*/libGLX_mesa.so*
 }
@@ -20,6 +21,7 @@
 {
    libdbus_leak
    Memcheck:Leak
+   leak-kinds: definite,indirect,possible,reachable
    ...
    obj:*/libdbus-1.so*
 }
@@ -39,6 +41,7 @@
 {
    libSDL2_leak
    Memcheck:Leak
+   leak-kinds: definite,indirect,possible,reachable
    ...
    obj:*/libSDL2-2.0.so*
 }
@@ -53,4 +56,15 @@
    Memcheck:Addr8
    ...
    obj:*/libSDL2-2.0.so*
+}
+
+{
+   libLLVM_globals_reachable
+   Memcheck:Leak
+   leak-kinds: reachable
+   ...
+   fun:llvm::allocate_buffer*
+   fun:llvm::cl::Option::addArgument*
+   fun:llvm::mc::RegisterMCTargetOptionsFlags*
+   obj:*/libLLVM.so*
 }

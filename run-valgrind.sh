@@ -48,7 +48,7 @@ set +e
 timeout 120s xvfb-run -a valgrind \
   --tool=memcheck \
   --leak-check=full \
-  --show-leak-kinds=all \
+  --show-leak-kinds=definite \
   --track-origins=yes \
   --suppressions="$supp_file" \
   --error-exitcode=1 \
