@@ -29,6 +29,6 @@ valgrind \
   ./quakespasm-valgrind \
   -basedir "$repo_root/Quake" \
   -dedicated 1 \
-  -heapsize 64 \
+  -heapsize 64000 \
   +map start \
   +quit
