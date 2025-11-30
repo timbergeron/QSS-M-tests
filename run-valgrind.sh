@@ -9,6 +9,9 @@ supp_file="$repo_root/valgrind.supp"
 autoexec_dir="$repo_root/Quake/id1"
 autoexec_path="$autoexec_dir/autoexec.cfg"
 autoexec_backup=""
+server_mod="crmod7"
+server_dir="$repo_root/Quake/$server_mod"
+server_pid=""
 
 mkdir -p "$artifacts_dir"
 
@@ -30,6 +33,9 @@ cleanup() {
   if [ -n "$autoexec_backup" ] && [ -f "$autoexec_backup" ]; then
     mv "$autoexec_backup" "$autoexec_path"
   fi
+  if [ -n "$server_pid" ]; then
+    kill "$server_pid" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
@@ -39,6 +45,9 @@ wait 30
 connect la.quakeone.com:26002
 wait 300
 disconnect
+connect 127.0.0.1:26000
+wait 300
+disconnect
 quit
 EOF
 
@@ -46,6 +55,22 @@ EOF
 export SDL_AUDIODRIVER=dummy
 
 cd "$repo_root/Quake"
+
+# Optionally launch a local server using crmod7 if the progs.dat is present.
+if [ -f "$server_dir/progs.dat" ]; then
+  echo "Starting local server with -game $server_mod"
+  timeout 90s "$binary" \
+    -basedir "$repo_root/Quake" \
+    -game "$server_mod" \
+    -dedicated 1 \
+    -port 26000 \
+    +map start \
+    +sv_public 0 \
+    >"$artifacts_dir/server.log" 2>&1 &
+  server_pid=$!
+else
+  echo "Skipping local server: $server_dir/progs.dat not found"
+fi
 
 set +e
 timeout 120s xvfb-run -a valgrind \

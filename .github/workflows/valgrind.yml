@@ -31,6 +31,23 @@ jobs:
           wget \
           unzip
 
+    - name: Build CRMod7 progs.dat
+      run: |
+        set -eux
+        workdir=$(mktemp -d)
+        curl -L -o "$workdir/crmod7.zip" https://github.com/quakeone/CRMod7/archive/refs/heads/master.zip
+        unzip -q "$workdir/crmod7.zip" -d "$workdir"
+        cd "$workdir"/CRMod7-*
+        curl -L -o fteqcc_linux64.zip https://www.fteqcc.org/dl/fteqcc_linux64.zip
+        unzip -q fteqcc_linux64.zip fteqcc64
+        chmod +x fteqcc64
+        ./fteqcc64 -src src
+        dest="$GITHUB_WORKSPACE/Quake/crmod7"
+        mkdir -p "$dest"
+        if [ -f src/progs.dat ]; then cp src/progs.dat "$dest/"; fi
+        if [ -f src/csprogs.dat ]; then cp src/csprogs.dat "$dest/"; fi
+        if [ -d release ]; then cp -a release/. "$dest/"; fi
+
     - name: Fetch Quake shareware PAK
       run: |
         set -eux
