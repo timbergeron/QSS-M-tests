@@ -55,7 +55,7 @@ cd "$repo_root/Quake"
 
 # Optionally launch a local server using crmod7 if the progs.dat is present.
 if [ -f "$server_dir/progs.dat" ]; then
-  echo "Starting local server with -game $server_mod"
+  echo "Starting local server with -game $server_mod on port 26001"
   touch "$server_valgrind_log" "$server_stdout_log"
   if ! command -v valgrind >/dev/null 2>&1; then
     echo "Warning: valgrind not found; running server without it" >&2
