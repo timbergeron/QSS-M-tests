@@ -16,7 +16,6 @@ server_pid=""
 server_status=0
 server_valgrind_log="$artifacts_dir/valgrind-server-local.log"
 server_stdout_log="$artifacts_dir/server-local.log"
-server_ready=false
 server_port=26001
 combined_log="$artifacts_dir/valgrind-combined.log"
 
@@ -87,30 +86,17 @@ if [ -f "$server_dir/progs.dat" ]; then
       >"$server_stdout_log" 2>&1 &
   fi
   server_pid=$!
-  # Assume server comes up; we'll attempt a connect either way.
-  server_ready=true
 else
   echo "Skipping local server: $server_dir/progs.dat not found"
 fi
 
 # Write autoexec after server decision so we can include/exclude local connect.
-cat > "$autoexec_path" <<EOF
+cat > "$autoexec_path" <<'EOF'
 map start
 wait 30
 connect la.quakeone.com:26002
 wait 300
 disconnect
-EOF
-
-if [ "$server_ready" = true ]; then
-  cat >> "$autoexec_path" <<EOF
-connect 127.0.0.1:${server_port}
-wait 300
-disconnect
-EOF
-fi
-
-cat >> "$autoexec_path" <<'EOF'
 quit
 EOF
 
