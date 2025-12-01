@@ -85,6 +85,13 @@ jobs:
         path: artifacts/valgrind.log
         if-no-files-found: error
 
+    - name: Upload combined valgrind logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: valgrind-log-combined
+        path: artifacts/valgrind-combined.log
+        if-no-files-found: warn
+
     - name: Upload valgrind binary
       uses: actions/upload-artifact@v4
       with:

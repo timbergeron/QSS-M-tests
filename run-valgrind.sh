@@ -16,8 +16,10 @@ server_status=0
 server_valgrind_log="$artifacts_dir/valgrind-server.log"
 server_stdout_log="$artifacts_dir/server.log"
 server_ready=false
+combined_log="$artifacts_dir/valgrind-combined.log"
 
 mkdir -p "$artifacts_dir"
+rm -f "$combined_log"
 
 if [ ! -x "$binary" ]; then
   echo "Missing valgrind binary at $binary; run build-linux-valgrind.sh first." >&2
@@ -173,18 +175,33 @@ if [ -f "$artifacts_dir/valgrind.log" ]; then
   echo
   echo "==== valgrind log (tail) ===="
   tail -n 200 "$artifacts_dir/valgrind.log"
+  {
+    echo "==== CLIENT VALGRIND LOG ===="
+    cat "$artifacts_dir/valgrind.log"
+    echo
+  } >> "$combined_log"
 fi
 
 if [ -f "$server_valgrind_log" ]; then
   echo
   echo "==== server valgrind log (tail) ===="
   tail -n 200 "$server_valgrind_log"
+  {
+    echo "==== SERVER VALGRIND LOG ===="
+    cat "$server_valgrind_log"
+    echo
+  } >> "$combined_log"
 fi
 
 if [ -f "$server_stdout_log" ]; then
   echo
   echo "==== server stdout (tail) ===="
   tail -n 200 "$server_stdout_log"
+  {
+    echo "==== SERVER STDOUT ===="
+    cat "$server_stdout_log"
+    echo
+  } >> "$combined_log"
 fi
 
 exit 0
