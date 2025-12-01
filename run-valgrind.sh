@@ -9,6 +9,7 @@ supp_file="$repo_root/valgrind.supp"
 autoexec_dir="$repo_root/Quake/id1"
 autoexec_path="$autoexec_dir/autoexec.cfg"
 autoexec_backup=""
+stdin_stub="$artifacts_dir/stdin.txt"
 server_mod="crmod7"
 server_dir="$repo_root/Quake/$server_mod"
 server_pid=""
@@ -19,7 +20,8 @@ server_ready=false
 combined_log="$artifacts_dir/valgrind-combined.log"
 
 mkdir -p "$artifacts_dir"
-rm -f "$combined_log"
+rm -f "$combined_log" "$stdin_stub"
+printf "\n" > "$stdin_stub"
 
 if [ ! -x "$binary" ]; then
   echo "Missing valgrind binary at $binary; run build-linux-valgrind.sh first." >&2
@@ -57,16 +59,16 @@ if [ -f "$server_dir/progs.dat" ]; then
   touch "$server_valgrind_log" "$server_stdout_log"
   if ! command -v valgrind >/dev/null 2>&1; then
     echo "Warning: valgrind not found; running server without it" >&2
-    yes "" | timeout 90s "$binary" \
+    timeout 90s "$binary" <"$stdin_stub" \
       -basedir "$repo_root/Quake" \
       -game "$server_mod" \
       -dedicated 1 \
-      -port 26000 \
+      -port 26001 \
       +map start \
       +sv_public 0 \
       >"$server_stdout_log" 2>&1 &
   else
-    yes "" | timeout 90s valgrind \
+    timeout 90s valgrind <"$stdin_stub" \
       --tool=memcheck \
       --leak-check=full \
       --show-leak-kinds=definite \
@@ -78,7 +80,7 @@ if [ -f "$server_dir/progs.dat" ]; then
       -basedir "$repo_root/Quake" \
       -game "$server_mod" \
       -dedicated 1 \
-      -port 26000 \
+      -port 26001 \
       +map start \
       +sv_public 0 \
       >"$server_stdout_log" 2>&1 &
@@ -92,7 +94,7 @@ import socket, sys
 s = socket.socket()
 s.settimeout(0.5)
 try:
-    s.connect(("127.0.0.1", 26000))
+    s.connect(("127.0.0.1", 26001))
     sys.exit(0)
 except Exception:
     sys.exit(1)
@@ -126,7 +128,7 @@ disconnect
 EOF
   if [ "$server_ready" = true ]; then
     cat <<'EOF'
-connect 127.0.0.1:26000
+connect 127.0.0.1:26001
 wait 300
 disconnect
 EOF
