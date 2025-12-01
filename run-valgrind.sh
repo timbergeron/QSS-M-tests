@@ -15,7 +15,7 @@ server_pid=""
 server_status=0
 server_valgrind_log="$artifacts_dir/valgrind-server.log"
 server_stdout_log="$artifacts_dir/server.log"
-server_started=false
+server_ready=false
 
 mkdir -p "$artifacts_dir"
 
@@ -52,7 +52,6 @@ cd "$repo_root/Quake"
 if [ -f "$server_dir/progs.dat" ]; then
   echo "Starting local server with -game $server_mod"
   touch "$server_valgrind_log" "$server_stdout_log"
-  server_started=true
   if ! command -v valgrind >/dev/null 2>&1; then
     echo "Warning: valgrind not found; running server without it" >&2
     timeout 90s "$binary" \
@@ -65,22 +64,49 @@ if [ -f "$server_dir/progs.dat" ]; then
       >"$server_stdout_log" 2>&1 &
   else
     timeout 90s valgrind \
-    --tool=memcheck \
-    --leak-check=full \
-    --show-leak-kinds=definite \
-    --track-origins=yes \
-    --suppressions="$supp_file" \
-    --error-exitcode=1 \
-    --log-file="$server_valgrind_log" \
-    -basedir "$repo_root/Quake" \
-    -game "$server_mod" \
-    -dedicated 1 \
-    -port 26000 \
-    +map start \
-    +sv_public 0 \
-    >"$server_stdout_log" 2>&1 &
+      --tool=memcheck \
+      --leak-check=full \
+      --show-leak-kinds=definite \
+      --track-origins=yes \
+      --suppressions="$supp_file" \
+      --error-exitcode=1 \
+      --log-file="$server_valgrind_log" \
+      -basedir "$repo_root/Quake" \
+      -game "$server_mod" \
+      -dedicated 1 \
+      -port 26000 \
+      +map start \
+      +sv_public 0 \
+      >"$server_stdout_log" 2>&1 &
   fi
   server_pid=$!
+
+  # Wait briefly for the server port to open; if it never does, skip the local connect.
+  for i in $(seq 1 15); do
+    if python3 - <<'PY'
+import socket, sys
+s = socket.socket()
+s.settimeout(0.5)
+try:
+    s.connect(("127.0.0.1", 26000))
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+PY
+    then
+      server_ready=true
+      break
+    fi
+    sleep 1
+  done
+  if [ "$server_ready" != true ]; then
+    echo "Local server did not open port 26000; killing it and skipping local connect"
+    if [ -n "$server_pid" ]; then
+      kill "$server_pid" 2>/dev/null || true
+      wait "$server_pid" || true
+      server_pid=""
+    fi
+  fi
 else
   echo "Skipping local server: $server_dir/progs.dat not found"
 fi
@@ -94,7 +120,7 @@ connect la.quakeone.com:26002
 wait 300
 disconnect
 EOF
-  if [ "$server_started" = true ]; then
+  if [ "$server_ready" = true ]; then
     cat <<'EOF'
 connect 127.0.0.1:26000
 wait 300
