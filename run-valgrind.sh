@@ -17,6 +17,7 @@ server_status=0
 server_valgrind_log="$artifacts_dir/valgrind-server-local.log"
 server_stdout_log="$artifacts_dir/server-local.log"
 server_ready=false
+server_port=26001
 combined_log="$artifacts_dir/valgrind-combined.log"
 
 mkdir -p "$artifacts_dir"
@@ -55,7 +56,7 @@ cd "$repo_root/Quake"
 
 # Optionally launch a local server using crmod7 if the progs.dat is present.
 if [ -f "$server_dir/progs.dat" ]; then
-  echo "Starting local server with -game $server_mod on port 26001"
+  echo "Starting local server with -game $server_mod on port $server_port"
   touch "$server_valgrind_log" "$server_stdout_log"
   if ! command -v valgrind >/dev/null 2>&1; then
     echo "Warning: valgrind not found; running server without it" >&2
@@ -63,7 +64,7 @@ if [ -f "$server_dir/progs.dat" ]; then
       -basedir "$repo_root/Quake" \
       -game "$server_mod" \
       -dedicated 1 \
-      -port 26001 \
+      -port "$server_port" \
       +map start \
       +sv_public 0 \
       >"$server_stdout_log" 2>&1 &
@@ -80,63 +81,38 @@ if [ -f "$server_dir/progs.dat" ]; then
       -basedir "$repo_root/Quake" \
       -game "$server_mod" \
       -dedicated 1 \
-      -port 26001 \
+      -port "$server_port" \
       +map start \
       +sv_public 0 \
       >"$server_stdout_log" 2>&1 &
   fi
   server_pid=$!
-
-  # Wait briefly for the server port to open; if it never does, skip the local connect.
-  for i in $(seq 1 30); do
-    if python3 - <<'PY'
-import socket, sys
-s = socket.socket()
-s.settimeout(0.5)
-try:
-    s.connect(("127.0.0.1", 26001))
-    sys.exit(0)
-except Exception:
-    sys.exit(1)
-PY
-    then
-      server_ready=true
-      break
-    fi
-    sleep 1
-  done
-  if [ "$server_ready" != true ]; then
-    echo "Local server did not open port 26000; killing it and skipping local connect"
-    if [ -n "$server_pid" ]; then
-      kill "$server_pid" 2>/dev/null || true
-      wait "$server_pid" || true
-      server_pid=""
-    fi
-  fi
+  # Assume server comes up; we'll attempt a connect either way.
+  server_ready=true
 else
   echo "Skipping local server: $server_dir/progs.dat not found"
 fi
 
 # Write autoexec after server decision so we can include/exclude local connect.
-{
-  cat <<'EOF'
+cat > "$autoexec_path" <<EOF
 map start
 wait 30
 connect la.quakeone.com:26002
 wait 300
 disconnect
 EOF
-  if [ "$server_ready" = true ]; then
-    cat <<'EOF'
-connect 127.0.0.1:26001
+
+if [ "$server_ready" = true ]; then
+  cat >> "$autoexec_path" <<EOF
+connect 127.0.0.1:${server_port}
 wait 300
 disconnect
 EOF
-  fi
-  cat <<'EOF'
+fi
+
+cat >> "$autoexec_path" <<'EOF'
 quit
 EOF
-} > "$autoexec_path"
 
 set +e
 timeout 120s xvfb-run -a valgrind \
