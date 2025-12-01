@@ -13,8 +13,8 @@ server_mod="crmod7"
 server_dir="$repo_root/Quake/$server_mod"
 server_pid=""
 server_status=0
-server_valgrind_log="$artifacts_dir/valgrind-server.log"
-server_stdout_log="$artifacts_dir/server.log"
+server_valgrind_log="$artifacts_dir/valgrind-server-local.log"
+server_stdout_log="$artifacts_dir/server-local.log"
 server_ready=false
 combined_log="$artifacts_dir/valgrind-combined.log"
 
@@ -73,6 +73,7 @@ if [ -f "$server_dir/progs.dat" ]; then
       --suppressions="$supp_file" \
       --error-exitcode=1 \
       --log-file="$server_valgrind_log" \
+      "$binary" \
       -basedir "$repo_root/Quake" \
       -game "$server_mod" \
       -dedicated 1 \

@@ -78,18 +78,15 @@ jobs:
         chmod +x run-valgrind.sh
         ./run-valgrind.sh
 
-    - name: Upload valgrind log
+    - name: Upload valgrind logs
       uses: actions/upload-artifact@v4
       with:
-        name: valgrind-log
-        path: artifacts/valgrind.log
-        if-no-files-found: error
-
-    - name: Upload combined valgrind logs
-      uses: actions/upload-artifact@v4
-      with:
-        name: valgrind-log-combined
-        path: artifacts/valgrind-combined.log
+        name: valgrind-logs
+        path: |
+          artifacts/valgrind.log
+          artifacts/valgrind-combined.log
+          artifacts/valgrind-server-local.log
+          artifacts/server-local.log
         if-no-files-found: warn
 
     - name: Upload valgrind binary
@@ -99,17 +96,3 @@ jobs:
         path: |
           Quake/quakespasm-valgrind
           QSS-M-Revision.txt
-
-    - name: Upload server valgrind log
-      uses: actions/upload-artifact@v4
-      with:
-        name: valgrind-log-server
-        path: artifacts/valgrind-server.log
-        if-no-files-found: warn
-
-    - name: Upload server stdout log
-      uses: actions/upload-artifact@v4
-      with:
-        name: server-log
-        path: artifacts/server.log
-        if-no-files-found: warn
