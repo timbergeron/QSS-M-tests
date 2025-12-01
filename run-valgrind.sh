@@ -47,6 +47,7 @@ trap cleanup EXIT
 
 # Use headless drivers to avoid needing a display/audio device on CI.
 export SDL_AUDIODRIVER=dummy
+export QSS_NOSTDIN=1
 
 cd "$repo_root/Quake"
 
@@ -56,7 +57,7 @@ if [ -f "$server_dir/progs.dat" ]; then
   touch "$server_valgrind_log" "$server_stdout_log"
   if ! command -v valgrind >/dev/null 2>&1; then
     echo "Warning: valgrind not found; running server without it" >&2
-    timeout 90s "$binary" \
+    yes "" | timeout 90s "$binary" \
       -basedir "$repo_root/Quake" \
       -game "$server_mod" \
       -dedicated 1 \
@@ -65,7 +66,7 @@ if [ -f "$server_dir/progs.dat" ]; then
       +sv_public 0 \
       >"$server_stdout_log" 2>&1 &
   else
-    timeout 90s valgrind \
+    yes "" | timeout 90s valgrind \
       --tool=memcheck \
       --leak-check=full \
       --show-leak-kinds=definite \
@@ -85,7 +86,7 @@ if [ -f "$server_dir/progs.dat" ]; then
   server_pid=$!
 
   # Wait briefly for the server port to open; if it never does, skip the local connect.
-  for i in $(seq 1 15); do
+  for i in $(seq 1 30); do
     if python3 - <<'PY'
 import socket, sys
 s = socket.socket()
