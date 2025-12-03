@@ -2,10 +2,11 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/../.." && pwd)"
 artifacts_dir="$repo_root/artifacts"
 binary="$repo_root/Quake/quakespasm-valgrind"
-supp_file="$repo_root/valgrind.supp"
+supp_file="$script_dir/valgrind.supp"
 autoexec_dir="$repo_root/Quake/id1"
 autoexec_path="$autoexec_dir/autoexec.cfg"
 autoexec_backup=""
