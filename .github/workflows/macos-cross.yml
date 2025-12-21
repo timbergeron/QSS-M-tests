@@ -155,11 +155,12 @@ jobs:
         
         # Force "Linux" detection (zlib configure uses uname)
         # We can pass uname=Linux to trick it if needed, or just set generic args
+        # But explicitly setting ARFLAGS=rc fixes the build issue where it expects libtool semantics (-o)
         ./configure \
           --static \
           --prefix=$(pwd)/../linux-deps
         
-        make -j$(sysctl -n hw.ncpu) AR="${AR}" RANLIB="${RANLIB}"
+        make -j$(sysctl -n hw.ncpu) AR="${AR}" RANLIB="${RANLIB}" ARFLAGS=rc
         make install
 
     - name: Build SDL2 (Static Linux)
