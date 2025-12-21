@@ -36,7 +36,8 @@ jobs:
       run: |
         cd Quake || exit 1
         
-        export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD)"
+        # Add zlib include path (headers are in Windows/zlib/include)
+        export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD) -I../Windows/zlib/include"
         export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
         
         # Set cross-compiler variables based on platform
