@@ -64,9 +64,15 @@ jobs:
         # Set cross-compiler variables based on platform
         if [ "${{ matrix.platform }}" = "w64" ]; then
           TARGET=x86_64-w64-mingw32
+          ZLIB_PLATFORM="x64"
         else
           TARGET=i686-w64-mingw32
+          ZLIB_PLATFORM="x86"
         fi
+        
+        # Linker trick: Makefile looks for libz.a.
+        # We copy our zlib DLL (or import lib) to 'libz.a' in the current dir so the linker finds it.
+        cp "../Windows/zlib/${ZLIB_PLATFORM}/zlib1.dll" libz.a
         
         # Pass cross-compiler tools directly to make (Makefile defaults CC=gcc otherwise)
         make -f ${{ matrix.makefile }} USE_SDL2=1 \
