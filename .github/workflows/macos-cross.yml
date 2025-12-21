@@ -37,11 +37,11 @@ jobs:
         cd Quake || exit 1
         
         echo "=== Debugging file structure ==="
-        find .. -name "zlib.h"
+        ls -R ../Windows | grep zlib
         echo "=============================="
         
-        # Absolute path to zlib headers
-        ZLIB_INC=$(readlink -f ../Windows/zlib/include)
+        # Absolute path to zlib headers (macOS readlink doesn't support -f)
+        ZLIB_INC="$(pwd)/../Windows/zlib/include"
         
         # Add zlib include path via both CFLAGS and C_INCLUDE_PATH
         export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD) -I${ZLIB_INC}"
