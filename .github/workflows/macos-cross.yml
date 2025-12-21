@@ -37,9 +37,21 @@ jobs:
         cd Quake || exit 1
         
         echo "=== Debugging file structure ==="
-        ls -R ../Windows/zlib/include
+        echo "Current directory: $(pwd)"
+        echo "Listing parent directory:"
+        ls -F ..
+        echo "Listing Windows directory (if it exists):"
+        ls -F ../Windows || echo "Windows dir not found"
+        echo "Exhaustive find for zlib.h:"
+        find .. -name "zlib.h"
         echo "=============================="
         
+        # Abort if zlib headers are missing to stop the build early
+        if [ ! -d "../Windows/zlib/include" ]; then
+          echo "ERROR: ../Windows/zlib/include DOES NOT EXIST"
+          exit 1
+        fi
+
         # Copy zlib headers to a local directory to avoid path issues
         mkdir -p local_include
         cp ../Windows/zlib/include/*.h local_include/
