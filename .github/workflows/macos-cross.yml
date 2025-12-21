@@ -254,6 +254,7 @@ jobs:
         make USE_SDL2=1 LINUX_CROSS=1 \
           CC=x86_64-linux-musl-gcc \
           SDL_CONFIG="${SDL_CONFIG}" \
+          LDFLAGS="${LDFLAGS}" \
           USE_CODEC_WAVE=0 \
           USE_CODEC_FLAC=0 \
           USE_CODEC_MP3=0 \
