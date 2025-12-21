@@ -234,6 +234,10 @@ jobs:
         void glLoadIdentity(){}
         void glBlendFunc(){}
         void glClear(){}
+        void glColor3f(){}
+        void glOrtho(){}
+        void glViewport(){}
+        void glFrustum(){}
         EOF
         x86_64-linux-musl-gcc -fPIC -shared -o linux-deps/lib/libGL.so dummy_gl.c
         rm dummy_gl.c
