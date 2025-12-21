@@ -163,6 +163,30 @@ jobs:
         make -j$(sysctl -n hw.ncpu) AR="${AR}" RANLIB="${RANLIB}" ARFLAGS=rc
         make install
 
+    - name: Build Curl (Minimal Static Linux)
+      run: |
+        mkdir -p linux-deps
+        wget https://curl.se/download/curl-8.5.0.tar.gz
+        tar xf curl-8.5.0.tar.gz
+        cd curl-8.5.0
+        
+        # Configure minimal curl (no SSL, no LDAP) for static linking
+        CC=x86_64-linux-musl-gcc \
+        ./configure \
+          --host=x86_64-linux-musl \
+          --disable-shared \
+          --enable-static \
+          --disable-ldap \
+          --disable-ldaps \
+          --without-ssl \
+          --without-libidn2 \
+          --without-brotli \
+          --without-zstd \
+          --prefix=$(pwd)/../linux-deps
+        
+        make -j$(sysctl -n hw.ncpu)
+        make install
+
     - name: Build SDL2 (Static Linux)
       run: |
         mkdir -p linux-deps
