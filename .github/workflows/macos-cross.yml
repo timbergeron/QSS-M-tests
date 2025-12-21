@@ -39,16 +39,21 @@ jobs:
         export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD)"
         export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
         
-        # Homebrew MinGW uses different binary names
+        # Set cross-compiler variables based on platform
         if [ "${{ matrix.platform }}" = "w64" ]; then
-          export CC=x86_64-w64-mingw32-gcc
-          export WINDRES=x86_64-w64-mingw32-windres
+          TARGET=x86_64-w64-mingw32
         else
-          export CC=i686-w64-mingw32-gcc
-          export WINDRES=i686-w64-mingw32-windres
+          TARGET=i686-w64-mingw32
         fi
         
-        make -f ${{ matrix.makefile }} USE_SDL2=1 -j$(sysctl -n hw.ncpu)
+        # Pass cross-compiler tools directly to make (Makefile defaults CC=gcc otherwise)
+        make -f ${{ matrix.makefile }} USE_SDL2=1 \
+          CC=${TARGET}-gcc \
+          AR=${TARGET}-ar \
+          RANLIB=${TARGET}-ranlib \
+          WINDRES=${TARGET}-windres \
+          STRIP=${TARGET}-strip \
+          -j$(sysctl -n hw.ncpu)
         mv quakespasm.exe QSS-M-${{ matrix.platform }}.exe
 
     - name: Package Windows Binary
