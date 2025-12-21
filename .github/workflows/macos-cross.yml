@@ -36,8 +36,17 @@ jobs:
       run: |
         cd Quake || exit 1
         
-        # Add zlib include path (headers are in Windows/zlib/include)
-        export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD) -I../Windows/zlib/include"
+        echo "=== Debugging file structure ==="
+        find .. -name "zlib.h"
+        echo "=============================="
+        
+        # Absolute path to zlib headers
+        ZLIB_INC=$(readlink -f ../Windows/zlib/include)
+        
+        # Add zlib include path via both CFLAGS and C_INCLUDE_PATH
+        export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD) -I${ZLIB_INC}"
+        export C_INCLUDE_PATH="${ZLIB_INC}"
+        export CPATH="${ZLIB_INC}"
         export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
         
         # Set cross-compiler variables based on platform
