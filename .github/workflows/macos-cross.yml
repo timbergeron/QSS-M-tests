@@ -236,6 +236,9 @@ jobs:
         curl -LO https://downloads.sourceforge.net/mad/libmad-0.15.1b.tar.gz
         tar -xf libmad-0.15.1b.tar.gz
         cd libmad-0.15.1b
+        # Update ancient config.guess/sub to recognize modern macOS
+        curl -L -o config.guess 'https://git.savannah.gnu.org/cgit/config.git/plain/config.guess'
+        curl -L -o config.sub 'https://git.savannah.gnu.org/cgit/config.git/plain/config.sub'
         # Fix obsolete gcc flag (-fforce-mem is removed in GCC 4.4+)
         sed -i '' 's/-fforce-mem//' configure
         ./configure --host=x86_64-linux-musl --prefix=$(pwd)/../linux-deps --disable-shared
