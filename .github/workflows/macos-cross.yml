@@ -224,20 +224,24 @@ jobs:
         void glEnable(){}
         void glDisable(){}
         void glVertex2f(){}
-        void glColor4f(){}
-        void glScissor(){}
-        void glColor4fv(){}
-        void glTexEnvf(){}
+        void glVertex2fv(){}
         void glVertex3f(){}
+        void glVertex3fv(){}
+        void glColor3f(){}
+        void glColor3fv(){}
+        void glColor4f(){}
+        void glColor4fv(){}
         void glTexCoord2f(){}
+        void glTexCoord2fv(){}
+        void glScissor(){}
+        void glTexEnvf(){}
         void glMatrixMode(){}
         void glLoadIdentity(){}
         void glBlendFunc(){}
         void glClear(){}
-        void glColor3f(){}
         void glOrtho(){}
-        void glViewport(){}
         void glFrustum(){}
+        void glViewport(){}
         void glPolygonMode(){}
         void glDepthMask(){}
         void glDepthFunc(){}
@@ -245,6 +249,30 @@ jobs:
         void glShadeModel(){}
         void glReadBuffer(){}
         void glDrawBuffer(){}
+        void glTexImage2D(){}
+        void glTexSubImage2D(){}
+        void glBindTexture(){}
+        void glDeleteTextures(){}
+        void glGenTextures(){}
+        void glAlphaFunc(){}
+        void glStencilFunc(){}
+        void glStencilOp(){}
+        void glClearColor(){}
+        void glClearDepth(){}
+        void glClearStencil(){}
+        void glFinish(){}
+        void glFlush(){}
+        void glGetBooleanv(){}
+        void glGetIntegerv(){}
+        void glGetFloatv(){}
+        void glGetString(){}
+        void glHint(){}
+        void glLineWidth(){}
+        void glPointSize(){}
+        void glTexParameteri(){}
+        void glTexParameterf(){}
+        void glDrawElements(){}
+        void glRectf(){}
         EOF
         x86_64-linux-musl-gcc -fPIC -shared -o linux-deps/lib/libGL.so dummy_gl.c
         rm dummy_gl.c
