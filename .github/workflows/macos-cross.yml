@@ -238,6 +238,13 @@ jobs:
         void glOrtho(){}
         void glViewport(){}
         void glFrustum(){}
+        void glPolygonMode(){}
+        void glDepthMask(){}
+        void glDepthFunc(){}
+        void glCullFace(){}
+        void glShadeModel(){}
+        void glReadBuffer(){}
+        void glDrawBuffer(){}
         EOF
         x86_64-linux-musl-gcc -fPIC -shared -o linux-deps/lib/libGL.so dummy_gl.c
         rm dummy_gl.c
