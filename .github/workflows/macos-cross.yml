@@ -216,10 +216,23 @@ jobs:
     - name: Create Dummy OpenGL Stub (Linux)
       run: |
         # Create a dummy libGL.so to satisfy the linker (-lGL).
-        # QuakeSpasm loads OpenGL dynamically via SDL, so we don't need the actual symbols at link time
-        # (or if we do, we can stub the few we need, but usually it's just checking library existence).
+        # We define stub functions for symbols used directly by pr_ext.c
         mkdir -p linux-deps/lib
-        echo "void glBegin(){}" | x86_64-linux-musl-gcc -xc -shared -o linux-deps/lib/libGL.so -
+        cat <<EOF > dummy_gl.c
+        void glBegin(){}
+        void glEnd(){}
+        void glEnable(){}
+        void glDisable(){}
+        void glVertex2f(){}
+        void glColor4f(){}
+        void glScissor(){}
+        void glColor4fv(){}
+        void glTexEnvf(){}
+        void glVertex3f(){}
+        void glTexCoord2f(){}
+        EOF
+        x86_64-linux-musl-gcc -fPIC -shared -o linux-deps/lib/libGL.so dummy_gl.c
+        rm dummy_gl.c
 
 
     - name: Generate QSS-M Revision Info
