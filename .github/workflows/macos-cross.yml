@@ -37,24 +37,24 @@ jobs:
         cd Quake || exit 1
         
         echo "=== Debugging file structure ==="
-        echo "Current directory: $(pwd)"
-        echo "Listing parent directory:"
-        ls -F ..
-        echo "Listing Windows directory (if it exists):"
-        ls -F ../Windows || echo "Windows dir not found"
-        echo "Exhaustive find for zlib.h:"
-        find .. -name "zlib.h"
+        ls -F ../Windows/zlib/ || echo "Windows/zlib not found"
         echo "=============================="
         
-        # Abort if zlib headers are missing to stop the build early
-        if [ ! -d "../Windows/zlib/include" ]; then
-          echo "ERROR: ../Windows/zlib/include DOES NOT EXIST"
-          exit 1
-        fi
-
-        # Copy zlib headers to a local directory to avoid path issues
+        # Prepare local include directory
         mkdir -p local_include
-        cp ../Windows/zlib/include/*.h local_include/
+        
+        # Check for existing zlib headers, otherwise download them
+        if [ -f "../Windows/zlib/include/zlib.h" ]; then
+          echo "Found zlib headers in repo."
+          cp ../Windows/zlib/include/*.h local_include/
+        else
+          echo "zlib headers NOT found in repo. Downloading..."
+          curl -sL -o local_include/zlib.h https://raw.githubusercontent.com/madler/zlib/master/zlib.h
+          curl -sL -o local_include/zconf.h https://raw.githubusercontent.com/madler/zlib/master/zconf.h
+          # zconf.h usually needs configuration, but for MinGW cross-compile stock might work or need tweaks.
+          # Better source: MSYS2's zconf might be safer, but let's try standard first or standard repo fallback.
+        fi
+        
         ls -l local_include/
         
         # Add local include path
