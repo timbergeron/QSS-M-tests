@@ -216,67 +216,9 @@ jobs:
     - name: Create Dummy OpenGL Stub (Linux)
       run: |
         # Create a dummy libGL.so to satisfy the linker (-lGL).
-        # We define stub functions for symbols used directly by pr_ext.c
+        # We also pass -Wl,--unresolved-symbols=ignore-all to the linker so we don't need real symbols.
         mkdir -p linux-deps/lib
-        cat <<EOF > dummy_gl.c
-        void glBegin(){}
-        void glEnd(){}
-        void glEnable(){}
-        void glDisable(){}
-        void glVertex2f(){}
-        void glVertex2fv(){}
-        void glVertex3f(){}
-        void glVertex3fv(){}
-        void glColor3f(){}
-        void glColor3fv(){}
-        void glColor4f(){}
-        void glColor4fv(){}
-        void glTexCoord2f(){}
-        void glTexCoord2fv(){}
-        void glScissor(){}
-        void glTexEnvf(){}
-        void glMatrixMode(){}
-        void glLoadIdentity(){}
-        void glBlendFunc(){}
-        void glClear(){}
-        void glOrtho(){}
-        void glFrustum(){}
-        void glViewport(){}
-        void glPolygonMode(){}
-        void glDepthMask(){}
-        void glDepthFunc(){}
-        void glCullFace(){}
-        void glShadeModel(){}
-        void glReadBuffer(){}
-        void glDrawBuffer(){}
-        void glTexImage2D(){}
-        void glTexSubImage2D(){}
-        void glBindTexture(){}
-        void glDeleteTextures(){}
-        void glGenTextures(){}
-        void glAlphaFunc(){}
-        void glStencilFunc(){}
-        void glStencilOp(){}
-        void glClearColor(){}
-        void glClearDepth(){}
-        void glClearStencil(){}
-        void glFinish(){}
-        void glFlush(){}
-        void glGetBooleanv(){}
-        void glGetIntegerv(){}
-        void glGetFloatv(){}
-        void glGetString(){}
-        void glHint(){}
-        void glLineWidth(){}
-        void glPointSize(){}
-        void glTexParameteri(){}
-        void glTexParameterf(){}
-        void glDrawElements(){}
-        void glRectf(){}
-        EOF
-        x86_64-linux-musl-gcc -fPIC -shared -o linux-deps/lib/libGL.so dummy_gl.c
-        rm dummy_gl.c
-
+        echo "void glBegin(){}" | x86_64-linux-musl-gcc -fPIC -shared -o linux-deps/lib/libGL.so -xc -
 
     - name: Generate QSS-M Revision Info
       run: |
@@ -298,7 +240,9 @@ jobs:
         
         # Add include/lib paths manually to CFLAGS/LDFLAGS so compiler finds them
         export CFLAGS="-I$(pwd)/../linux-deps/include"
-        export LDFLAGS="-L$(pwd)/../linux-deps/lib"
+        # --unresolved-symbols=ignore-all tells the linker to ignore missing symbols (like glBegin)
+        # This is safe because Quake loads GL dynamically via SDL at runtime.
+        export LDFLAGS="-L$(pwd)/../linux-deps/lib -Wl,--unresolved-symbols=ignore-all"
         
         # Configure SDL config path manually just to be safe if pkg-config acts up
         SDL_CONFIG="$(pwd)/../linux-deps/bin/sdl2-config"
