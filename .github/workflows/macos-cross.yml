@@ -213,15 +213,14 @@ jobs:
         make -j$(sysctl -n hw.ncpu)
         make install
 
-    - name: Download OpenGL Stubs (Linux)
+    - name: Create Dummy OpenGL Stub (Linux)
       run: |
-        # Download libglvnd from Alpine to get libGL.so for linking
+        # Create a dummy libGL.so to satisfy the linker (-lGL).
+        # QuakeSpasm loads OpenGL dynamically via SDL, so we don't need the actual symbols at link time
+        # (or if we do, we can stub the few we need, but usually it's just checking library existence).
         mkdir -p linux-deps/lib
-        wget http://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/libglvnd-1.7.0-r0.apk
-        tar xf libglvnd-1.7.0-r0.apk
-        cp usr/lib/libGL.so.1.7.0 linux-deps/lib/libGL.so.1
-        # Create symlink for linker
-        ln -sf libGL.so.1 linux-deps/lib/libGL.so
+        echo "void glBegin(){}" | x86_64-linux-musl-gcc -xc -shared -o linux-deps/lib/libGL.so -
+
 
     - name: Generate QSS-M Revision Info
       run: |
