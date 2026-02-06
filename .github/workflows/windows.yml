@@ -256,7 +256,36 @@ jobs:
         "${CROSS_GNUTLS_PCWRAP}" --modversion gnutls
         "${CROSS_GNUTLS_PCWRAP}" --cflags gnutls
         "${CROSS_GNUTLS_PCWRAP}" --libs gnutls
-        WIN_GNUTLS_DFLAGS="-D__WIN32__ -DEAGAIN=WSAEWOULDBLOCK -DECONNRESET=WSAECONNRESET -DECONNREFUSED=WSAECONNREFUSED -DEMSGSIZE=WSAEMSGSIZE -DEPERM=WSAEACCES"
+        echo "===== GNUTLS header probe ====="
+        grep -n "GNUTLS_STATIC" "${CROSS_GNUTLS_PREFIX}/include/gnutls/gnutls.h" | head -n 80 || true
+        grep -n "gnutls_free" "${CROSS_GNUTLS_PREFIX}/include/gnutls/gnutls.h" | head -n 80 || true
+        cat > "${CROSS_GNUTLS_ROOT}/gnutls-import-probe.c" <<'EOF'
+        #include <gnutls/gnutls.h>
+        void qss_probe(void *p) { gnutls_free(p); }
+        #ifdef GNUTLS_STATIC
+        int qss_probe_static = 1;
+        #else
+        int qss_probe_static = 0;
+        #endif
+        EOF
+        probe_cflags="$("${CROSS_GNUTLS_PCWRAP}" --cflags gnutls)"
+        echo "Probe cflags: ${probe_cflags}"
+        set +e
+        "${TARGET_TRIPLET}-gcc" -c "${CROSS_GNUTLS_ROOT}/gnutls-import-probe.c" ${probe_cflags} -D__WIN32__ -DGNUTLS_STATIC -o "${CROSS_GNUTLS_ROOT}/gnutls-import-probe-static.o"
+        probe_static_rc=$?
+        "${TARGET_TRIPLET}-gcc" -c "${CROSS_GNUTLS_ROOT}/gnutls-import-probe.c" ${probe_cflags} -D__WIN32__ -o "${CROSS_GNUTLS_ROOT}/gnutls-import-probe-dyn.o"
+        probe_dyn_rc=$?
+        set -e
+        echo "Probe compile rc: static=${probe_static_rc} dynamic=${probe_dyn_rc}"
+        if command -v "${TARGET_TRIPLET}-nm" >/dev/null 2>&1; then
+          echo "===== probe symbols (static) ====="
+          "${TARGET_TRIPLET}-nm" "${CROSS_GNUTLS_ROOT}/gnutls-import-probe-static.o" | grep -E "gnutls_free|__imp_gnutls_free|qss_probe_static" || true
+          echo "===== probe symbols (dynamic) ====="
+          "${TARGET_TRIPLET}-nm" "${CROSS_GNUTLS_ROOT}/gnutls-import-probe-dyn.o" | grep -E "gnutls_free|__imp_gnutls_free|qss_probe_static" || true
+        fi
+
+        WIN_GNUTLS_DFLAGS="-D__WIN32__ -DGNUTLS_STATIC -DEAGAIN=WSAEWOULDBLOCK -DECONNRESET=WSAECONNRESET -DECONNREFUSED=WSAECONNREFUSED -DEMSGSIZE=WSAEMSGSIZE -DEPERM=WSAEACCES"
+        echo "WIN_GNUTLS_DFLAGS=${WIN_GNUTLS_DFLAGS}"
         build_rc=0
         USE_GNUTLS=1 \
         FORCE_GNUTLS_DYNAMIC=0 \
