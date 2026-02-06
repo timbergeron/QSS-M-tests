@@ -198,10 +198,10 @@ copy "$(SolutionDir)\..\SDL\lib64\*.dll" "$(TargetDir)"</Command>
   <ItemDefinitionGroup Condition="'$(QSS_USE_GNUTLS)'=='1'">
     <ClCompile>
       <PreprocessorDefinitions>USE_GNUTLS;GNUTLS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(QSS_GNUTLS_INCLUDE);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(QSS_GNUTLS_INCLUDE)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(QSS_GNUTLS_LIBDIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);$(QSS_GNUTLS_LIBDIR)</AdditionalLibraryDirectories>
       <AdditionalDependencies Condition="'$(QSS_GNUTLS_IMPORT_LIB)'!=''">$(QSS_GNUTLS_IMPORT_LIB);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="'$(QSS_GNUTLS_EXTRA_LIBS)'!=''">$(QSS_GNUTLS_EXTRA_LIBS);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="'$(QSS_GNUTLS_IMPORT_LIB)'==''">gnutls.lib;%(AdditionalDependencies)</AdditionalDependencies>
