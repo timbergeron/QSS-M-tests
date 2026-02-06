@@ -58,6 +58,20 @@ jobs:
           exit 1
         }
 
+        # Ensure stale dependency/object files from other environments never leak in
+        make -f Makefile.w64 clean >/dev/null 2>&1 || true
+        make -f Makefile.w32 clean >/dev/null 2>&1 || true
+        find . -maxdepth 1 -type f \( -name '*.d' -o -name '*.o' -o -name '*.res' \) -delete
+
+        # Fail-fast if GNUTLS cannot be resolved in this MSYS2 environment
+        if ! pkg-config --exists gnutls; then
+          echo "ERROR: pkg-config cannot find gnutls in ${MSYSTEM}."
+          echo "pkg-config path: $(command -v pkg-config || true)"
+          pkg-config --variable pc_path pkg-config || true
+          pacman -Q | grep -Ei "mingw-w64-.*(gnutls|pkgconf)" || true
+          exit 1
+        fi
+
         # Set build-specific environment variables
         export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD)"
         export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
