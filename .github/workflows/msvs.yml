@@ -28,8 +28,11 @@ jobs:
         & "$vcpkgRoot\bootstrap-vcpkg.bat" -disableMetrics
         Write-Host "vcpkg search output for gnutls:"
         & "$vcpkgRoot\vcpkg.exe" search gnutls
+        Write-Host "vcpkg search output for shiftmedia:"
+        & "$vcpkgRoot\vcpkg.exe" search shiftmedia
         $gnutlsPort = $null
-        $portCandidates = @("libgnutls", "gnutls")
+        # Native MSVC triplets (x64-windows/x86-windows) need the shiftmedia port.
+        $portCandidates = @("shiftmedia-libgnutls", "libgnutls", "gnutls")
         foreach ($port in $portCandidates) {
           $pkgSpec = "${port}:$triplet"
           Write-Host "Attempting vcpkg install $pkgSpec"
@@ -43,35 +46,45 @@ jobs:
         }
         if (-not $gnutlsPort) { throw "vcpkg install failed for all GNUTLS port candidates on $triplet" }
         & "$vcpkgRoot\vcpkg.exe" list
+        $includeRoot = "$vcpkgRoot\installed\$triplet\include"
         $libdir = "$vcpkgRoot\installed\$triplet\lib"
         Write-Host "GNUTLS-related libs in ${libdir}:"
         Get-ChildItem $libdir -Filter "*gnutls*.lib" -ErrorAction SilentlyContinue
         Get-ChildItem $libdir -Filter "*nettle*.lib" -ErrorAction SilentlyContinue
         Get-ChildItem $libdir -Filter "*hogweed*.lib" -ErrorAction SilentlyContinue
         Get-ChildItem $libdir -Filter "*gmp*.lib" -ErrorAction SilentlyContinue
-        if (-not (Test-Path "$vcpkgRoot\installed\$triplet\include\gnutls\gnutls.h")) {
-          throw "gnutls header missing at $vcpkgRoot\installed\$triplet\include\gnutls\gnutls.h"
+
+        # Discover header root dynamically to handle different port layouts.
+        $gnutlsHeader = Get-ChildItem $includeRoot -Recurse -Filter "gnutls.h" -ErrorAction SilentlyContinue |
+          Where-Object { $_.FullName -match "[\\/]gnutls[\\/]gnutls\.h$" } |
+          Select-Object -First 1
+        if (-not $gnutlsHeader) {
+          throw "gnutls header missing under $includeRoot"
         }
+        $includeDir = ($gnutlsHeader.FullName -replace "[\\/]gnutls[\\/]gnutls\.h$", "")
+        Write-Host "Detected gnutls header: $($gnutlsHeader.FullName)"
+        Write-Host "Detected include dir: $includeDir"
+
         $importLibName = $null
-        foreach ($candidate in @("gnutls.lib", "libgnutls.lib")) {
-          if (Test-Path "$vcpkgRoot\installed\$triplet\lib\$candidate") {
+        foreach ($candidate in @("gnutls.lib", "libgnutls.lib", "shiftmedia-libgnutls.lib")) {
+          if (Test-Path "$libdir\$candidate") {
             $importLibName = $candidate
             break
           }
         }
         if (-not $importLibName) {
-          $detectedLib = Get-ChildItem "$vcpkgRoot\installed\$triplet\lib" -Filter "*gnutls*.lib" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $detectedLib = Get-ChildItem $libdir -Filter "*gnutls*.lib" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($detectedLib) { $importLibName = $detectedLib.Name }
         }
         if (-not $importLibName) {
-          throw "gnutls import library missing at $vcpkgRoot\installed\$triplet\lib"
+          throw "gnutls import library missing at $libdir"
         }
         if (-not (Test-Path "$vcpkgRoot\installed\$triplet\bin")) {
           throw "gnutls runtime directory missing at $vcpkgRoot\installed\$triplet\bin"
         }
         Write-Host "GNUTLS include/lib/bin verified for $triplet (import lib: $importLibName)"
         "QSS_USE_GNUTLS=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_INCLUDE=$vcpkgRoot\installed\$triplet\include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "QSS_GNUTLS_INCLUDE=$includeDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_LIBDIR=$vcpkgRoot\installed\$triplet\lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_BINDIR=$vcpkgRoot\installed\$triplet\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_IMPORT_LIB=$importLibName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
