@@ -67,6 +67,8 @@ GNUTLS_PKG_OK := yes
 endif
 endif
 endif
+GNUTLS_HOST_CFLAGS := $(shell command -v pkg-config >/dev/null 2>&1 && pkg-config --exists gnutls 2>/dev/null && pkg-config --cflags gnutls 2>/dev/null)
+GNUTLS_HOST_INC_FALLBACK := $(if $(wildcard /usr/include/gnutls/gnutls.h),-I/usr/include)
 
 STRIP = strip
 
@@ -211,7 +213,7 @@ endif
 
 ifeq ($(USE_GNUTLS),1)
 ifeq ($(FORCE_GNUTLS_DYNAMIC),1)
-CFLAGS+= -DUSE_GNUTLS
+CFLAGS+= -DUSE_GNUTLS $(GNUTLS_HOST_CFLAGS) $(GNUTLS_HOST_INC_FALLBACK)
 $(warning forcing USE_GNUTLS dynamic-loader mode without pkg-config link flags)
 else ifeq ($(GNUTLS_PKG_OK),yes)
 CFLAGS+= -DUSE_GNUTLS -DGNUTLS_STATIC $(shell $(PKG_CONFIG) --cflags gnutls)
