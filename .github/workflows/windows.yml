@@ -10,41 +10,132 @@ jobs:
       fail-fast: false
       matrix:
           platform: [w64, w32]
-    
+
     steps:
     - uses: actions/checkout@v4
 
     - name: Install Dependencies
       run: |
+        set -euxo pipefail
         sudo apt-get update
-        sudo gem install apt-spy2
-        sudo apt-spy2 check
-
-        mirrors=$(apt-spy2 list | awk '{print $1}')
-        for mirror in $mirrors; do
-          echo "Trying mirror: $mirror"
-          sudo apt-spy2 select --mirror=$mirror --commit
-
-          # Run 'apt-get update' for the selected mirror
-          if sudo apt-get update; then
-            # Try to install dependencies. If successful, break out of the loop.
-            if sudo apt-get install -y mingw-w64 libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 libz-mingw-w64-dev libcurl4-openssl-dev zip; then
-              echo "Dependencies successfully installed using mirror: $mirror"
-              break
-            else
-              echo "Failed to install dependencies from mirror: $mirror. Trying next mirror."
-            fi
-          else
-            echo "Failed to update using mirror: $mirror. Trying next mirror."
-          fi
-        done
+        MINGW_GNUTLS_PKGS="$(apt-cache search gnutls | awk '/mingw-w64/ {print $1}' | tr '\n' ' ')"
+        MINGW_PKGCONF_PKGS="$(apt-cache search pkg-config-mingw-w64 | awk '{print $1}' | tr '\n' ' ')"
+        echo "Detected MinGW GNUTLS packages: ${MINGW_GNUTLS_PKGS:-<none>}"
+        echo "Detected MinGW pkg-config wrappers: ${MINGW_PKGCONF_PKGS:-<none>}"
+        sudo apt-get install -y \
+          mingw-w64 pkg-config libgnutls28-dev libsdl2-dev libmad0-dev libopus-dev \
+          libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 \
+          libz-mingw-w64-dev libcurl4-openssl-dev zip \
+          ${MINGW_GNUTLS_PKGS} ${MINGW_PKGCONF_PKGS}
       continue-on-error: false
-      
+
+    - name: Debug Toolchain And GNUTLS
+      run: |
+        set -euxo pipefail
+        if [ "${{ matrix.platform }}" = "w64" ]; then
+          target="x86_64-w64-mingw32"
+        else
+          target="i686-w64-mingw32"
+        fi
+
+        echo "Runner: $(uname -a)"
+        echo "Platform matrix value: ${{ matrix.platform }}"
+        echo "Target triplet: $target"
+        echo "PATH=$PATH"
+        echo "PKG_CONFIG=${PKG_CONFIG:-<unset>}"
+        echo "PKG_CONFIG_PATH=${PKG_CONFIG_PATH:-<unset>}"
+        echo "PKG_CONFIG_LIBDIR=${PKG_CONFIG_LIBDIR:-<unset>}"
+
+        for b in gcc g++ make pkg-config "${target}-gcc" "${target}-g++" "${target}-windres" "${target}-pkg-config" "${target}-pkgconf"; do
+          command -v "$b" || true
+        done
+
+        dpkg -l | grep -E 'mingw|gnutls|pkg-config|sdl2|curl|zlib' || true
+        apt-cache search gnutls | grep -i mingw || true
+        apt-cache search pkg-config-mingw-w64 || true
+
+        find /usr /opt -type f -path "*/pkgconfig/gnutls.pc" 2>/dev/null || true
+        ls -la "/usr/${target}/lib/pkgconfig" || true
+        ls -la "/usr/${target}/share/pkgconfig" || true
+        ls -la "/usr/lib/${target}/pkgconfig" || true
+
+        pkg-config --version || true
+        pkg-config --variable pc_path pkg-config || true
+        pkg-config --modversion gnutls || true
+        pkg-config --cflags gnutls || true
+        pkg-config --libs gnutls || true
+
+        if command -v "${target}-pkg-config" >/dev/null 2>&1; then
+          "${target}-pkg-config" --version || true
+          "${target}-pkg-config" --variable pc_path pkg-config || true
+          "${target}-pkg-config" --modversion gnutls || true
+          "${target}-pkg-config" --cflags gnutls || true
+          "${target}-pkg-config" --libs gnutls || true
+        fi
+        if command -v "${target}-pkgconf" >/dev/null 2>&1; then
+          "${target}-pkgconf" --version || true
+          "${target}-pkgconf" --modversion gnutls || true
+          "${target}-pkgconf" --cflags gnutls || true
+          "${target}-pkgconf" --libs gnutls || true
+        fi
+
+        "${target}-gcc" -dumpmachine || true
+        "${target}-gcc" -v || true
+        "${target}-gcc" -print-search-dirs || true
+        "${target}-gcc" -print-file-name=libgnutls.a || true
+        "${target}-gcc" -print-file-name=libgnutls.dll.a || true
+
+    - name: Select GNUTLS Mode
+      run: |
+        set -euxo pipefail
+        if [ "${{ matrix.platform }}" = "w64" ]; then
+          target="x86_64-w64-mingw32"
+        else
+          target="i686-w64-mingw32"
+        fi
+
+        force_dynamic=0
+        if command -v "${target}-pkg-config" >/dev/null 2>&1 && "${target}-pkg-config" --exists gnutls; then
+          echo "Using target gnutls metadata from ${target}-pkg-config"
+        elif command -v "${target}-pkgconf" >/dev/null 2>&1 && "${target}-pkgconf" --exists gnutls; then
+          echo "Using target gnutls metadata from ${target}-pkgconf"
+        else
+          echo "No target gnutls.pc found for ${target}; forcing dynamic-loader mode"
+          force_dynamic=1
+        fi
+
+        echo "TARGET_TRIPLET=$target" >> "$GITHUB_ENV"
+        echo "FORCE_GNUTLS_DYNAMIC=$force_dynamic" >> "$GITHUB_ENV"
+        echo "Resolved FORCE_GNUTLS_DYNAMIC=$force_dynamic"
+
     - name: Build
       run: |
+        set -euxo pipefail
         chmod 755 build-${{ matrix.platform }}.sh
-        sudo ./build-${{ matrix.platform }}.sh
-        
+        echo "TARGET_TRIPLET=${TARGET_TRIPLET}"
+        echo "FORCE_GNUTLS_DYNAMIC=${FORCE_GNUTLS_DYNAMIC}"
+        FORCE_GNUTLS_DYNAMIC="${FORCE_GNUTLS_DYNAMIC}" ./build-${{ matrix.platform }}.sh 2>&1 | tee build-${{ matrix.platform }}.log
+        grep -E "USE_GNUTLS|gnutls" build-${{ matrix.platform }}.log | tail -n 200 || true
+        if grep -q "building without USE_GNUTLS" build-${{ matrix.platform }}.log; then
+          echo "Build fell back to no GNUTLS"
+          exit 1
+        fi
+        if ! grep -q -- "-DUSE_GNUTLS" build-${{ matrix.platform }}.log; then
+          echo "No -DUSE_GNUTLS in compile flags"
+          exit 1
+        fi
+
+    - name: Post Build Debug
+      run: |
+        set -euxo pipefail
+        ls -lah Quake || true
+        ls -lah Quake/QSS-M-w*.zip || true
+        for z in Quake/QSS-M-w*.zip; do
+          [ -f "$z" ] || continue
+          echo "Archive contents: $z"
+          unzip -l "$z" | grep -Ei "gnutls|nettle|hogweed|gmp|idn2|unistring|tasn1|iconv|p11-kit|ffi|qss-m-w" || true
+        done
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:

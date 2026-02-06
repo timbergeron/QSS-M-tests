@@ -202,7 +202,10 @@ COMMON_LIBS+= `$(CC) -print-file-name=libz.a`
 endif
 
 ifeq ($(USE_GNUTLS),1)
-ifeq ($(GNUTLS_PKG_OK),yes)
+ifeq ($(FORCE_GNUTLS_DYNAMIC),1)
+CFLAGS+= -DUSE_GNUTLS
+$(warning forcing USE_GNUTLS dynamic-loader mode without pkg-config link flags)
+else ifeq ($(GNUTLS_PKG_OK),yes)
 CFLAGS+= -DUSE_GNUTLS -DGNUTLS_STATIC $(shell $(PKG_CONFIG) --cflags gnutls)
 COMMON_LIBS+= $(shell $(PKG_CONFIG) --libs gnutls)
 else
