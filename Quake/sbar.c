@@ -32,6 +32,7 @@ extern char mute[2];			// woods for mute to memory #usermute
 int	fragsort[MAX_SCOREBOARD]; // woods #scrping
 int	scoreboardlines; // woods #scrping
 extern char	lastmphost[NET_NAMELEN]; // woods
+qboolean WordFilter_Check(const char* text, char* dest_buffer, size_t buffer_size); // woods #contentfilter
 
 #define STAT_MINUS		10	// num frame for '-' stats digit
 
@@ -238,7 +239,7 @@ void Sbar_LoadPics (void)
 	sb_face_invis_invuln = Draw_PicFromWad ("face_inv2");
 	sb_face_quad = Draw_PicFromWad ("face_quad");
 
-	sb_sbar = Draw_PicFromWad2 ("sbar", TEXPREF_PAD|TEXPREF_NOPICMIP);
+	sb_sbar = Draw_PicFromWad2 ("sbar", TEXPREF_PAD|TEXPREF_NOPICMIP|TEXPREF_ALPHA); // woods, add alpha 
 	sb_ibar = Draw_PicFromWad2 ("ibar", TEXPREF_PAD|TEXPREF_NOPICMIP);
 	sb_scorebar = Draw_PicFromWad ("scorebar");
 
@@ -408,12 +409,14 @@ void Sbar_DrawScrollString (int x, int y, int width, const char *str)
 	glScissor (left, 0, (width - 10) * scale, glheight);
 
 	strLen = strlen(str) * 8;
-	totalLen = strLen + 3 * 8;  // text width + " - " divider width
+	totalLen = strLen + 2 * 8;  // text width + " - " divider width
 
 	ofs = ((int)(realtime * 30)) % totalLen;
 
+	char qfylbullet[2] = { 133, '\0' }; // woods -- quake font yellow '*'
+
 	Sbar_DrawString (x - ofs + 5, y, str);
-	Sbar_DrawString (x - ofs + 5 + strLen, y, " Ž ");
+	Sbar_DrawString (x - ofs + 5 + strLen, y, qfylbullet);
 	Sbar_DrawString (x - ofs + 5 + totalLen, y, str);
 
 	glDisable (GL_SCISSOR_TEST);
@@ -526,6 +529,218 @@ void Sbar_SortFrags (qboolean ignorespecs)
 			}
 		}
 	}
+}
+
+/*
+===============
+Team Sorted Scoreboard -- woods #teamscoreboard
+===============
+*/
+
+extern cvar_t scr_scoreboard_teamsort;
+
+#define COLOR_NONE   0        /* "no team / orphan" */
+#define COLOR_FREE  -99       /* legacy lone-wolf   */
+
+typedef struct {
+	int color;
+	int score;
+	int members[MAX_SCOREBOARD];
+	int nmembers;
+} team_t;
+
+static int cmp_team_desc(const void* a, const void* b)
+{
+	const team_t* ta = a, * tb = b;
+	return (tb->score - ta->score);            // descending
+}
+static int cmp_player_desc(const void* a, const void* b)
+{
+	const int ia = *(const int*)a;
+	const int ib = *(const int*)b;
+	return cl.scores[ib].frags - cl.scores[ia].frags;
+}
+
+static int cmp_team_asc(const void* a, const void* b) {
+	const team_t* ta = (const team_t*)a;
+	const team_t* tb = (const team_t*)b;
+	return (ta->score - tb->score);
+}
+
+static int cmp_player_asc(const void* a, const void* b) {
+	const int ia = *(const int*)a;
+	const int ib = *(const int*)b;
+	return cl.scores[ia].frags - cl.scores[ib].frags;
+}
+
+void Sbar_SortFrags_TeamOrder(qboolean sort_ascending)
+{
+	team_t teams[MAX_SCOREBOARD];
+	int    nteams = 0;
+
+	/* 1.  Build per-team buckets in one pass */
+	for (int i = 0; i < cl.maxclients; ++i) {
+		scoreboard_t* s = &cl.scores[i];
+		if (!s->name[0] || s->spectator)
+			continue;
+
+		// Skip players with -99 frags - they're observers regardless of team color
+		if (s->frags == -99)
+			continue;
+
+		int col = s->pants.basic;
+		if (col == COLOR_NONE || col == COLOR_FREE)
+			continue;                          // lone wolf -> later
+
+		/* find / add team slot */
+		int t;
+		for (t = 0; t < nteams && teams[t].color != col; ++t);
+		if (t == nteams) {
+			if (nteams >= MAX_SCOREBOARD)      // defensive; should never hit
+				continue;
+			teams[t].color = col;
+			teams[t].score = 0;
+			teams[t].nmembers = 0;
+			++nteams;
+		}
+		teams[t].members[teams[t].nmembers++] = i;
+		teams[t].score += s->frags;
+	}
+
+	/* 2.  Sort teams by total score */
+	if (sort_ascending) {
+		qsort(teams, nteams, sizeof(team_t), cmp_team_asc);
+	}
+	else {
+		qsort(teams, nteams, sizeof(team_t), cmp_team_desc);
+	}
+
+	/* 3.  Emit players team-by-team into fragsort[] */
+	int n = 0;
+	for (int t = 0; t < nteams && n < MAX_SCOREBOARD; ++t) {
+		/* sort this slice by individual frags */
+		if (sort_ascending) {
+			qsort(teams[t].members, teams[t].nmembers, sizeof(int), cmp_player_asc);
+		}
+		else {
+			qsort(teams[t].members, teams[t].nmembers, sizeof(int), cmp_player_desc);
+		}
+
+		int copy = teams[t].nmembers;
+		if (n + copy > MAX_SCOREBOARD)
+			copy = MAX_SCOREBOARD - n;
+
+		memcpy(&fragsort[n], teams[t].members, copy * sizeof(int));
+		n += copy;
+	}
+
+	/* 4.  Append lone-wolves (color 0 or -99) and spectators */
+	for (int i = 0; i < cl.maxclients && n < MAX_SCOREBOARD; ++i) {
+		scoreboard_t* s = &cl.scores[i];
+		if (!s->name[0] || s->spectator)
+			continue;
+
+		// Handle non-spectator players with -99 frags (observers)
+		if (s->frags == -99) {
+			// Include them regardless of team color
+		}
+		// Handle lone wolves (non-team players)
+		else {
+		int col = s->pants.basic;
+		if (col != COLOR_NONE && col != COLOR_FREE)
+			continue;
+		}
+
+		/* insertion sort into existing ordered list */
+		int pos;
+		if (sort_ascending) {
+			for (pos = 0; pos < n && cl.scores[fragsort[pos]].frags <= s->frags; ++pos);
+		}
+		else {
+			for (pos = 0; pos < n && cl.scores[fragsort[pos]].frags >= s->frags; ++pos);
+		}
+
+		if (n < MAX_SCOREBOARD) {
+			memmove(&fragsort[pos + 1],
+				&fragsort[pos],
+				(n - pos) * sizeof(int));
+			fragsort[pos] = i;
+			++n;
+		}
+	}
+
+	// Then, handle spectators - always at bottom for descending, top for ascending
+	for (int i = 0; i < cl.maxclients && n < MAX_SCOREBOARD; ++i) {
+		scoreboard_t* s = &cl.scores[i];
+		if (!s->name[0] || !s->spectator)
+			continue;
+
+		// Set spectator frags to -99 and color to 0
+		s->frags = -99;
+		s->pants.basic = 0;  // COLOR_NONE
+
+		if (sort_ascending) {
+			// For ascending order, add spectators at the beginning
+			memmove(&fragsort[1], &fragsort[0], n * sizeof(int));
+			fragsort[0] = i;
+		}
+		else {
+			// For descending order, add spectators at the end
+			fragsort[n] = i;
+		}
+		++n;
+	}
+
+	scoreboardlines = n;
+}
+
+qboolean Sbar_ShouldSortByTeam(void)
+{
+	if (cl.modtype != 1 && cl.modtype != 4) {
+		return false;
+	}
+
+	char mode[16];
+	char playmode[16];
+	const char* mode_val;
+	const char* playmode_val;
+	const char* info_source;
+
+	if (cl.modtype == 4) {
+		if (cl.realviewentity < 1 || cl.realviewentity > MAX_SCOREBOARD) {
+			return false;
+		}
+		info_source = cl.scores[cl.realviewentity - 1].userinfo;
+	}
+	else {
+		info_source = cl.serverinfo;
+	}
+
+	mode_val = Info_GetKey(info_source, "mode", mode, sizeof(mode));
+	if (!mode_val || mode_val[0] == '\0') {
+		return false;
+	}
+
+	playmode_val = Info_GetKey(info_source, "playmode", playmode, sizeof(playmode));
+	if (!playmode_val || playmode_val[0] == '\0') {
+		return false;
+	}
+
+	// For CTF, sort by team unless playmode is "practice"
+	if (!q_strcasecmp(mode_val, "ctf")) {
+		if (q_strcasecmp(playmode_val, "practice")) // true if NOT practice
+			return true;
+		return false;
+	}
+
+	// For DM, sort by team only if playmode is "match"
+	if (!q_strcasecmp(mode_val, "dm")) {
+		if (!q_strcasecmp(playmode_val, "match"))
+			return true;
+		return false;
+	}
+
+	return false;
 }
 
 /*
@@ -652,14 +867,14 @@ void Sbar_SoloScoreboard (void)
 		{
 			char qfylwdot[2] = { 133, '\0' }; // woods  -- quake font yellow dot
 
-			if (cl.levelname[0]) // if there's a level name
-				q_snprintf(str, sizeof(str), "%s (%s) %s %s", cl.levelname, cl.mapname, qfylwdot, lastmphost);
+			if (cl.levelname[0] && Q_strcmp(cl.levelname, cl.mapname) != 0)
+				q_snprintf(str, sizeof(str), "%s (%s) %s %s ", cl.levelname, cl.mapname, qfylwdot, lastmphost);
 			else
-				q_snprintf(str, sizeof(str), "%s %s %s", cl.mapname, qfylwdot, lastmphost);
+				q_snprintf(str, sizeof(str), "%s %s %s ", cl.mapname, qfylwdot, lastmphost);
 		}
 		else
 		{ 
-			if (cl.levelname[0]) // if there's a level name
+			if (cl.levelname[0] && Q_strcmp(cl.levelname, cl.mapname) != 0)
 				q_snprintf (str, sizeof(str), "%s (%s)", cl.levelname, cl.mapname);
 			else
 				q_snprintf (str, sizeof(str), "%s", cl.mapname);
@@ -1476,97 +1691,186 @@ void Sbar_DrawRecord(void)
 
 /*
 ===============
+Powerup overlays on the HUD face that fade from top to bottom as time expires. woods -- #powerupbars
+Each powerup has its own colored overlay (blue for quad, red for pent, white for ring)
+that blend together when multiple powerups are active. Let's obsevers know how much powerup time left
+===============
+*/
+
+#define POWERUP_DURATION 30.5
+#define SEGMENTS 24        // Number of segments (same as height)
+#define SEGMENT_TIME (POWERUP_DURATION / SEGMENTS)  // Time per segment
+
+static void UpdatePowerupTime (int current_items, int previous_items, int item_flag,
+	const char* timer_name, double* time_var,
+	const struct itemtimer_s* timers, float time_window)
+	{
+	if (current_items & item_flag)
+	{
+		if (!(previous_items & item_flag))
+		{
+			// Find the most recent timer for this powerup
+			double newest_time = 0;
+			for (const struct itemtimer_s* timer = timers; timer; timer = timer->next)
+			{
+				if (!strcmp(timer->timername, timer_name) &&
+					(cl.time - timer->start) <= POWERUP_DURATION)
+				{
+					if (timer->start > newest_time)
+						newest_time = timer->start;
+				}
+			}
+
+			// Use the existing timer if found, otherwise use current time
+			*time_var = newest_time > 0 ? newest_time : cl.time;
+		}
+		else if (*time_var > 0)
+		{
+			// ... existing refresh check code ...
+			for (const struct itemtimer_s* timer = timers; timer; timer = timer->next)
+			{
+				if (!strcmp(timer->timername, timer_name) &&
+					(cl.time - timer->start) <= time_window)
+				{
+					*time_var = timer->start;
+					break;
+		}
+			}
+		}
+	}
+		else
+		{
+		*time_var = 0;
+		}
+	}
+
+void Sbar_PowerupChanged (void)
+	{
+	int playernum = cl.viewentity - 1;
+	if (playernum < 0 || playernum >= MAX_SCOREBOARD)
+		return;
+
+	const float TIME_WINDOW = 20.0f / 72.0f;
+	scoreboard_t* player = &cl.scores[playernum];
+	static int previous_items = 0;
+
+	// Update each powerup
+	UpdatePowerupTime(player->tinfo.items, previous_items, IT_QUAD, "quad",
+		&player->tinfo.quad_time, cl.itemtimers, TIME_WINDOW);
+
+	UpdatePowerupTime(player->tinfo.items, previous_items, IT_INVULNERABILITY, "pent",
+		&player->tinfo.pent_time, cl.itemtimers, TIME_WINDOW);
+
+	UpdatePowerupTime(player->tinfo.items, previous_items, IT_INVISIBILITY, "ring",
+		&player->tinfo.ring_time, cl.itemtimers, TIME_WINDOW);
+
+	previous_items = player->tinfo.items;
+	}
+
+static void Draw_PowerupSegments(int x, int y, double start_time, float alpha,
+	const char* color_str)
+	{
+	float elapsed = cl.time - start_time;
+	if (elapsed <= POWERUP_DURATION) {
+		float segment_height = 24.0f / SEGMENTS;
+		int current_segment = (int)(elapsed / SEGMENT_TIME);
+		float segment_elapsed = fmod(elapsed, SEGMENT_TIME);
+
+		for (int i = current_segment; i < SEGMENTS; i++) {
+			float fade_alpha = (i == current_segment)
+				? alpha * (1.0 - (segment_elapsed / SEGMENT_TIME))
+				: alpha;
+
+			Draw_FillPlayer(x,
+				y + (i * segment_height),
+				24,
+				ceil(segment_height),
+				CL_PLColours_Parse(color_str),
+				fade_alpha);
+	}
+	}
+}
+
+static void Draw_PowerupOverlays(int x, int y)
+	{
+	
+	extern cvar_t scr_obsitems;
+
+	if (!scr_obsitems.value)
+		return;
+	
+	float ring_alpha = 0.25;
+	float base_alpha = 0.4;
+
+	int playernum = cl.viewentity - 1;
+	if (playernum < 0 || playernum >= MAX_SCOREBOARD)
+		return;
+
+	if (cl.modtype == 1 && cl.notobserver)
+		return;
+
+	if (cl.eyecam)
+	{
+	scoreboard_t* player = &cl.scores[playernum];
+
+	// Draw powerup overlays in order: ring (white), pent (red), quad (blue)
+	if (player->tinfo.ring_time > 0)
+		Draw_PowerupSegments(x, y, player->tinfo.ring_time, ring_alpha, "0xFFFFFF");
+
+	if (player->tinfo.pent_time > 0)
+		Draw_PowerupSegments(x, y, player->tinfo.pent_time, base_alpha, "0xb00000");
+
+	if (player->tinfo.quad_time > 0)
+		Draw_PowerupSegments(x, y, player->tinfo.quad_time, base_alpha, "0x0202cf");
+	}
+}
+
+/*
+===============
 Sbar_DrawFace
 ===============
 */
 void Sbar_DrawFace (void)
 {
-	int	f, anim;
-	plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
+	int f;
+	qpic_t* face_pic;
 
-// PGM 01/19/97 - team color drawing
-// PGM 03/02/97 - fixed so color swatch only appears in CTF modes
-	if (rogue && (cl.maxclients != 1) && (teamplay.value>3) && (teamplay.value<7))
-	{
-		int	xofs;
-		char	num[12];
-		scoreboard_t	*s;
+	// Call our powerup state change function
+	Sbar_PowerupChanged();
 
-		s = &cl.scores[cl.viewentity - 1];
-		// draw background
-		if (cl.gametype == GAME_DEATHMATCH)
-			xofs = 113;
-		else
-			xofs = ((vid.width - 320)>>1) + 113;
-
-		Sbar_DrawPic (112, 0, rsb_teambord);
-		Draw_FillPlayer (xofs, /*vid.height-*/24+3, 22, 9, s->shirt, 1); //johnfitz -- sbar coords are now relative
-		Draw_FillPlayer (xofs, /*vid.height-*/24+12, 22, 9, s->pants, 1); //johnfitz -- sbar coords are now relative
-
-		// draw number
-		f = s->frags;
-		sprintf (num, "%3i",f);
-
-		if (s->shirt.type == 1 && s->shirt.basic == 0) //white team. FIXME: vanilla says top, but I suspect it should be the lower colour, as that's the actual team nq sees.
-		{
-			if (num[0] != ' ')
-				Sbar_DrawCharacter(113, 3, 18 + num[0] - '0');
-			if (num[1] != ' ')
-				Sbar_DrawCharacter(120, 3, 18 + num[1] - '0');
-			if (num[2] != ' ')
-				Sbar_DrawCharacter(127, 3, 18 + num[2] - '0');
-		}
-		else
-		{
-			Sbar_DrawCharacter (113, 3, num[0]);
-			Sbar_DrawCharacter (120, 3, num[1]);
-			Sbar_DrawCharacter (127, 3, num[2]);
-		}
-
-		return;
-	}
-// PGM 01/19/97 - team color drawing
-
-	if ((cl.items & (IT_INVISIBILITY | IT_INVULNERABILITY))
-			== (IT_INVISIBILITY | IT_INVULNERABILITY))
-	{
-		Sbar_DrawPic (112, 0, sb_face_invis_invuln);
-		return;
-	}
-	if (cl.items & IT_QUAD)
-	{
-		Sbar_DrawPic (112, 0, sb_face_quad );
-		return;
-	}
-	if (cl.items & IT_INVISIBILITY)
-	{
-		Sbar_DrawPic (112, 0, sb_face_invis );
-		return;
-	}
-	if (cl.items & IT_INVULNERABILITY)
-	{
-		Sbar_DrawPic (112, 0, sb_face_invuln);
-		return;
-	}
-
-	if (cl.stats[STAT_HEALTH] >= 100)
-		f = 4;
+	// Determine which face pic to use based on powerups and health
+	if ((cl.items & (IT_INVISIBILITY | IT_INVULNERABILITY)) == (IT_INVISIBILITY | IT_INVULNERABILITY))
+		face_pic = sb_face_invis_invuln;
+	else if (cl.items & IT_QUAD)
+		face_pic = sb_face_quad;
+	else if (cl.items & IT_INVISIBILITY)
+		face_pic = sb_face_invis;
+	else if (cl.items & IT_INVULNERABILITY)
+		face_pic = sb_face_invuln;
 	else
+	{
+		// Regular face selection based on health
 		f = cl.stats[STAT_HEALTH] / 20;
-	if (f < 0)	// in case we ever decide to draw when health <= 0
-		f = 0;
+		f = bound(0, f, 4);
 
 	if (cl.time <= cl.faceanimtime)
-	{
-		anim = 1;
-		sb_updates = 0;		// make sure the anim gets drawn over
+			face_pic = sb_faces[f][1];
+		else
+			face_pic = sb_faces[f][0];
 	}
-	else
-		anim = 0;
-	Sbar_DrawPic (112, 0, sb_faces[f][anim]);
 
-	if (cl.time <= cl.faceanimtime && cl_damagehue.value && cl_damagehuecolor.value) // woods for damagehue on sbar face
- 		Draw_FillPlayer(112, 24, 24, 25, color, .2);
+	// Draw the base face
+	Sbar_DrawPic(112, 0, face_pic);
+
+	// Handle damage hue first (highest priority)
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value && cl_damagehuecolor.value)
+	{
+		plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
+		Draw_FillPlayer(112, 24, 24, 24, color, 0.2);
+		return;
+	}
+
+			Draw_PowerupOverlays(112, 24);
 }
 
 /*
@@ -1642,26 +1946,27 @@ static void Sbar_Voice(int y)
 
 /*
 ===============
-Sbar_FacePic - woods fpr qe sbar #qehud
+Sbar_FacePic - woods for qe sbar #qehud #powerupbars #damage
 ===============
 */
 static qpic_t* Sbar_FacePic(void)
 {
 	int f, anim;
+	qpic_t* face_pic;
+
+	Sbar_PowerupChanged();
 
 	if ((cl.items & (IT_INVISIBILITY | IT_INVULNERABILITY))
 		== (IT_INVISIBILITY | IT_INVULNERABILITY))
-		return sb_face_invis_invuln;
-
-	if (cl.items & IT_QUAD)
-		return sb_face_quad;
-
-	if (cl.items & IT_INVISIBILITY)
-		return sb_face_invis;
-
-	if (cl.items & IT_INVULNERABILITY)
-		return sb_face_invuln;
-
+		face_pic = sb_face_invis_invuln;
+	else if (cl.items & IT_QUAD)
+		face_pic = sb_face_quad;
+	else if (cl.items & IT_INVISIBILITY)
+		face_pic = sb_face_invis;
+	else if (cl.items & IT_INVULNERABILITY)
+		face_pic = sb_face_invuln;
+	else
+	{
 	if (cl.stats[STAT_HEALTH] >= 100)
 		f = 4;
 	else
@@ -1677,7 +1982,23 @@ static qpic_t* Sbar_FacePic(void)
 	else
 		anim = 0;
 
-	return sb_faces[f][anim];
+	face_pic = sb_faces[f][anim];
+	}
+
+	Sbar_DrawPic(18, 140, face_pic);
+
+	// Handle damage hue first (highest priority)
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value && cl_damagehuecolor.value)
+	{
+		plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
+		Draw_FillPlayer(18, 163, 24, 25, color, 0.2);
+	}
+	else
+	{
+		Draw_PowerupOverlays(18, 163);
+	}
+
+	return face_pic;
 }
 
 /*
@@ -1693,25 +2014,30 @@ void Sbar_Draw (void)
 	qboolean mpdemo = false; // woods #obspent
 	qboolean observer = false; // woods #obspent
 	char buf[15]; // woods #obspent
+	char buf2[15];
 	const char* obs = NULL; // woods #obspent
+	const char* star_obs = NULL;
 
 	if (cls.demoplayback && cl.maxclients > 1) // woods #obspent
 		mpdemo = true;
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected)) // woods #obspent
+	{
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+		star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf2, sizeof(buf2));
+	}
 
-	if (obs) // woods #obspent
+	if (obs || star_obs) // woods #obspent
 	{
 		if (cl.modtype == 1 || cl.modtype == 4) 
 		{
-			if (strcmp(obs, "") == 0) 
+			if (strcmp(obs, "") == 0 && strcmp(star_obs, "") == 0)
 				observer = false;
 			else 
-				observer = (strcmp(obs, "off") != 0);
+				observer = (strcmp(obs, "off") != 0) || (strcmp(star_obs, "off") != 0);
 		}
 		else 
-			observer = (strcmp(obs, "n") == 0);
+			observer = (strcmp(obs, "n") == 0) || (strcmp(star_obs, "n") == 0);
 	}
 
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3); // woods
@@ -1808,8 +2134,6 @@ void Sbar_Draw (void)
 
 	if (clampedSbar == 3 && scr_viewsize.value <= 110) // qe hud does not use 'traditional sbar' #qehud
 	{
-		plcolour_t color = CL_PLColours_Parse(cl_damagehuecolor.string);
-		
 		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
 
 		// armor
@@ -1858,10 +2182,7 @@ void Sbar_Draw (void)
 		}
 
 		// face
-		Sbar_DrawPic(18, 140, Sbar_FacePic());
-
-		if (cl.time <= cl.faceanimtime && cl_damagehue.value && cl_damagehuecolor.value) // woods for damagehue on sbar face
-			Draw_FillPlayer (18, 163, 24, 25, color, .2);
+		Sbar_FacePic();
 
 		// health
 
@@ -1910,7 +2231,7 @@ void Sbar_Draw (void)
 			Sbar_DrawNum(198, 140, cl.stats[STAT_AMMO], 3,
 			cl.stats[STAT_AMMO] <= 10);
 	}
-	else // end qe hud, use traditional sbare
+	else // end qe hud, use traditional sbar
 	{
 		if (scr_viewsize.value < 120) //johnfitz -- check viewsize instead of sb_lines
 		{
@@ -2155,7 +2476,7 @@ void Sbar_DeathmatchOverlay (void)
 	int w, w2, y2; // woods for dynamic scoreboard
 	int	xofs, yofs; // woods #scoreboard
 	char	num[12];
-	//char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
+	//charshortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	scoreboard_t	*s;
 	int ct = (SDL_GetTicks() - maptime)/1000; // woods connected map time #maptime
 	qboolean notready = false; // woods #smartstatus
@@ -2190,13 +2511,16 @@ void Sbar_DeathmatchOverlay (void)
 	//M_DrawPic ((320-pic->width)/2, 8, pic); woods #scoreboard
 
 // scores
-	Sbar_SortFrags (false);
+	if (scr_scoreboard_teamsort.value && Sbar_ShouldSortByTeam()) // woods #teamscoreboard
+	{
+		Sbar_SortFrags_TeamOrder(false);
+	}
+	else {
+		Sbar_SortFrags(false); // Standard sort for all other cases
+	}
 
 // draw the text
 	l = scoreboardlines;
-
-	//x = 80; //johnfitz -- simplified becuase some positioning is handled elsewhere woods #scoreboard
-	//y = 40; woods #scoreboard
 
 	// woods for qrack +scoresbg #scoreboard
 
@@ -2219,6 +2543,15 @@ void Sbar_DeathmatchOverlay (void)
 		s = &cl.scores[k];
 		if (!s->name[0])
 			continue;
+
+		char filtered_name[32];
+		qboolean was_filtered = false;
+
+		if (cl_contentfilter.value == 2) // woods #contentfilter
+		{
+			was_filtered = WordFilter_Check(s->name, filtered_name, sizeof(filtered_name));
+			filtered_name[sizeof(filtered_name) - 1] = '\0';
+		}
 
 		char qfReady[6] = { 210, 229, 225, 228, 249, '\0' }; // quake font red 'Ready'
 
@@ -2277,21 +2610,21 @@ void Sbar_DeathmatchOverlay (void)
 		}
 
 #if 0
-{
-	int				total;
-	int				n, minutes, tens, units;
+		{
+			int total;
+			int n, minutes, tens, units;
 
-	// draw time
-		total = cl.completed_time - s->entertime;
-		minutes = (int)total/60;
-		n = total - minutes*60;
-		tens = n/10;
-		units = n%10;
+			// draw time
+			total = cl.completed_time - s->entertime;
+			minutes = (int)total/60;
+			n = total - minutes*60;
+			tens = n/10;
+			units = n%10;
 
-		sprintf (num, "%3i:%i%i", minutes, tens, units);
+			sprintf (num, "%3i:%i%i", minutes, tens, units);
 
-		M_Print ( x+48 , y, num); //johnfitz -- was Draw_String, changed for stretched overlays
-}
+			M_Print ( x+48 , y, num); //johnfitz -- was Draw_String, changed for stretched overlays
+		}
 #endif
 
 		sprintf (num, "%4i", s->ping);
@@ -2305,7 +2638,14 @@ void Sbar_DeathmatchOverlay (void)
 			M_PrintWhite (x + 64, y, shortname); //johnfitz -- was Draw_String, changed for stretched overlays // woods changed to white #scoreboard
 		}
 		else*/
-		M_PrintWhite (x + 64, y, s->name); //johnfitz -- was Draw_String, changed for stretched overlays // woods changed to white #scoreboard
+
+		if (cl_contentfilter.value == 2 && was_filtered) // woods #contentfilter
+		{
+			M_PrintWhite(x + 64, y, filtered_name);
+		}
+		else {
+			M_PrintWhite(x + 64, y, s->name); //johnfitz -- was Draw_String, changed for stretched overlays // woods changed to white #scoreboard
+		}
 		
 		y += 10;
 	}

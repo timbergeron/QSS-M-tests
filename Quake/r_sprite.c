@@ -90,6 +90,11 @@ void R_DrawSpriteModel (entity_t *e)
 
 	frame = R_GetSpriteFrame (e);
 	psprite = (msprite_t *) currententity->model->cache.data;
+	
+	if (currententity->model && CL_ApplyModelRotation(currententity, currententity->angles, host_frametime)) // woods #clmrotate
+	{
+		currententity->effects &= ~EF_ROTATE; // EF_ROTATE already cleared server-side, but if mapper forgot
+	}
 
 	switch(psprite->type)
 	{
@@ -150,6 +155,16 @@ void R_DrawSpriteModel (entity_t *e)
 	GL_Bind(frame->gltexture);
 
 	glEnable (GL_ALPHA_TEST);
+
+	glAlphaFunc(GL_GREATER, 0.1); // woods #extsprites
+
+	if (frame->gltexture->flags & TEXPREF_ALPHA) // woods #extsprites
+	{
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+
 	glBegin (GL_TRIANGLE_FAN); //was GL_QUADS, but changed to support r_showtris
 
 	glTexCoord2f (0, frame->tmax);
@@ -174,6 +189,13 @@ void R_DrawSpriteModel (entity_t *e)
 
 	glEnd ();
 	glDisable (GL_ALPHA_TEST);
+	glAlphaFunc(GL_GREATER, 0.666); // woods #extsprites
+
+	if (frame->gltexture->flags & TEXPREF_ALPHA) // woods #extsprites
+	{
+		glDepthMask(GL_TRUE);
+		glDisable(GL_BLEND);
+	}
 
 	glColor3f (1, 1, 1);
 

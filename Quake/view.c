@@ -51,6 +51,8 @@ cvar_t	v_kickroll = {"v_kickroll", "0.6", CVAR_ARCHIVE};
 cvar_t	v_kickpitch = {"v_kickpitch", "0.6", CVAR_ARCHIVE};
 cvar_t	v_gunkick = {"v_gunkick", "1", CVAR_ARCHIVE}; //johnfitz
 
+cvar_t	cl_gun_drift = {"cl_gun_drift", "0", CVAR_ARCHIVE}; // woods #gdrift
+
 cvar_t	v_iyaw_cycle = {"v_iyaw_cycle", "2", CVAR_NONE};
 cvar_t	v_iroll_cycle = {"v_iroll_cycle", "0.5", CVAR_NONE};
 cvar_t	v_ipitch_cycle = {"v_ipitch_cycle", "1", CVAR_NONE};
@@ -67,18 +69,25 @@ cvar_t	gl_cshiftpercent_contents = {"gl_cshiftpercent_contents", "100", CVAR_ARC
 cvar_t	gl_cshiftpercent_damage = {"gl_cshiftpercent_damage", "100", CVAR_ARCHIVE}; // QuakeSpasm
 cvar_t	gl_cshiftpercent_bonus = {"gl_cshiftpercent_bonus", "100", CVAR_ARCHIVE}; // QuakeSpasm
 cvar_t	gl_cshiftpercent_powerup = {"gl_cshiftpercent_powerup", "100", CVAR_ARCHIVE}; // QuakeSpasm
+cvar_t	gl_cshiftpercent_dead = {"gl_cshiftpercent_dead", "0", CVAR_ARCHIVE}; // woods #cdead
 
 cvar_t	r_viewmodel_quake = {"r_viewmodel_quake", "0", CVAR_ARCHIVE};
 
 float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 
 extern	int			in_forward, in_forward2, in_back;
+extern	qboolean	qeintermission; // woods #qeintermission #cdead
+extern	qboolean	crxintermission; // woods #crxintermission #cdead
+
+static GLuint polyblend_vignette_texture; // woods #polylblend2
+static int polyblend_vignette_size = 2048; // woods #polylblend2
 
 vec3_t	v_punchangles[2]; //johnfitz -- copied from cl.punchangle.  0 is current, 1 is previous value. never the same unless map just loaded
 double	v_punchangles_times[2]; //spike -- times, to avoid assumptions...
 
 void SCR_SetupAutoID(void); // woods #autoid
 void SCR_DrawAutoID(void); // woods #autoid
+void SCR_DrawStatusIndicators(void); // woods #autoid
 
 /*
 ===============
@@ -533,7 +542,8 @@ void V_CalcBlend (void)
 		&gl_cshiftpercent_contents,
 		&gl_cshiftpercent_damage,
 		&gl_cshiftpercent_bonus,
-		&gl_cshiftpercent_powerup
+		&gl_cshiftpercent_powerup,
+		&gl_cshiftpercent_dead // woods #cdead
 	};
 
 	r = 0;
@@ -547,7 +557,7 @@ void V_CalcBlend (void)
 			continue;
 
 		//johnfitz -- only apply leaf contents color shifts during intermission
-		if (cl.intermission && j != CSHIFT_CONTENTS)
+		if ((cl.intermission || qeintermission || crxintermission) && j != CSHIFT_CONTENTS) // woods #cdead
 			continue;
 		//johnfitz
 
@@ -614,8 +624,108 @@ void V_UpdateBlend (void)
 	if (cl.cshifts[CSHIFT_BONUS].percent <= 0)
 		cl.cshifts[CSHIFT_BONUS].percent = 0;
 
+	// handle death cshift fade-in/fade-out -- woods #cdead
+	if (cl.stats[STAT_HEALTH] <= 0)
+	{
+		if (cl.cshifts[CSHIFT_DEAD].percent < 150)
+		{
+			cl.cshifts[CSHIFT_DEAD].percent += frametime * 1500; // fade in over 0.1 seconds
+			if (cl.cshifts[CSHIFT_DEAD].percent > 150)
+				cl.cshifts[CSHIFT_DEAD].percent = 150;
+			blend_changed = true;
+		}
+	}
+	else
+	{
+		// immediately clear death cshift when alive
+		if (cl.cshifts[CSHIFT_DEAD].percent > 0)
+		{
+			cl.cshifts[CSHIFT_DEAD].percent = 0;
+			blend_changed = true;
+		}
+	}
+
 	if (blend_changed)
 		V_CalcBlend ();
+}
+
+/*
+============
+PolyBlend_CreateVignetteTexture -- creates a radial gradient texture for smooth vignette -- woods #polylblend2
+============
+*/
+static void PolyBlend_CreateVignetteTexture (void)
+{
+	int x, y;
+	int size = polyblend_vignette_size;
+	byte *data;
+	float cx, cy;
+	float inner_radius = 0.55f;  // where transparency starts
+	float outer_radius = 1.45f; // where full opacity is reached
+	
+	if (gl_hardware_maxsize && size > gl_hardware_maxsize)
+		size = gl_hardware_maxsize;
+	
+	cx = size / 2.0f;
+	cy = size / 2.0f;
+
+	data = (byte *)Hunk_TempAlloc (size * size * 2);
+	if (!data)
+	{
+		Con_Warning ("PolyBlend_CreateVignetteTexture: failed to allocate %d bytes\n", size * size * 2);
+		return;
+	}
+	
+	for (y = 0; y < size; y++)
+	{
+		for (x = 0; x < size; x++)
+		{
+			float dx = (x - cx) / cx;
+			float dy = (y - cy) / cy;
+			float dist = sqrtf(dx * dx + dy * dy);
+			float alpha;
+			
+			// Smoothstep-like falloff
+			if (dist <= inner_radius)
+				alpha = 0.0f;
+			else if (dist >= outer_radius)
+				alpha = 1.0f;
+			else
+			{
+				float t = (dist - inner_radius) / (outer_radius - inner_radius);
+				// Smooth hermite interpolation (smoothstep)
+				alpha = t * t * (3.0f - 2.0f * t);
+			}
+			
+			data[(y * size + x) * 2 + 0] = 255; // Luminance (White)
+			data[(y * size + x) * 2 + 1] = (byte)(alpha * 255.0f); // Alpha
+		}
+	}
+	
+	glGenTextures (1, &polyblend_vignette_texture);
+	glBindTexture (GL_TEXTURE_2D, polyblend_vignette_texture);
+	// NOTE: GL_LUMINANCE_ALPHA is compatibility-profile only; core-profile would need GL_R8 + swizzle
+	glTexImage2D (GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, size, size, 0, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, data);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	
+	Con_DPrintf ("Vignette texture created (%dx%d)\n", size, size);
+}
+
+/*
+============
+PolyBlend_DeleteVignetteTexture -- cleanup texture on video mode change -- woods #polylblend2
+============
+*/
+void PolyBlend_DeleteVignetteTexture (void)
+{
+	if (polyblend_vignette_texture)
+	{
+		glDeleteTextures (1, &polyblend_vignette_texture);
+		polyblend_vignette_texture = 0;
+	}
 }
 
 /*
@@ -638,21 +748,68 @@ void V_PolyBlend (void)
 	else
 		glDisable (GL_ALPHA_TEST);
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity ();
-	glOrtho (0, 1, 1, 0, -99999, 99999);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity ();
+	// Mode 2: Vignette effect using radial gradient texture
+	if ((int)gl_polyblend.value == 2)
+	{
+		GLboolean alpha_test_was_enabled = glIsEnabled(GL_ALPHA_TEST);
+		
+		// Create texture on first use
+		if (!polyblend_vignette_texture)
+			PolyBlend_CreateVignetteTexture ();
+		
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity ();
+		glOrtho (0, 1, 1, 0, -99999, 99999);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity ();
+		
+		// Enable texturing for the vignette
+		glEnable (GL_TEXTURE_2D);
+		glDisable (GL_ALPHA_TEST); // Ensure smooth gradients aren't clipped
+		glBindTexture (GL_TEXTURE_2D, polyblend_vignette_texture);
+		
+		// Save and set texture environment mode
+		GLint prev_texenv_mode;
+		glGetTexEnviv (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &prev_texenv_mode);
+		glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		
+		// Draw fullscreen quad with vignette texture
+		glBegin (GL_QUADS);
+		glColor4f (v_blend[0], v_blend[1], v_blend[2], v_blend[3]);
+		glTexCoord2f (0, 0);
+		glVertex2f (0, 0);
+		glTexCoord2f (1, 0);
+		glVertex2f (1, 0);
+		glTexCoord2f (1, 1);
+		glVertex2f (1, 1);
+		glTexCoord2f (0, 1);
+		glVertex2f (0, 1);
+		glEnd ();
+		
+		glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, prev_texenv_mode);
+		glDisable (GL_TEXTURE_2D);
+		if (alpha_test_was_enabled)
+			glEnable (GL_ALPHA_TEST);
+	}
+	else
+	{
+		// Mode 1: Original solid fullscreen blend
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity ();
+		glOrtho (0, 1, 1, 0, -99999, 99999);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity ();
 
-	glBegin (GL_QUADS);
+		glBegin (GL_QUADS);
 
-	glColor4fv (v_blend); // inside glBegin / glEnd to workaround an AMD driver bug
+		glColor4fv (v_blend); // inside glBegin / glEnd to workaround an AMD driver bug
 
-	glVertex2f (0,0);
-	glVertex2f (1, 0);
-	glVertex2f (1, 1);
-	glVertex2f (0, 1);
-	glEnd ();
+		glVertex2f (0,0);
+		glVertex2f (1, 0);
+		glVertex2f (1, 1);
+		glVertex2f (0, 1);
+		glEnd ();
+	}
 
 	glEnable (GL_DEPTH_TEST);
 	glEnable (GL_TEXTURE_2D);
@@ -672,6 +829,65 @@ void V_PolyBlend (void)
 
 ==============================================================================
 */
+
+/*
+==================
+V_CalcGunDrift -- woods #gdrift
+
+Adds a delay/lag effect to the viewmodel based on view rotation.
+Ported from Qrack (originally from OpenKatana by Eukos).
+==================
+*/
+static void V_CalcGunDrift (vec3_t origin, vec3_t angles)
+{
+	int		i;
+	float		speed, diff_length;
+	float		side, vert;
+	static vec3_t	lastfacing;
+	static double	lasttime;
+	vec3_t		forward, right, up, diff;
+
+	if (host_frametime == 0.0f)
+		return;
+
+	AngleVectors (cl.lerpangles, forward, right, up);
+
+	// Re-init on first use, time discontinuity (map change/demo restart), or enabling from 0
+	if (lasttime == 0 || cl.time < lasttime || VectorLength(lastfacing) == 0)
+	{
+		VectorCopy (forward, lastfacing);
+		lasttime = cl.time;
+		return;
+	}
+	lasttime = cl.time;
+
+	VectorSubtract (forward, lastfacing, diff);
+	speed = 6.0f;
+	diff_length = VectorLength (diff);
+
+	if (cl_gun_drift.value > 0 && diff_length > cl_gun_drift.value)
+		speed *= diff_length / cl_gun_drift.value;
+
+	// Interpolate lastfacing toward forward
+	for (i = 0; i < 3; i++)
+		lastfacing[i] += diff[i] * (speed * host_frametime);
+	VectorNormalize (lastfacing);
+
+	// Skip visual offset if disabled
+	if (cl_gun_drift.value <= 0)
+		return;
+
+	// Project world-space diff onto view axes to get view-relative offset
+	side = DotProduct (diff, right);   // horizontal turn amount
+	vert = DotProduct (diff, up);      // vertical turn amount
+
+	// Apply offset in view-relative coordinates (gun lags opposite to turn)
+	origin[1] += side * -5.0f;
+	origin[2] += vert * -5.0f;
+
+	// Roll based on horizontal turn
+	angles[ROLL] += side * 3.0f;
+}
 
 /*
 ==================
@@ -920,6 +1136,8 @@ void V_CalcRefdef (void)
 			view->origin[2] += 0.5;
 	}
 
+	V_CalcGunDrift (view->origin, view->angles); // woods #gdrift
+
 	view->model = cl.model_precache[cl.stats[STAT_WEAPON]];
 	view->frame = cl.stats[STAT_WEAPONFRAME];
 	view->netstate = nullentitystate;
@@ -1015,6 +1233,8 @@ void V_RenderView (void)
 
 	SCR_DrawAutoID(); // woods #autoid
 
+	SCR_DrawStatusIndicators(); // woods #autoid
+
 	V_PolyBlend (); //johnfitz -- moved here from R_Renderview ();
 }
 
@@ -1054,6 +1274,7 @@ void V_Init (void)
 	Cvar_RegisterVariable (&gl_cshiftpercent_damage); // QuakeSpasm
 	Cvar_RegisterVariable (&gl_cshiftpercent_bonus); // QuakeSpasm
 	Cvar_RegisterVariable (&gl_cshiftpercent_powerup); // QuakeSpasm
+	Cvar_RegisterVariable (&gl_cshiftpercent_dead); // woods #cdead
 
 	Cvar_RegisterVariable (&scr_ofsx);
 	Cvar_RegisterVariable (&scr_ofsy);
@@ -1071,6 +1292,7 @@ void V_Init (void)
 	Cvar_RegisterVariable (&v_kickroll);
 	Cvar_RegisterVariable (&v_kickpitch);
 	Cvar_RegisterVariable (&v_gunkick); //johnfitz
+	Cvar_RegisterVariable (&cl_gun_drift); // woods #gdrift
 
 	Cvar_RegisterVariable (&r_viewmodel_quake); //MarkV
 }

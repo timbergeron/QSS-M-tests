@@ -169,6 +169,7 @@ extern	cvar_t	r_fullbright;
 extern	cvar_t	r_lightmap;
 extern	cvar_t	r_shadows;
 extern	cvar_t	r_shadows_groundcheck; // woods #shadow
+extern	cvar_t	r_shadows_bmodels; // woods #shadow
 extern	cvar_t	r_wateralpha;
 extern	cvar_t	r_lavaalpha;
 extern	cvar_t	r_telealpha;
@@ -176,6 +177,7 @@ extern	cvar_t	r_slimealpha;
 extern	cvar_t	r_dynamic;
 extern	cvar_t	r_novis;
 extern	cvar_t	r_scale;
+extern	cvar_t	r_ambient; // woods #rambient
 
 extern	cvar_t	gl_clear;
 extern	cvar_t	gl_cull;
@@ -184,10 +186,14 @@ extern	cvar_t	gl_affinemodels;
 extern	cvar_t	gl_polyblend;
 extern	cvar_t	gl_flashblend;
 extern	cvar_t	gl_nocolors;
+extern  cvar_t	gl_caustics; // woods #caustics
 extern	cvar_t	gl_enemycolor; // woods #enemycolors
 extern	cvar_t	gl_teamcolor; // woods #enemycolors
 extern	cvar_t	gl_laserpoint; // woods #laser
 extern	cvar_t	gl_laserpoint_alpha; // woods #laser
+extern	cvar_t	gl_powerupshells; // woods #powershell
+extern	cvar_t	gl_powerupshells_alpha; // woods #powershell
+extern	cvar_t	gl_motion_blur; // woods #motionblur
 
 extern	cvar_t	gl_playermip;
 
@@ -222,6 +228,10 @@ extern PFNGLMAPBUFFERARBPROC	GL_MapBufferFunc;
 extern PFNGLUNMAPBUFFERARBPROC	GL_UnmapBufferFunc;
 extern	qboolean	gl_vbo_able;
 //ericw
+
+extern gltexture_t* underwatertexture; // woods #caustics
+extern gltexture_t* shelltexture; // woods #powershell
+
 extern PFNGLMAPBUFFERRANGEPROC	GL_MapBufferRangeFunc;
 extern PFNGLBUFFERSTORAGEPROC	GL_BufferStorageFunc;
 
@@ -249,9 +259,11 @@ typedef void (APIENTRYP QS_PFNGLDISABLEVERTEXATTRIBARRAYPROC) (GLuint index);
 typedef GLint (APIENTRYP QS_PFNGLGETUNIFORMLOCATIONPROC) (GLuint program, const GLchar *name);
 typedef void (APIENTRYP QS_PFNGLUNIFORM1IPROC) (GLint location, GLint v0);
 typedef void (APIENTRYP QS_PFNGLUNIFORM1FPROC) (GLint location, GLfloat v0);
+typedef void (APIENTRYP QS_PFNGLUNIFORM2FPROC) (GLint location, GLfloat v0, GLfloat v1); // woods #fxaa
 typedef void (APIENTRYP QS_PFNGLUNIFORM3FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 typedef void (APIENTRYP QS_PFNGLUNIFORM4FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
 typedef void (APIENTRYP QS_PFNGLUNIFORM4FVPROC) (GLint location, GLsizei count, const GLfloat *value);
+typedef void (APIENTRYP QS_PFNGLUNIFORM1IVPROC) (GLint location, GLsizei count, const GLint* value); // woods #caustics
 typedef void (APIENTRYP QS_PFNGENERATEMIPMAP) (GLenum type);
 
 extern QS_PFNGLCREATESHADERPROC GL_CreateShaderFunc;
@@ -275,13 +287,31 @@ extern QS_PFNGLDISABLEVERTEXATTRIBARRAYPROC GL_DisableVertexAttribArrayFunc;
 extern QS_PFNGLGETUNIFORMLOCATIONPROC GL_GetUniformLocationFunc;
 extern QS_PFNGLUNIFORM1IPROC GL_Uniform1iFunc;
 extern QS_PFNGLUNIFORM1FPROC GL_Uniform1fFunc;
+extern QS_PFNGLUNIFORM2FPROC GL_Uniform2fFunc; // woods #fxaa
 extern QS_PFNGLUNIFORM3FPROC GL_Uniform3fFunc;
 extern QS_PFNGLUNIFORM4FPROC GL_Uniform4fFunc;
 extern QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc;
+extern QS_PFNGLUNIFORM1IVPROC GL_Uniform1ivFunc; // woods #caustics
+
+// woods -- Ffamebuffer function pointers for #fxaa
+extern PFNGLGENFRAMEBUFFERSPROC GL_GenFramebuffersFunc;
+extern PFNGLBINDFRAMEBUFFERPROC GL_BindFramebufferFunc;
+extern PFNGLFRAMEBUFFERTEXTURE2DPROC GL_FramebufferTexture2DFunc;
+extern PFNGLCHECKFRAMEBUFFERSTATUSPROC GL_CheckFramebufferStatusFunc;
+extern PFNGLDELETEFRAMEBUFFERSPROC GL_DeleteFramebuffersFunc;
+extern PFNGLGENRENDERBUFFERSPROC GL_GenRenderbuffersFunc;
+extern PFNGLBINDRENDERBUFFERPROC GL_BindRenderbufferFunc;
+extern PFNGLRENDERBUFFERSTORAGEPROC GL_RenderbufferStorageFunc;
+extern PFNGLFRAMEBUFFERRENDERBUFFERPROC GL_FramebufferRenderbufferFunc;
+extern PFNGLDELETERENDERBUFFERSPROC GL_DeleteRenderbuffersFunc;
+
+extern PFNGLBLENDFUNCSEPARATEPROC GL_BlendFuncSeparateFunc; // woods #fxaa
+
 extern	qboolean	gl_glsl_able;
 extern	qboolean	gl_glsl_gamma_able;
 extern	qboolean	gl_glsl_alias_able;
 extern	qboolean	gl_glsl_water_able;
+extern	qboolean	gl_fbo_able; // woods #fxaa
 // ericw --
 
 //mipmapped warp textures
@@ -417,6 +447,7 @@ void R_DrawWorld (void);
 void R_DrawAliasModel (entity_t *e);
 void R_DrawBrushModel (entity_t *e);
 void R_DrawSpriteModel (entity_t *e);
+mspriteframe_t *R_GetSpriteFrame (entity_t *currentent); // woods #alphasort
 
 void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain);
 
@@ -445,10 +476,12 @@ void R_DrawParticles_ShowTris (void);
 GLint GL_GetUniformLocation (GLuint *programPtr, const char *name);
 GLuint GL_CreateProgram (const GLchar *vertSource, const GLchar *fragSource, int numbindings, const glsl_attrib_binding_t *bindings);
 void R_DeleteShaders (void);
+void PolyBlend_DeleteVignetteTexture (void); // woods #polylblend2
 
 void GLWorld_CreateShaders (void);
 void GLAlias_CreateShaders (void);
 void GL_DrawAliasShadow (entity_t *e);
+void GL_DrawBrushShadow (entity_t* e); // woods #shadow
 void DrawGLTriangleFan (glpoly_t *p);
 void DrawGLPoly (glpoly_t *p);
 void DrawWaterPoly (glpoly_t *p);
@@ -458,6 +491,8 @@ void Sky_Init (void);
 void Sky_ClearAll (void);
 void Sky_DrawSky (void);
 void Sky_NewMap (void);
+void Skywind_SetupFrame(void);
+void Sky_ResetGL (void);
 void Sky_LoadTexture (qmodel_t *mod, texture_t *mt, enum srcformat fmt, unsigned int width, unsigned int height);
 void Sky_LoadTextureQ64 (qmodel_t *mod, texture_t *mt);
 qboolean  Sky_LoadExternalTextures (qmodel_t* mod, texture_t* mt); // woods #extsky
@@ -490,6 +525,9 @@ void GLSLGamma_DeleteTexture (void);
 void GLSLGamma_GammaCorrect (void);
 
 void R_ScaleView_DeleteTexture (void);
+void R_LightningBeam_DeleteTexture (void); // woods #beamspoly
+
+void R_MotionBlur_DeleteTexture (void); // woods #motionblur
 
 float GL_WaterAlphaForSurface (msurface_t *fa);
 

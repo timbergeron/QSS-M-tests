@@ -33,6 +33,21 @@ typedef struct
 	char	peak; //johnfitz
 } lightstyle_t;
 
+typedef struct // woods #teaminfo
+{
+	vec3_t origin;
+	float time;
+	float health;
+	float armor;
+	int items;
+	double quad_time;
+	double pent_time;
+	double ring_time;
+	vec3_t last_origin;
+	float last_loc_update;
+	float speed;
+} teaminfo_t;
+
 typedef struct
 {
 	char	name[MAX_SCOREBOARDNAME];
@@ -45,7 +60,7 @@ typedef struct
 	int		spectator;	//support for fte's hybrid servers.
 						//FIXME: handle quakeworld's teams.
 						//FIXME: handle quakeworld's skins (QWTF may require it).
-
+	teaminfo_t tinfo; // woods #teaminfo
 	char	userinfo[8192];
 } scoreboard_t;
 
@@ -68,7 +83,8 @@ extern cshift_t		cshift_empty; // woods (iw) #democontrols
 #define	CSHIFT_DAMAGE	1
 #define	CSHIFT_BONUS	2
 #define	CSHIFT_POWERUP	3
-#define	NUM_CSHIFTS		4
+#define CSHIFT_DEAD     4 // woods #cdead
+#define	NUM_CSHIFTS		5 // woods #cdead
 
 #define	NAME_LENGTH	64
 
@@ -98,12 +114,16 @@ typedef struct
 {
 	int		entity;
 	struct qmodel_s	*model;
+	qboolean	lightning; // woods #beamspoly
 	float	starttime; // woods (iw) #democontrols
 	float	endtime;
 	vec3_t	start, end;
 	const char *trailname;
 	struct trailstate_s *trailstate;
 } beam_t;
+
+qboolean CL_BeamTrailIsLightning(const char *trailname); // woods #beamspoly
+void CL_Beam_CalculatePositions(const beam_t *b, vec3_t start, vec3_t end); // woods #beamspoly
 
 #define	MAX_MAPSTRING	2048
 #define	MAX_DEMOS		8
@@ -190,6 +210,9 @@ typedef struct
 	char userinfo[8192];
 //Spike -- menuqc stuff.
 	qcvm_t menu_qcvm;
+
+	unsigned	map_crc_quick_server; // woods #mapcrc - quick CRC advertised by server
+	unsigned	map_crc_full_server; // woods #mapcrc - full CRC advertised by server
 } client_static_t;
 
 extern client_static_t	cls;
@@ -353,6 +376,7 @@ typedef struct
 	int		sound_download;
 	char	sound_name[MAX_SOUNDS][MAX_QPATH];
 	int		loc_download; // woods #locdownloads
+	int		skybox_download; // woods #skydownloads
 	//spike -- end downloads
 
 	qcvm_t	qcvm;	//for csqc.
@@ -397,8 +421,23 @@ typedef struct
 	int			realviewentity;		// woods #hud_diff
 	int			matchinp;
 	int			notobserver;		// woods tool for detecting match participation
+	qboolean	eyecam;
 	char		lastchat[256];		// woods #like
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
+	int			fullpitch;			// woods #pqfullpitch
+
+	struct itemtimer_s // woods #obstimers (FTE)
+	{
+		float end;
+		int entnum;
+		char *timername;
+		float start;
+		float duration;
+		vec3_t origin;
+		vec3_t rgb;
+		float radius;
+		struct itemtimer_s* next;
+	} *itemtimers;
 
 } client_state_t;
 
@@ -443,6 +482,7 @@ extern	cvar_t	m_yaw;
 extern	cvar_t	m_forward;
 extern	cvar_t	m_side;
 
+extern	cvar_t	cl_beams_polygons; // woods #beamspoly
 extern	cvar_t	cl_truelightning; // woods for truelightning #truelight
 extern	cvar_t	gl_lightning_alpha; // woods transparent lightning #lightalpha
 extern	cvar_t	cl_say; // woods #ezsay
@@ -450,6 +490,8 @@ extern	cvar_t	cl_afk; // woods #smartafk
 extern  cvar_t	cl_idle;  // woods #damage
 extern  cvar_t	cl_smartspawn; // woods #spawntrainer
 extern  cvar_t	r_explosionlight; // woods #explosionlight
+extern  cvar_t	cl_autovote; // woods #autovote
+extern	cvar_t	cl_contentfilter; // woods #contentfilter
 
 #define	MAX_TEMP_ENTITIES			1024		//johnfitz -- was 64 // woods -- was 256
 
@@ -493,6 +535,8 @@ typedef struct
 {
 	int		down[2];		// key nums holding it down
 	int		state;			// low bit is down state
+	double	downtime;		// when KeyDown() last time called for that button -- woods #idrive
+	double	uptime;			// when KeyUp() last time called for that button -- woods #idrive
 } kbutton_t;
 
 extern	kbutton_t	in_mlook, in_klook;

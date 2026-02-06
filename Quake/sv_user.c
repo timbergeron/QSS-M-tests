@@ -45,8 +45,9 @@ usercmd_t	cmd;
 
 cvar_t	sv_idealpitchscale = {"sv_idealpitchscale","0.8",CVAR_NONE};
 cvar_t	sv_altnoclip = {"sv_altnoclip","1",CVAR_ARCHIVE}; //johnfitz
-cvar_t	sv_nqplayerphysics = {"sv_nqplayerphysics", "1", CVAR_ARCHIVE}; //spike. set to 0 for prediction to work. name comes from fte.
+cvar_t	sv_nqplayerphysics = {"sv_nqplayerphysics", "1", CVAR_ARCHIVE | CVAR_SERVERINFO }; //spike. set to 0 for prediction to work. name comes from fte. -- woods, add serverinfo #prednotify
 cvar_t	sv_bunnyhopqw = {"sv_bunnyhopqw","0",CVAR_ARCHIVE}; // woods #qwbunnyhop quakespasm-shalrathy 76a1f96
+cvar_t	sv_fullpitch = {"sv_fullpitch","1",CVAR_ARCHIVE| CVAR_SERVERINFO}; // woods -- 1 is qs default, 0 limits server to og nq default #pqfullpitch
 
 qboolean SV_RunThink (edict_t *ent);
 
@@ -428,7 +429,16 @@ void SV_ClientThink (void)
 	DropPunchAngle ();
 
 	if (host_client->usingpmove)
+	{
+		if (!sv_player->v.fixangle) // woods update self.angles engine-side
+		{
+			VectorAdd(sv_player->v.v_angle, sv_player->v.punchangle, v_angle);
+			sv_player->v.angles[ROLL] = V_CalcRoll(sv_player->v.angles, sv_player->v.velocity) * 4;
+			sv_player->v.angles[PITCH] = -v_angle[PITCH] / 3;
+			sv_player->v.angles[YAW] = v_angle[YAW];
+		}
 		return;	//this stuff is handled on inputs. don't corrupt anything.
+	}
 
 //
 // if dead, behave differently
@@ -518,6 +528,22 @@ void SV_ReadClientMove (usercmd_t *move)
 		else
 			angle[i] = MSG_ReadAngle16 (sv.protocolflags);	//johnfitz -- 16-bit angles for PROTOCOL_FITZQUAKE
 	}
+
+	if (sv_fullpitch.value == 0) // woods -- force server #pqfullpitch
+	{
+		if (angle[PITCH] > 80.01 || angle[PITCH] < -70.01)
+		{
+			if (angle[PITCH] > 80.01)
+				angle[PITCH] = 80.01;
+			if (angle[PITCH] < -70.01)
+				angle[PITCH] = -70.01;
+
+			MSG_WriteByte(&host_client->message, svc_setangle);
+			for (i = 0; i < 3; i++)
+				MSG_WriteAngle(&host_client->message, angle[i], sv.protocolflags);
+		}
+	}
+
 	movevalues[0] = MSG_ReadShort ();
 	movevalues[1] = MSG_ReadShort ();
 	movevalues[2] = MSG_ReadShort ();
@@ -806,6 +832,8 @@ qboolean SV_ReadClientMessage (void)
 
 		case clc_stringcmd:
 			s = MSG_ReadString ();
+			if (!q_strncasecmp(s, "spawn", 5)) 
+				SV_CheckDuplicateNames(host_client); // woods #dupnames
 			if (q_strncasecmp(s, "spawn", 5) && q_strncasecmp(s, "begin", 5) && q_strncasecmp(s, "prespawn", 8) && qcvm->extfuncs.SV_ParseClientCommand)
 			{	//the spawn/begin/prespawn are because of numerous mods that disobey the rules.
 				//at a minimum, we must be able to join the server, so that we can see any sprints/bprints (because dprint sucks, yes there's proper ways to deal with this, but moders don't always know them).
@@ -851,7 +879,20 @@ qboolean SV_ReadClientMessage (void)
 	return true;
 }
 
-
+static void NET_GotServerMessage(struct qsocket_s *sock)
+{
+	int i;
+	for (i=0, host_client = svs.clients ; i<svs.maxclients ; i++, host_client++)
+	{
+		if (host_client->netconnection == sock)
+		{
+			sv_player = host_client->edict;
+			if (!SV_ReadClientMessage ())
+				SV_DropClient (false);	// client misbehaved...
+			break;
+		}
+	}
+}
 /*
 ==================
 SV_RunClients
@@ -862,28 +903,10 @@ void SV_RunClients (void)
 	int				i;
 
 	//receive from clients first
-	//Spike -- reworked this to query the network code for an active connection.
-	//this allows the network code to serve multiple clients with the same listening port.
-	//this solves server-side nats, which is important for coop etc.
-	while(1)
-	{
-		struct qsocket_s *sock = NET_GetServerMessage();
-		if (!sock)
-			break;	//no more this frame
-
-		for (i=0, host_client = svs.clients ; i<svs.maxclients ; i++, host_client++)
-		{
-			if (host_client->netconnection == sock)
-			{
-				sv_player = host_client->edict;
-				if (!SV_ReadClientMessage ())
-				{
-					SV_DropClient (false);	// client misbehaved...
-					break;
-				}
-			}
-		}
-	}
+	//Spike -- reworked this to use callback with connection context.
+	//this allows the network code to serve multiple clients with the same listening port and without having to requery the ipv4 socket for each extra ipv6 packet etc.
+	//which solves server-side nats, which is important for coop etc.
+	NET_GetServerMessages(NET_GotServerMessage);
 
 	//then do the per-frame stuff
 	for (i=0, host_client = svs.clients ; i<svs.maxclients ; i++, host_client++)

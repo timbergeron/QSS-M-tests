@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static void CL_FinishTimeDemo (void);
 
 char		demoplaying[MAX_OSPATH]; // woods for window title
+char		last_demo[MAX_OSPATH]; // woods #lastdemo
 
 /*
 ==============================================================================
@@ -425,6 +426,49 @@ void CL_FinishDemoFrame(void)
 	}
 }
 
+void Log_Last_Demo_f (void) // woods #lastdemo
+{
+	FILE* f;
+	char demodir[MAX_OSPATH];
+
+	q_snprintf(demodir, sizeof(demodir), "%s/id1/backups", com_basedir);
+	Sys_mkdir(demodir);
+
+	f = fopen(va("%s/id1/backups/%s.txt", com_basedir, "lastdemo"), "w");
+
+	if (!f)
+	{
+		Con_Printf("Couldn't write backup last demo\n");
+		return;
+	}
+
+	fprintf(f, "%s", last_demo);
+
+	fclose(f);
+}
+
+void Load_Last_Demo (void) // woods #lastdemo
+{
+	FILE* f;
+	char demodir[MAX_OSPATH];
+
+	q_snprintf(demodir, sizeof(demodir), "%s/id1/backups/lastdemo.txt", com_basedir);
+
+	f = fopen(demodir, "r");
+	if (!f)
+		return;
+
+	if (fgets(last_demo, sizeof(last_demo), f))
+	{
+		// Remove any trailing newline
+		size_t len = strlen(last_demo);
+		if (len > 0 && last_demo[len - 1] == '\n')
+			last_demo[len - 1] = '\0';
+	}
+
+	fclose(f);
+}
+
 /*
 ==============
 CL_StopPlayback
@@ -451,6 +495,16 @@ void CL_StopPlayback (void)
 	VEC_CLEAR(demo_rewind.frame_events); // woods (iw) #democontrols
 	VEC_CLEAR(demo_rewind.pending_sounds); // woods (iw) #democontrols
 	demo_rewind.backstop = false; // woods (iw) #democontrols
+
+	if (cls.demofilename[0]) // woods #lastdemo
+	{
+		const char* demoname = COM_SkipPath(cls.demofilename);
+		if (demoname[0])
+		{
+			q_strlcpy(last_demo, demoname, sizeof(last_demo));
+			Log_Last_Demo_f();
+		}
+	}
 
 	if (cls.timedemo)
 		CL_FinishTimeDemo ();
@@ -515,7 +569,11 @@ static int CL_GetDemoMessage (void)
 
 	cls.demo_offset_current = ftell(cls.demofile); // woods #demopercent (Baker Fitzquake Mark V)
 
-	fread (&net_message.cursize, 4, 1, cls.demofile);
+	if (fread (&net_message.cursize, 4, 1, cls.demofile) != 1) // woods
+	{
+		CL_StopPlayback();
+		return 0;
+	}
 	VectorCopy (cl.mviewangles[0], cl.mviewangles[1]);
 	for (i = 0 ; i < 3 ; i++)
 	{
@@ -571,7 +629,12 @@ int CL_GetMessage (void)
 
 	// discard nop keepalive message
 		if (net_message.cursize == 1 && net_message.data[0] == svc_nop)
-			Con_Printf ("<-- server to client keepalive\n");
+		{
+			if (cls.download.active) // woods -- silence during dl
+				Con_DPrintf ("<-- server to client keepalive\n");
+			else
+				Con_Printf ("<-- server to client keepalive\n");
+		}
 		else
 			break;
 	}
@@ -1024,15 +1087,34 @@ void CL_PlayDemo_f (void)
 
 	if (Cmd_Argc() != 2)
 	{
-		Con_Printf ("playdemo <demoname> : plays a demo\n");
+		Con_Printf ("\nplaydemo <demoname> : plays a demo\n");
+		Con_Printf ("playdemo -l         : plays the most recently played demo\n\n"); // woods #lastdemo
 		return;
 	}
 
 // disconnect from server
 	CL_Disconnect ();
 
-// open the demo file
-	q_strlcpy (name, Cmd_Argv(1), sizeof(name));
+	if (!q_strcasecmp(Cmd_Argv(1), "-l")) // woods #lastdemo
+	{
+		if (!last_demo[0])
+		{
+			// Try to load last demo from file if not already loaded
+			Load_Last_Demo();
+			if (!last_demo[0])
+			{
+				Con_Printf("no last demo available\n");
+				return;
+			}
+		}
+		q_strlcpy(name, last_demo, sizeof(name));
+	}
+	else
+	{
+		q_strlcpy(name, Cmd_Argv(1), sizeof(name));
+		q_strlcpy(last_demo, name, sizeof(last_demo));
+		Log_Last_Demo_f();
+	}
 
 	if (!FS_IsCaseSensitive()) // woods #filesystemsens
 		q_strlwr (name);

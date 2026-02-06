@@ -29,6 +29,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 float Fog_GetDensity(void);
 float *Fog_GetColor(void);
 
+void Sky_EmitSkyBoxVertex (float s, float t, int axis);
+
 extern	int	rs_skypolys; // for r_speeds readout
 extern	int	rs_skypasses; // for r_speeds readout
 
@@ -47,11 +49,29 @@ qboolean externalskyloaded; // woods #fastsky2
 gltexture_t	*skybox_textures[6];
 gltexture_t	*solidskytexture, *alphaskytexture;
 
+extern const char	*suf[6];
+
 cvar_t r_fastsky = {"r_fastsky", "0", CVAR_ARCHIVE};
 cvar_t r_fastskycolor = {"r_fastskycolor", "", CVAR_ARCHIVE}; // woods #fastskycolor
 cvar_t r_sky_quality = {"r_sky_quality", "12", CVAR_NONE};
 cvar_t r_skyalpha = {"r_skyalpha", "1", CVAR_NONE};
 cvar_t r_skyfog = {"r_skyfog","0.5",CVAR_ARCHIVE};
+cvar_t r_skyspeed = {"r_skyspeed","1",CVAR_ARCHIVE}; // woods #skyspeed
+cvar_t r_skywind = {"r_skywind", "0", CVAR_ARCHIVE};
+cvar_t allow_download_sky = {"allow_download_sky", "1", CVAR_ARCHIVE}; // woods automatic skybox downloading #skydownloads
+
+qboolean Sky_DownloadSkybox(const char* name);
+extern cvar_t	cl_web_download_url;
+extern cvar_t	cl_web_download_url2;
+extern qboolean IsGithubRepoPath(const char* s);
+static char pending_skybox_name[1024];
+static qboolean skybox_download_pending = false;
+extern qboolean Curl_DownloadFile(const char* url, const char* filename, const char* local_path, qboolean is_skybox, const char* display_name);
+extern qboolean scr_disabled_for_loading;
+
+#ifndef ARRAY_COUNT
+#define ARRAY_COUNT(arr)   (sizeof(arr) / sizeof((arr)[0]))
+#endif
 
 int		skytexorder[6] = {0,2,1,3,4,5}; //for skybox
 
@@ -86,6 +106,1059 @@ int	vec_to_st[6][3] =
 
 float	skyfog; // ericw
 
+static float skywind_dist = 0.0f;
+static float skywind_yaw = 45.0f;
+static float skywind_pitch = 0.0f;
+static float skywind_period = 30.0f;
+typedef enum
+{
+	SKYWIND_SRC_NONE = 0,
+	SKYWIND_SRC_DEFAULT,
+	SKYWIND_SRC_CONFIG,
+	SKYWIND_SRC_WORLDSPAWN,
+	SKYWIND_SRC_COMMAND
+} skywind_source_t;
+static skywind_source_t skywind_source = SKYWIND_SRC_NONE;
+
+#define SKYWIND_CFG "wind.cfg"
+#define SKYWIND_DEFAULT_CFG "gfx/env/skywind_default.cfg"
+
+static qboolean skywind_apply_offsets = false;
+static qboolean skywind_shader_enabled = false;
+static GLuint skywind_program = 0;
+static GLint skywind_uniform_sampler = -1;
+static GLint skywind_uniform_phase = -1;
+static GLint skywind_uniform_fogcolor = -1;
+static GLint skywind_uniform_fogdensity = -1;
+static qboolean skywind_shader_initialized = false;
+static GLuint skywind_cubemap_program = 0;
+static GLint skywind_cubemap_uniform_sampler = -1;
+static GLint skywind_cubemap_uniform_phase = -1;
+static GLint skywind_cubemap_uniform_winddir = -1;
+static GLint skywind_cubemap_uniform_fogcolor = -1;
+static GLint skywind_cubemap_uniform_fogdensity = -1;
+static GLint skywind_cubemap_uniform_eye = -1;
+static qboolean skywind_cubemap_shader_initialized = false;
+static int skywind_frame_serial = -1;
+static qboolean skywind_frame_valid = false;
+static vec3_t skywind_frame_dir = {0.0f, 0.0f, 0.0f};
+static float skywind_frame_phase = 0.0f;
+static float skywind_primary_phase = 0.0f;
+static float skywind_secondary_phase = 0.0f;
+static GLuint skybox_cubemap = 0;
+static qboolean skybox_cubemap_attempted = false;
+
+static void Skywind_InvalidateFrame(void);
+static void Skywind_UpdateFrame(void);
+void Skywind_SetupFrame(void);
+static void Skywind_Clear(void);
+static void Sky_FreeCubemap(void);
+static qboolean Sky_CreateCubemap(byte *data[6], int width[6], int height[6], enum srcformat fmt[6], int samesize);
+static void Sky_TryRebuildCubemap(void);
+static qboolean Skywind_HasSkybox(void);
+static qboolean Skywind_Active(void);
+static qboolean Skywind_GetDirectionAndPhase(vec3_t wind_dir, float *wind_phase);
+static float Skywind_Normalize360(float value);
+static float Skywind_NormalizePitch(float value);
+static float Skywind_WrapCoord(float coord);
+static void Skywind_ProjectDirToST(const vec3_t dir, int axis, float *s, float *t);
+static float Skywind_ComputeSecondaryOffset(float phase);
+static qboolean Skywind_ParseCvarDefaults(float *dist, float *yaw, float *period, float *pitch);
+static float Skywind_GetRate(void);
+static qboolean Skywind_EnsureShader(void);
+static qboolean Skywind_EnsureCubemapShader(void);
+static qboolean Skywind_DrawSkyBox_Cubemap(const vec3_t wind_dir, float phase);
+static qboolean Skywind_DrawSkyBox_Shader(const vec3_t wind_dir, float phase);
+static qboolean Skywind_LoadConfigInternal(qboolean quiet);
+static void Skywind_LoadConfig(void);
+static void Skywind_Load_f(void);
+static void Skywind_Save_f(void);
+static void Skywind_LookDir_f(void);
+static void Skywind_Rotate_f(void);
+static void Skywind_f(void);
+static void Skywind_Cvar_OnChange(cvar_t *var);
+static qboolean Skywind_ApplyCvarDefaultsInternal(qboolean quiet);
+static qboolean Skywind_ApplyWorldspawn(const char *value);
+static void Sky_DrawSkyBox_Static(void);
+static void Sky_DrawSkyBoxFogOverlay(void);
+
+static float Skywind_Normalize360(float value)
+{
+	value = fmodf(value, 360.0f);
+	if (value < 0.0f)
+		value += 360.0f;
+	return value;
+}
+
+static float Skywind_NormalizePitch(float value)
+{
+	value = fmodf(value + 90.0f, 180.0f);
+	if (value < 0.0f)
+		value += 180.0f;
+	return value - 90.0f;
+}
+
+static void Skywind_InvalidateFrame(void)
+{
+	skywind_frame_serial = -1;
+	skywind_frame_valid = false;
+}
+
+static void Skywind_Clear(void)
+{
+	skywind_dist = 0.0f;
+	skywind_yaw = 45.0f;
+	skywind_pitch = 0.0f;
+	skywind_period = 30.0f;
+	skywind_apply_offsets = false;
+	skywind_shader_enabled = false;
+	skywind_primary_phase = 0.0f;
+	skywind_secondary_phase = 0.0f;
+	skywind_source = SKYWIND_SRC_NONE;
+	Skywind_InvalidateFrame();
+}
+
+static void Sky_FreeCubemap(void)
+{
+	if (skybox_cubemap)
+	{
+		glDeleteTextures(1, &skybox_cubemap);
+		skybox_cubemap = 0;
+		GL_ClearBindings();
+	}
+}
+
+static void Sky_TryRebuildCubemap(void)
+{
+	int i, mark;
+	int width[6], height[6];
+	enum srcformat fmt[6];
+	byte *data[6];
+	qboolean malloced[6];
+	int samesize, numloaded;
+	char filename[MAX_OSPATH];
+
+	if (skybox_cubemap_attempted || !skybox_name[0])
+		return;
+
+	skybox_cubemap_attempted = true;
+
+	mark = Hunk_LowMark();
+	for (i = 0, numloaded = 0, samesize = 0; i < 6; ++i)
+	{
+		q_snprintf(filename, sizeof(filename), "gfx/env/%s%s", skybox_name, suf[i]);
+		data[i] = Image_LoadImage(filename, &width[i], &height[i], &fmt[i], &malloced[i]);
+		if (data[i])
+		{
+			numloaded++;
+			if (width[i] != height[i])
+				samesize = -1;
+			else if (samesize == 0)
+				samesize = width[i];
+			else if (samesize != width[i])
+				samesize = -1;
+		}
+		else
+		{
+			fmt[i] = SRC_RGBA;
+			malloced[i] = false;
+		}
+	}
+
+	if (numloaded > 0 && samesize > 0)
+	{
+		if (!Sky_CreateCubemap(data, width, height, fmt, samesize))
+			Sky_FreeCubemap();
+	}
+
+	for (i = 0; i < 6; ++i)
+	{
+		if (malloced[i])
+			free(data[i]);
+	}
+	Hunk_FreeToLowMark(mark);
+}
+
+static qboolean Sky_CreateCubemap(byte *data[6], int width[6], int height[6], enum srcformat fmt[6], int samesize)
+{
+	static const int cubemap_order[6] = {3, 1, 4, 5, 0, 2}; // ft/bk/up/dn/rt/lf
+	byte *zeroface = NULL;
+	size_t facebytes;
+	int i;
+
+	if (!gl_glsl_able || samesize <= 0)
+		return false;
+
+	for (i = 0; i < 6; ++i)
+	{
+		if (data[i] && fmt[i] != SRC_RGBA)
+			return false;
+	}
+
+	facebytes = (size_t)samesize * (size_t)samesize * 4u;
+
+	if (!skybox_cubemap)
+		glGenTextures(1, &skybox_cubemap);
+
+	if (!skybox_cubemap)
+		return false;
+
+	GL_SelectTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_cubemap);
+	GL_ClearBindings();
+
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	for (i = 0; i < 6; ++i)
+	{
+		int src = cubemap_order[i];
+		byte *pixels = data[src];
+
+		if (!pixels)
+		{
+			if (!zeroface)
+			{
+				zeroface = (byte *)calloc(1, facebytes);
+				if (!zeroface)
+					return false;
+			}
+			pixels = zeroface;
+		}
+
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGBA, samesize, samesize, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	}
+
+	if (zeroface)
+		free(zeroface);
+
+	skybox_cubemap_attempted = true;
+	return true;
+}
+
+static qboolean Skywind_HasSkybox(void)
+{
+	int i;
+
+	if (!skybox_name[0])
+		return false;
+
+	for (i = 0; i < 6; ++i)
+	{
+		if (skybox_textures[i] && skybox_textures[i] != notexture)
+			return true;
+	}
+
+	return false;
+}
+
+static qboolean Skywind_Active(void)
+{
+	if (!Skywind_HasSkybox())
+		return false;
+
+	if (Skywind_GetRate() == 0.0f)
+		return false;
+
+	return (skywind_dist != 0.0f);
+}
+
+void Skywind_SetupFrame(void)
+{
+	Skywind_UpdateFrame();
+}
+
+static void Skywind_UpdateFrame(void)
+{
+	float dist, yaw, pitch, sy, cy, sp, cp;
+	double phase;
+	float period;
+	float rate;
+
+	if (skywind_frame_serial == r_framecount)
+		return;
+
+	skywind_frame_serial = r_framecount;
+	skywind_frame_valid = false;
+
+	if (!Skywind_Active())
+		return;
+
+	dist = bound(-2.0f, skywind_dist, 2.0f);
+	if (dist == 0.0f)
+		return;
+
+	yaw = DEG2RAD(skywind_yaw);
+	pitch = DEG2RAD(skywind_pitch);
+	sy = sinf(yaw);
+	cy = cosf(yaw);
+	sp = sinf(pitch);
+	cp = cosf(pitch);
+
+	skywind_frame_dir[0] = dist * cp * sy;
+	skywind_frame_dir[1] = dist * sp;
+	skywind_frame_dir[2] = -dist * cp * cy;
+
+	rate = Skywind_GetRate();
+	period = skywind_period / rate;
+	phase = (period != 0.0f) ? cl.time * 0.5 / period : 0.5;
+	phase -= floor(phase) + 0.5;
+
+	skywind_frame_phase = (float)phase;
+	skywind_frame_valid = true;
+}
+
+static qboolean Skywind_GetDirectionAndPhase(vec3_t wind_dir, float *wind_phase)
+{
+	Skywind_UpdateFrame();
+
+	if (!skywind_frame_valid)
+		return false;
+
+	if (wind_dir)
+		VectorCopy(skywind_frame_dir, wind_dir);
+
+	if (wind_phase)
+		*wind_phase = skywind_frame_phase;
+
+	return true;
+}
+
+static float Skywind_GetRate(void)
+{
+	return Skywind_ParseCvarDefaults(NULL, NULL, NULL, NULL) ? 1.0f : r_skywind.value;
+}
+
+static qboolean Skywind_ParseCvarDefaults(float *dist, float *yaw, float *period, float *pitch)
+{
+	float d, y, p, t;
+	int count;
+
+	if (!r_skywind.string || !r_skywind.string[0])
+		return false;
+
+	count = sscanf(r_skywind.string, "%f %f %f %f", &d, &y, &p, &t);
+	if (count < 4)
+		return false;
+
+	if (dist)
+		*dist = d;
+	if (yaw)
+		*yaw = y;
+	if (period)
+		*period = p;
+	if (pitch)
+		*pitch = t;
+
+	return true;
+}
+
+/*
+================
+Skywind_WrapCoord
+
+Mirrored-repeat wrapping for texture coordinates in range [-1, 1].
+This ensures non-tiling skybox textures "bounce" at edges instead of
+wrapping with a hard seam. The math:
+  1. Map coord from [-1,1] to [0,1] via u = (coord + 1) * 0.5
+  2. Compute mirrored position: m = u - 2*floor(u/2), giving [0,2)
+  3. Triangle wave: w = 1 - |m - 1|, giving [0,1] that bounces at edges
+  4. Map back to [-1,1] via return w * 2 - 1
+================
+*/
+static float Skywind_WrapCoord(float coord)
+{
+	float u = (coord + 1.0f) * 0.5f;
+	float m = u - 2.0f * floorf(u * 0.5f);
+	float w = 1.0f - fabsf(m - 1.0f);
+	return w * 2.0f - 1.0f;
+}
+
+static void Skywind_ProjectDirToST(const vec3_t dir, int axis, float *s, float *t)
+{
+	int j;
+	float dv;
+
+	j = vec_to_st[axis][2];
+	if (j > 0)
+		dv = dir[j - 1];
+	else
+		dv = -dir[-j - 1];
+
+	if (dv == 0.0f)
+	{
+		if (s)
+			*s = 0.0f;
+		if (t)
+			*t = 0.0f;
+		return;
+	}
+
+	j = vec_to_st[axis][0];
+	if (j < 0)
+		*s = -dir[-j - 1] / dv;
+	else
+		*s = dir[j - 1] / dv;
+
+	j = vec_to_st[axis][1];
+	if (j < 0)
+		*t = -dir[-j - 1] / dv;
+	else
+		*t = dir[j - 1] / dv;
+}
+
+static float Skywind_ComputeSecondaryOffset(float phase)
+{
+	float offset;
+
+	offset = phase - floorf(phase);
+	offset -= 0.5f;
+
+	return offset;
+}
+
+static qboolean Skywind_EnsureShader(void)
+{
+	static const GLchar *skywind_vert_shader =
+		"#version 110\n"
+		"varying vec2 vBase;\n"
+		"varying vec2 vPrimary;\n"
+		"varying vec2 vSecondary;\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
+		"	vBase = gl_MultiTexCoord0.st;\n"
+		"	vPrimary = gl_MultiTexCoord1.st;\n"
+		"	vSecondary = gl_MultiTexCoord2.st;\n"
+		"}\n";
+	static const GLchar *skywind_frag_shader =
+		"#version 110\n"
+		"uniform sampler2D uSkyTex;\n"
+		"uniform float uWindPhase;\n"
+		"uniform vec3 uFogColor;\n"
+		"uniform float uFogDensity;\n"
+		"varying vec2 vBase;\n"
+		"varying vec2 vPrimary;\n"
+		"varying vec2 vSecondary;\n"
+		"void main()\n"
+		"{\n"
+		"	vec4 base = texture2D(uSkyTex, vBase);\n"
+		"	vec4 layer1 = texture2D(uSkyTex, vPrimary);\n"
+		"	vec4 layer2 = texture2D(uSkyTex, vSecondary);\n"
+		"	float blend = clamp(abs(uWindPhase * 2.0), 0.0, 1.0);\n"
+		"	float w1 = 1.0 - blend;\n"
+		"	float w2 = blend;\n"
+		"	layer1.a *= w1;\n"
+		"	layer2.a *= w2;\n"
+		"	layer1.rgb *= layer1.a;\n"
+		"	layer2.rgb *= layer2.a;\n"
+		"	vec4 combined = layer1 + layer2;\n"
+		"	vec3 colour = base.rgb * (1.0 - combined.a) + combined.rgb;\n"
+		"	colour = mix(colour, uFogColor, uFogDensity);\n"
+		"	gl_FragColor = vec4(colour, 1.0);\n"
+		"}\n";
+
+	if (skywind_shader_initialized)
+		return skywind_program != 0;
+
+	skywind_shader_initialized = true;
+
+	if (!gl_glsl_able || !gl_mtexable || gl_max_texture_units < 3 || !GL_CreateProgramFunc || !GL_UseProgramFunc || !GL_Uniform1fFunc || !GL_Uniform1iFunc || !GL_MTexCoord2fFunc)
+		return false;
+
+	skywind_program = GL_CreateProgram(skywind_vert_shader, skywind_frag_shader, 0, NULL);
+	if (!skywind_program)
+		return false;
+
+	skywind_uniform_sampler = GL_GetUniformLocation(&skywind_program, "uSkyTex");
+	skywind_uniform_phase = GL_GetUniformLocation(&skywind_program, "uWindPhase");
+	skywind_uniform_fogcolor = GL_GetUniformLocation(&skywind_program, "uFogColor");
+	skywind_uniform_fogdensity = GL_GetUniformLocation(&skywind_program, "uFogDensity");
+
+	GL_UseProgramFunc(skywind_program);
+	if (skywind_uniform_sampler != -1)
+		GL_Uniform1iFunc(skywind_uniform_sampler, 0);
+	GL_UseProgramFunc(0);
+
+	return true;
+}
+
+static qboolean Skywind_EnsureCubemapShader(void)
+{
+	static const GLchar *skywind_cubemap_vert_shader =
+		"#version 110\n"
+		"uniform vec3 uEye;\n"
+		"varying vec3 vDir;\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
+		"	gl_Position.z = gl_Position.w;\n"
+		"	vec3 world = gl_Vertex.xyz - uEye;\n"
+		"	vDir = vec3(-world.y, world.z, world.x);\n"
+		"}\n";
+	static const GLchar *skywind_cubemap_frag_shader =
+		"#version 110\n"
+		"uniform samplerCube uSkyCube;\n"
+		"uniform vec3 uWindDir;\n"
+		"uniform float uWindPhase;\n"
+		"uniform vec3 uFogColor;\n"
+		"uniform float uFogDensity;\n"
+		"varying vec3 vDir;\n"
+		"void main()\n"
+		"{\n"
+		"	vec3 dir = normalize(vDir);\n"
+		"	float t1 = uWindPhase;\n"
+		"	float t2 = fract(t1) - 0.5;\n"
+		"	float blend = clamp(abs(t1 * 2.0), 0.0, 1.0);\n"
+		"	vec4 base = textureCube(uSkyCube, dir);\n"
+		"	vec4 layer1 = textureCube(uSkyCube, dir + t1 * uWindDir);\n"
+		"	vec4 layer2 = textureCube(uSkyCube, dir + t2 * uWindDir);\n"
+		"	layer1.a *= 1.0 - blend;\n"
+		"	layer2.a *= blend;\n"
+		"	layer1.rgb *= layer1.a;\n"
+		"	layer2.rgb *= layer2.a;\n"
+		"	vec4 combined = layer1 + layer2;\n"
+		"	vec3 colour = base.rgb * (1.0 - combined.a) + combined.rgb;\n"
+		"	colour = mix(colour, uFogColor, uFogDensity);\n"
+		"	gl_FragColor = vec4(colour, 1.0);\n"
+		"}\n";
+
+	if (skywind_cubemap_shader_initialized)
+		return skywind_cubemap_program != 0;
+
+	skywind_cubemap_shader_initialized = true;
+
+	if (!gl_glsl_able || !GL_CreateProgramFunc || !GL_UseProgramFunc || !GL_Uniform1fFunc || !GL_Uniform1iFunc || !GL_Uniform3fFunc)
+		return false;
+
+	skywind_cubemap_program = GL_CreateProgram(skywind_cubemap_vert_shader, skywind_cubemap_frag_shader, 0, NULL);
+	if (!skywind_cubemap_program)
+		return false;
+
+	skywind_cubemap_uniform_sampler = GL_GetUniformLocation(&skywind_cubemap_program, "uSkyCube");
+	skywind_cubemap_uniform_phase = GL_GetUniformLocation(&skywind_cubemap_program, "uWindPhase");
+	skywind_cubemap_uniform_winddir = GL_GetUniformLocation(&skywind_cubemap_program, "uWindDir");
+	skywind_cubemap_uniform_fogcolor = GL_GetUniformLocation(&skywind_cubemap_program, "uFogColor");
+	skywind_cubemap_uniform_fogdensity = GL_GetUniformLocation(&skywind_cubemap_program, "uFogDensity");
+	skywind_cubemap_uniform_eye = GL_GetUniformLocation(&skywind_cubemap_program, "uEye");
+
+	GL_UseProgramFunc(skywind_cubemap_program);
+	if (skywind_cubemap_uniform_sampler != -1)
+		GL_Uniform1iFunc(skywind_cubemap_uniform_sampler, 0);
+	GL_UseProgramFunc(0);
+
+	return true;
+}
+
+static qboolean Skywind_DrawSkyBox_Cubemap(const vec3_t wind_dir, float phase)
+{
+	int i;
+
+	if (!skybox_cubemap)
+	{
+		Sky_TryRebuildCubemap();
+	}
+	if (!skybox_cubemap)
+		return false;
+
+	if (!Skywind_EnsureCubemapShader())
+		return false;
+
+	GL_SelectTexture(GL_TEXTURE0);
+	glDisable(GL_BLEND);
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+	GL_UseProgramFunc(skywind_cubemap_program);
+	if (skywind_cubemap_uniform_phase != -1)
+		GL_Uniform1fFunc(skywind_cubemap_uniform_phase, phase);
+	if (skywind_cubemap_uniform_winddir != -1)
+		GL_Uniform3fFunc(skywind_cubemap_uniform_winddir, wind_dir[0], wind_dir[1], wind_dir[2]);
+	if (skywind_cubemap_uniform_eye != -1)
+		GL_Uniform3fFunc(skywind_cubemap_uniform_eye, r_origin[0], r_origin[1], r_origin[2]);
+
+	{
+		float fog_density = Fog_GetDensity();
+		float *fog_color = Fog_GetColor();
+		float density = 0.0f;
+		static float fog_fallback[3] = {0.5f, 0.5f, 0.5f};
+
+		if (!fog_color)
+			fog_color = fog_fallback;
+
+		if (fog_density > 0.0f && skyfog > 0.0f)
+			density = CLAMP(0.0f, skyfog, 1.0f);
+
+		if (skywind_cubemap_uniform_fogdensity != -1)
+			GL_Uniform1fFunc(skywind_cubemap_uniform_fogdensity, density);
+		if (skywind_cubemap_uniform_fogcolor != -1)
+			GL_Uniform3fFunc(skywind_cubemap_uniform_fogcolor, fog_color[0], fog_color[1], fog_color[2]);
+	}
+
+	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_cubemap);
+	GL_ClearBindings();
+
+	skywind_apply_offsets = false;
+	skywind_shader_enabled = false;
+
+	for (i = 0; i < 6; ++i)
+	{
+		if (skymins[0][i] >= skymaxs[0][i] || skymins[1][i] >= skymaxs[1][i])
+			continue;
+
+		skymins[0][i] = -1;
+		skymins[1][i] = -1;
+		skymaxs[0][i] = 1;
+		skymaxs[1][i] = 1;
+
+		glBegin(GL_QUADS);
+		Sky_EmitSkyBoxVertex(skymins[0][i], skymins[1][i], i);
+		Sky_EmitSkyBoxVertex(skymins[0][i], skymaxs[1][i], i);
+		Sky_EmitSkyBoxVertex(skymaxs[0][i], skymaxs[1][i], i);
+		Sky_EmitSkyBoxVertex(skymaxs[0][i], skymins[1][i], i);
+		glEnd();
+
+		rs_skypolys++;
+		rs_skypasses++;
+	}
+
+	GL_UseProgramFunc(0);
+
+	return true;
+}
+
+static qboolean Skywind_DrawSkyBox_Shader(const vec3_t wind_dir, float phase)
+{
+	int i;
+	float secondary_offset;
+
+	if (Skywind_DrawSkyBox_Cubemap(wind_dir, phase))
+		return true;
+
+	if (!Skywind_EnsureShader())
+		return false;
+
+	VectorCopy(wind_dir, skywind_frame_dir);
+
+	GL_SelectTexture(GL_TEXTURE0);
+	glDisable(GL_BLEND);
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+	GL_UseProgramFunc(skywind_program);
+	if (skywind_uniform_phase != -1)
+		GL_Uniform1fFunc(skywind_uniform_phase, phase);
+
+	{
+		float fog_density = Fog_GetDensity();
+		float *fog_color = Fog_GetColor();
+		float density = 0.0f;
+		static float fog_fallback[3] = {0.5f, 0.5f, 0.5f};
+
+		if (!fog_color)
+			fog_color = fog_fallback;
+
+		if (fog_density > 0.0f && skyfog > 0.0f)
+			density = CLAMP(0.0f, skyfog, 1.0f);
+
+		if (skywind_uniform_fogdensity != -1)
+			GL_Uniform1fFunc(skywind_uniform_fogdensity, density);
+		if (skywind_uniform_fogcolor != -1)
+			GL_Uniform3fFunc(skywind_uniform_fogcolor, fog_color[0], fog_color[1], fog_color[2]);
+	}
+
+	skywind_apply_offsets = true;
+	skywind_shader_enabled = true;
+
+	secondary_offset = Skywind_ComputeSecondaryOffset(phase);
+	skywind_primary_phase = phase;
+	skywind_secondary_phase = secondary_offset;
+
+	for (i = 0; i < 6; ++i)
+	{
+		if (skymins[0][i] >= skymaxs[0][i] || skymins[1][i] >= skymaxs[1][i])
+			continue;
+
+		if (!skybox_textures[skytexorder[i]] || skybox_textures[skytexorder[i]] == notexture)
+			continue;
+
+		GL_Bind(skybox_textures[skytexorder[i]]);
+
+		skymins[0][i] = -1;
+		skymins[1][i] = -1;
+		skymaxs[0][i] = 1;
+		skymaxs[1][i] = 1;
+
+		glBegin(GL_QUADS);
+		Sky_EmitSkyBoxVertex(skymins[0][i], skymins[1][i], i);
+		Sky_EmitSkyBoxVertex(skymins[0][i], skymaxs[1][i], i);
+		Sky_EmitSkyBoxVertex(skymaxs[0][i], skymaxs[1][i], i);
+		Sky_EmitSkyBoxVertex(skymaxs[0][i], skymins[1][i], i);
+		glEnd();
+
+		rs_skypolys++;
+		rs_skypasses++;
+	}
+
+	skywind_shader_enabled = false;
+	skywind_apply_offsets = false;
+
+	GL_UseProgramFunc(0);
+
+	return true;
+}
+
+static qboolean Skywind_ApplyCvarDefaultsInternal(qboolean quiet)
+{
+	float dist, yaw, period, pitch;
+
+	if (!Skywind_ParseCvarDefaults(&dist, &yaw, &period, &pitch))
+		return false;
+
+	Skywind_Clear();
+	skywind_dist = bound(-2.0f, dist, 2.0f);
+	skywind_yaw = Skywind_Normalize360(yaw);
+	skywind_period = period;
+	skywind_pitch = Skywind_NormalizePitch(pitch);
+
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_DEFAULT;
+
+	if (!quiet)
+		Con_Printf("Loaded sky wind defaults from r_skywind\n");
+
+	return true;
+}
+
+static qboolean Skywind_LoadConfigInternal(qboolean quiet)
+{
+	char relpath[MAX_QPATH];
+	char *buffer;
+	const char *data;
+	qboolean loaded = false;
+	qboolean is_default = false;
+
+	if (!Skywind_HasSkybox())
+	{
+		if (!quiet)
+			Con_Printf("No skybox loaded\n");
+		return false;
+	}
+
+	q_snprintf(relpath, sizeof(relpath), "gfx/env/%s%s", skybox_name, SKYWIND_CFG);
+
+	buffer = (char *)COM_LoadTempFile(relpath, NULL);
+	if (!buffer)
+	{
+		q_snprintf(relpath, sizeof(relpath), "%s", SKYWIND_DEFAULT_CFG);
+		buffer = (char *)COM_LoadTempFile(relpath, NULL);
+		is_default = (buffer != NULL);
+	}
+	if (!buffer)
+	{
+		if (Skywind_ApplyCvarDefaultsInternal(quiet))
+			return true;
+
+		if (!quiet)
+			Con_Printf("Couldn't load sky wind config \"%s\"\n", relpath);
+		return false;
+	}
+
+	data = COM_Parse(buffer);
+	if (!data)
+	{
+		if (!quiet)
+			Con_Printf("Sky wind config \"%s\" is empty\n", relpath);
+		if (Skywind_ApplyCvarDefaultsInternal(quiet))
+			return true;
+		return false;
+	}
+
+	Skywind_Clear();
+
+	if (q_strcasecmp(com_token, "skywind"))
+	{
+		if (!quiet)
+			Con_Printf("Sky wind config \"%s\" is invalid\n", relpath);
+		if (Skywind_ApplyCvarDefaultsInternal(quiet))
+			return true;
+		return false;
+	}
+
+	if ((data = COM_Parse(data)) != NULL)
+		skywind_dist = bound(-2.0f, (float)atof(com_token), 2.0f);
+
+	if ((data = COM_Parse(data)) != NULL)
+		skywind_yaw = Skywind_Normalize360((float)atof(com_token));
+
+	if ((data = COM_Parse(data)) != NULL)
+		skywind_period = (float)atof(com_token);
+
+	if ((data = COM_Parse(data)) != NULL)
+		skywind_pitch = Skywind_NormalizePitch((float)atof(com_token));
+
+	while ((data = COM_Parse(data)) != NULL)
+	{
+		if (!q_strcasecmp(com_token, "exclude"))
+		{
+			if ((data = COM_Parse(data)) == NULL)
+				break;
+			if (is_default && !q_strcasecmp(com_token, skybox_name))
+			{
+				Skywind_Clear();
+				Skywind_InvalidateFrame();
+				if (!quiet)
+					Con_Printf("Sky wind default config excludes \"%s\"\n", skybox_name);
+				return false;
+			}
+		}
+	}
+
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_CONFIG;
+	loaded = true;
+
+	if (!quiet)
+		Con_Printf("Loaded sky wind config \"%s\"\n", relpath);
+
+	return loaded;
+}
+
+static qboolean Skywind_ApplyWorldspawn(const char *value)
+{
+	const char *data;
+	float dist, yaw, period, pitch;
+
+	if (!value || !value[0])
+		return false;
+
+	dist = skywind_dist;
+	yaw = skywind_yaw;
+	period = skywind_period;
+	pitch = skywind_pitch;
+
+	data = COM_Parse(value);
+	if (!data)
+		return false;
+
+	if (!q_strcasecmp(com_token, "skywind"))
+	{
+		data = COM_Parse(data);
+		if (!data)
+			return false;
+	}
+
+	dist = (float)atof(com_token);
+
+	if ((data = COM_Parse(data)) != NULL)
+		yaw = (float)atof(com_token);
+	if ((data = COM_Parse(data)) != NULL)
+		period = (float)atof(com_token);
+	if ((data = COM_Parse(data)) != NULL)
+		pitch = (float)atof(com_token);
+
+	skywind_dist = bound(-2.0f, dist, 2.0f);
+	skywind_yaw = Skywind_Normalize360(yaw);
+	skywind_period = period;
+	skywind_pitch = Skywind_NormalizePitch(pitch);
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_WORLDSPAWN;
+
+	return true;
+}
+
+static void Skywind_Cvar_OnChange(cvar_t *var)
+{
+	float dist, yaw, period, pitch;
+
+	(void)var;
+
+	if (!Skywind_ParseCvarDefaults(&dist, &yaw, &period, &pitch))
+		return;
+
+	if (skywind_source == SKYWIND_SRC_CONFIG || skywind_source == SKYWIND_SRC_WORLDSPAWN)
+		return;
+
+	skywind_dist = bound(-2.0f, dist, 2.0f);
+	skywind_yaw = Skywind_Normalize360(yaw);
+	skywind_period = period;
+	skywind_pitch = Skywind_NormalizePitch(pitch);
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_DEFAULT;
+}
+
+static void Skywind_LoadConfig(void)
+{
+	Skywind_LoadConfigInternal(true);
+}
+
+static void Skywind_Load_f(void)
+{
+	Skywind_LoadConfigInternal(false);
+}
+
+static void Skywind_Save_f(void)
+{
+	char relpath[MAX_QPATH];
+	char filepath[MAX_OSPATH];
+	FILE *f;
+
+	if (!Skywind_HasSkybox())
+	{
+		Con_Printf("No skybox loaded\n");
+		return;
+	}
+
+	q_snprintf(relpath, sizeof(relpath), "gfx/env/%s%s", skybox_name, SKYWIND_CFG);
+	q_snprintf(filepath, sizeof(filepath), "%s/%s", com_gamedir, relpath);
+	COM_CreatePath(filepath);
+
+	f = fopen(filepath, "wt");
+	if (!f)
+	{
+		Con_Printf("Couldn't write sky wind config \"%s\"\n", relpath);
+		return;
+	}
+
+	fprintf(f,
+		"// distance yaw period pitch\n"
+		"skywind %g %g %g %g\n",
+		skywind_dist,
+		skywind_yaw,
+		skywind_period,
+		skywind_pitch);
+
+	fclose(f);
+
+	Con_Printf("Saved sky wind config \"%s\"\n", relpath);
+}
+
+static void Skywind_LookDir_f(void)
+{
+	if (cls.state != ca_connected)
+		return;
+
+	if (!Skywind_HasSkybox())
+	{
+		Con_Printf("No skybox loaded\n");
+		return;
+	}
+
+	skywind_yaw = Skywind_Normalize360(cl.viewangles[YAW] + 180.0f);
+	skywind_pitch = Skywind_NormalizePitch(-cl.viewangles[PITCH]);
+
+	if (Cmd_Argc() >= 2)
+		skywind_period = (float)atof(Cmd_Argv(1));
+	else if (skywind_period <= 0.0f)
+		skywind_period = 30.0f;
+
+	if (Cmd_Argc() >= 3)
+		skywind_dist = bound(-2.0f, (float)atof(Cmd_Argv(2)), 2.0f);
+	else if (skywind_dist <= 0.0f)
+		skywind_dist = 1.0f;
+
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_COMMAND;
+}
+
+static void Skywind_Rotate_f(void)
+{
+	if (cls.state != ca_connected)
+		return;
+
+	if (!Skywind_HasSkybox())
+	{
+		Con_Printf("No skybox loaded\n");
+		return;
+	}
+
+	if (Cmd_Argc() < 2)
+	{
+		Con_Printf("usage: %s <yawdelta> [pitchdelta]\n", Cmd_Argv(0));
+		return;
+	}
+
+	skywind_yaw = Skywind_Normalize360(skywind_yaw + (float)atof(Cmd_Argv(1)));
+
+	if (Cmd_Argc() >= 3)
+		skywind_pitch = Skywind_NormalizePitch(skywind_pitch + (float)atof(Cmd_Argv(2)));
+
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_COMMAND;
+}
+
+static void Skywind_f(void)
+{
+	if (!Skywind_HasSkybox())
+	{
+		Con_Printf("No skybox loaded\n");
+		return;
+	}
+
+	if (Cmd_Argc() < 2)
+	{
+		float rate = Skywind_GetRate();
+		const char *defaults_line = "";
+		char defaults_buf[256];
+
+		if (Skywind_ParseCvarDefaults(NULL, NULL, NULL, NULL))
+		{
+			q_snprintf(defaults_buf, sizeof(defaults_buf), "   r_skywind defaults: %s\n", r_skywind.string);
+			defaults_line = defaults_buf;
+		}
+
+		Con_Printf(
+			"^bSkywind^b - Animated sky scrolling effect\n"
+			"\n"
+			"^musage:^m %s <dist> [yaw] [period] [pitch]\n"
+			"\n"
+			"^mparameters:^m\n"
+			"   dist   [-2..2]   wind strength (0 = off, negative = reverse)\n"
+			"   yaw    [0..360)  horizontal wind direction in degrees\n"
+			"   period [seconds] time for one full scroll cycle\n"
+			"   pitch  [-90..90] vertical wind angle\n"
+			"\n"
+			"^mrelated commands:^m\n"
+			"   skywind_save     save config to gfx/env/<sky>wind.cfg\n"
+			"   skywind_load     reload config from file\n"
+			"   skywind_lookdir  set yaw/pitch from current view\n"
+			"   skywind_rotate   adjust yaw/pitch by delta\n"
+			"\n"
+			"^mcurrent values:^m\n"
+			"   r_skywind (rate): %g\n"
+			"%s"
+			"   distance: %g\n"
+			"   yaw:      %g\n"
+			"   period:   %g\n"
+			"   pitch:    %g\n",
+			Cmd_Argv(0),
+			rate,
+			defaults_line,
+			skywind_dist,
+			skywind_yaw,
+			skywind_period,
+			skywind_pitch);
+		return;
+	}
+
+	skywind_dist = bound(-2.0f, (float)atof(Cmd_Argv(1)), 2.0f);
+
+	if (Cmd_Argc() >= 3)
+		skywind_yaw = Skywind_Normalize360((float)atof(Cmd_Argv(2)));
+
+	if (Cmd_Argc() >= 4)
+		skywind_period = (float)atof(Cmd_Argv(3));
+
+	if (Cmd_Argc() >= 5)
+		skywind_pitch = Skywind_NormalizePitch((float)atof(Cmd_Argv(4)));
+
+	Skywind_InvalidateFrame();
+	skywind_source = SKYWIND_SRC_COMMAND;
+}
+
 //==============================================================================
 //
 //  INIT
@@ -102,12 +1175,13 @@ A sky texture is 256*128, with the left side being a masked overlay
 void Sky_LoadTexture (qmodel_t *mod, texture_t *mt, enum srcformat fmt, unsigned int srcwidth, unsigned int height)
 {
 	char		texturename[64];
-	int			i, p, r, g, b, count;
+	int p, r, g, b, count;
+	unsigned int i;
 	byte		*src;
 	byte	*front_data;
 	byte	*back_data;
 	unsigned	*rgba;
-	int rows, columns;
+	unsigned int rows, columns;
 	int bb,bw,bh;
 	int width = srcwidth/2;
 
@@ -346,16 +1420,25 @@ Sky_LoadSkyBox
 ==================
 */
 const char	*suf[6] = {"rt", "bk", "lf", "ft", "up", "dn"};
-void Sky_LoadSkyBox (const char *name)
+void Sky_LoadSkyBoxInternal (const char *name, qboolean quiet) // woods #skydownloads
 {
-	int		i, mark, width, height;
+	int		i, mark;
+	int		width[6], height[6];
+	enum srcformat fmt[6];
+	byte	*data[6];
+	qboolean malloced[6];
+	int		samesize, numloaded;
 	char	filename[MAX_OSPATH];
-	byte	*data;
 	qboolean nonefound = true;
-	qboolean malloced;
 
 	if (strcmp(skybox_name, name) == 0)
+	{
+		Skywind_LoadConfig();
 		return; //no change
+	}
+	Skywind_Clear();
+	Sky_FreeCubemap();
+	skybox_cubemap_attempted = false;
 
 	//purge old textures
 	for (i=0; i<6; i++)
@@ -373,15 +1456,41 @@ void Sky_LoadSkyBox (const char *name)
 	}
 
 	//load textures
-	for (i=0; i<6; i++)
+	mark = Hunk_LowMark ();
+	for (i = 0, numloaded = 0, samesize = 0; i < 6; i++)
 	{
-		enum srcformat fmt;
-		mark = Hunk_LowMark ();
 		q_snprintf (filename, sizeof(filename), "gfx/env/%s%s", name, suf[i]);
-		data = Image_LoadImage (filename, &width, &height, &fmt, &malloced);
-		if (data)
+		data[i] = Image_LoadImage (filename, &width[i], &height[i], &fmt[i], &malloced[i]);
+		if (data[i])
 		{
-			skybox_textures[i] = TexMgr_LoadImage (cl.worldmodel, filename, width, height, fmt, data, filename, 0, TEXPREF_NONE);
+			numloaded++;
+			if (width[i] != height[i])
+				samesize = -1;
+			else if (samesize == 0)
+				samesize = width[i];
+			else if (samesize != width[i])
+				samesize = -1;
+		}
+		else
+		{
+			fmt[i] = SRC_RGBA;
+			malloced[i] = false;
+		}
+	}
+
+	if (numloaded > 0 && samesize > 0)
+	{
+		if (!Sky_CreateCubemap(data, width, height, fmt, samesize))
+			Sky_FreeCubemap();
+	}
+	skybox_cubemap_attempted = true;
+
+	for (i = 0; i < 6; i++)
+	{
+		if (data[i])
+		{
+			q_snprintf (filename, sizeof(filename), "gfx/env/%s%s", name, suf[i]);
+			skybox_textures[i] = TexMgr_LoadImage (cl.worldmodel, filename, width[i], height[i], fmt[i], data[i], filename, 0, TEXPREF_NONE);
 			nonefound = false;
 		}
 		else
@@ -389,16 +1498,14 @@ void Sky_LoadSkyBox (const char *name)
 			//Con_Printf ("Couldn't load skybox %s\n", filename); // woods
 			skybox_textures[i] = notexture;
 		}
-		if (malloced)
-			free(data);
-		Hunk_FreeToLowMark (mark);
+		if (malloced[i])
+			free(data[i]);
 	}
+	Hunk_FreeToLowMark (mark);
 
-	if (nonefound) // woods, verbose missing sky + limit spam
+        if (nonefound && !quiet) // woods, verbose missing sky + limit spam
 	{
-		int length = strlen(filename);
-		filename[length - 2] = '\0';
-		Con_Printf("this map uses an external sky, could't load skybox %s\n", filename);
+                Con_Printf("this map uses an external sky, could't load skybox ^m%s^m\n", name);
 	}
 
 	if (nonefound) // go back to scrolling sky if skybox is totally missing
@@ -409,11 +1516,115 @@ void Sky_LoadSkyBox (const char *name)
 				TexMgr_FreeTexture (skybox_textures[i]);
 			skybox_textures[i] = NULL;
 		}
+		Sky_FreeCubemap();
 		skybox_name[0] = 0;
 		return;
 	}
 
 	q_strlcpy(skybox_name, name, sizeof(skybox_name));
+	Skywind_LoadConfig();
+}
+
+void Sky_LoadSkyBox (const char *name) // woods #skydownloads
+{
+	Sky_LoadSkyBoxInternal(name, false);
+}
+
+qboolean Sky_DownloadsDisabled(void) // woods #skydownloads
+{
+	return (allow_download_sky.value == 0);
+}
+
+/*
+==============================================================================
+Sky_DownloadSkybox - woods #skydownloads
+Only downloads from mirrors that are in user/repo/branch form
+Leaves tag formatting to Curl_DownloadFile (display_name = NULL)
+==============================================================================
+*/
+qboolean Sky_DownloadSkybox(const char* name)
+{
+	if (Sky_DownloadsDisabled())
+		return false;
+
+	const char* bases[2] = {
+		cl_web_download_url.string,
+		cl_web_download_url2.string
+	};
+
+	static const char* suffixes[6] = { "rt", "bk", "lf", "ft", "up", "dn" };
+	static const char* extensions[] = { "tga", "png", "jpg", "dds" };
+
+	char remote_path[MAX_QPATH];
+	char local_path[MAX_OSPATH];
+	qboolean any_downloads = false;
+
+	// First pass: check if we need to download anything
+	for (int b = 0; b < 2; ++b)
+	{
+		if (!IsGithubRepoPath(bases[b]))
+			continue;
+
+		for (int e = 0; e < (int)ARRAY_COUNT(extensions); ++e)
+		{
+			for (int i = 0; i < 6; ++i)
+			{
+				q_snprintf(remote_path, sizeof(remote_path),
+					"gfx/env/%s%s.%s", name, suffixes[i], extensions[e]);
+
+				if (!COM_FileExists(remote_path, NULL))
+				{
+					any_downloads = true;
+					break;
+				}
+			}
+			if (any_downloads) break;
+		}
+		if (any_downloads) break;
+	}
+
+	for (int b = 0; b < 2; ++b)
+	{
+		if (!IsGithubRepoPath(bases[b]))          /* skip plain hosts       */
+			continue;
+
+		for (int e = 0; e < (int)ARRAY_COUNT(extensions); ++e)
+		{
+			for (int i = 0; i < 6; ++i)
+			{
+				q_snprintf(remote_path, sizeof(remote_path),
+					"gfx/env/%s%s.%s", name, suffixes[i], extensions[e]);
+
+				if (COM_FileExists(remote_path, NULL))
+					continue;                     /* face already present   */
+
+				q_snprintf(local_path, sizeof(local_path),
+					"%s/%s", com_gamedir, remote_path);
+
+				if (!Curl_DownloadFile(bases[b],
+					remote_path,
+					local_path,
+					/* is_skybox   */ true,
+					/* display_tag */ NULL))
+				{
+					break;                         /* try next ext/mirror   */
+				}
+			}
+		}
+	}
+
+	return false;                                  /* no mirror succeeded   */
+}
+
+static void Sky_LoadSkyBoxAuto(const char *name)
+{
+    Sky_LoadSkyBoxInternal(name, Sky_DownloadsDisabled() ? false : true); // quiet if downloads enabled, verbose if disabled
+    if (!skybox_name[0] && !Sky_DownloadsDisabled())
+    {
+        // Store the name for delayed download when connection is complete
+        q_strlcpy(pending_skybox_name, name, sizeof(pending_skybox_name));
+        skybox_download_pending = true;
+    }
 }
 
 /*
@@ -428,11 +1639,40 @@ void Sky_ClearAll (void)
 	int i;
 
 	skyroom_enabled = false;
+	externalskyloaded = false; // woods #fastsky2
 	skybox_name[0] = 0;
 	for (i=0; i<6; i++)
 		skybox_textures[i] = NULL;
 	solidskytexture = NULL;
 	alphaskytexture = NULL;
+	Skywind_Clear();
+	Sky_FreeCubemap();
+	skybox_cubemap_attempted = false;
+}
+
+void Sky_ResetGL (void)
+{
+	skywind_shader_initialized = false;
+	skywind_program = 0;
+	skywind_uniform_sampler = -1;
+	skywind_uniform_phase = -1;
+	skywind_uniform_fogcolor = -1;
+	skywind_uniform_fogdensity = -1;
+
+	skywind_cubemap_shader_initialized = false;
+	skywind_cubemap_program = 0;
+	skywind_cubemap_uniform_sampler = -1;
+	skywind_cubemap_uniform_phase = -1;
+	skywind_cubemap_uniform_winddir = -1;
+	skywind_cubemap_uniform_fogcolor = -1;
+	skywind_cubemap_uniform_fogdensity = -1;
+	skywind_cubemap_uniform_eye = -1;
+
+	skywind_shader_enabled = false;
+	skywind_apply_offsets = false;
+
+	Sky_FreeCubemap();
+	skybox_cubemap_attempted = false;
 }
 
 /*
@@ -443,9 +1683,12 @@ Sky_NewMap
 void Sky_NewMap (void)
 {
 	char	key[128], value[4096];
+	char	skywind_value[4096];
 	const char	*data;
+	qboolean	skywind_from_worldspawn = false;
 
 	skyfog = r_skyfog.value;
+	skywind_value[0] = 0;
 
 	//
 	// read worldspawn (this is so ugly, and shouldn't it be done on the server?)
@@ -479,7 +1722,7 @@ void Sky_NewMap (void)
 		q_strlcpy(value, com_token, sizeof(value));
 
 		if (!strcmp("sky", key))
-			Sky_LoadSkyBox(value);
+			Sky_LoadSkyBoxAuto(value); // woods #skydownloads
 		else if (!strcmp("skyroom", key))
 		{	//"_skyroom" "X Y Z". ideally the gamecode would do this with an entity, but people want to use the vanilla gamecode from 1996 for some reason.
 			const char *t = COM_Parse(value);
@@ -504,14 +1747,22 @@ void Sky_NewMap (void)
 
 		else if (!strcmp("skyfog", key))
 			skyfog = atof(value);
+		else if (!strcmp("skywind", key))
+		{
+			q_strlcpy(skywind_value, value, sizeof(skywind_value));
+			skywind_from_worldspawn = true;
+		}
 
 #if 1 /* also accept non-standard keys */
 		else if (!strcmp("skyname", key)) //half-life
-			Sky_LoadSkyBox(value);
+			Sky_LoadSkyBoxAuto(value); // woods #skydownloads
 		else if (!strcmp("qlsky", key)) //quake lives
-			Sky_LoadSkyBox(value);
+			Sky_LoadSkyBoxAuto(value); // woods #skydownloads
 #endif
 	}
+
+	if (skywind_from_worldspawn)
+		Skywind_ApplyWorldspawn(skywind_value);
 }
 
 /*
@@ -609,6 +1860,35 @@ static void SKy_Color_Completion_f(cvar_t* cvar, const char* partial)
 }
 
 /*
+=================
+Skywind_Cvar_Completion_f
+=================
+*/
+static void Skywind_Cvar_Completion_f(cvar_t* cvar, const char* partial)
+{
+	static const char *const rate_options[] = {
+		"0", "0.25", "0.5", "0.75", "1", "1.5", "2", "-1", "-2"
+	};
+	static const char *const default_options[] = {
+		"\"0.25 45 30 0\"",
+		"\"0.5 45 30 0\"",
+		"\"0.75 45 30 0\"",
+		"\"1 45 30 0\"",
+		"\"1 90 30 0\"",
+		"\"1 180 30 0\"",
+		"\"1 45 60 0\"",
+		"\"1 45 30 15\"",
+		"\"-0.5 45 30 0\""
+	};
+
+	for (size_t i = 0; i < (sizeof(rate_options) / sizeof(rate_options[0])); ++i)
+		Con_AddToTabList(rate_options[i], partial, "rate", NULL);
+
+	for (size_t i = 0; i < (sizeof(default_options) / sizeof(default_options[0])); ++i)
+		Con_AddToTabList(default_options[i], partial, "defaults", NULL);
+}
+
+/*
 =============
 Sky_Init
 =============
@@ -624,9 +1904,19 @@ void Sky_Init (void)
 	Cvar_RegisterVariable (&r_skyalpha);
 	Cvar_RegisterVariable (&r_skyfog);
 	Cvar_SetCallback (&r_skyfog, R_SetSkyfog_f);
+	Cvar_RegisterVariable (&r_skyspeed); // woods #skyspeed
+	Cvar_RegisterVariable (&allow_download_sky); // woods automatic skybox downloading #skydownloads
+	Cvar_RegisterVariable (&r_skywind);
+	Cvar_SetCompletion (&r_skywind, &Skywind_Cvar_Completion_f); // woods #iwtabcomplete
+	Cvar_SetCallback (&r_skywind, &Skywind_Cvar_OnChange);
 
 	Cmd_AddCommand ("sky",Sky_SkyCommand_f);
 	Cmd_AddCommand ("skyroom",Sky_SkyRoomCommand_f);
+	Cmd_AddCommand ("skywind",Skywind_f);
+	Cmd_AddCommand ("skywind_save",Skywind_Save_f);
+	Cmd_AddCommand ("skywind_load",Skywind_Load_f);
+	Cmd_AddCommand ("skywind_lookdir",Skywind_LookDir_f);
+	Cmd_AddCommand ("skywind_rotate",Skywind_Rotate_f);
 
 	skybox_name[0] = 0;
 	for (i=0; i<6; i++)
@@ -827,14 +2117,8 @@ void Sky_ProcessPoly (glpoly_t	*p)
 	rs_brushpasses++;
 
 	//update sky bounds
-	if (r_fastsky.value == 0) // woods #fastsky2 | OG behavior --> true: r_fastsky does not work so if r_fastsky 0 this run, if r_fastsky 1 this does not run
-	{
-		for (i=0 ; i<p->numverts ; i++)
-			VectorSubtract (p->verts[i], r_origin, verts[i]);
-		Sky_ClipPoly (p->numverts, verts[0], 0);
-	}
-
-	if ((r_fastsky.value == 2) && (skybox_name[0])) // woods -- #fastsky2 | r_fastsky 2 gives skybox precedence over fastsky, but fallback if not skybox
+	if ((r_fastsky.value == 0) ||
+		(r_fastsky.value == 2 && (skybox_name[0] || externalskyloaded)))
 	{
 		for (i = 0; i < p->numverts; i++)
 			VectorSubtract(p->verts[i], r_origin, verts[i]);
@@ -970,51 +2254,169 @@ Sky_EmitSkyBoxVertex
 */
 void Sky_EmitSkyBoxVertex (float s, float t, int axis)
 {
-	vec3_t		v, b;
+	vec3_t		v, b, dir;
 	int			j, k;
 	float		w, h;
+	float		geom_s, geom_t;
+	float		base_s, base_t;
+	float		primary_s, primary_t;
+	float		secondary_s, secondary_t;
+	float		tex_base_s, tex_base_t;
+	float		tex_primary_s, tex_primary_t;
+	float		tex_secondary_s, tex_secondary_t;
+	float		sample_s, sample_t;
 
-	b[0] = s * gl_farclip.value / sqrt(3.0);
-	b[1] = t * gl_farclip.value / sqrt(3.0);
+	geom_s = s;
+	geom_t = t;
+	base_s = s;
+	base_t = t;
+	primary_s = base_s;
+	primary_t = base_t;
+	secondary_s = base_s;
+	secondary_t = base_t;
+
+	b[0] = geom_s * gl_farclip.value / sqrt(3.0);
+	b[1] = geom_t * gl_farclip.value / sqrt(3.0);
 	b[2] = gl_farclip.value / sqrt(3.0);
 
 	for (j=0 ; j<3 ; j++)
 	{
 		k = st_to_vec[axis][j];
 		if (k < 0)
-			v[j] = -b[-k - 1];
+			dir[j] = -b[-k - 1];
 		else
-			v[j] = b[k - 1];
-		v[j] += r_origin[j];
+			dir[j] = b[k - 1];
+		v[j] = dir[j] + r_origin[j];
 	}
 
-	// convert from range [-1,1] to [0,1]
-	s = (s+1)*0.5;
-	t = (t+1)*0.5;
+	if (skywind_apply_offsets)
+	{
+		vec3_t dir_cube;
+		vec3_t dir_norm;
+		vec3_t dir_shift;
+		vec3_t dir_world;
 
-	// avoid bilerp seam
+		dir_cube[0] = -dir[1];
+		dir_cube[1] = dir[2];
+		dir_cube[2] = dir[0];
+
+		VectorCopy(dir_cube, dir_norm);
+		if (VectorNormalize(dir_norm) == 0.0f)
+		{
+			dir_norm[0] = 0.0f;
+			dir_norm[1] = 0.0f;
+			dir_norm[2] = 0.0f;
+		}
+
+		VectorMA(dir_norm, skywind_primary_phase, skywind_frame_dir, dir_shift);
+		dir_world[0] = dir_shift[2];
+		dir_world[1] = -dir_shift[0];
+		dir_world[2] = dir_shift[1];
+		Skywind_ProjectDirToST(dir_world, axis, &primary_s, &primary_t);
+		primary_s = Skywind_WrapCoord(primary_s);
+		primary_t = Skywind_WrapCoord(primary_t);
+
+		if (skywind_shader_enabled)
+		{
+			VectorMA(dir_norm, skywind_secondary_phase, skywind_frame_dir, dir_shift);
+			dir_world[0] = dir_shift[2];
+			dir_world[1] = -dir_shift[0];
+			dir_world[2] = dir_shift[1];
+			Skywind_ProjectDirToST(dir_world, axis, &secondary_s, &secondary_t);
+			secondary_s = Skywind_WrapCoord(secondary_s);
+			secondary_t = Skywind_WrapCoord(secondary_t);
+		}
+		else
+		{
+			base_s = primary_s;
+			base_t = primary_t;
+		}
+	}
+
 	w = skybox_textures[skytexorder[axis]]->width;
 	h = skybox_textures[skytexorder[axis]]->height;
-	s = s * (w-1)/w + 0.5/w;
-	t = t * (h-1)/h + 0.5/h;
 
-	t = 1.0 - t;
-	glTexCoord2f (s, t);
+	tex_base_s = (base_s + 1) * 0.5f;
+	tex_base_t = (base_t + 1) * 0.5f;
+	tex_primary_s = (primary_s + 1) * 0.5f;
+	tex_primary_t = (primary_t + 1) * 0.5f;
+	tex_secondary_s = (secondary_s + 1) * 0.5f;
+	tex_secondary_t = (secondary_t + 1) * 0.5f;
+
+	tex_base_s = tex_base_s * (w - 1) / w + 0.5f / w;
+	tex_base_t = tex_base_t * (h - 1) / h + 0.5f / h;
+	tex_primary_s = tex_primary_s * (w - 1) / w + 0.5f / w;
+	tex_primary_t = tex_primary_t * (h - 1) / h + 0.5f / h;
+	tex_secondary_s = tex_secondary_s * (w - 1) / w + 0.5f / w;
+	tex_secondary_t = tex_secondary_t * (h - 1) / h + 0.5f / h;
+
+	tex_base_t = 1.0f - tex_base_t;
+	tex_primary_t = 1.0f - tex_primary_t;
+	tex_secondary_t = 1.0f - tex_secondary_t;
+
+	if (skywind_shader_enabled && GL_MTexCoord2fFunc)
+	{
+		GL_MTexCoord2fFunc(GL_TEXTURE0_ARB, tex_base_s, tex_base_t);
+		GL_MTexCoord2fFunc(GL_TEXTURE1_ARB, tex_primary_s, tex_primary_t);
+		GL_MTexCoord2fFunc(GL_TEXTURE2_ARB, tex_secondary_s, tex_secondary_t);
+		sample_s = tex_base_s;
+		sample_t = tex_base_t;
+	}
+	else
+	{
+		sample_s = tex_primary_s;
+		sample_t = tex_primary_t;
+	}
+	glTexCoord2f (sample_s, sample_t);
 	glVertex3fv (v);
 }
 
-/*
-==============
-Sky_DrawSkyBox
+static void Sky_DrawSkyBoxFogOverlay(void)
+{
+	int i;
+	float fog_density;
 
-FIXME: eliminate cracks by adding an extra vert on tjuncs
-==============
-*/
-void Sky_DrawSkyBox (void)
+	fog_density = Fog_GetDensity();
+	if (fog_density <= 0.0f || skyfog <= 0.0f)
+		return;
+
+	glEnable (GL_BLEND);
+	glDisable (GL_TEXTURE_2D);
+
+	{
+		float *c = Fog_GetColor();
+		glColor4f (c[0], c[1], c[2], CLAMP(0.0f, skyfog, 1.0f));
+	}
+
+	for (i = 0; i < 6; ++i)
+	{
+		if (skymins[0][i] >= skymaxs[0][i] || skymins[1][i] >= skymaxs[1][i])
+			continue;
+
+		glBegin (GL_QUADS);
+		Sky_EmitSkyBoxVertex (skymins[0][i], skymins[1][i], i);
+		Sky_EmitSkyBoxVertex (skymins[0][i], skymaxs[1][i], i);
+		Sky_EmitSkyBoxVertex (skymaxs[0][i], skymaxs[1][i], i);
+		Sky_EmitSkyBoxVertex (skymaxs[0][i], skymins[1][i], i);
+		glEnd ();
+
+		rs_skypasses++;
+	} 
+	glColor3f (1, 1, 1);
+	glEnable (GL_TEXTURE_2D);
+	glDisable (GL_BLEND);
+}
+
+static void Sky_DrawSkyBox_Static(void)
 {
 	int i;
 
-	for (i=0 ; i<6 ; i++)
+	skywind_apply_offsets = false;
+	skywind_shader_enabled = false;
+
+	glColor4f (1, 1, 1, 1);
+
+	for (i = 0; i < 6; ++i)
 	{
 		if (skymins[0][i] >= skymaxs[0][i] || skymins[1][i] >= skymaxs[1][i])
 			continue;
@@ -1036,30 +2438,37 @@ void Sky_DrawSkyBox (void)
 
 		rs_skypolys++;
 		rs_skypasses++;
+	} 
+	Sky_DrawSkyBoxFogOverlay();
+}
 
-		if (Fog_GetDensity() > 0 && skyfog > 0)
+/*
+==============
+Sky_DrawSkyBox
+
+FIXME: eliminate cracks by adding an extra vert on tjuncs
+==============
+*/
+void Sky_DrawSkyBox (void)
+{
+	vec3_t wind_dir;
+	float phase;
+
+	if (Skywind_GetDirectionAndPhase(wind_dir, &phase))
+	{
+		if (!Skywind_DrawSkyBox_Shader(wind_dir, phase))
 		{
-			float *c;
-
-			c = Fog_GetColor();
-			glEnable (GL_BLEND);
-			glDisable (GL_TEXTURE_2D);
-			glColor4f (c[0],c[1],c[2], CLAMP(0.0f,skyfog,1.0f));
-
-			glBegin (GL_QUADS);
-			Sky_EmitSkyBoxVertex (skymins[0][i], skymins[1][i], i);
-			Sky_EmitSkyBoxVertex (skymins[0][i], skymaxs[1][i], i);
-			Sky_EmitSkyBoxVertex (skymaxs[0][i], skymaxs[1][i], i);
-			Sky_EmitSkyBoxVertex (skymaxs[0][i], skymins[1][i], i);
-			glEnd ();
-
-			glColor3f (1, 1, 1);
-			glEnable (GL_TEXTURE_2D);
-			glDisable (GL_BLEND);
-
-			rs_skypasses++;
+			Sky_DrawSkyBox_Static();
+			return;
 		}
+
+		glColor4f (1, 1, 1, 1);
+		//Skywind shader handles fog internally now
+		//Sky_DrawSkyBoxFogOverlay();
+		return;
 	}
+
+	Sky_DrawSkyBox_Static();
 }
 
 //==============================================================================
@@ -1103,6 +2512,8 @@ void Sky_GetTexCoord (vec3_t v, float speed, float *s, float *t)
 	vec3_t	dir;
 	float	length, scroll;
 
+	float clamped_skyspeed = CLAMP(0, r_skyspeed.value, 100); // woods #skyspeed
+
 	VectorSubtract (v, r_origin, dir);
 	dir[2] *= 3;	// flatten the sphere
 
@@ -1110,7 +2521,7 @@ void Sky_GetTexCoord (vec3_t v, float speed, float *s, float *t)
 	length = sqrt (length);
 	length = 6*63/length;
 
-	scroll = cl.time*speed;
+	scroll = cl.time * speed * clamped_skyspeed; // woods #skyspeed
 	scroll -= (int)scroll & ~127;
 
 	*s = (scroll + dir[0] * length) * (1.0/128);
@@ -1300,6 +2711,7 @@ called once per frame before drawing anything else
 void Sky_DrawSky (void)
 {
 	int i;
+	qboolean stencil_skybox = false;
 
 	//in these special render modes, the sky faces are handled in the normal world/brush renderer
 	if (r_drawflat_cheatsafe|| r_lightmap_cheatsafe)
@@ -1352,8 +2764,19 @@ void Sky_DrawSky (void)
 		glColor3fv (Fog_GetColor());
 	else
 		glColor3fv (skyflatcolor);
+
+	if (skybox_name[0])
+	{
+		glEnable (GL_STENCIL_TEST);
+		glStencilMask (1);
+		glStencilFunc (GL_ALWAYS, 1, 1);
+		glStencilOp (GL_KEEP, GL_KEEP, GL_REPLACE);
+		stencil_skybox = true;
+	}
 #ifndef SDL_THREADS_DISABLED
-	if (skybox_name[0] && (!r_fastsky.value || (r_fastsky.value == 2 && skybox_name[0])) && RSceneCache_DrawSkySurfDepth()) // woods -- #fastsky2
+	if (skybox_name[0] &&
+		((r_fastsky.value == 2) || !r_fastsky.value) &&
+		RSceneCache_DrawSkySurfDepth()) // woods -- #fastsky2
 	{	//we have no surfaces to process... fill all sides. its probably still faster.
 		for (i=0 ; i<6 ; i++)
 		{
@@ -1368,10 +2791,18 @@ void Sky_DrawSky (void)
 	glColor3f (1, 1, 1);
 	glEnable (GL_TEXTURE_2D);
 
+	if (stencil_skybox)
+	{
+		glStencilFunc (GL_EQUAL, 1, 1);
+		glStencilOp (GL_KEEP, GL_KEEP, GL_KEEP);
+		glStencilMask (0);
+	}
+
 	//
 	// render slow sky: cloud layers or skybox
 	//
-	if ((r_fastsky.value != 1 && !(Fog_GetDensity() > 0 && skyfog >= 1)) && !(r_fastsky.value == 2 && !skybox_name[0])) // woods -- #fastsky2 | r_fastsky 2 gives skybox precedence over fastsky, but fallback if not skybox
+	if ((!r_fastsky.value && !(Fog_GetDensity() > 0 && skyfog >= 1)) ||
+		(r_fastsky.value == 2 && (skybox_name[0] || externalskyloaded) && !(Fog_GetDensity() > 0 && skyfog >= 1))) // woods -- #fastsky2 | r_fastsky 2 gives skybox precedence over fastsky, but fallback if not skybox
 	{
 		glDepthFunc(GL_GEQUAL);
 		glDepthMask(0);
@@ -1383,6 +2814,12 @@ void Sky_DrawSky (void)
 
 		glDepthMask(1);
 		glDepthFunc(GL_LEQUAL);
+	}
+
+	if (stencil_skybox)
+	{
+		glDisable (GL_STENCIL_TEST);
+		glStencilMask (1);
 	}
 
 	Fog_EnableGFog ();

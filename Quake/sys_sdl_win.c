@@ -314,7 +314,9 @@ LRESULT CALLBACK KeyFilter(int nCode, WPARAM wParam, LPARAM lParam)
 
 void Sys_Init (void)
 {
-	OSVERSIONINFO	vinfo;
+	OSVERSIONINFOEX	vinfo;
+	DWORDLONG conditionMask = 0;
+	int op = VER_GREATER_EQUAL;
 
 	Sys_SetTimerResolution ();
 	Sys_SetDPIAware ();
@@ -327,23 +329,37 @@ void Sys_Init (void)
 	 * can be done if necessary, though... */
 	host_parms->userdir = host_parms->basedir; /* code elsewhere relies on this ! */
 
+	// Check for Windows version using VerifyVersionInfo instead of deprecated GetVersionEx
+	memset(&vinfo, 0, sizeof(vinfo));
 	vinfo.dwOSVersionInfoSize = sizeof(vinfo);
 
-	if (!GetVersionEx (&vinfo))
-		Sys_Error ("Couldn't get OS info");
+	// At least Win95 or NT 4.0 is required (4.0)
+	vinfo.dwMajorVersion = 4;
+	vinfo.dwMinorVersion = 0;
+	VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, op);
+	VER_SET_CONDITION(conditionMask, VER_MINORVERSION, op);
 
-	if ((vinfo.dwMajorVersion < 4) ||
-		(vinfo.dwPlatformId == VER_PLATFORM_WIN32s))
-	{
+	if (!VerifyVersionInfo(&vinfo, VER_MAJORVERSION | VER_MINORVERSION, conditionMask))
 		Sys_Error ("QuakeSpasm requires at least Win95 or NT 4.0");
-	}
 
-	if (vinfo.dwPlatformId == VER_PLATFORM_WIN32_NT)
+	// Check if we're on NT platform
+	vinfo.dwPlatformId = VER_PLATFORM_WIN32_NT;
+	VER_SET_CONDITION(conditionMask, VER_PLATFORMID, VER_EQUAL);
+	WinNT = VerifyVersionInfo(&vinfo, VER_PLATFORMID, conditionMask);
+	
+	if (WinNT)
 	{
 		SYSTEM_INFO info;
-		WinNT = true;
-		if (vinfo.dwMajorVersion >= 6)
-			WinVista = true;
+		
+		// Check for Vista or newer (6.0+)
+		memset(&vinfo, 0, sizeof(vinfo));
+		vinfo.dwOSVersionInfoSize = sizeof(vinfo);
+		vinfo.dwMajorVersion = 6;
+		vinfo.dwMinorVersion = 0;
+		conditionMask = 0;
+		VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, VER_GREATER_EQUAL);
+		WinVista = VerifyVersionInfo(&vinfo, VER_MAJORVERSION, conditionMask);
+		
 		GetSystemInfo(&info);
 		host_parms->numcpus = info.dwNumberOfProcessors;
 		if (host_parms->numcpus < 1)
@@ -353,13 +369,21 @@ void Sys_Init (void)
 	{
 		WinNT = false; /* Win9x or WinME */
 		host_parms->numcpus = 1;
-		if ((vinfo.dwMajorVersion == 4) && (vinfo.dwMinorVersion == 0))
-		{
-			Win95 = true;
-			/* Win95-gold or Win95A can't switch bpp automatically */
-			if (vinfo.szCSDVersion[1] != 'C' && vinfo.szCSDVersion[1] != 'B')
-				Win95old = true;
-		}
+		
+		// Check for Win95
+		memset(&vinfo, 0, sizeof(vinfo));
+		vinfo.dwOSVersionInfoSize = sizeof(vinfo);
+		vinfo.dwMajorVersion = 4;
+		vinfo.dwMinorVersion = 0;
+		conditionMask = 0;
+		VER_SET_CONDITION(conditionMask, VER_MAJORVERSION, VER_EQUAL);
+		VER_SET_CONDITION(conditionMask, VER_MINORVERSION, VER_EQUAL);
+		Win95 = VerifyVersionInfo(&vinfo, VER_MAJORVERSION | VER_MINORVERSION, conditionMask);
+		
+		/* Unfortunately we can't check for Win95-gold vs Win95A/B/C this way 
+		   since CSDVersion is not supported with VerifyVersionInfo.
+		   Since this OS is so old, let's just assume it's the old version. */
+		Win95old = Win95;
 	}
 	Sys_Printf("Detected %d CPUs.\n", host_parms->numcpus);
 
@@ -497,6 +521,28 @@ double Sys_DoubleTime (void)
 #endif
 }
 
+static void Dedicated_RedrawInputLine(const char* text, int textlen, int cursor_pos, int previous_len)
+{
+	DWORD dummy;
+	const char carriage = '\r';
+	const char space = ' ';
+
+	WriteFile(houtput, &carriage, 1, &dummy, NULL);
+	if (textlen > 0)
+		WriteFile(houtput, text, (DWORD)textlen, &dummy, NULL);
+
+	if (previous_len > textlen)
+	{
+		int diff = previous_len - textlen;
+		for (int i = 0; i < diff; ++i)
+			WriteFile(houtput, &space, 1, &dummy, NULL);
+	}
+
+	WriteFile(houtput, &carriage, 1, &dummy, NULL);
+	if (cursor_pos > 0)
+		WriteFile(houtput, text, (DWORD)cursor_pos, &dummy, NULL);
+}
+
 #if defined(_WIN32)
 void Sys_Image_BGRA_To_Clipboard(byte* bmbits, int width, int height, int size) // woods #screenshotcopy
 {
@@ -518,10 +564,32 @@ void Sys_Image_BGRA_To_Clipboard(byte* bmbits, int width, int height, int size) 
 }
 #endif
 
-const char *Sys_ConsoleInput (void)
+static void Sys_RewriteInputLine(const char* newline, char* con_text, size_t con_text_size, int* textlen, int* cursor_pos, DWORD* dummy) // woods #serverhistory
 {
-	static char	con_text[256];
+	int oldlen = *textlen;
+	int oldpos = *cursor_pos;
+	size_t newlen;
+
+	for (int i = 0; i < oldpos; i++)
+		WriteFile(houtput, "\b", 1, dummy, NULL);
+	for (int i = 0; i < oldlen; i++)
+		WriteFile(houtput, " ", 1, dummy, NULL);
+	for (int i = 0; i < oldlen; i++)
+		WriteFile(houtput, "\b", 1, dummy, NULL);
+
+	newlen = q_strlcpy(con_text, newline ? newline : "", con_text_size);
+	if (newlen)
+		WriteFile(houtput, con_text, (DWORD)newlen, dummy, NULL);
+
+	*textlen = (int)newlen;
+	*cursor_pos = *textlen;
+}
+
+const char *Sys_ConsoleInput (void) // woods #arrowkeys #serverhistory
+{
+	static char	con_text[MAXCMDLINE];
 	static int	textlen;
+	static int  cursor_pos;
 	INPUT_RECORD	recs[1024];
 	int		ch;
 	DWORD		dummy, numread, numevents;
@@ -542,42 +610,131 @@ const char *Sys_ConsoleInput (void)
 
 		if (recs[0].EventType == KEY_EVENT)
 		{
-		    if (recs[0].Event.KeyEvent.bKeyDown == FALSE)
-		    {
-			ch = recs[0].Event.KeyEvent.uChar.AsciiChar;
-
-			switch (ch)
+			if (recs[0].Event.KeyEvent.bKeyDown == FALSE)
 			{
-			case '\r':
-				WriteFile(houtput, "\r\n", 2, &dummy, NULL);
-
-				if (textlen != 0)
+				if (recs[0].Event.KeyEvent.wVirtualKeyCode == VK_LEFT)
 				{
-					con_text[textlen] = 0;
-					textlen = 0;
-					return con_text;
+					if (cursor_pos > 0)
+					{
+						cursor_pos--;
+						WriteFile(houtput, "\b", 1, &dummy, NULL);
+					}
+					continue;
+				}
+				else if (recs[0].Event.KeyEvent.wVirtualKeyCode == VK_RIGHT)
+				{
+					if (cursor_pos < textlen)
+					{
+						WriteFile(houtput, &con_text[cursor_pos], 1, &dummy, NULL);
+						cursor_pos++;
+					}
+					continue;
+				}
+				else if (recs[0].Event.KeyEvent.wVirtualKeyCode == VK_UP)
+				{
+					char history_line[MAXCMDLINE];
+					if (History_GetPrevious(con_text, history_line, sizeof(history_line)))
+						Sys_RewriteInputLine(history_line, con_text, sizeof(con_text), &textlen, &cursor_pos, &dummy);
+					continue;
+				}
+				else if (recs[0].Event.KeyEvent.wVirtualKeyCode == VK_DOWN)
+				{
+					char history_line[MAXCMDLINE];
+					if (History_GetNext(con_text, history_line, sizeof(history_line)))
+						Sys_RewriteInputLine(history_line, con_text, sizeof(con_text), &textlen, &cursor_pos, &dummy);
+					continue;
+				}
+				else 				if (recs[0].Event.KeyEvent.uChar.AsciiChar == '\t')
+				{
+					con_text[textlen] = '\0'; // Ensure input is null terminated
+					int previous_len = textlen;
+					Con_DedicatedTabComplete(con_text, sizeof(con_text), &textlen, &cursor_pos);
+					Dedicated_RedrawInputLine(con_text, textlen, cursor_pos, previous_len);
+					continue;
 				}
 
-				break;
+				ch = recs[0].Event.KeyEvent.uChar.AsciiChar;
 
-			case '\b':
-				WriteFile(houtput, "\b \b", 3, &dummy, NULL);
-				if (textlen != 0)
-					textlen--;
-
-				break;
-
-			default:
-				if (ch >= ' ')
+				switch (ch)
 				{
-					WriteFile(houtput, &ch, 1, &dummy, NULL);
-					con_text[textlen] = ch;
-					textlen = (textlen + 1) & 0xff;
-				}
+				case 21: // Ctrl-U
+					Sys_RewriteInputLine(NULL, con_text, sizeof(con_text), &textlen, &cursor_pos, &dummy);
+					Con_DedicatedResetTabState();
+					break;
 
-				break;
+				case '\r':
+					WriteFile(houtput, "\r\n", 2, &dummy, NULL);
+
+					if (textlen != 0)
+					{
+						con_text[textlen] = 0;
+						textlen = 0;
+						cursor_pos = 0; // woods #arrowkeys
+						Con_DedicatedResetTabState();
+						return con_text;
+					}
+
+					break;
+
+				case '\b':
+					if (cursor_pos > 0)
+					{
+						// Move characters after cursor back by one position
+						memmove(&con_text[cursor_pos - 1], &con_text[cursor_pos], textlen - cursor_pos);
+						cursor_pos--;
+						textlen--;
+						
+						// Rewrite the line from cursor position
+						WriteFile(houtput, "\b", 1, &dummy, NULL);
+						if (cursor_pos < textlen)
+						{
+							WriteFile(houtput, &con_text[cursor_pos], textlen - cursor_pos, &dummy, NULL);
+							WriteFile(houtput, " ", 1, &dummy, NULL);  // Clear last character
+							// Move cursor back to position
+							for (int i = 0; i < textlen - cursor_pos + 1; i++)
+								WriteFile(houtput, "\b", 1, &dummy, NULL);
+						}
+						else
+						{
+							WriteFile(houtput, " \b", 2, &dummy, NULL);  // Clear last character
+						}
+						Con_DedicatedResetTabState();
+					}
+					break;
+
+				default:
+					if (ch >= ' ')
+					{
+						// Insert character at cursor position
+						if (cursor_pos < textlen)
+						{
+							// Make room for new character
+							memmove(&con_text[cursor_pos + 1], &con_text[cursor_pos], textlen - cursor_pos);
+							con_text[cursor_pos] = ch;
+							textlen++;
+							
+							// Write the new character and the rest of the line
+							WriteFile(houtput, &con_text[cursor_pos], textlen - cursor_pos, &dummy, NULL);
+							
+							// Move cursor back to just after inserted character
+							cursor_pos++;
+							for (int i = 0; i < textlen - cursor_pos; i++)
+								WriteFile(houtput, "\b", 1, &dummy, NULL);
+						}
+						else
+						{
+							// Append character at end of line
+							con_text[textlen] = ch;
+							WriteFile(houtput, &ch, 1, &dummy, NULL);
+							textlen++;
+							cursor_pos++;
+						}
+						Con_DedicatedResetTabState();
+					}
+
+					break;
+				}
 			}
-		    }
 		}
 	}
 

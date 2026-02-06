@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_world.c: world model rendering
 
 #include "quakedef.h"
+#include "view.h" // woods #fxaa
 
 extern cvar_t gl_fullbrights, r_drawflat, gl_overbright, r_oldskyleaf, r_showtris; //johnfitz
 cvar_t r_scenecache = {"r_scenecache",""};	//spike, an attempt to cope with abusive maps a bit better.
@@ -35,11 +36,30 @@ extern qboolean lightmaps_skipupdates;
 extern char	skybox_name[1024]; // woods -- #fastsky2
 extern qboolean externalskyloaded; // woods -- #fastsky2
 
+extern cvar_t r_skyspeed; // woods #skyspeed
+
+static float Sky_GetTime (void) // woods #skyspeed
+{
+	float clamped_skyspeed = CLAMP(0, r_skyspeed.value, 100);
+	return cl.time * clamped_skyspeed;
+}
+
 //==============================================================================
 //
 // SETUP CHAINS
 //
 //==============================================================================
+
+// woods #caustics
+
+typedef enum {
+	ABOVE_WATER,
+	IS_WATER,
+	UNDER_WATER,
+} surfacetype;
+
+ GLuint causticsTexLoc;
+ GLuint useCausticsTexLoc;
 
 /*
 ================
@@ -191,6 +211,17 @@ static void R_BeginTransparentDrawing (float entalpha)
 	{
 		glDepthMask (GL_FALSE);
 		glEnable (GL_BLEND);
+		
+		if (vid_fxaa.value > 0 && GL_BlendFuncSeparateFunc) // woods #fxaa use separate alpha blending when FXAA is enabled to preserve transparency info
+		{
+			// RGB: normal alpha blending, Alpha: copy source alpha
+			GL_BlendFuncSeparateFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
+		}
+		else
+		{
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // Standard alpha blending
+		}
+		
 		glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 		glColor4f (1,1,1,entalpha);
 	}
@@ -379,10 +410,19 @@ R_FlushBatch
 Draw the current batch if non-empty and clears it, ready for more R_BatchSurface calls.
 ================
 */
-static void R_FlushBatch ()
+static void R_FlushBatch (surfacetype surftype) // woods #caustics
 {
 	if (num_vbo_indices > 0)
 	{
+		if (surftype == UNDER_WATER && gl_caustics.value && underwatertexture) // woods #caustics
+		{
+			GL_SelectTexture(GL_TEXTURE3);
+			GL_Bind(underwatertexture);
+			GL_Uniform1iFunc(useCausticsTexLoc, 1);
+		}
+		else
+			GL_Uniform1iFunc(useCausticsTexLoc, 0);
+		
 		glDrawElements (GL_TRIANGLES, num_vbo_indices, GL_UNSIGNED_INT, vbo_indices);
 		num_vbo_indices = 0;
 	}
@@ -396,7 +436,7 @@ Add the surface to the current batch, or just draw it immediately if we're not
 using VBOs.
 ================
 */
-static void R_BatchSurface (msurface_t *s)
+static void R_BatchSurface (msurface_t *s, surfacetype surftype) // woods #caustics
 {
 	unsigned int num_surf_indices;
 
@@ -404,7 +444,7 @@ static void R_BatchSurface (msurface_t *s)
 	if (num_surf_indices-1u<=MAX_BATCH_SIZE)	//ericw's qbsp bugs out sometimes. don't crash.
 	{
 		if (num_vbo_indices + num_surf_indices > MAX_BATCH_SIZE)
-			R_FlushBatch();
+			R_FlushBatch(surftype); // woods #caustics
 
 		R_TriangleIndicesForSurf (s, &vbo_indices[num_vbo_indices]);
 		num_vbo_indices += num_surf_indices;
@@ -569,6 +609,8 @@ static GLuint useFullbrightTexLoc;
 static GLuint useOverbrightLoc;
 static GLuint useAlphaTestLoc;
 static GLuint alphaLoc;
+GLuint clTimeLoc; // woods #caustics
+static GLuint causticsOpacityLoc; // woods #caustics
 
 
 static struct
@@ -864,7 +906,7 @@ void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain
 			{
 				if (s->lightmaptexturenum != lastlightmap)
 				{
-					R_FlushBatch ();
+					R_FlushBatch(IS_WATER); // woods #caustics
 
 					mode = s->lightmaptexturenum>=0 && !r_fullbright_cheatsafe;
 					if (mode)
@@ -882,12 +924,12 @@ void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain
 					GL_Uniform1fFunc (r_water[mode].alpha_scale, entalpha);
 					lastlightmap = s->lightmaptexturenum;
 				}
-				R_BatchSurface (s);
+				R_BatchSurface (s, IS_WATER); // woods #caustics
 
 				rs_brushpasses++;
 			}
 
-			R_FlushBatch ();
+			R_FlushBatch (IS_WATER); // woods #caustics
 			GL_UseProgramFunc (0);
 			GL_DisableVertexAttribArrayFunc (vertAttrIndex);
 			GL_DisableVertexAttribArrayFunc (texCoordsAttrIndex);
@@ -1032,13 +1074,19 @@ void GLWorld_CreateShaders (void)
 	const GLchar *fragSource = \
 		"#version 110\n"
 		"\n"
+		"#define M_PI 3.14159\n"
+		"\n"
 		"uniform sampler2D Tex;\n"
 		"uniform sampler2D LMTex;\n"
 		"uniform sampler2D FullbrightTex;\n"
+		"uniform sampler2D CausticsTex;\n"
 		"uniform bool UseFullbrightTex;\n"
 		"uniform bool UseOverbright;\n"
 		"uniform bool UseAlphaTest;\n"
+		"uniform bool UseCausticsTex;\n"
 		"uniform float Alpha;\n"
+		"uniform float ClTime;\n"
+		"uniform float CausticsOpacity;\n"
 		"\n"
 		"varying float FogFragCoord;\n"
 		"varying vec2 tc_tex;\n"
@@ -1047,13 +1095,57 @@ void GLWorld_CreateShaders (void)
 		"void main()\n"
 		"{\n"
 		"	vec4 result = texture2D(Tex, tc_tex.xy);\n"
+		"	vec4 lightmapColor = texture2D(LMTex, tc_lm.xy); // Sample lightmap early\n"
 		"	if (UseAlphaTest && (result.a < 0.666))\n"
 		"		discard;\n"
-		"	result *= texture2D(LMTex, tc_lm.xy);\n"
+		"\n"
+		"	result *= lightmapColor; // Apply base lightmap\n"
+		"\n"
 		"	if (UseOverbright)\n"
 		"		result.rgb *= 2.0;\n"
 		"	if (UseFullbrightTex)\n"
 		"		result += texture2D(FullbrightTex, tc_tex.xy);\n"
+		"\n"
+		"	if (UseCausticsTex)\n"
+		"	{\n"
+		"       // --- Calculate Light Factor --- \n"
+		"       // Calculate brightness from the lightmap (average RGB)\n"
+		"       // Scale factor might need tuning (e.g., multiply by 2.0 if UseOverbright is often true)\n"
+		"       float lightBrightness = (lightmapColor.r + lightmapColor.g + lightmapColor.b) / 3.0;\n"
+		"       // Optional: Amplify factor if overbright is used, otherwise lightmap might be too dark\n"
+		"       // if (UseOverbright) lightBrightness *= 2.0; \n"
+		"       // Ensure factor is between 0 and 1. Adjust the scaling (e.g., 1.5*) for sensitivity.\n"
+		"       float lightFactor = clamp(lightBrightness * 1.5, 0.0, 1.0); \n"
+		"\n"
+		"       // --- Chromatic Aberration Start --- \n"
+		"       const float aberrationAmount = 0.0015; // Hardcoded faint aberration strength \n"
+		"       float causticsSpeed = 0.5; \n"
+		"		vec2 causticsCoord = vec2(\n"
+		"			(tc_tex.x + sin(0.465 * (causticsSpeed * ClTime + tc_tex.y))) * -0.1234375,\n"
+		"			(tc_tex.y + sin(0.465 * (causticsSpeed * ClTime + tc_tex.x))) * -0.1234375\n"
+		"		);\n"
+		"       vec2 offsetR = vec2(aberrationAmount, 0.0);\n"
+		"       vec2 offsetB = vec2(-aberrationAmount, 0.0);\n"
+		"       float causticsR = texture2D(CausticsTex, causticsCoord + offsetR).r;\n"
+		"       float causticsG = texture2D(CausticsTex, causticsCoord).g;\n"
+		"       float causticsB = texture2D(CausticsTex, causticsCoord + offsetB).b;\n"
+		"       float causticsA = texture2D(CausticsTex, causticsCoord).a;\n"
+		"		vec4 caustics = vec4(causticsR, causticsG, causticsB, causticsA);\n"
+		"\n"
+		"       // --- Second Layer ----------------------------------------------------- \n"
+		"       vec2 causticsCoord2 = vec2(\n"
+		"           (tc_tex.x + sin(0.395 * (causticsSpeed * ClTime - tc_tex.y))) * -0.093,\n"
+		"           (tc_tex.y + sin(0.475 * (causticsSpeed * ClTime - tc_tex.x))) * -0.093\n"
+		"       );\n"
+		"       vec3 c2 = texture2D(CausticsTex, causticsCoord2).rgb;\n"
+		"       vec3 causticsRGB = max(caustics.rgb, c2);\n"
+		"\n"
+		"       // --- Blend using Light Factor --- \n"
+		"       // Modulate the base CausticsOpacity by the calculated lightFactor\n"
+		"       float finalCausticsOpacity = CausticsOpacity * lightFactor;\n"
+		"       result.rgb = mix(result.rgb, causticsRGB * result.rgb * 2.0, finalCausticsOpacity);\n"
+		"	}\n"
+		"\n"
 		"	result = clamp(result, 0.0, 1.0);\n"
 		"	float fog = exp(-gl_Fog.density * gl_Fog.density * FogFragCoord * FogFragCoord);\n"
 		"	fog = clamp(fog, 0.0, 1.0);\n"
@@ -1073,10 +1165,14 @@ void GLWorld_CreateShaders (void)
 		texLoc = GL_GetUniformLocation (&r_world_program, "Tex");
 		LMTexLoc = GL_GetUniformLocation (&r_world_program, "LMTex");
 		fullbrightTexLoc = GL_GetUniformLocation (&r_world_program, "FullbrightTex");
+		causticsTexLoc = GL_GetUniformLocation(&r_world_program, "CausticsTex"); // woods #caustics
 		useFullbrightTexLoc = GL_GetUniformLocation (&r_world_program, "UseFullbrightTex");
 		useOverbrightLoc = GL_GetUniformLocation (&r_world_program, "UseOverbright");
 		useAlphaTestLoc = GL_GetUniformLocation (&r_world_program, "UseAlphaTest");
+		useCausticsTexLoc = GL_GetUniformLocation(&r_world_program, "UseCausticsTex"); // woods #caustics
 		alphaLoc = GL_GetUniformLocation (&r_world_program, "Alpha");
+		clTimeLoc = GL_GetUniformLocation(&r_world_program, "ClTime"); // woods #caustics
+		causticsOpacityLoc = GL_GetUniformLocation(&r_world_program, "CausticsOpacity"); // woods #caustics
 
 		GL_UseProgramFunc (r_world_program);
 		GL_Uniform1iFunc (texLoc, 0);
@@ -1141,10 +1237,14 @@ void R_DrawTextureChains_GLSL (qmodel_t *model, entity_t *ent, texchain_t chain)
 	GL_Uniform1iFunc (texLoc, 0);
 	GL_Uniform1iFunc (LMTexLoc, 1);
 	GL_Uniform1iFunc (fullbrightTexLoc, 2);
+	GL_Uniform1iFunc(causticsTexLoc, 3); // woods #caustics
 	GL_Uniform1iFunc (useFullbrightTexLoc, 0);
 	GL_Uniform1iFunc (useOverbrightLoc, (int)gl_overbright.value);
+	GL_Uniform1iFunc(useCausticsTexLoc, 0); // woods #caustics
 	GL_Uniform1iFunc (useAlphaTestLoc, 0);
 	GL_Uniform1fFunc (alphaLoc, entalpha);
+	GL_Uniform1fFunc(clTimeLoc, cl.time); // woods #caustics
+	GL_Uniform1fFunc(causticsOpacityLoc, gl_caustics.value); // woods #caustics
 
 	for (i=0 ; i<model->numtextures ; i++)
 	{
@@ -1174,20 +1274,37 @@ void R_DrawTextureChains_GLSL (qmodel_t *model, entity_t *ent, texchain_t chain)
 
 		GL_SelectTexture (GL_TEXTURE1);
 		lastlightmap = -1;	//we're checking anyway, so w/e
+
+		int underwater = 0;
+
+		for (underwater = 0; underwater < 2; underwater++)
+		{
 		for (s = t->texturechains[chain]; s; s = s->texturechain)
 		{
+				if ((!underwater && !(s->flags & SURF_UNDERWATER)) || (underwater && (s->flags & SURF_UNDERWATER)))
+				{
+						GL_SelectTexture(GL_TEXTURE0);
+						GL_Bind((R_TextureAnimation(t, ent != NULL ? ent->frame : 0))->gltexture);
+						if (t->texturechains[chain]->flags & SURF_DRAWFENCE)
+							GL_Uniform1iFunc(useAlphaTestLoc, 1); // Flip alpha test back on
+
+						lastlightmap = s->lightmaptexturenum;
+
 			if (s->lightmaptexturenum != lastlightmap)
-			{	//lightmap changed... flush and bind. FIXME: this ain't sorted... FIXME: use a texture2DArray
-				R_FlushBatch ();
+						R_FlushBatch(underwater ? UNDER_WATER : ABOVE_WATER);
+
+					GL_SelectTexture(GL_TEXTURE1);
 				GL_Bind (lightmaps[s->lightmaptexturenum].texture);
 				lastlightmap = s->lightmaptexturenum;
-			}
+					R_BatchSurface(s, underwater ? UNDER_WATER : ABOVE_WATER);
 
-			R_BatchSurface (s);
 			rs_brushpasses++;
 		}
+			}
 
-		R_FlushBatch ();
+			R_FlushBatch(underwater ? UNDER_WATER : ABOVE_WATER);
+		}
+
 
 		if (t->texturechains[chain]->flags & SURF_DRAWFENCE)
 			GL_Uniform1iFunc (useAlphaTestLoc, 0); // Flip alpha test back off
@@ -1446,6 +1563,8 @@ Ignores frustum checks - the gpu can generally cull this faster than the main th
 Forces fatpvs on, to invisible walls popin/stutter.
 Doesn't walk any leafs (per-frame), so can't use efrags. We instead just do a pvs check on each individually (should at least avoid poisoning the cache).
 
+woods -- added #caustics support
+
 ================
 */
 static struct
@@ -1550,7 +1669,7 @@ dynamic:
 
 static int RSceneCache_Thread(void *ctx)
 {
-	int i, j, e;
+	unsigned int i, j, e;
 	mleaf_t *leaf;
 	msurface_t **mark, *surf;
 	struct rscenecache_s *cache;
@@ -1595,7 +1714,7 @@ static int RSceneCache_Thread(void *ctx)
 				if (vis[i>>3] & (1<<(i&7)))
 				{
 					if (leaf->contents != CONTENTS_SKY || r_oldskyleaf.value)
-						for (j=0, mark = leaf->firstmarksurface; j<leaf->nummarksurfaces; j++, mark++)
+						for (j=0, mark = leaf->firstmarksurface; j<(unsigned int)leaf->nummarksurfaces; j++, mark++)
 						{
 							surf = *mark;
 							if (surf->visframe != visframecount)
@@ -1607,18 +1726,33 @@ static int RSceneCache_Thread(void *ctx)
 									continue;	//ignore any buggy degenerate ones.
 								if ((unsigned)(surf->lightmaptexturenum+1) >= cache->lightmaps)
 									continue;	//wtf
-								if (surf->texinfo->materialidx >= cache->numtextures)
+								if (!surf->texinfo) { // material sanity – guard against NULL or out-of-range
+									Con_DPrintf("RSceneCache: surface %ld has NULL texinfo – skipping\n",
+										(long)(surf - cache->worldmodel->surfaces));
+									continue;
+								}
+								if ((unsigned int)surf->texinfo->materialidx >= cache->numtextures)
 									continue;	//should have been sanitised at load.
 								numidx = (surf->numedges-2)*3;
-								batch = &cache->batches[surf->texinfo->materialidx*cache->lightmaps + 1+surf->lightmaptexturenum];
+								int uw = (surf->flags & SURF_UNDERWATER) ? 1 : 0;
+								batch = &cache->batches[
+								        surf->texinfo->materialidx * cache->lightmaps * 2   /* texture bank  */
+								      + uw                    * cache->lightmaps            /* above / under */
+								      + (1 + surf->lightmaptexturenum)];                    /* lightmap slot */
 								if (batch->numidx+numidx > batch->maxidx)
 								{
+									void *new_idx;
 									batch->maxidx = batch->numidx+numidx + 4096;	//overestimate, because why not
-									batch->idx = realloc(batch->idx, sizeof(*batch->idx)*batch->maxidx);
+									new_idx = realloc(batch->idx, sizeof(*batch->idx)*batch->maxidx);
+									if (!new_idx) {
+										Con_Printf("RSceneCache_Thread: Failed to realloc index buffer\n");
+										continue; // Skip this surface if allocation fails
+								}
+									batch->idx = new_idx;
 								}
 								idx = &batch->idx[batch->numidx];
 								batch->numidx += numidx;
-								for (e = 2; e < surf->numedges; e++)
+								for (e = 2; e < (unsigned int)surf->numedges; e++)
 								{
 									*idx++ = surf->vbo_firstvert;
 									*idx++ = surf->vbo_firstvert + e-1;
@@ -1648,25 +1782,35 @@ static int RSceneCache_Thread(void *ctx)
 					}
 
 				//FIXME: these should really use MultiDrawIndirect, so we can add/remove them more cheaply.
-				for (j=0, surf = cache->worldmodel->surfaces+sub->firstface; j<sub->numfaces; j++, surf++)
+				for (j=0, surf = cache->worldmodel->surfaces+sub->firstface; j<(unsigned int)sub->numfaces; j++, surf++)
 				{	//don't bother with visframe checks here. a) we shouldn't be getting dupes anyway. b) we don't want to trip up the regular rendering if its rendering a moving copy while we're generating a new cache.
 					bpolys++;
 					if (surf->numedges < 3)
 						continue;	//ignore any buggy degenerate ones.
 					if ((unsigned)(surf->lightmaptexturenum+1) >= cache->lightmaps)
 						continue;	//wtf
-					if (surf->texinfo->materialidx >= cache->numtextures)
+					if ((unsigned int)surf->texinfo->materialidx >= cache->numtextures)
 						continue;	//should have been sanitised at load.
 					numidx = (surf->numedges-2)*3;
-					batch = &cache->batches[surf->texinfo->materialidx*cache->lightmaps + 1+surf->lightmaptexturenum];
+					int uw = (surf->flags & SURF_UNDERWATER) ? 1 : 0;
+					batch = &cache->batches[
+					        surf->texinfo->materialidx * cache->lightmaps * 2   /* texture bank  */
+					      + uw                    * cache->lightmaps            /* above / under */
+					      + (1 + surf->lightmaptexturenum)];                    /* lightmap slot */
 					if (batch->numidx+numidx > batch->maxidx)
 					{
+						void *new_idx;
 						batch->maxidx = batch->numidx+numidx + 4096;	//overestimate, because why not
-						batch->idx = realloc(batch->idx, sizeof(*batch->idx)*batch->maxidx);
+						new_idx = realloc(batch->idx, sizeof(*batch->idx)*batch->maxidx);
+						if (!new_idx) {
+							Con_Printf("RSceneCache_Thread: Failed to realloc submodel index buffer\n");
+							continue; // Skip this surface if allocation fails
+						}
+						batch->idx = new_idx;
 					}
 					idx = &batch->idx[batch->numidx];
 					batch->numidx += numidx;
-					for (e = 2; e < surf->numedges; e++)
+					for (e = 2; e < (unsigned int)surf->numedges; e++)
 					{
 						*idx++ = surf->vbo_firstvert;
 						*idx++ = surf->vbo_firstvert + e-1;
@@ -1736,12 +1880,12 @@ static qboolean RSceneCache_Queue(byte *vis)
 	{
 		struct cl_static_entities_s *test = &cl.static_entities[e];
 		entity_t *pent = test->ent;
-		int i;
 
 		if (pent->model && cl_numvisedicts < cl_maxvisedicts)
 		{
 			if (test->num_clusters<=MAX_ENT_LEAFS)
 			{
+				unsigned int i;
 				for (i=0 ; i < test->num_clusters ; i++)
 					if (vis[test->clusternums[i] >> 3] & (1 << (test->clusternums[i]&7) ))
 						break;
@@ -1949,14 +2093,15 @@ static qboolean RSceneCache_Queue(byte *vis)
 				link = &(*link)->next;
 			}
 
-			for (e = 0; e < cache->numtextures*cache->lightmaps; e++)
+			unsigned int e;
+			for (e = 0; e < cache->numtextures*cache->lightmaps*2; e++)
 				cache->batches[e].numidx = 0;
 		}
 		else
 		{	//allocate some new memory for it.
 			cache = calloc(1,
 				sizeof(*cache)-sizeof(cache->batches) +	//base structure
-				sizeof(*cache->batches)*cl.worldmodel->numtextures*(lightmap_count+1) +	//trailing batch count...
+				sizeof(*cache->batches)*cl.worldmodel->numtextures*(lightmap_count+1)*2 +	//trailing batch count...
 				rowbytes +	//pvs info thrown onto the end of the allocation because why not.
 				((cl.worldmodel->numsubmodels+7)>>3));
 					//link it, cos we might as well.
@@ -1965,7 +2110,7 @@ static qboolean RSceneCache_Queue(byte *vis)
 
 			cache->lightmaps = lightmap_count+1;	//FIXME use texture arrays for the lightmaps, keep this at 2.
 			cache->numtextures = cl.worldmodel->numtextures;	//FIXME: merge textures into same-dimensions arrays
-			cache->pvs = (byte*)&cache->batches[cache->numtextures*cache->lightmaps];
+			cache->pvs = (byte*)&cache->batches[cache->numtextures*cache->lightmaps*2];
 			cache->worldmodel = cl.worldmodel;
 			cache->cachedsubmodels = cache->pvs + rowbytes;
 			cache->numcachedsubmodels = cl.worldmodel->numsubmodels;
@@ -2044,7 +2189,7 @@ static void RSceneCache_Uncache(struct rscenecache_s *cache)
 	}
 	if (rscenecache.drawing == cache)
 		rscenecache.drawing = NULL;
-	for (i = 0; i < cache->numtextures*cache->lightmaps; i++)
+	for (i = 0; i < cache->numtextures*cache->lightmaps*2; i++)
 		if (cache->batches[i].idx)
 			free(cache->batches[i].idx);
 	GL_DeleteBuffersFunc(1, &cache->ebo);
@@ -2067,7 +2212,7 @@ void RSceneCache_Cleanup(qmodel_t *mod)
 static void RSceneCache_Finish(struct rscenecache_s *cache)
 {
 #define USEMAPBUFFER
-	int i;
+	unsigned int i;
 	size_t numidx;
 #ifdef USEMAPBUFFER
 	byte *ebomem = NULL;
@@ -2090,7 +2235,7 @@ static void RSceneCache_Finish(struct rscenecache_s *cache)
 		//worker thread finished, but GL threading issues mean it didn't build our EBO (which can be a significant boost)
 		if (gl_vbo_able)
 		{
-			for (i = 0, numidx = 0; i < cache->numtextures*cache->lightmaps; i++)
+			for (i = 0, numidx = 0; i < cache->numtextures*cache->lightmaps*2; i++)
 				numidx += cache->batches[i].numidx;
 
 			if (!cache->ebo)
@@ -2101,7 +2246,7 @@ static void RSceneCache_Finish(struct rscenecache_s *cache)
 			ebomem = GL_MapBufferFunc(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
 #endif
 		}
-		for (i = 0, numidx = 0; i < cache->numtextures*cache->lightmaps; i++)
+		for (i = 0, numidx = 0; i < cache->numtextures*cache->lightmaps*2; i++)
 		{
 			if (gl_vbo_able)
 			{
@@ -2143,7 +2288,7 @@ static void RSceneCache_Draw(qboolean water)
 {
 	extern GLuint gl_bmodel_vbo;
 	struct rscenecache_s *cache = rscenecache.drawing;
-	int i, j;
+	unsigned int i, j;
 	texture_t *tex;
 	int b;
 	int mode;
@@ -2180,6 +2325,13 @@ static void RSceneCache_Draw(qboolean water)
 
 	rs_brushpolys += cache->brushpolys; //for r_speeds.;
 
+	if (gl_caustics.value > 0 && underwatertexture) // Bind caustics texture once if enabled
+	{
+		GL_SelectTexture(GL_TEXTURE3);
+		GL_Bind(underwatertexture);
+		GL_SelectTexture(GL_TEXTURE0); // Switch back to default texture unit 0
+	}
+
 	for (i = 0; i < cache->numtextures; i++)
 	{
 		if (!cache->worldmodel->textures[i])
@@ -2187,9 +2339,12 @@ static void RSceneCache_Draw(qboolean water)
 		if ((cache->worldmodel->textures[i]->name[0] == '*') != water)
 			continue;
 		b = false;
-		for (j = 0; j < cache->lightmaps; j++)
+		for (j = 0; j < cache->lightmaps * 2; j++)
 		{
-			if (!cache->batches[i*cache->lightmaps+j].numidx)
+			int uw      = (j >= cache->lightmaps);   // 0 = above, 1 = under
+			int lm_slot = j % cache->lightmaps;      // 0 = unlit, 1… = lightmap N
+
+			if (!cache->batches[i*cache->lightmaps*2 + j].numidx)
 				continue;	//don't waste time on it.
 
 			if (!b)
@@ -2202,7 +2357,7 @@ static void RSceneCache_Draw(qboolean water)
 				//its annoying how we don't know any surface flags here
 				if (*tex->name == '*')
 				{
-					if (j>0)
+					if (lm_slot>0) // changed j to lm_slot
 					{	//lit
 						GL_EnableVertexAttribArrayFunc (LMCoordsAttrIndex);
 						mode = 1;
@@ -2268,7 +2423,7 @@ static void RSceneCache_Draw(qboolean water)
 					{
 						lastprog = r_water[mode].program;
 						GL_UseProgramFunc (r_water[mode].program);
-						GL_Uniform1fFunc (r_water[mode].time, cl.time);
+						GL_Uniform1fFunc (r_water[mode].time, Sky_GetTime()); // woods #skyspeed
 
 						GL_Uniform1fFunc (r_water[mode].alpha_scale, r_skyalpha.value);
 						GL_Uniform3fFunc (r_water[mode].eyepos, r_origin[0], r_origin[1], r_origin[2]);
@@ -2285,6 +2440,16 @@ static void RSceneCache_Draw(qboolean water)
 						GL_UseProgramFunc (r_world_program);
 						GL_Uniform1iFunc (useOverbrightLoc, (int)gl_overbright.value);
 						GL_Uniform1fFunc (alphaLoc, 1);			//worldmodel is never translucent.
+
+						GL_Uniform1fFunc(clTimeLoc, cl.time);
+						if (gl_caustics.value > 0 && underwatertexture)
+						{
+						   GL_Uniform1iFunc(causticsTexLoc, 3); // Tell shader caustics are on unit 3
+						   GL_Uniform1fFunc(causticsOpacityLoc, gl_caustics.value);
+						} else {
+						   // Explicitly disable if necessary, though useCausticsTexLoc should handle it
+						   // GL_Uniform1iFunc(causticsTexLoc, 0); // Maybe set to a dummy texture/unit?
+						}
 					}
 					GL_Uniform1iFunc (useAlphaTestLoc, *tex->name == '{');	//update alphatest. some future qbsps might actually support it properly on the worldmodel. plus there's lots of buggy bsps where it was used anyway.
 
@@ -2302,15 +2467,24 @@ static void RSceneCache_Draw(qboolean water)
 				}
 			}
 
-			GL_SelectTexture (GL_TEXTURE1);
-			if (!j)
-				GL_Bind(NULL);
-			else
-				GL_Bind(lightmaps[j-1].texture);
+			GL_Uniform1iFunc(useCausticsTexLoc, gl_caustics.value > 0 && underwatertexture && uw);
 
-			glDrawElements(GL_TRIANGLES, cache->batches[i*cache->lightmaps+j].numidx, GL_UNSIGNED_INT, cache->batches[i*cache->lightmaps+j].eboidx);
+			GL_SelectTexture (GL_TEXTURE1);
+			if (lm_slot)
+			    GL_Bind(lightmaps[lm_slot-1].texture);
+			else
+			    GL_Bind(NULL);   /* unlit */
+
+			glDrawElements(GL_TRIANGLES, cache->batches[i*cache->lightmaps*2 + j].numidx, GL_UNSIGNED_INT, cache->batches[i*cache->lightmaps*2 + j].eboidx);
 			rs_brushpasses++;
 		}
+	}
+
+	if (gl_caustics.value > 0 && underwatertexture) // Unbind caustics texture once after all batches if it was bound
+	{
+		GL_SelectTexture(GL_TEXTURE3);
+		GL_Bind(NULL);
+		GL_SelectTexture(GL_TEXTURE0); // Switch back to default texture unit 0
 	}
 
 	if (alpha < 1.0f)
@@ -2332,7 +2506,7 @@ static void RSceneCache_Draw(qboolean water)
 qboolean RSceneCache_HasSky(void)
 {
 	struct rscenecache_s *cache = rscenecache.drawing;
-	int i;
+	unsigned int i;
 	texture_t *tex;
 
 	if (cache)
@@ -2353,7 +2527,7 @@ qboolean RSceneCache_DrawSkySurfDepth(void)
 	struct rscenecache_s *cache = rscenecache.drawing;
 
 	extern GLuint gl_bmodel_vbo;
-	int i, j;
+	unsigned int i, j;
 	texture_t *tex;
 	qboolean ret = false;
 
@@ -2368,9 +2542,9 @@ qboolean RSceneCache_DrawSkySurfDepth(void)
 		tex = cache->worldmodel->textures[i];
 		if (!tex || !(tex->name[0]=='s'&&tex->name[1]=='k'&&tex->name[2]=='y'))
 			continue;	//we only want sky textures.
-		for (j = 0; j < cache->lightmaps; j++)
+		for (j = 0; j < cache->lightmaps * 2; j++) // Optional: Changed loop bound for robustness
 		{
-			if (!cache->batches[i*cache->lightmaps+j].numidx)
+			if (!cache->batches[i*cache->lightmaps*2 + j].numidx)
 				continue;	//don't waste time on it.
 
 			if (!ret)
@@ -2383,7 +2557,7 @@ qboolean RSceneCache_DrawSkySurfDepth(void)
 				glEnableClientState(GL_VERTEX_ARRAY);
 			}
 			//then draw it
-			glDrawElements(GL_TRIANGLES, cache->batches[i*cache->lightmaps+j].numidx, GL_UNSIGNED_INT, cache->batches[i*cache->lightmaps+j].eboidx);
+			glDrawElements(GL_TRIANGLES, cache->batches[i*cache->lightmaps*2 + j].numidx, GL_UNSIGNED_INT, cache->batches[i*cache->lightmaps*2 + j].eboidx);
 			rs_brushpasses++;
 		}
 	}

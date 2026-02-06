@@ -24,12 +24,16 @@
 
 #include "quakedef.h"
 #include "snd_codec.h"
+#include "snd_codeci.h"
 #include "bgmusic.h"
 
 #define MUSIC_DIRNAME	"music"
 
 qboolean	bgmloop;
 cvar_t		bgm_extmusic = {"bgm_extmusic", "1", CVAR_ARCHIVE};
+
+
+extern qboolean muted; // woods #usermute #mute
 
 static qboolean	no_extmusic= false;
 static float	old_volume = -1.0f;
@@ -289,6 +293,17 @@ void BGM_PlayCDtrack (byte track, qboolean looping)
 	unsigned int path_id, prev_id, type;
 	music_handler_t *handler;
 
+	/* if replaying the same track, just resume playing instead of stopping and restarting*/
+	if (bgmstream)
+	{
+		q_snprintf (tmp, sizeof (tmp), "%s/track%02d.%s", MUSIC_DIRNAME, track, bgmstream->codec->ext);
+		if (strcmp (tmp, bgmstream->name) == 0)
+		{
+			BGM_Resume ();
+			return;
+		}
+	}
+
 	BGM_Stop();
 	if (CDAudio_Play(track, looping) == 0)
 		return;			/* success */
@@ -323,7 +338,12 @@ void BGM_PlayCDtrack (byte track, qboolean looping)
 		handler = handler->next;
 	}
 	if (ext == NULL)
-		Con_Printf("Couldn't find a cdrip for track %d\n", (int)track);
+	{
+		if (track != 0) // woods
+			Con_Printf("Couldn't find a cdrip for track %d\n", (int)track);
+		else
+			Con_DPrintf("Skipped invalid track 0 request\n");
+	}
 	else
 	{
 		q_snprintf(tmp, sizeof(tmp), "%s/track%02d.%s",
@@ -350,7 +370,10 @@ void BGM_Pause (void)
 	if (bgmstream)
 	{
 		if (bgmstream->status == STREAM_PLAY)
+		{
 			bgmstream->status = STREAM_PAUSE;
+			bgmstream->volume = 0.f;
+		}
 	}
 }
 
@@ -372,7 +395,7 @@ static void BGM_UpdateStream (void)
 	int	fileBytes;
 	byte	raw[16384];
 
-	if (bgmstream->status != STREAM_PLAY)
+	if (muted || bgmstream->status != STREAM_PLAY) // woods #usermute #mute
 		return;
 
 	/* don't bother playing anything if musicvolume is 0 */
@@ -386,6 +409,13 @@ static void BGM_UpdateStream (void)
 	while (s_rawend < paintedtime + MAX_RAW_SAMPLES)
 	{
 		bufferSamples = MAX_RAW_SAMPLES - (s_rawend - paintedtime);
+
+		/* ramp up volume after stream was paused */
+		if (bgmstream->volume < 1.f)
+		{
+			bgmstream->volume += bufferSamples / (bgmstream->info.rate * 1.f);
+			bgmstream->volume = q_min (1.f, bgmstream->volume);
+		}
 
 		/* decide how much data needs to be read from the file */
 		fileSamples = bufferSamples * bgmstream->info.rate / shm->speed;
@@ -414,7 +444,7 @@ static void BGM_UpdateStream (void)
 			S_RawSamples(fileSamples, bgmstream->info.rate,
 							bgmstream->info.width,
 							bgmstream->info.channels,
-							raw, bgmvolume.value);
+							raw, bgmvolume.value * bgmstream->volume);
 			did_rewind = false;
 		}
 		else if (res == 0)	/* EOF */

@@ -15,5 +15,16 @@ export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
 make -f Makefile.w64 clean
 ./build_cross_win64-sdl2.sh $MAKEARGS
 mv quakespasm.exe QSS-M-w64.exe
-zip -9j QSS-M-w64.zip ../Windows/codecs/x64/*.dll ../Windows/curl/lib/x64/libcurl.dll ../Windows/zlib/x64/zlib1.dll ../LICENSE.txt ../Quakespasm.html quakespasm.pak qssm.pak ../Quakespasm.txt ../Quakespasm-Spiked.txt ../Quakespasm-Music.txt ../Windows/SDL2/lib64/SDL2.dll ../QSS-M-Revision.txt QSS-M-w64.exe
+
+GNUTLS_DLLS=""
+for pat in libgnutls-*.dll libnettle-*.dll libhogweed-*.dll libgmp-*.dll libidn2-*.dll libunistring-*.dll libtasn1-*.dll libiconv-*.dll libp11-kit-*.dll libffi-*.dll
+do
+	for dll in /usr/x86_64-w64-mingw32/bin/$pat /usr/lib/gcc/x86_64-w64-mingw32/*/$pat
+	do
+		[ -f "$dll" ] || continue
+		GNUTLS_DLLS="$GNUTLS_DLLS $dll"
+	done
+done
+
+zip -9j QSS-M-w64.zip ../Windows/codecs/x64/*.dll ../Windows/curl/lib/x64/libcurl.dll ../Windows/zlib/x64/zlib1.dll ../LICENSE.txt ../Quakespasm.html quakespasm.pak qssm.pak ../Quakespasm.txt ../Quakespasm-Spiked.txt ../Quakespasm-Music.txt ../Windows/SDL2/lib64/SDL2.dll ../QSS-M-Revision.txt QSS-M-w64.exe $GNUTLS_DLLS
 make -f Makefile.w64 clean

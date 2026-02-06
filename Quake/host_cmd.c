@@ -30,9 +30,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <sys/stat.h> // woods #demolistsort
 #include "bgmusic.h" // woods #musiclist
 #include "json.h" // woods #mapdescriptions
-#ifndef _WIN32
+#ifdef _WIN32 // woods #udplist
+	#include "wsaerror.h"
+#else
 #include <dirent.h>
 #endif
+#include <ctype.h> // woods #udplist
+
+#define MAX_SERVER_ADDRESS_LEN 256 // woods #udplist
 
 extern cvar_t	pausable;
 extern cvar_t	nomonsters; // woods #nomonsters (ironwail)
@@ -94,11 +99,14 @@ void FileList_Add (const char *name, const char* data, filelist_item_t **list) /
 	// ignore duplicate
 	for (item = *list; item; item = item->next)
 	{
-		if (!Q_strcmp (name, item->name))
+		if (!q_strcasecmp (name, item->name))
 			return;
 	}
 
 	item = (filelist_item_t *) Z_Malloc(sizeof(filelist_item_t));
+	if (!item)
+		Sys_Error("FileList_Add: out of memory on %lu bytes (%s)",
+			(unsigned long)sizeof(filelist_item_t), name);
 	q_strlcpy (item->name, name, sizeof(item->name));
 	if (data)
 		q_strlcpy(item->data, data, sizeof(item->data)); // woods #demolistsort add arg
@@ -325,19 +333,21 @@ void SaveMapDescriptionsToJSON(filelist_item_t* extralevels)
 		return;
 	}
 
-	fprintf(file, "[\n"); // Start the JSON array
+	fprintf(file, "[\n");
 
 	filelist_item_t* level;
 	qboolean first = true;
 	for (level = extralevels; level; level = level->next)
 	{
-		if (!first) // Add a comma between entries (but not before the first entry)
+		if (!first)
 			fprintf(file, ",\n");
 		first = false;
 
-		// Escape the level name and description dynamically
+		// If data is empty, explicitly mark it as empty-description
+		const char* description = level->data[0] ? level->data : "empty-description";
+
 		char* escaped_name = JSON_EscapeString(level->name);
-		char* escaped_description = JSON_EscapeString(level->data);
+		char* escaped_description = JSON_EscapeString(description);
 
 		if (!escaped_name || !escaped_description) {
 			Con_DPrintf("Failed to escape JSON string\n");
@@ -423,7 +433,7 @@ void LoadMapDescriptionsFromJSON(filelist_item_t** extralevels_from_json)
 		const char* name = JSON_FindString(mapEntry, "name");
 		const char* description = JSON_FindString(mapEntry, "description");
 
-		if (!name || !description) continue;
+		if (!name || !description || description[0] == '\0') continue;
 
 		filelist_item_t* item = malloc(sizeof(filelist_item_t));
 		if (!item) {
@@ -458,7 +468,7 @@ void UpdateMaxWordLength (const char* word)
 		max_word_length = word_length;
 }
 
-void ExtraMaps_ParseDescriptions (void)
+void ExtraMaps_ParseDescriptions(void)
 {
 	filelist_item_t* level;
 	filelist_item_t* extralevels_from_json = NULL;
@@ -468,18 +478,26 @@ void ExtraMaps_ParseDescriptions (void)
 	for (level = extralevels; level; level = level->next)
 		UpdateMaxWordLength(level->name);
 
-	for (level = extralevels; level; level = level->next) // for each level, check if we have a cached description
+	for (level = extralevels; level; level = level->next)
 	{
 		filelist_item_t* json_level = FindLevelInList(extralevels_from_json, level->name);
 		if (json_level)
 		{
-			// Use cached description
-			strncpy(level->data, json_level->data, sizeof(level->data) - 1);
-			level->data[sizeof(level->data) - 1] = '\0';
+			// Trust the cached empty-description status
+			if (strcmp(json_level->data, "empty-description") == 0)
+			{
+				level->data[0] = '\0'; // Keep it empty
+			}
+			else
+			{
+				// Use cached description
+				strncpy(level->data, json_level->data, sizeof(level->data) - 1);
+				level->data[sizeof(level->data) - 1] = '\0';
+			}
 		}
 		else
 		{
-			// Load description from .bsp file
+			// Only load from .bsp for new/uncached maps
 			char mapdesc[MAXDESC];
 			Mod_LoadMapDescription(mapdesc, sizeof(mapdesc), level->name);
 			Q_strncpy(level->data, mapdesc, sizeof(level->data) - 1);
@@ -488,6 +506,10 @@ void ExtraMaps_ParseDescriptions (void)
 
 			// Add new description to the JSON list
 			filelist_item_t* new_json_level = malloc(sizeof(filelist_item_t));
+			if (!new_json_level) {
+				Con_DPrintf("Memory allocation failed\n");
+				continue;
+			}
 			Q_strncpy(new_json_level->name, level->name, MAX_QPATH - 1);
 			new_json_level->name[MAX_QPATH - 1] = '\0';
 			Q_strncpy(new_json_level->data, level->data, sizeof(new_json_level->data) - 1);
@@ -507,6 +529,9 @@ void ExtraMaps_ParseDescriptions (void)
 
 void FileList_Add_MapDesc (const char* levelName) // for a map download
 {
+	if (!descriptionsParsed)
+		ExtraMaps_ParseDescriptions();
+	
 	UpdateMaxWordLength (levelName);
 
 	char mapdesc[MAXDESC];
@@ -543,17 +568,14 @@ static void Host_Maps_f (void) // prints worldspawn map description
 		// Calculate available space for level->data
 		int name_space = word_length + num_spaces;
 		int remaining_space = sizeof(combined) - name_space - 2;
-
-		if (remaining_space < 10) 
+		if (remaining_space < 10)
 		{
 			remaining_space = 10;
 			name_space = sizeof(combined) - remaining_space - 2;
 		}
-
 		q_snprintf(combined, sizeof(combined), "%-*s %.*s",
 			name_space, level->name,
 			remaining_space - 1, level->data);
-
 		if (filter) 
 		{
 			if (!(q_strcasestr(level->name, filter) || q_strcasestr(level->data, filter)))
@@ -781,7 +803,7 @@ void ServerList_Init(void)
 }
 
 //==============================================================================
-// woods -- bookmarks list management #bookmarksmenu
+// woods -- bookmarks list management #bookmarksmenu #bookmarksjson
 //==============================================================================
 
 filelist_item_t* bookmarkslist;
@@ -791,43 +813,388 @@ static void BookmarksList_Clear(void)
 	FileList_Clear(&bookmarkslist);
 }
 
-void BoomarksList_Rebuild(void)
+void BookmarksList_Rebuild(void)
 {
 	BookmarksList_Clear();
 	BookmarksList_Init();
 }
 
-void BookmarksList_Init(void)
+/*
+================
+BookmarkData_Parse
+
+Parse the data field from a bookmark entry.
+Handles both JSON format: {"alias":"...", "pinned":bool}
+and legacy format: alias |pin
+================
+*/
+void BookmarkData_Parse(const char* data, char* alias, size_t alias_size, qboolean* pinned)
 {
-	char	name[MAX_OSPATH];
+	char local_alias[BOOKMARK_DATA_LENGTH];
+	char* dest = alias;
+	size_t dest_size = alias_size;
 
-	q_snprintf(name, sizeof(name), "%s/id1", com_basedir); //  make an id1 folder if it doesnt exist already #smartafk
-	Sys_mkdir(name);
+	if (!dest || dest_size == 0)
+	{
+		dest = local_alias;
+		dest_size = sizeof(local_alias);
+	}
 
-	q_snprintf(name, sizeof(name), "%s/id1/backups", com_basedir); //  create backups folder if not there
-	Sys_mkdir(name);
+	dest[0] = '\0';
+	if (alias && alias_size)
+		alias[0] = '\0';
+	if (pinned)
+		*pinned = false;
 
-	FILE* file = fopen(va("%s/id1/backups/%s", com_basedir, BOOKMARKSLIST), "r");
+	if (!data)
+		return;
 
-	if (file == NULL) {
+	// Skip leading whitespace
+	while (*data == ' ' || *data == '\t')
+		++data;
+
+	// Try JSON parsing first
+	if (*data == '{')
+	{
+		json_t* json = JSON_Parse(data);
+		if (json && json->root && json->root->type == JSON_OBJECT)
+		{
+			const char* alias_value = JSON_FindString(json->root, "alias");
+			const qboolean* pinned_value = JSON_FindBoolean(json->root, "pinned");
+
+			if (alias_value)
+				q_strlcpy(dest, alias_value, dest_size);
+			else
+				dest[0] = '\0';
+
+			if (alias != dest && alias && alias_size)
+				q_strlcpy(alias, dest, alias_size);
+
+			if (pinned)
+				*pinned = pinned_value ? *pinned_value : false;
+
+			JSON_Free(json);
+			return;
+		}
+
+		if (json)
+			JSON_Free(json);
+	}
+
+	// Legacy format: "alias |pin" or just "alias"
+	q_strlcpy(dest, data, dest_size);
+
+	// Trim trailing whitespace
+	size_t len = strlen(dest);
+	while (len > 0 && (dest[len - 1] == ' ' || dest[len - 1] == '\t'))
+		dest[--len] = '\0';
+
+	// Check for |pin suffix (with space before it)
+	if (len >= strlen(BOOKMARK_PIN_SUFFIX))
+	{
+		const size_t suffix_len = strlen(BOOKMARK_PIN_SUFFIX);
+		char* marker = dest + len - suffix_len;
+
+		if (marker > dest && (marker[-1] == ' ' || marker[-1] == '\t') &&
+		    !q_strcasecmp(marker, BOOKMARK_PIN_SUFFIX))
+		{
+			if (pinned)
+				*pinned = true;
+
+			*marker = '\0';
+
+			// Trim trailing whitespace before the suffix
+			while (marker > dest && (marker[-1] == ' ' || marker[-1] == '\t'))
+				*--marker = '\0';
+		}
+		else if (pinned)
+		{
+			*pinned = false;
+		}
+	}
+
+	if (alias != dest && alias && alias_size)
+		q_strlcpy(alias, dest, alias_size);
+}
+
+/*
+================
+BookmarkData_Format
+
+Format bookmark data as JSON string.
+Output: {"alias":"escaped_alias","pinned":true/false}
+================
+*/
+void BookmarkData_Format(char* dest, size_t dest_size, const char* alias, qboolean pinned)
+{
+	if (!dest || dest_size == 0)
+		return;
+
+	dest[0] = '\0';
+
+	if (!alias)
+		alias = "";
+
+	char* escaped_alias = JSON_EscapeString(alias);
+	if (!escaped_alias)
+	{
+		// Fallback to legacy format if escape fails
+		if (pinned && alias[0])
+			q_snprintf(dest, dest_size, "%s %s", alias, BOOKMARK_PIN_SUFFIX);
+		else if (pinned)
+			q_snprintf(dest, dest_size, "%s", BOOKMARK_PIN_SUFFIX);
+		else
+			q_strlcpy(dest, alias, dest_size);
 		return;
 	}
 
-	char buffer[256];
-	while (fgets(buffer, sizeof(buffer), file) != NULL) {
-		// Remove newline character
-		buffer[strcspn(buffer, "\n")] = '\0';
+	q_snprintf(dest, dest_size, "{\"alias\":\"%s\",\"pinned\":%s}", escaped_alias, pinned ? "true" : "false");
 
-		char* extra_info = NULL;
-		char* token = strtok(buffer, ","); // Split the string at the comma
+	free(escaped_alias);
+}
 
-		if (token != NULL) {
-			extra_info = strtok(NULL, ""); // Get the remainder of the string after the comma
+/*
+================
+BookmarksList_Write
+
+Write bookmarks list to JSON file with atomic write (tmp + rename).
+================
+*/
+void BookmarksList_Write(void)
+{
+	char fname[MAX_OSPATH];
+	char tmpfname[MAX_OSPATH];
+	FILE* file;
+	qboolean ok = true;
+
+	q_snprintf(fname, sizeof(fname), "%s/id1", com_basedir);
+	Sys_mkdir(fname);
+
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups", com_basedir);
+	Sys_mkdir(fname);
+
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, BOOKMARKSLIST);
+	q_snprintf(tmpfname, sizeof(tmpfname), "%s.tmp", fname);
+
+	file = fopen(tmpfname, "w");
+	if (!file)
+	{
+		Con_DPrintf("BookmarksList_Write: Unable to open %s for writing\n", tmpfname);
+		return;
+	}
+
+	fprintf(file, "[\n");
+
+	filelist_item_t* item;
+	qboolean first = true;
+	for (item = bookmarkslist; item; item = item->next)
+	{
+		char alias[BOOKMARK_DATA_LENGTH];
+		qboolean pinned = false;
+		BookmarkData_Parse(item->data, alias, sizeof(alias), &pinned);
+
+		char* escaped_name = JSON_EscapeString(item->name);
+		char* escaped_alias = JSON_EscapeString(alias);
+
+		if (!escaped_name || !escaped_alias)
+		{
+			Con_Printf("BookmarksList_Write: skipping entry due to allocation failure for %s\n",
+			           item->name ? item->name : "<null>");
+			free(escaped_name);
+			free(escaped_alias);
+			ok = false;
+			break;
 		}
 
-		FileList_Add(token, extra_info, &bookmarkslist); // Pass the split parts to FileList_Add
+		if (!first)
+			fprintf(file, ",\n");
+		first = false;
+
+		fprintf(file, "  {\n");
+		fprintf(file, "    \"address\": \"%s\",\n", escaped_name);
+		fprintf(file, "    \"alias\": \"%s\",\n", escaped_alias);
+		fprintf(file, "    \"pinned\": %s\n", pinned ? "true" : "false");
+		fprintf(file, "  }");
+
+		free(escaped_name);
+		free(escaped_alias);
 	}
+
+	if (ok)
+	{
+		if (!first)
+			fprintf(file, "\n");
+		fprintf(file, "]\n");
+	}
+
+	if (fclose(file) != 0)
+		ok = false;
+
+	if (!ok)
+	{
+		Con_Printf("BookmarksList_Write: failed to flush %s, preserving existing file\n", tmpfname);
+		remove(tmpfname);
+		return;
+	}
+
+	remove(fname);  // Windows rename() fails if destination exists
+	if (rename(tmpfname, fname) != 0)
+	{
+		Con_Printf("BookmarksList_Write: unable to replace %s with %s\n", fname, tmpfname);
+		remove(tmpfname);
+	}
+}
+
+/*
+================
+BookmarksList_Init
+
+Read bookmarks from file. Supports JSON format and legacy CSV format.
+Legacy files are automatically migrated to JSON on first load.
+================
+*/
+void BookmarksList_Init(void)
+{
+	char fname[MAX_OSPATH];
+	FILE* file;
+	long file_size;
+	char* buffer;
+
+	q_snprintf(fname, sizeof(fname), "%s/id1", com_basedir);
+	Sys_mkdir(fname);
+
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups", com_basedir);
+	Sys_mkdir(fname);
+
+	q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, BOOKMARKSLIST);
+
+	file = fopen(fname, "rb");
+	if (!file)
+	{
+		// Try legacy filename for migration
+		q_snprintf(fname, sizeof(fname), "%s/id1/backups/%s", com_basedir, BOOKMARKSLIST_LEGACY);
+		file = fopen(fname, "rb");
+		if (!file)
+			return;
+	}
+
+	fseek(file, 0, SEEK_END);
+	file_size = ftell(file);
+	rewind(file);
+
+	if (file_size <= 0)
+	{
+		fclose(file);
+		return;
+	}
+
+	buffer = (char*)malloc(file_size + 1);
+	if (!buffer)
+	{
+		fclose(file);
+		return;
+	}
+
+	if (fread(buffer, 1, file_size, file) != (size_t)file_size)
+	{
+		free(buffer);
+		fclose(file);
+		return;
+	}
+
+	buffer[file_size] = '\0';
 	fclose(file);
+
+	// Try JSON parsing first
+	json_t* json = JSON_Parse(buffer);
+	if (json && json->root && json->root->type == JSON_ARRAY)
+	{
+		const jsonentry_t* entry;
+		for (entry = json->root->firstchild; entry; entry = entry->next)
+		{
+			if (!entry || entry->type != JSON_OBJECT)
+				continue;
+
+			const char* address = JSON_FindString(entry, "address");
+			const char* alias = JSON_FindString(entry, "alias");
+			const qboolean* pinned_ptr = JSON_FindBoolean(entry, "pinned");
+			qboolean pinned = pinned_ptr ? *pinned_ptr : false;
+
+			if (!address || !alias)
+				continue;
+
+			char data[BOOKMARK_DATA_LENGTH];
+			BookmarkData_Format(data, sizeof(data), alias, pinned);
+			FileList_Add(address, data, &bookmarkslist);
+		}
+
+		JSON_Free(json);
+		free(buffer);
+		return;
+	}
+
+	if (json)
+		JSON_Free(json);
+
+	// Legacy CSV format: "address,alias" or "address,alias |pin"
+	qboolean legacy_format = false;
+	char* buffer_copy = (char*)malloc(file_size + 1);
+	if (!buffer_copy)
+	{
+		free(buffer);
+		return;
+	}
+	memcpy(buffer_copy, buffer, file_size + 1);
+
+	char* line = strtok(buffer_copy, "\n");
+	while (line)
+	{
+		char* trimmed = line;
+		while (*trimmed == ' ' || *trimmed == '\t')
+			++trimmed;
+
+		if (*trimmed)
+		{
+			char* end = trimmed + strlen(trimmed);
+			while (end > trimmed && (end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
+				*--end = '\0';
+
+			char* comma = strchr(trimmed, ',');
+			char* name = trimmed;
+			const char* raw_data = NULL;
+
+			if (comma)
+			{
+				*comma = '\0';
+				raw_data = comma + 1;
+			}
+
+			char alias[BOOKMARK_DATA_LENGTH];
+			qboolean pinned = false;
+			BookmarkData_Parse(raw_data, alias, sizeof(alias), &pinned);
+
+			char data[BOOKMARK_DATA_LENGTH];
+			BookmarkData_Format(data, sizeof(data), alias, pinned);
+			FileList_Add(name, data, &bookmarkslist);
+			legacy_format = true;
+		}
+
+		line = strtok(NULL, "\n");
+	}
+
+	free(buffer_copy);
+	free(buffer);
+
+	// Auto-migrate legacy format to JSON and delete old file
+	if (legacy_format)
+	{
+		BookmarksList_Write();
+		// Delete old bookmarks.txt after successful migration
+		char legacy_fname[MAX_OSPATH];
+		q_snprintf(legacy_fname, sizeof(legacy_fname), "%s/id1/backups/%s", com_basedir, BOOKMARKSLIST_LEGACY);
+		remove(legacy_fname);
+		Con_Printf("Migrated bookmarks from %s to %s\n", BOOKMARKSLIST_LEGACY, BOOKMARKSLIST);
+	}
 }
 
 //==============================================================================
@@ -1052,8 +1419,8 @@ void ParticleList_Init (void)
 	struct dirent* dir_t;
 #endif
 	char		filestring[MAX_OSPATH];
-	char		cfgname[32];
-	char		cfgnamedir[32];
+	char		cfgname[MAX_OSPATH];
+	char		cfgnamedir[MAX_OSPATH];
 	searchpath_t* search;
 	pack_t* pak;
 	int		i;
@@ -1941,6 +2308,9 @@ adapted from fteqw, originally by Alex Shadowalker
 */
 static void Host_SetPos_f(void)
 {
+	int     i, numargs;
+	float   args[6];
+	
 	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
@@ -1972,7 +2342,16 @@ static void Host_SetPos_f(void)
 		return;
 	}
 
-	if (Cmd_Argc() != 7 && Cmd_Argc() != 4)
+	for (i = 1, numargs = 0; i < Cmd_Argc(); i++)
+	{
+		const char* str = Cmd_Argv(i);
+		if (strcmp(str, "(") == 0 || strcmp(str, ")") == 0)
+			continue;
+		if (++numargs <= 6)
+			args[numargs - 1] = atof(str);
+	}
+
+	if (numargs != 6 && numargs != 3)
 	{
 		SV_ClientPrintf("usage:\n");
 		SV_ClientPrintf("   setpos <x> <y> <z>\n");
@@ -2000,15 +2379,15 @@ static void Host_SetPos_f(void)
 	sv_player->v.velocity[1] = 0;
 	sv_player->v.velocity[2] = 0;
 	
-	sv_player->v.origin[0] = atof(Cmd_Argv(1));
-	sv_player->v.origin[1] = atof(Cmd_Argv(2));
-	sv_player->v.origin[2] = atof(Cmd_Argv(3));
+	sv_player->v.origin[0] = args[0];
+	sv_player->v.origin[1] = args[1];
+	sv_player->v.origin[2] = args[2];;
 	
-	if (Cmd_Argc() == 7)
+	if (Cmd_Argc() == 6)
 	{
-		sv_player->v.angles[0] = atof(Cmd_Argv(4));
-		sv_player->v.angles[1] = atof(Cmd_Argv(5));
-		sv_player->v.angles[2] = atof(Cmd_Argv(6));
+		sv_player->v.angles[0] = args[3];
+		sv_player->v.angles[1] = args[4];
+		sv_player->v.angles[2] = args[5];
 		sv_player->v.fixangle = 1;
 	}
 	
@@ -2069,107 +2448,691 @@ static void Host_Fly_f (void)
 
 /*
 ==================
-ICMP_Ping_Host -- woods #icmp
+Host_GetDamageFunction
+==================
+*/
+static int Host_GetDamageFunction(void)
+{
+	int i, total;
+
+	if (!qcvm || !qcvm->progs) // VM present?
+		return -1;
+
+	if (deathmatch.value || coop.value)
+		return -1;
+
+	total = qcvm->progs->numfunctions;
+	for (i = 0; i < total; ++i)
+	{
+		if (!strcmp(PR_GetString(qcvm->functions[i].s_name), "T_Damage"))
+			return i;
+	}
+	return -1;      /* not found */
+}
+
+static void Host_DoDamage(int func, edict_t* target, qboolean gib)
+{
+	const float health = target->v.health;
+
+	if (health <= 0.0f || target->v.takedamage <= 0.0f) // Skip corpses or invulnerable entities
+		return;
+
+	/* Parameter setup. */
+	G_INT(OFS_PARM0) = EDICT_TO_PROG(target);   /* target    */
+	G_INT(OFS_PARM1) = EDICT_TO_PROG(sv_player);/* inflictor */
+	G_INT(OFS_PARM2) = G_INT(OFS_PARM1);        /* attacker  */
+	G_FLOAT(OFS_PARM3) = health + (gib ? 99.0f : 1.0f);
+
+	PR_ExecuteProgram(func);
+}
+
+static void Host_Massacre_f (void) // alexey-lysiuk/quakespasm-exp/commit/af0833c
+{
+	const qboolean gib = (Cmd_Argc() > 1);   /* any 2nd arg toggles gibs */
+	int            func;
+	size_t         i, total;
+	int            count = 0;
+
+	/* Forward if typed on the host console of a listen server. */
+	if (cmd_source != src_client)
+	{
+		Cmd_ForwardToServer();
+		return;
+	}
+
+	/* Abort if T_Damage() not found (unusual custom progs). */
+	if ((func = Host_GetDamageFunction()) == -1)
+		return;
+
+	total = qcvm->num_edicts;
+	for (i = 1; i < total; ++i)                /* edict 0 = world */
+	{
+		edict_t* ent = EDICT_NUM((int)i);
+		if (ent->free || !((int)ent->v.flags & FL_MONSTER))
+			continue;
+		if (ent->v.health <= 0.0f || ent->v.takedamage <= 0.0f)
+			continue;
+
+		Host_DoDamage(func, ent, gib);
+		count++;
+	}
+
+	SV_ClientPrintf("Massacred all %d monster%s (%s)\n",
+		count, count == 1 ? "" : "s", gib ? "gibbed" : "no gibs");
+}
+
+/*
+==================
+Host_Resurrect_f -- woods #resurrect
+
+Bring the local player back to life exactly where they died,
+preserving inventory and giving 5 s of invulnerability.
 ==================
 */
 
+static void Host_Resurrect_f (void)
+{
+	eval_t* val;
+	int     ofs;
+
+	/*----------------------------------------------------------------
+	 * 1. Guard rails
+	 *----------------------------------------------------------------*/
+	if (cmd_source != src_client)          /* typed in host console?  */
+	{
+		Cmd_ForwardToServer();
+		return;
+	}
+	if (pr_global_struct->deathmatch)      /* no cheats in deathmatch */
+		return;
+
+	/*----------------------------------------------------------------
+	 * 2. Snapshot the current state
+	 *----------------------------------------------------------------*/
+	vec3_t death_origin, safe_origin;
+
+	float saved_weapon = sv_player->v.weapon;
+	float saved_ammo_shells = sv_player->v.ammo_shells;
+	float saved_ammo_nails = sv_player->v.ammo_nails;
+	float saved_ammo_rockets = sv_player->v.ammo_rockets;
+	float saved_ammo_cells = sv_player->v.ammo_cells;
+	int   saved_items = (int)sv_player->v.items;
+
+	VectorCopy(sv_player->v.origin, death_origin);
+
+	/*----------------------------------------------------------------
+	 * 3. Find a safe spot near the death position (TraceLine version)
+	 *----------------------------------------------------------------*/
+#define STEP_RINGS   4               /* 0, 32, 64, 96 */
+#define STEP_RADIUS  32.0f
+	static const float ring_xy[9][2] = {
+		{  0,  0}, { 1,  0}, {-1,  0}, { 0,  1},
+		{  0, -1}, { 1,  1}, {-1,  1}, { 1, -1}, {-1, -1}
+	};
+	int ring, dir, found = 0;
+
+	for (ring = 0; ring < STEP_RINGS && !found; ++ring)
+	{
+		float r = ring * STEP_RADIUS;
+
+		for (dir = 0; dir < 9 && !found; ++dir)
+		{
+			vec3_t try_xy, above, below, impact;
+
+			/* XY offset in this ring */
+			try_xy[0] = death_origin[0] + ring_xy[dir][0] * r;
+			try_xy[1] = death_origin[1] + ring_xy[dir][1] * r;
+			try_xy[2] = death_origin[2];
+
+			/* Trace 64 down from 64 up to find ground */
+			VectorCopy(try_xy, above);  above[2] += 64.0f;
+			VectorCopy(try_xy, below);  below[2] -= 64.0f;
+			TraceLine(above, below, 0.0f, impact);
+
+			/* Place the player 18 units above impact point */
+			VectorCopy(impact, safe_origin);
+			safe_origin[2] += 18.0f;
+
+			VectorCopy(safe_origin, sv_player->v.origin);
+			if (!SV_TestEntityPosition(sv_player))
+				found = 1;
+		}
+	}
+
+	if (!found)
+	{
+		/* Fallback: original position, nudged up 18 */
+		VectorCopy(death_origin, safe_origin);
+		safe_origin[2] += 18.0f;
+	}
+
+	/*----------------------------------------------------------------
+	 * 4. Play resurrection sound
+	 *----------------------------------------------------------------*/
+	SV_StartSound(sv_player, sv_player->v.origin, 0,
+		"items/protect.wav", 255, 1.0f);
+
+	/*----------------------------------------------------------------
+	 * 5. Call QC PutClientInServer to reset player state
+	 *----------------------------------------------------------------*/
+	pr_global_struct->time = qcvm->time;
+	pr_global_struct->self = EDICT_TO_PROG(sv_player);
+	PR_ExecuteProgram(pr_global_struct->PutClientInServer);
+
+	/*----------------------------------------------------------------
+	 * 6. Restore inventory, position, and health
+	 *----------------------------------------------------------------*/
+	VectorCopy(safe_origin, sv_player->v.origin);
+
+	sv_player->v.weapon = saved_weapon;
+	sv_player->v.ammo_shells = saved_ammo_shells;
+	sv_player->v.ammo_nails = saved_ammo_nails;
+	sv_player->v.ammo_rockets = saved_ammo_rockets;
+	sv_player->v.ammo_cells = saved_ammo_cells;
+	sv_player->v.items = saved_items | IT_INVULNERABILITY; /* keep pent */
+	host_client->powerup_warn_flags |= PWARN_GIVE;
+
+	sv_player->v.health = 100;
+	sv_player->v.max_health = 100;
+	sv_player->v.deadflag = DEAD_NO;
+	sv_player->v.takedamage = DAMAGE_AIM;
+	sv_player->v.movetype = MOVETYPE_WALK;
+	sv_player->v.solid = SOLID_SLIDEBOX;
+	sv_player->v.flags = (int)sv_player->v.flags | (FL_CLIENT | FL_ONGROUND);
+	sv_player->v.effects = (int)sv_player->v.effects | EF_DIMLIGHT;
+	sv_player->v.weaponframe = 0;
+
+	/*----------------------------------------------------------------
+	 * 7. Reset miscellaneous QC-only fields
+	 *----------------------------------------------------------------*/
+	static const struct { const char* name; float value; } scalars[] = {
+		{"show_hostile",     0},
+		{"air_finished",     12.0f},         /* seconds from now */
+		{"dmg",              2},
+		{"attack_finished",  0},
+	};
+	for (size_t s = 0; s < Q_COUNTOF(scalars); ++s)
+		if ((ofs = ED_FindFieldOffset(scalars[s].name)))
+			GetEdictFieldValue(sv_player, ofs)->_float =
+			(scalars[s].name[0] == 'a') ? qcvm->time + scalars[s].value
+			: scalars[s].value;
+
+	/* -----------------------------------------------------------------
+ * clear temporary power-up timers (no helper function needed)
+ * -----------------------------------------------------------------*/
+	static const char* timers[] = {
+		"super_damage_finished",
+		"radsuit_finished",
+		"invisible_finished",
+		"trif_time",
+		"trif_finished"
+	};
+
+	for (size_t k = 0; k < Q_COUNTOF(timers); ++k)
+	{
+		ofs = ED_FindFieldOffset(timers[k]);
+		if (ofs)                               /* field exists in this progs */
+		{
+			val = GetEdictFieldValue(sv_player, ofs);
+			if (val)                           /* field is addressable       */
+				val->_float = 0.0f;
+					}
+		}
+
+	/* mission-pack friendly invulnerability timers */
+	ofs = ED_FindFieldOffset("invincible_finished");
+	if (ofs && (val = GetEdictFieldValue(sv_player, ofs)))
+		val->_float = qcvm->time + 5.0f;
+
+	ofs = ED_FindFieldOffset("invincible_time");
+	if (ofs && (val = GetEdictFieldValue(sv_player, ofs)))
+		val->_float = qcvm->time + 5.0f;
+
+	/* pain cooldown reset */
+	ofs = ED_FindFieldOffset("pain_finished");
+	if (ofs && (val = GetEdictFieldValue(sv_player, ofs)))
+		val->_float = 0.0f;
+
+
+	/*----------------------------------------------------------------
+	 * 8. Fix currentammo so the HUD is correct
+	 *----------------------------------------------------------------*/
+	switch ((int)sv_player->v.weapon)
+	{
+	case IT_SHOTGUN:
+	case IT_SUPER_SHOTGUN:
+		sv_player->v.currentammo = sv_player->v.ammo_shells;  break;
+
+	case IT_NAILGUN:
+	case IT_SUPER_NAILGUN:
+	case RIT_LAVA_SUPER_NAILGUN:
+		sv_player->v.currentammo = sv_player->v.ammo_nails;   break;
+
+	case IT_GRENADE_LAUNCHER:
+	case IT_ROCKET_LAUNCHER:
+	case RIT_MULTI_GRENADE:
+	case RIT_MULTI_ROCKET:
+		sv_player->v.currentammo = sv_player->v.ammo_rockets; break;
+
+	case IT_LIGHTNING:
+	case HIT_LASER_CANNON:
+	case HIT_MJOLNIR:
+		sv_player->v.currentammo = sv_player->v.ammo_cells;   break;
+	}
+
+	/*----------------------------------------------------------------
+	 * 9. Finalise: relink, force client update, print messages
+	 *----------------------------------------------------------------*/
+	SV_LinkEdict(sv_player, false);      /* update physics box */
+	MSG_WriteByte(&host_client->message, svc_stufftext);
+	MSG_WriteString(&host_client->message, "bf\n"); /* refresh pics and icons */
+
+	if (found && ring)  /* ring > 0 means we actually moved */
+		SV_ClientPrintf("Moved to safe position (%d units)\n", ring * 32);
+
+	SV_ClientPrintf("Resurrected with 100 health and 5 seconds of invulnerability!\n");
+	SV_BroadcastPrintf("%s was resurrected\n",
+		PR_GetString(sv_player->v.netname));
+}
+
+/*
+==================
+ParseServerAddress -- woods #udplist
+==================
+*/
+static qboolean ParseServerAddress(const char* input, char* hostbuf, size_t hostbufsize, int* portout)
+{
+	int default_port;
+	const char* portpart;
+
+	if (!input || !*input || !hostbuf || !hostbufsize || !portout)
+		return false;
+
+	default_port = (net_hostport > 0 && net_hostport <= 65535) ? net_hostport : DEFAULTnet_hostport;
+	if (default_port <= 0 || default_port > 65535)
+		default_port = 26000;
+	*portout = default_port;
+
+	if (*input == '[')
+{
+		const char* end = strchr(input, ']');
+		size_t len;
+
+		if (!end)
+			return false;
+
+		if (end <= input + 1)
+			return false;
+
+		len = (size_t)(end - (input + 1));
+		if (len + 1 > hostbufsize)
+			return false;
+
+		memcpy(hostbuf, input + 1, len);
+		hostbuf[len] = '\0';
+
+		portpart = end + 1;
+		if (*portpart == '\0')
+			return true;
+
+		if (*portpart != ':')
+			return false;
+
+		portpart++;
+		if (!*portpart)
+			return false;
+
+		for (const char* p = portpart; *p; ++p)
+			if (!isdigit((unsigned char)*p))
+				return false;
+
+		*portout = atoi(portpart);
+		if (*portout <= 0 || *portout > 65535)
+			return false;
+
+		return true;
+	}
+	else
+	{
+		int colon_count = 0;
+		const char* last_colon = NULL;
+
+		for (const char* p = input; *p; ++p)
+		{
+			if (*p == ':')
+			{
+				colon_count++;
+				last_colon = p;
+			}
+		}
+
+		if (colon_count == 1 && last_colon)
+		{
+			size_t len;
+			const char* p;
+
+			portpart = last_colon + 1;
+			if (!*portpart)
+				return false;
+
+			for (p = portpart; *p; ++p)
+				if (!isdigit((unsigned char)*p))
+					return false;
+
+			*portout = atoi(portpart);
+			if (*portout <= 0 || *portout > 65535)
+				return false;
+
+			len = (size_t)(last_colon - input);
+			if (len == 0 || len + 1 > hostbufsize)
+				return false;
+
+			memcpy(hostbuf, input, len);
+			hostbuf[len] = '\0';
+			return true;
+		}
+
+		if (colon_count > 1)
+		{
+			size_t len = strlen(input);
+			if (len + 1 > hostbufsize)
+				return false;
+
+			q_strlcpy(hostbuf, input, hostbufsize);
+			return true;
+	}
+
+		{
+			size_t len = strlen(input);
+			if (len + 1 > hostbufsize)
+				return false;
+
+			q_strlcpy(hostbuf, input, hostbufsize);
+			return true;
+		}
+		}
+	}
+
+static size_t BuildNetQuakePingQuery(unsigned char* buffer, size_t bufsize) // woods #udplist
+{
+	const char gamename[] = "QUAKE";
+	unsigned char* out = buffer;
+	size_t required = 4 /* header */ + 1 /* command */ + sizeof(gamename) /* string incl. null */ + 1 /* protocol */;
+
+	if (bufsize < required)
+		return 0;
+
+	out += 4; // leave space for the header
+	*out++ = CCREQ_SERVER_INFO;
+	memcpy(out, gamename, sizeof(gamename));
+	out += sizeof(gamename);
+	*out++ = NET_PROTOCOL_VERSION;
+
+	{
+		unsigned int header = NETFLAG_CTL | ((unsigned int)((out - buffer)) & NETFLAG_LENGTH_MASK);
+		int beheader = BigLong((int)header);
+		memcpy(buffer, &beheader, sizeof(beheader));
+	}
+
+	return (size_t)(out - buffer);
+	}
+
+typedef struct ping_query_s // woods #udplist
+{
+	const unsigned char* payload;
+	size_t payload_len;
+	const char* label;
+} ping_query_t;
+
+static int NormalizePingResult(int ping_ms) // woods #udplist
+{
+	const int normalization_bias = 14;
+
+	if (ping_ms < 0)
+		return ping_ms;
+
+	ping_ms -= normalization_bias;
+	if (ping_ms < 0)
+		ping_ms = 0;
+
+	return ping_ms;
+}
+
+static qboolean SendPingPacket(sys_socket_t sock, const struct sockaddr* addr, socklen_t addrlen, const ping_query_t* query, qboolean is_retry) // woods #udplist
+{
+	if (!query || !query->payload || query->payload_len == 0)
+		return false;
+
+	for (;;)
+{
+		if (sendto(sock, (const char*)query->payload, (int)query->payload_len, 0, addr, addrlen) != SOCKET_ERROR)
+			return true;
+
+		{
+			int err = SOCKETERRNO;
 #ifdef _WIN32
-int ICMP_Ping_Host(const char* host)
-{
-	char command[256];
-	char buffer[128];
-	snprintf(command, sizeof(command), "ping -n 1 -w 150 %s", host);
-
-	HANDLE hRead, hWrite;
-	SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
-
-	if (!CreatePipe(&hRead, &hWrite, &sa, 0)) {
-		Con_DPrintf("Failed to create pipe\n");
-		return -1;
-	}
-
-	STARTUPINFO si = { sizeof(STARTUPINFO) };
-	PROCESS_INFORMATION pi;
-	si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-	si.hStdOutput = hWrite;
-	si.hStdError = hWrite;
-	si.wShowWindow = SW_HIDE;  // Prevents a window from popping up
-
-	if (!CreateProcess(NULL, command, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
-		Con_DPrintf("Failed to execute command: %s\n", command);
-		CloseHandle(hWrite);
-		CloseHandle(hRead);
-		return -1;
-	}
-
-	CloseHandle(hWrite);
-
-	// Read the output
-	DWORD bytesRead;
-	BOOL success;
-	float rtt = -1;
-	while (success = ReadFile(hRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL), success&& bytesRead > 0) {
-		buffer[bytesRead] = '\0';
-		char* rtt_start = strstr(buffer, "time=");
-		if (rtt_start != NULL) {
-			sscanf(rtt_start, "time=%f", &rtt);
-			break;
-		}
-	}
-
-	CloseHandle(hRead);
-	WaitForSingleObject(pi.hProcess, INFINITE);
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
-
-	if (rtt >= 0) {
-		Con_DPrintf("RTT calculated: %.2f ms\n", rtt);
-		return (int)rtt;
-	}
-	else {
-		Con_DPrintf("Failed to retrieve RTT\n");
-		return -1;
-	}
-}
-#else  //  linux/macOS
-int ICMP_Ping_Host(const char* host)
-{
-	char command[256];
-	char buffer[128];
-
-	snprintf(command, sizeof(command), "ping -c 1 -W 200 %s", host);
-	FILE* fp = popen(command, "r");
-	if (fp == NULL) {
-		perror("popen failed");
-		return -1;
-	}
-
-	Con_DPrintf("Executing command: %s\n", command);
-
-	float rtt = -1;
-
-	while (fgets(buffer, sizeof(buffer), fp) != NULL) // Read the output line by line to find the RTT
-	{ 
-		char* rtt_start = strstr(buffer, "time=");
-		if (rtt_start != NULL) {
-			rtt_start += 5; // Move past "time=" to the number
-			rtt = strtof(rtt_start, NULL);
-			Con_DPrintf("RTT calculated: %.2f ms\n", rtt);
-			break;
-		}
-	}
-
-	int status = pclose(fp);
-	if (status == 0 && rtt != -1) {
-		Con_DPrintf("Host %s is reachable with RTT %.2f ms.\n", host, rtt);
-		return (int)rtt;
-	}
-	else {
-		Con_DPrintf("Host %s is not reachable or RTT calculation failed.\n", host);
-		return -1;
-	}
-}
+			if (err == WSAEINTR)
+#else
+			if (err == EINTR)
 #endif
+				continue; // interrupted, retry immediately
+
+			Con_DPrintf("sendto() %s%s failed: %s\n", is_retry ? "retry " : "", query->label, socketerror(err));
+		}
+		return false;
+	}
+}
+
+/*
+==================
+Socket_Ping_Host -- woods #udplist
+==================
+*/
+static int Socket_Ping_Host(const char* host, int port)
+{
+	struct addrinfo hints;
+	struct addrinfo* res = NULL;
+	struct addrinfo* rp;
+	char portstr[16];
+	int ping_result = -1;
+	unsigned char nq_query[32];
+	size_t nq_query_len;
+	static const unsigned char qw_getinfo[] = { 0xFF, 0xFF, 0xFF, 0xFF, 'g', 'e', 't', 'i', 'n', 'f', 'o', '\n' };
+	static const unsigned char qw_status[] = { 0xFF, 0xFF, 0xFF, 0xFF, 's', 't', 'a', 't', 'u', 's', '\n' };
+	static const unsigned char dp_getchallenge[] = { 0xFF, 0xFF, 0xFF, 0xFF, 'g', 'e', 't', 'c', 'h', 'a', 'l', 'l', 'e', 'n', 'g', 'e', '\n' };
+	int ret;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_protocol = IPPROTO_UDP;
+	hints.ai_family = AF_UNSPEC;
+
+	q_snprintf(portstr, sizeof(portstr), "%d", port);
+
+	nq_query_len = BuildNetQuakePingQuery(nq_query, sizeof(nq_query));
+
+	ret = getaddrinfo(host, portstr, &hints, &res);
+	if (ret != 0)
+	{
+#ifdef _WIN32
+		Con_DPrintf("getaddrinfo failed for %s:%s (%d)\n", host, portstr, ret);
+#else
+		Con_DPrintf("getaddrinfo failed for %s:%s (%s)\n", host, portstr, gai_strerror(ret));
+#endif
+		return -1;
+	}
+
+	for (rp = res; rp; rp = rp->ai_next)
+	{
+		sys_socket_t sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+		if (sock == INVALID_SOCKET)
+		{
+			Con_DPrintf("socket() failed: %s\n", socketerror(SOCKETERRNO));
+			continue;
+		}
+
+		{
+			const ping_query_t base_queries[] = {
+				{qw_getinfo,      sizeof(qw_getinfo),      "getinfo"},
+				{qw_status,       sizeof(qw_status),       "status"},
+				{dp_getchallenge, sizeof(dp_getchallenge), "getchallenge"},
+			};
+			ping_query_t queries[Q_COUNTOF(base_queries) + 1];
+			size_t   query_count = 0;
+			qboolean sent_any = false;
+			double   start_time = 0.0;
+			double   next_resend_time = 0.0;
+			const double resend_interval = 0.5;
+			const double max_wait_time = 1.5;
+
+			if (nq_query_len > 0)
+			{
+				queries[query_count].payload = nq_query;
+				queries[query_count].payload_len = nq_query_len;
+				queries[query_count].label = "netquake";
+				++query_count;
+			}
+
+			for (size_t i = 0; i < Q_COUNTOF(base_queries); ++i)
+				queries[query_count++] = base_queries[i];
+
+			for (size_t i = 0; i < query_count; ++i)
+	{ 
+				if (SendPingPacket(sock, rp->ai_addr, (socklen_t)rp->ai_addrlen, &queries[i], false))
+				{
+					if (!sent_any)
+					{
+						start_time = Sys_DoubleTime();
+						next_resend_time = start_time + resend_interval;
+						sent_any = true;
+					}
+				}
+			}
+
+			if (sent_any)
+			{
+				double deadline = start_time + max_wait_time; // allow a little longer for servers to answer
+
+				while (ping_result < 0)
+				{
+					double now = Sys_DoubleTime();
+					double remaining = deadline - now;
+					fd_set readfds;
+					struct timeval tv;
+					int sel;
+
+					if (remaining <= 0)
+			break;
+
+					if (now >= next_resend_time && now < deadline)
+					{
+						for (size_t i = 0; i < query_count; ++i)
+							SendPingPacket(sock, rp->ai_addr, (socklen_t)rp->ai_addrlen, &queries[i], true);
+
+						next_resend_time = now + resend_interval;
+						continue;
+					}
+
+					FD_ZERO(&readfds);
+					FD_SET(sock, &readfds);
+
+					if (remaining >= 1.0)
+					{
+						tv.tv_sec = (int)remaining;
+						tv.tv_usec = (int)((remaining - tv.tv_sec) * 1000000.0);
+		}
+					else
+					{
+						tv.tv_sec = 0;
+						tv.tv_usec = (int)(remaining * 1000000.0);
+						if (tv.tv_usec <= 0)
+							tv.tv_usec = 1000;
+	}
+
+#ifdef _WIN32
+					sel = selectsocket(0, &readfds, NULL, NULL, &tv);
+#else
+					sel = selectsocket((int)(sock + 1), &readfds, NULL, NULL, &tv);
+#endif
+					if (sel > 0 && FD_ISSET(sock, &readfds))
+					{
+						unsigned char buffer[2048];
+						struct sockaddr_storage from;
+						socklen_t fromlen = sizeof(from);
+						int received;
+
+						for (;;)
+						{
+							received = recvfrom(sock, (char*)buffer, sizeof(buffer), 0, (struct sockaddr*)&from, &fromlen);
+							if (received >= 0)
+								break;
+
+							{
+								int err = SOCKETERRNO;
+#ifdef _WIN32
+								if (err == WSAEINTR)
+#else
+								if (err == EINTR)
+#endif
+									continue; // interrupted, try again immediately
+
+								Con_DPrintf("recvfrom() failed: %s\n", socketerror(err));
+							}
+							break;
+	}
+
+						if (received > 0)
+						{
+							double elapsed = (Sys_DoubleTime() - start_time) * 1000.0;
+							if (elapsed < 0)
+								elapsed = 0;
+
+							ping_result = NormalizePingResult((int)(elapsed + 0.5));
+							break;
+	}
+}
+					else if (sel == SOCKET_ERROR)
+					{
+						int err = SOCKETERRNO;
+#ifdef _WIN32
+						if (err == WSAEINTR)
+#else
+						if (err == EINTR)
+#endif
+							continue; // interrupted, keep waiting within the deadline
+
+						Con_DPrintf("select() failed: %s\n", socketerror(err));
+						break;
+					}
+				}
+			}
+		}
+
+		closesocket(sock);
+
+		if (ping_result >= 0)
+			break;
+	}
+
+	freeaddrinfo(res);
+	return ping_result;
+}
+
+/*
+==================
+UDP_Ping_Host -- woods #udplist
+==================
+*/
+int UDP_Ping_Host(const char* host)
+{
+	char hostbuf[MAX_SERVER_ADDRESS_LEN];
+	int port;
+
+	if (!ParseServerAddress(host, hostbuf, sizeof(hostbuf), &port))
+		return -1;
+
+	return Socket_Ping_Host(hostbuf, port);
+}
 
 /*
 ==================
@@ -2201,24 +3164,26 @@ static void Host_Ping_f (void)
 			return;
 		}
 
-		const char* host_no_port = COM_StripPort(n);
-
-		if (Valid_IP(host_no_port) || Valid_Domain(host_no_port))
 		{
-			int rtt = ICMP_Ping_Host(host_no_port);
+			char host_only[MAX_SERVER_ADDRESS_LEN];
+			int ping_port;
+
+			if (!ParseServerAddress(n, host_only, sizeof(host_only), &ping_port))
+		{
+				Con_Printf("address not valid %s\n", n);
+				return;
+			}
+
+			if (Valid_IP(host_only) || Valid_Domain(host_only))
+		{
+				int rtt = Socket_Ping_Host(host_only, ping_port);
 			if (rtt >= 0)
-			{
 				Con_Printf("%i ms\n", rtt);
-			}
 			else
-			{
-				Con_Printf("ping failed, host may not accept ICMP pings or is non-responsive\n");
-			}
-			free((void*)host_no_port);
+					Con_Printf("ping failed, server did not respond\n");
 			return;
 		}
-		else
-		{
+
 			Con_Printf("address not valid %s\n", n);
 			return;
 		}
@@ -2276,7 +3241,22 @@ static void Host_Map_f (void)
 		}
 		else if (cls.state == ca_connected)
 		{
-			Con_Printf ("Current map: %s ( %s )\n", cl.levelname, cl.mapname);
+			char   mapPath[MAX_OSPATH];
+			int    h;
+			qofs_t fsize = -1;
+
+			q_snprintf(mapPath, sizeof(mapPath), "maps/%s.bsp", cl.mapname);
+			fsize = COM_OpenFile(mapPath, &h, NULL);
+			if (h != -1)
+				COM_CloseFile(h);
+
+			if (fsize > 0)
+				Con_Printf("Current map: %s ( %s ) - ^m%.1f MB^m\n",
+					cl.levelname,
+					cl.mapname,
+					(float)fsize / (1024.0f * 1024.0f));
+			else
+				Con_Printf("Current map: %s ( %s )\n", cl.levelname, cl.mapname);
 		}
 		else
 		{
@@ -2307,6 +3287,26 @@ static void Host_Map_f (void)
 	p = strstr(name, ".bsp");
 	if (p && p[4] == '\0')
 		*p = '\0';
+
+	if (cls.state != ca_dedicated) // woods -- try to download map
+	{
+		char mapPath[MAX_QPATH];
+
+		q_snprintf(mapPath, sizeof(mapPath), "maps/%s.bsp", name);
+
+		if (!COM_FileExists(mapPath, NULL))
+		{
+			Con_Printf("\nmap ^m%s^m not found\n\n", name);
+
+			Cmd_ExecuteString(va("download %s.bsp", name), src_command);
+
+			if (!COM_FileExists(mapPath, NULL))
+			{
+				Con_Printf("\nfailed to download map ^m%s^m\n\n", name);
+			}
+		}
+	}
+
 	PR_SwitchQCVM(&sv.qcvm);
 	SV_SpawnServer (name);
 	PR_SwitchQCVM(NULL);
@@ -2654,7 +3654,7 @@ User command to connect to server
 */
 static void Host_Connect_f (void)
 {
-	char	name[MAX_QPATH];
+	char	name[NET_NAMELEN];
 	q_strlcpy(name, Cmd_Argv(1), sizeof(name));
 
 	cls.demonum = -1;		// stop demo loop in case this fails
@@ -2807,8 +3807,10 @@ static void Host_Savegame_f (void)
 	COM_AddExtension(relname, ".sav", sizeof(relname));
 	Con_Printf("Saving game to ^m%s^m...\n", relname);
 
-	q_snprintf(name, sizeof(name), "%s/%s", com_gamedir, relname);
+	q_snprintf(name, sizeof(name), "%s/saves", com_gamedir); // woods - Create saves directory if it doesn't exist
+	Sys_mkdir(name);
 
+	q_snprintf(name, sizeof(name), "%s/saves/%s", com_gamedir, relname); // woods - save to saves subdirectory
 
 	f = fopen (name, "w");
 	if (!f)
@@ -2938,13 +3940,17 @@ static void Host_Loadgame_f (void)
 // been used.  The menu calls it before stuffing loadgame command
 //	SCR_BeginLoadingPlaque ();
 
-	q_snprintf(name, sizeof(name), "%s/%s", com_gamedir, relname); // woods #autoload (iw)
+	// First try loading from saves directory
+	q_snprintf(name, sizeof(name), "%s/saves/%s", com_gamedir, relname); // woods #autoload (iw)
+	start = (char*)COM_LoadMallocFile_TextMode_OSPath(name, NULL);
 
-// avoid leaking if the previous Host_Loadgame_f failed with a Host_Error
-	if (start != NULL)
-		free (start);
-	
-	start = (char *) COM_LoadMallocFile_TextMode_OSPath(name, NULL);
+	if (start == NULL) // If not found, try loading from game directory, legacy
+	{
+		q_snprintf(name, sizeof(name), "%s/%s", com_gamedir, relname); // woods #autoload (iw)
+		start = (char*) COM_LoadMallocFile_TextMode_OSPath(name, NULL);
+	}
+
+	// avoid leaking if the previous Host_Loadgame_f failed with a Host_Error
 	if (start == NULL)
 	{
 		Con_Printf ("ERROR: couldn't open.\n");
@@ -2979,7 +3985,10 @@ static void Host_Loadgame_f (void)
 	q_strlcpy (mapname, com_token, sizeof(mapname));
 	data = COM_ParseFloatNewline (data, &time);
 
-	CL_Disconnect_f ();
+// Note: calling CL_Disconnect instead of CL_Disconnect_f to avoid stopping the music
+	CL_Disconnect ();
+	if (sv.active)
+		Host_ShutdownServer (false);
 
 	PR_SwitchQCVM(&sv.qcvm);
 	SV_SpawnServer (mapname);
@@ -3152,16 +4161,48 @@ static void Host_Name_f (void)
 {
 	char	newName[32];
 	int a, b, c;	// JPG 1.05 - ip address logging  // woods for #iplog
+	qboolean truncated = false;
 
 	if (Cmd_Argc () == 1)
 	{
-		Con_Printf ("\"name\" is \"%s\"\n", cl_name.string);
+		Con_Printf ("\n\"name\" is \"%s\"\n\n", cl_name.string);
+
+		char final_string[MAXCMDLINE];
+		q_snprintf(final_string, sizeof(final_string), "name \"%s\"", cl_name.string);
+
+		if (edit_line < 0 || edit_line >= CMDLINES) // Ensure edit_line is within bounds
+		{
+			Con_Printf("\nedit line index out of bounds.\n\n");
 		return;
 	}
+
+		key_lines[edit_line][0] = ']'; // Prompt character
+		key_lines[edit_line][1] = '\0'; // Null terminate
+
+		q_snprintf(key_lines[edit_line] + 1, MAXCMDLINE - 1, "%s", final_string);
+
+		key_linepos = (int)strlen(key_lines[edit_line]); // Set key_linepos to the end of the line
+
+		// Make sure the console is open for editing
+		if (key_dest != key_console)
+			key_dest = key_console;
+
+		return;
+	}
+
 	if (Cmd_Argc () == 2)
+	{
+		if (strlen(Cmd_Argv(1)) > 15)
+			truncated = true;
 		q_strlcpy(newName, Cmd_Argv(1), sizeof(newName));
+	}
 	else
+	{
+		if (strlen(Cmd_Args()) > 15)
+			truncated = true;
 		q_strlcpy(newName, Cmd_Args(), sizeof(newName));
+	}
+
 	newName[15] = 0;	// client_t structure actually says name[32].
 
 	// JPG 3.02 - remove bad characters // woods for #iplog
@@ -3175,12 +4216,36 @@ static void Host_Name_f (void)
 
 	if (cmd_source != src_client)
 	{
-		if (Q_strcmp(cl_name.string, newName) == 0)
+		if (truncated && Q_strcmp(cl_name.string, newName) == 0)
+		{
+			Con_Printf("\n\"name\" remains \"%s\" (truncated to 15 characters)\n\n", newName);
 			return;
+		}
+		else if (Q_strcmp(cl_name.string, newName) == 0)
+		{
+			return;
+		}
+
+		// Check if this is the first time setting the name (default is "player")
+		const char* default_name = "player";
+		qboolean is_first_time = (Q_strcmp(cl_name.string, default_name) == 0 && Q_strcmp(newName, default_name) != 0);
+
 		Cvar_Set ("name", newName);
+
+		// Only print the message if it's not the first time setting the name
+		if (!is_first_time) 
+		{
+		Con_Printf("\n\"name\" changed to \"%s\"", newName);
+		if (truncated)
+			Con_Printf(" (truncated to 15 characters)");
+		Con_Printf("\n\n");
+	}
 	}
 	else
 		SV_UpdateInfo((host_client-svs.clients)+1, "name", newName);
+
+	if (cmd_source == src_client && host_client) // woods #dupnames
+		SV_CheckDuplicateNames(host_client);
 
 	// JPG 1.05 - log the IP address woods for #iplog  (log the IP address)
 	if (cls.state == ca_connected && !cls.demoplayback)
@@ -3379,17 +4444,25 @@ static void Host_Like_f (void) // woods #like
 
 	char text[MAXCMDLINE];
 
-	if (strstr(cl.lastchat, ": likes")) // no intinite likes
+	if (strstr(cl.lastchat, ": ^mlikes^m")) // no intinite likes
 		return;
 
 	if (cl.lastchat[0] == '\0')
 	{
-		Con_Printf("\nnothing to like\n\n");
+		Con_Printf("\nnothing to like\n");
 		lastLikeTime = currentTime;
 		return;
 	}
 
+	// Check if we're liking a team chat message (contains parentheses)
+	qboolean is_team_message = (strchr(cl.lastchat, '(') != NULL && strchr(cl.lastchat, ')') != NULL);
+
+	if (is_team_message) {
+		q_snprintf(text, sizeof(text), "say_team likes %s", cl.lastchat + 1);
+	}
+	else {
 	q_snprintf(text, sizeof(text), "say likes %s", cl.lastchat + 1);
+	}
 	Cbuf_AddText(text);
 }
 
@@ -3867,7 +4940,7 @@ static void Host_Spawn_f (void)
 
 	MSG_WriteByte (&host_client->message, svc_signonnum);
 	MSG_WriteByte (&host_client->message, 3);
-	host_client->sendsignon = true;
+	host_client->sendsignon = PRESPAWN_FLUSH; // woods - switch to enum
 }
 
 /*
@@ -3982,201 +5055,582 @@ DEBUGGING TOOLS
 ===============================================================================
 */
 
+static void Give_ConfirmPrint(const char* fmt, ...) // woods #give+
+{
+	va_list ap;
+	char    buf[256];
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	if (cmd_source == src_client)
+		SV_ClientPrintf("%s\n", buf);
+	else
+		Con_Printf("%s\n", buf);
+}
+
 /*
 ==================
-Host_Give_f
+Host_Give_f -- woods #give+
 ==================
 */
 static void Host_Give_f (void)
 {
-	const char	*t;
-	int	v;
-	eval_t	*val;
+	const char* item = Cmd_Argv(1);                 /* what to give              */
+	int         amt = (Cmd_Argc() >= 3) ? atoi(Cmd_Argv(2)) : 999;
+	eval_t* val = NULL;
+	const char* msg = NULL;                        /* human text for echo       */
 
-	if (cmd_source != src_client)
-	{
-		Cmd_ForwardToServer ();
+	if (cmd_source != src_client) { Cmd_ForwardToServer(); return; }
+	if (pr_global_struct->deathmatch)                /* no cheats in DM           */
 		return;
+
+	/* =========================================================== *
+	 * 0.  Legacy single‑chars / digits  (kept verbatim + echo)
+	 * =========================================================== */
+	switch (item[0])
+	{
+		/*----- digit weapons (plus Hipnotic variants) ---------------*/
+	case '0': case '1': case '2': case '3': case '4':
+	case '5': case '6': case '7': case '8': case '9':
+		if (strlen(item) == 1) // Only handle single digits
+		{
+			// MED 01/04/97 added hipnotic give stuff
+			if (hipnotic)
+			{
+				if (item[0] == '6')
+				{
+					sv_player->v.items = (int)sv_player->v.items | IT_GRENADE_LAUNCHER;
+				}
+				else if (item[0] == '9')
+					sv_player->v.items = (int)sv_player->v.items | HIT_LASER_CANNON;
+				else if (item[0] == '0')
+					sv_player->v.items = (int)sv_player->v.items | HIT_MJOLNIR;
+				else if (item[0] >= '2')
+					sv_player->v.items = (int)sv_player->v.items | (IT_SHOTGUN << (item[0] - '2'));
+			}
+			else if (item[0] >= '2')
+				sv_player->v.items = (int)sv_player->v.items | (IT_SHOTGUN << (item[0] - '2'));
+
+			msg = va("weapon %c", item[0]);
+			break;
+		}
+		else if (strlen(item) == 2 && hipnotic && item[0] == '6' && item[1] == 'a')
+		{
+			// Special case for Hipnotic proximity gun
+			sv_player->v.items = (int)sv_player->v.items | HIT_PROXIMITY_GUN;
+			msg = "weapon 6a (proximity gun)";
+			break;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with digits go to keywords
+
+		/*----- letter ammo / health / armour ------------------------*/
+	case 's': /* shells */
+		if (strlen(item) == 1) // Only handle single 's'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_shells1"))))
+					val->_float = amt;
+			}
+			sv_player->v.ammo_shells = amt;
+			msg = va("%d shells", amt);
+			break;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 's' go to keywords
+
+	case 'n': /* nails */
+		if (strlen(item) == 1) // Only handle single 'n'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_nails1"))))
+				{
+					val->_float = amt;
+					if (sv_player->v.weapon <= IT_LIGHTNING)
+						sv_player->v.ammo_nails = amt;
+				}
+			}
+			else
+			{
+				sv_player->v.ammo_nails = amt;
+			}
+			msg = va("%d nails", amt);
+			break;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'n' go to keywords
+
+	case 'l': /* lava nails (Rogue) */
+		if (strlen(item) == 1) // Only handle single 'l'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_lava_nails"))))
+					val->_float = amt;
+				if (sv_player->v.weapon > IT_LIGHTNING)
+					sv_player->v.ammo_nails = amt;
+				msg = va("%d lava nails", amt);
+			}
+			else 
+			{
+				SV_ClientPrintf("lava nails (ignored - not Rogue)\n");
+				return;
+			}
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'l' go to keywords
+
+	case 'r': /* rockets */
+		if (strlen(item) == 1) // Only handle single 'r'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_rockets1"))))
+				{
+					val->_float = amt;
+					if (sv_player->v.weapon <= IT_LIGHTNING)
+						sv_player->v.ammo_rockets = amt;
+				}
+			}
+			else
+			{
+				sv_player->v.ammo_rockets = amt;
+			}
+			msg = va("%d rockets", amt);
+			break;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'r' go to keywords
+
+	case 'm': /* multi rockets (Rogue) */
+		if (strlen(item) == 1) // Only handle single 'm'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_multi_rockets"))))
+					val->_float = amt;
+				if (sv_player->v.weapon > IT_LIGHTNING)
+					sv_player->v.ammo_rockets = amt;
+				msg = va("%d multi‑rockets", amt);
+			}
+			else 
+			{
+				SV_ClientPrintf("multi rockets (ignored - not Rogue)\n");
+				return;
+			}
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'm' go to keywords
+
+	case 'h': /* health */
+		if (strlen(item) == 1) // Only handle single 'h'
+		{
+			sv_player->v.health = amt;
+			SV_StartSound(sv_player, NULL, 0, "items/r_item1.wav", 255, 1.0f);
+			msg = va("%d health", amt);
+			break;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'h' go to keywords
+
+	case 'c': /* cells */
+		if (strlen(item) == 1) // Only handle single 'c'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_cells1"))))
+				{
+					val->_float = amt;
+					if (sv_player->v.weapon <= IT_LIGHTNING)
+						sv_player->v.ammo_cells = amt;
+				}
+			}
+			else
+			{
+				sv_player->v.ammo_cells = amt;
+			}
+			msg = va("%d cells", amt);
+			break;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'c' go to keywords
+
+	case 'p': /* plasma cells (Rogue) */
+		if (strlen(item) == 1) // Only handle single 'p'
+		{
+			if (rogue)
+			{
+				if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_plasma"))))
+					val->_float = amt;
+				if (sv_player->v.weapon > IT_LIGHTNING)
+					sv_player->v.ammo_cells = amt;
+				msg = va("%d plasma cells", amt);
+			}
+			else 
+			{
+				SV_ClientPrintf("plasma cells (ignored - not Rogue)\n");
+				return;
+			}
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'p' go to keywords
+
+	case 'a': /* armour numeric */
+		if (strlen(item) == 1) // Only handle single 'a'
+		{
+			goto ARMOUR_NUMERIC;
+		}
+		else
+			goto KEYWORDS; // Multi-character strings starting with 'a' go to keywords
+
+	default:
+		goto KEYWORDS;   /* fall‑through to new keyword branch */
+	}
+	goto FINISH;         /* legacy handled –  skip keywords   */
+
+	/* =========================================================== *
+	 * 1.  Keyword interface
+	 * =========================================================== */
+KEYWORDS:
+
+	/*----- Ammo --------------------------------------------------*/
+	if (!q_strcasecmp(item, "shells")) { sv_player->v.ammo_shells = amt; msg = va("%d shells", amt); }
+	else if (!q_strcasecmp(item, "nails")) { sv_player->v.ammo_nails = amt; msg = va("%d nails", amt); }
+	else if (!q_strcasecmp(item, "rockets")) { sv_player->v.ammo_rockets = amt; msg = va("%d rockets", amt); }
+	else if (!q_strcasecmp(item, "cells")) { sv_player->v.ammo_cells = amt; msg = va("%d cells", amt); }
+	/*----- Rogue Ammo --------------------------------------------*/
+	else if (!q_strcasecmp(item, "lavanails"))
+	{
+		if (rogue)
+		{
+			if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_lava_nails"))))
+				val->_float = amt;
+			if (sv_player->v.weapon > IT_LIGHTNING)
+				sv_player->v.ammo_nails = amt;
+			msg = va("%d lava nails", amt);
+		}
+		else 
+		{
+			SV_ClientPrintf("lava nails (ignored - not Rogue)\n");
+			return;
+		}
+	}
+	else if (!q_strcasecmp(item, "multirockets"))
+	{
+		if (rogue)
+		{
+			if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_multi_rockets"))))
+				val->_float = amt;
+			if (sv_player->v.weapon > IT_LIGHTNING)
+				sv_player->v.ammo_rockets = amt;
+			msg = va("%d multi-rockets", amt);
+		}
+		else 
+		{
+			SV_ClientPrintf("multi rockets (ignored - not Rogue)\n");
+			return;
+		}
+	}
+	else if (!q_strcasecmp(item, "plasmacells"))
+	{
+		if (rogue)
+		{
+			if ((val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_plasma"))))
+				val->_float = amt;
+			if (sv_player->v.weapon > IT_LIGHTNING)
+				sv_player->v.ammo_cells = amt;
+			msg = va("%d plasma cells", amt);
+		}
+		else 
+		{
+			SV_ClientPrintf("plasma cells (ignored - not Rogue)\n");
+			return;
+		}
 	}
 
-	if (pr_global_struct->deathmatch)
-		return;
-
-	t = Cmd_Argv(1);
-	v = atoi (Cmd_Argv(2));
-
-	switch (t[0])
+	/*----- Health -----------------------------------------------*/
+	else if (!q_strcasecmp(item, "health"))
 	{
-	case '0':
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-		// MED 01/04/97 added hipnotic give stuff
+		sv_player->v.health = sv_player->v.max_health = amt;
+		SV_StartSound(sv_player, NULL, 0, "items/r_item1.wav", 255, 1.0f);
+		msg = va("%d health", amt);
+	}
+
+	/*----- Armour (colour or numeric) ---------------------------*/
+	else if (!q_strcasecmp(item, "armor"))
+	{
+		if (Cmd_Argc() == 3 && !isdigit((unsigned char)Cmd_Argv(2)[0]))
+			amt = 0;          /* colour only, numeric ignored    */
+
+	ARMOUR_NUMERIC:
+		if (!q_strcasecmp(Cmd_Argv(Cmd_Argc() - 1), "red") || amt > 150) { sv_player->v.armortype = 0.8f; amt = q_max(amt, 200); }
+		else if (!q_strcasecmp(Cmd_Argv(Cmd_Argc() - 1), "yellow") || amt > 100) { sv_player->v.armortype = 0.6f; amt = q_max(amt, 150); }
+		else if (!q_strcasecmp(Cmd_Argv(Cmd_Argc() - 1), "green")) { sv_player->v.armortype = 0.3f; amt = q_max(amt, 100); }
+		else if (amt >= 0) { /* decide type by value */         if (amt > 150) sv_player->v.armortype = 0.8f;
+		else if (amt > 100) sv_player->v.armortype = 0.6f; else sv_player->v.armortype = 0.3f;
+		}
+		sv_player->v.armorvalue = amt;
+		sv_player->v.items = (int)sv_player->v.items & ~(IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3);
+		if (sv_player->v.armortype == 0.8f) sv_player->v.items = (int)sv_player->v.items | IT_ARMOR3;
+		else if (sv_player->v.armortype == 0.6f) sv_player->v.items = (int)sv_player->v.items | IT_ARMOR2;
+		else                                   sv_player->v.items = (int)sv_player->v.items | IT_ARMOR1;
+		SV_StartSound(sv_player, NULL, 0, "items/armor1.wav", 255, 1.0f);
+		msg = va("%d armour", amt);
+	}
+	/*----- Power‑ups --------------------------------------------*/
+	else if (!q_strcasecmp(item, "quad")) { 
+		sv_player->v.items = (int)sv_player->v.items | IT_QUAD;
+		int ofs = ED_FindFieldOffset("super_damage_finished");
+		if (ofs) GetEdictFieldValue(sv_player, ofs)->_float = qcvm->time + 30.0f;
+		SV_StartSound(sv_player, NULL, 0, "items/damage.wav", 255, 1.0f);
+		host_client->powerup_warn_flags |= PWARN_GIVE;
+		msg = "Quad Damage"; 
+	}
+	else if (!q_strcasecmp(item, "pent") || !q_strcasecmp(item, "666")) { 
+		sv_player->v.items = (int)sv_player->v.items | IT_INVULNERABILITY;
+		int ofs = ED_FindFieldOffset("invincible_finished");
+		if (ofs) GetEdictFieldValue(sv_player, ofs)->_float = qcvm->time + 30.0f;
+		SV_StartSound(sv_player, NULL, 0, "items/protect.wav", 255, 1.0f);
+		host_client->powerup_warn_flags |= PWARN_GIVE;
+		msg = "Pent"; 
+	}
+	else if (!q_strcasecmp(item, "ring") || !q_strcasecmp(item, "eyes")) { 
+		sv_player->v.items = (int)sv_player->v.items | IT_INVISIBILITY;
+		int ofs = ED_FindFieldOffset("invisible_finished");
+		if (ofs) GetEdictFieldValue(sv_player, ofs)->_float = qcvm->time + 30.0f;
+		SV_StartSound(sv_player, NULL, 0, "items/inv1.wav", 255, 1.0f);
+		host_client->powerup_warn_flags |= PWARN_GIVE;
+		msg = "Ring"; 
+	}
+	else if (!q_strcasecmp(item, "suit") || !q_strcasecmp(item, "biosuit")) { 
+		sv_player->v.items = (int)sv_player->v.items | IT_SUIT;
+		int ofs = ED_FindFieldOffset("radsuit_finished");
+		if (ofs) GetEdictFieldValue(sv_player, ofs)->_float = qcvm->time + 30.0f;
+		SV_StartSound(sv_player, NULL, 0, "items/suit.wav", 255, 1.0f);
+		host_client->powerup_warn_flags |= PWARN_GIVE;
+		msg = "Biosuit"; 
+	}
+	/*----- Keys --------------------------------------------------*/
+	else if (!q_strcasecmp(item, "keys"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_KEY1 | IT_KEY2;        msg = "both keys";
+	}
+	else if (!q_strcasecmp(item, "key1") || !q_strcasecmp(item, "silverkey") || !q_strcasecmp(item, "blueflag"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_KEY1;                  msg = "silver key";
+	}
+	else if (!q_strcasecmp(item, "key2") || !q_strcasecmp(item, "goldkey") || !q_strcasecmp(item, "redflag"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_KEY2;                  msg = "gold key";
+	}
+	/*----- Sigils -----------------------------------------------*/
+	else if (!q_strcasecmp(item, "sigils") || !q_strcasecmp(item, "runes"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SIGIL1 | IT_SIGIL2 | IT_SIGIL3 | IT_SIGIL4; msg = "all sigils";
+	}
+	else if (!q_strcasecmp(item, "sigil1") || !q_strcasecmp(item, "rune1"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SIGIL1;               msg = "sigil 1";
+	}
+	else if (!q_strcasecmp(item, "sigil2") || !q_strcasecmp(item, "rune2"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SIGIL2;               msg = "sigil 2";
+	}
+	else if (!q_strcasecmp(item, "sigil3") || !q_strcasecmp(item, "rune3"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SIGIL3;               msg = "sigil 3";
+	}
+	else if (!q_strcasecmp(item, "sigil4") || !q_strcasecmp(item, "rune4"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SIGIL4;               msg = "sigil 4";
+	}
+	/*----- Individual Weapons ----------------------------------*/
+	else if (!q_strcasecmp(item, "axe") || !q_strcasecmp(item, "1"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_AXE;
+		msg = "axe";
+	}
+	else if (!q_strcasecmp(item, "shotgun") || !q_strcasecmp(item, "sg") || !q_strcasecmp(item, "2"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SHOTGUN;
+		sv_player->v.ammo_shells = 999;
+		msg = "shotgun + 999 shells";
+	}
+	else if (!q_strcasecmp(item, "supershotgun") || !q_strcasecmp(item, "ssg") || !q_strcasecmp(item, "3"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SUPER_SHOTGUN;
+		sv_player->v.ammo_shells = 999;
+		msg = "super shotgun + 999 shells";
+	}
+	else if (!q_strcasecmp(item, "nailgun") || !q_strcasecmp(item, "ng") || !q_strcasecmp(item, "4"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_NAILGUN;
+		sv_player->v.ammo_nails = 999;
+		msg = "nailgun + 999 nails";
+	}
+	else if (!q_strcasecmp(item, "supernailgun") || !q_strcasecmp(item, "sng") || !q_strcasecmp(item, "5"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SUPER_NAILGUN;
+		sv_player->v.ammo_nails = 999;
+		msg = "super nailgun + 999 nails";
+	}
+	else if (!q_strcasecmp(item, "grenadelauncher") || !q_strcasecmp(item, "gl") || !q_strcasecmp(item, "6"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_GRENADE_LAUNCHER;
+		sv_player->v.ammo_rockets = 999;
+		msg = "grenade launcher + 999 rockets";
+	}
+	else if (!q_strcasecmp(item, "rocketlauncher") || !q_strcasecmp(item, "rl") || !q_strcasecmp(item, "7"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_ROCKET_LAUNCHER;
+		sv_player->v.ammo_rockets = 999;
+		msg = "rocket launcher + 999 rockets";
+	}
+	else if (!q_strcasecmp(item, "lightninggun") || !q_strcasecmp(item, "lg") || !q_strcasecmp(item, "8"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_LIGHTNING;
+		sv_player->v.ammo_cells = 999;
+		msg = "lightning gun + 999 cells";
+	}
+	/*----- Hipnotic Weapons -----------------------------------*/
+	else if (!q_strcasecmp(item, "proximitygun") || !q_strcasecmp(item, "6a"))
+	{
 		if (hipnotic)
 		{
-			if (t[0] == '6')
-			{
-				if (t[1] == 'a')
-					sv_player->v.items = (int)sv_player->v.items | HIT_PROXIMITY_GUN;
-				else
-					sv_player->v.items = (int)sv_player->v.items | IT_GRENADE_LAUNCHER;
-			}
-			else if (t[0] == '9')
-				sv_player->v.items = (int)sv_player->v.items | HIT_LASER_CANNON;
-			else if (t[0] == '0')
-				sv_player->v.items = (int)sv_player->v.items | HIT_MJOLNIR;
-			else if (t[0] >= '2')
-				sv_player->v.items = (int)sv_player->v.items | (IT_SHOTGUN << (t[0] - '2'));
+			sv_player->v.items = (int)sv_player->v.items | HIT_PROXIMITY_GUN;
+			sv_player->v.ammo_rockets = 999;
+			msg = "proximity gun + 999 rockets";
 		}
 		else
 		{
-			if (t[0] >= '2')
-				sv_player->v.items = (int)sv_player->v.items | (IT_SHOTGUN << (t[0] - '2'));
+			SV_ClientPrintf("proximity gun (ignored - not Hipnotic)\n");
+			return;
 		}
-		break;
-
-	case 's':
-		if (rogue)
+	}
+	else if (!q_strcasecmp(item, "lasercannon") || !q_strcasecmp(item, "9"))
+	{
+		if (hipnotic)
 		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_shells1"));
-			if (val)
-				val->_float = v;
-		}
-		sv_player->v.ammo_shells = v;
-		break;
-
-	case 'n':
-		if (rogue)
-		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_nails1"));
-			if (val)
-			{
-				val->_float = v;
-				if (sv_player->v.weapon <= IT_LIGHTNING)
-					sv_player->v.ammo_nails = v;
-			}
+			sv_player->v.items = (int)sv_player->v.items | HIT_LASER_CANNON;
+			sv_player->v.ammo_cells = 999;
+			msg = "laser cannon + 999 cells";
 		}
 		else
 		{
-			sv_player->v.ammo_nails = v;
+			SV_ClientPrintf("laser cannon (ignored - not Hipnotic)\n");
+			return;
 		}
-		break;
-
-	case 'l':
-		if (rogue)
+	}
+	else if (!q_strcasecmp(item, "mjolnir") || !q_strcasecmp(item, "0"))
+	{
+		if (hipnotic)
 		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_lava_nails"));
-			if (val)
-			{
-				val->_float = v;
-				if (sv_player->v.weapon > IT_LIGHTNING)
-					sv_player->v.ammo_nails = v;
-			}
-		}
-		break;
-
-	case 'r':
-		if (rogue)
-		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_rockets1"));
-			if (val)
-			{
-				val->_float = v;
-				if (sv_player->v.weapon <= IT_LIGHTNING)
-					sv_player->v.ammo_rockets = v;
-			}
+			sv_player->v.items = (int)sv_player->v.items | HIT_MJOLNIR;
+			sv_player->v.ammo_cells = 999;
+			msg = "mjolnir + 999 cells";
 		}
 		else
 		{
-			sv_player->v.ammo_rockets = v;
+			SV_ClientPrintf("mjolnir (ignored - not Hipnotic)\n");
+			return;
 		}
-		break;
-
-	case 'm':
+	}
+	/*----- Rogue Weapons --------------------------------------*/
+	else if (!q_strcasecmp(item, "lavanailgun") || !q_strcasecmp(item, "lavagun"))
+	{
 		if (rogue)
 		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_multi_rockets"));
-			if (val)
-			{
-				val->_float = v;
-				if (sv_player->v.weapon > IT_LIGHTNING)
-					sv_player->v.ammo_rockets = v;
-			}
-		}
-		break;
-
-	case 'h':
-		sv_player->v.health = v;
-		break;
-
-	case 'c':
-		if (rogue)
-		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_cells1"));
-			if (val)
-			{
-				val->_float = v;
-				if (sv_player->v.weapon <= IT_LIGHTNING)
-					sv_player->v.ammo_cells = v;
-			}
+			sv_player->v.items = (int)sv_player->v.items | RIT_LAVA_NAILGUN;
+			sv_player->v.ammo_nails = 999;
+			msg = "lava nailgun + 999 nails";
 		}
 		else
 		{
-			sv_player->v.ammo_cells = v;
+			SV_ClientPrintf("lava nailgun (ignored - not Rogue)\n");
+			return;
 		}
-		break;
-
-	case 'p':
+	}
+	else if (!q_strcasecmp(item, "multigrenade") || !q_strcasecmp(item, "multigren"))
+	{
 		if (rogue)
 		{
-			val = GetEdictFieldValue(sv_player, ED_FindFieldOffset("ammo_plasma"));
-			if (val)
-			{
-				val->_float = v;
-				if (sv_player->v.weapon > IT_LIGHTNING)
-					sv_player->v.ammo_cells = v;
-			}
+			sv_player->v.items = (int)sv_player->v.items | RIT_MULTI_GRENADE;
+			sv_player->v.ammo_rockets = 999;
+			msg = "multi grenade launcher + 999 rockets";
 		}
-		break;
-
-	//johnfitz -- give armour
-	case 'a':
-		if (v > 150)
+		else
 		{
-			sv_player->v.armortype = 0.8;
-			sv_player->v.armorvalue = v;
-			sv_player->v.items = sv_player->v.items -
-					((int)(sv_player->v.items) & (int)(IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3)) +
-					IT_ARMOR3;
+			SV_ClientPrintf("multi grenade launcher (ignored - not Rogue)\n");
+			return;
 		}
-		else if (v > 100)
+	}
+	else if (!q_strcasecmp(item, "multirocket") || !q_strcasecmp(item, "multirock"))
+	{
+		if (rogue)
 		{
-			sv_player->v.armortype = 0.6;
-			sv_player->v.armorvalue = v;
-			sv_player->v.items = sv_player->v.items -
-					((int)(sv_player->v.items) & (int)(IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3)) +
-					IT_ARMOR2;
+			sv_player->v.items = (int)sv_player->v.items | RIT_MULTI_ROCKET;
+			sv_player->v.ammo_rockets = 999;
+			msg = "multi rocket launcher + 999 rockets";
 		}
-		else if (v >= 0)
+		else
 		{
-			sv_player->v.armortype = 0.3;
-			sv_player->v.armorvalue = v;
-			sv_player->v.items = sv_player->v.items -
-					((int)(sv_player->v.items) & (int)(IT_ARMOR1 | IT_ARMOR2 | IT_ARMOR3)) +
-					IT_ARMOR1;
+			SV_ClientPrintf("multi rocket launcher (ignored - not Rogue)\n");
+			return;
 		}
-		break;
-		//johnfitz
+	}
+	else if (!q_strcasecmp(item, "plasmagun") || !q_strcasecmp(item, "plasma"))
+	{
+		if (rogue)
+		{
+			sv_player->v.items = (int)sv_player->v.items | RIT_PLASMA_GUN;
+			sv_player->v.ammo_cells = 999;
+			msg = "plasma gun + 999 cells";
+		}
+		else
+		{
+			SV_ClientPrintf("plasma gun (ignored - not Rogue)\n");
+			return;
+		}
+	}
+	/*----- Weapons set / Macro ----------------------------------*/
+	else if (!q_strcasecmp(item, "weapons"))
+	{
+		sv_player->v.items = (int)sv_player->v.items | IT_SHOTGUN | IT_SUPER_SHOTGUN | IT_NAILGUN | IT_SUPER_NAILGUN |
+			IT_GRENADE_LAUNCHER | IT_ROCKET_LAUNCHER | IT_LIGHTNING;
+		sv_player->v.weapon = IT_SHOTGUN; // Equip shotgun by default
+		sv_player->v.weaponframe = 0;
+		sv_player->v.ammo_shells = 999;
+		sv_player->v.ammo_nails = 999;
+		sv_player->v.ammo_rockets = 999;
+		sv_player->v.ammo_cells = 999;
+		msg = "all weapons";
+	}
+	else if (!q_strcasecmp(item, "all"))
+	{
+		Cmd_ExecuteString("give weapons", src_client);
+		Cmd_ExecuteString("give shells 100", src_client);
+		Cmd_ExecuteString("give nails 200", src_client);
+		Cmd_ExecuteString("give rockets 100", src_client);
+		Cmd_ExecuteString("give cells 200", src_client);
+		Cmd_ExecuteString("give health 250", src_client);
+		Cmd_ExecuteString("give armor red", src_client);
+		Cmd_ExecuteString("give sigils", src_client);
+		msg = "EVERYTHING";
+	}
+	else
+	{
+		SV_ClientPrintf("Unknown give item '%s'\n", item); return;
 	}
 
-	//johnfitz -- update currentammo to match new ammo (so statusbar updates correctly)
-	switch ((int)(sv_player->v.weapon))
+	/* =========================================================== *
+	 * 2.  Sync HUD currentammo
+	 * =========================================================== */
+FINISH:
+	switch ((int)sv_player->v.weapon)
 	{
 	case IT_SHOTGUN:
 	case IT_SUPER_SHOTGUN:
@@ -4210,6 +5664,113 @@ static void Host_Give_f (void)
 		break;
 	}
 	//johnfitz
+
+	/* =========================================================== *
+	 * 3.  Confirmation echo
+	 * =========================================================== */
+	if (msg)
+		Give_ConfirmPrint("Gave %s", msg);
+}
+
+qboolean CompleteGive (const char* partial, void* unused) // woods #give+
+{
+	/* ------------------------------------------------------------------ *
+	 *  Stage 1 – completing the **second token** ("give <it…TAB>")       *
+	 * ------------------------------------------------------------------ */
+	if (Cmd_Argc() == 2)   /* user typed exactly:  give <partial> */
+	{
+		static const char* items[] = {
+			/* ammo ---------------------------------------------------- */
+			"shells", "nails", "rockets", "cells",
+			/* rogue ammo ---------------------------------------------- */
+			"lavanails", "multirockets", "plasmacells",
+			/* health -------------------------------------------------- */
+			"health",
+			/* armour (colour added in stage 2) ------------------------ */
+			"armor",
+			/* power‑ups ---------------------------------------------- */
+			"quad", "pent", "ring", "suit", "eyes", "666", "biosuit",
+			/* keys (aliases allowed) ---------------------------------- */
+			"keys", "key1", "key2", "silverkey", "goldkey", "blueflag", "redflag",
+			/* runes / sigils ----------------------------------------- */
+			"sigils", "sigil1", "sigil2", "sigil3", "sigil4", "rune1", "rune2", "rune3", "rune4",
+			/* weapons & macros --------------------------------------- */
+			"weapons", "all",
+			/* individual weapons ------------------------------------- */
+			"axe", "shotgun", "sg", "supershotgun", "ssg", "nailgun", "ng", "supernailgun", "sng",
+			"grenadelauncher", "gl", "rocketlauncher", "rl", "lightninggun", "lg",
+			/* hipnotic weapons --------------------------------------- */
+			"proximitygun", "lasercannon", "mjolnir",
+			/* rogue weapons ------------------------------------------ */
+			"lavanailgun", "lavagun", "multigrenade", "multigren", "multirocket", "multirock", "plasmagun", "plasma",
+			/* legacy shorthands -------------------------------------- */
+			"s", "n", "r", "c", "h", "l", "m", "p",
+			/* legacy digits 0‑9 (weapon numbers & Hipnotic specials) --*/
+			"0","1","2","3","4","5","6","7","8","9","6a"
+		};
+
+		for (size_t i = 0; i < Q_COUNTOF(items); ++i)
+			if (!q_strncasecmp(partial, items[i], strlen(partial)))
+				Con_AddToTabList(items[i], partial, NULL, NULL);
+
+		return true;       /* handled */
+	}
+
+	/* ------------------------------------------------------------------ *
+	 *  Stage 2 – completing an **optional third token**.                 *
+	 * ------------------------------------------------------------------ */
+
+	 /* 2a: armour colour after "give armor …" --------------------------- */
+	if (Cmd_Argc() == 3 && !q_strcasecmp(Cmd_Argv(1), "armor"))
+	{
+		static const char* colours[] = { "red", "yellow", "green" };
+		for (size_t i = 0; i < Q_COUNTOF(colours); ++i)
+			if (!q_strncasecmp(partial, colours[i], strlen(partial)))
+				Con_AddToTabList(colours[i], partial, NULL, NULL);
+
+		static const char* values[] = { "100", "150", "200", "999" };
+		for (size_t i = 0; i < Q_COUNTOF(values); ++i)
+			if (!q_strncasecmp(partial, values[i], strlen(partial)))
+				Con_AddToTabList(values[i], partial, NULL, NULL);
+
+		return true;
+	}
+
+	/* 2b: health presets after "give health …" ------------------------- */
+	if (Cmd_Argc() == 3 && !q_strcasecmp(Cmd_Argv(1), "health"))
+	{
+		static const char* hp[] = { "100", "150", "200", "250", "999" };
+		for (size_t i = 0; i < Q_COUNTOF(hp); ++i)
+			if (!q_strncasecmp(partial, hp[i], strlen(partial)))
+				Con_AddToTabList(hp[i], partial, NULL, NULL);
+
+		return true;
+	}
+
+	/* 2c: full‑stack suggestion (999) for any ammo item ---------------- */
+	if (Cmd_Argc() == 3 &&
+		/* long names */ (!q_strcasecmp(Cmd_Argv(1), "shells") ||
+			!q_strcasecmp(Cmd_Argv(1), "nails") ||
+			!q_strcasecmp(Cmd_Argv(1), "rockets") ||
+			!q_strcasecmp(Cmd_Argv(1), "cells") ||
+			!q_strcasecmp(Cmd_Argv(1), "lavanails") ||
+			!q_strcasecmp(Cmd_Argv(1), "multirockets") ||
+			!q_strcasecmp(Cmd_Argv(1), "plasmacells") ||
+			/* short names */ !q_strcasecmp(Cmd_Argv(1), "s") ||
+			!q_strcasecmp(Cmd_Argv(1), "n") ||
+			!q_strcasecmp(Cmd_Argv(1), "r") ||
+			!q_strcasecmp(Cmd_Argv(1), "c") ||
+			!q_strcasecmp(Cmd_Argv(1), "l") ||
+			!q_strcasecmp(Cmd_Argv(1), "m") ||
+			!q_strcasecmp(Cmd_Argv(1), "p")))
+	{
+		if (!q_strncasecmp(partial, "999", strlen(partial)))
+			Con_AddToTabList("999", partial, NULL, NULL);
+
+		return true;
+	}
+
+	return false;   /* no suggestions for other argument counts */
 }
 
 static edict_t	*FindViewthing (void)
@@ -4735,7 +6296,7 @@ static void Host_Download_f(void)
 			MSG_WriteByte (&host_client->message, svc_stufftext);
 			MSG_WriteString (&host_client->message, "\nstopdownload\n");
 		}
-		host_client->sendsignon = true;	//override any keepalive issues.
+		host_client->sendsignon = PRESPAWN_FLUSH;	//override any keepalive issues. woods - switch to enum
 	}
 }
 
@@ -4822,7 +6383,14 @@ void Host_DownloadAck(client_t *client)
 		if (data)
 		{
 			fseek(client->download.file, host_client->download.startpos, SEEK_SET);
-			fread(data, 1, host_client->download.size, client->download.file);
+			size_t read_size = fread(data, 1, host_client->download.size, client->download.file); // woods
+			if (read_size != host_client->download.size)
+			{
+				free(data);
+				fclose(client->download.file);
+				client->download.file = NULL;
+				return;
+			}
 			hash = CRC_Block(data, host_client->download.size);
 			free(data);
 		}
@@ -4832,7 +6400,7 @@ void Host_DownloadAck(client_t *client)
 		MSG_WriteByte (&host_client->message, svc_stufftext);
 		MSG_WriteString (&host_client->message, va("cl_downloadfinished %u %u \"%s\"\n", client->download.size, hash, client->download.name));
 		*client->download.name = 0;
-		host_client->sendsignon = true;	//override any keepalive issues.
+		host_client->sendsignon = PRESPAWN_FLUSH;	//override any keepalive issues. woods - switch to enum
 	}
 }
 
@@ -4884,6 +6452,22 @@ void Host_Setinfo_f(void)
 		}
 		else
 		{
+			if (*key == '*') // woods
+			{
+				if (!strcmp(key, "*ver") && !host_client->spawned) // allow *ver only during initial connection
+				{
+					Con_DPrintf("allowing *ver set from %s (not yet spawned)\n", host_client->name);
+				}
+				else
+				{
+					if (!strcmp(key, "*ver"))
+						SV_ClientPrintf("\nrejecting *ver set from %s (already spawned)\n\n", host_client->name);
+					else
+						SV_ClientPrintf("\nrejecting *%s set from %s (restricted key)\n\n", key + 1, host_client->name);
+					return;
+				}
+			}
+
 			SV_UpdateInfo((host_client - svs.clients)+1, key, val);
 		}
 	}
@@ -4901,8 +6485,6 @@ void Host_Setinfo_f(void)
 				Cvar_Set(key, val);
 			else
 			{
-				if (*key == '*') // woods #*ver
-					return;	//users may not change * keys (beyond initial connection anyway).
 				Info_SetKey(cls.userinfo, sizeof(cls.userinfo), key, val);
 				if (cls.state == ca_connected)
 					Cmd_ForwardToServer();
@@ -5019,6 +6601,8 @@ void Host_InitCommands (void)
 	Cmd_AddCommand ("load", Host_Loadgame_f);
 	Cmd_AddCommand ("save", Host_Savegame_f);
 	Cmd_AddCommand_ClientCommandQC ("give", Host_Give_f);
+	Cmd_AddCommand_ClientCommandQC ("massacre", Host_Massacre_f);
+	Cmd_AddCommand_ClientCommandQC ("resurrect", Host_Resurrect_f); // woods #resurrect
 	Cmd_AddCommand_ClientCommand ("download", Host_Download_f);
 	Cmd_AddCommand_ClientCommand ("sv_startdownload", Host_StartDownload_f);
 	Cmd_AddCommand_ClientCommand ("enablecsqc", Host_EnableCSQC_f);
@@ -5060,4 +6644,3 @@ void Host_InitCommands (void)
 	}
 
 }
-

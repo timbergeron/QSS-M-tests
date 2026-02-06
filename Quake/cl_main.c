@@ -33,6 +33,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <curl/curl.h> // woods #webdl
 #include "cfgfile.h" // woods #webdl
+#include "q_ctype.h" // woods #entcopy
+
+void CL_RotateModel_OnChange(cvar_t* var); // woods #clmrotate
+void CL_RotateModel_f(void); // woods #clmrotate
+void CL_RotateModel_RebuildFromCvar(void); // woods #clmrotate
 
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
@@ -62,8 +67,9 @@ cvar_t	cl_maxpitch = {"cl_maxpitch", "90", CVAR_ARCHIVE}; //johnfitz -- variable
 cvar_t	cl_minpitch = {"cl_minpitch", "-90", CVAR_ARCHIVE}; //johnfitz -- variable pitch clamping
 
 cvar_t cl_recordingdemo = {"cl_recordingdemo", "", CVAR_ROM};	//the name of the currently-recording demo.
-cvar_t	cl_demoreel = {"cl_demoreel", "0", CVAR_ARCHIVE};
+cvar_t	cl_demoreel = {"cl_demoreel", "1", CVAR_ARCHIVE};
 
+cvar_t	cl_beams_polygons = {"cl_beams_polygons", "0", CVAR_ARCHIVE}; // woods #beamspoly
 cvar_t	cl_truelightning = {"cl_truelightning", "0",CVAR_ARCHIVE}; // woods for #truelight
 cvar_t	cl_say = {"cl_say","0", CVAR_ARCHIVE}; // woods #ezsay
 cvar_t  cl_afk = {"cl_afk", "0", CVAR_ARCHIVE }; // woods #smartafk
@@ -73,6 +79,8 @@ cvar_t  r_explosionlight = {"r_explosionlight", "0", CVAR_ARCHIVE}; // woods #ex
 cvar_t  cl_muzzleflash = {"cl_muzzleflash", "0", CVAR_ARCHIVE}; // woods #muzzleflash
 cvar_t  cl_deadbodyfilter = {"cl_deadbodyfilter", "1", CVAR_ARCHIVE}; // woods #deadbody
 cvar_t	cl_r2g = {"cl_r2g","0",CVAR_ARCHIVE}; // woods #r2g
+cvar_t	cl_demoeyes = {"cl_demoeyes", "0", CVAR_ARCHIVE}; // woods #demoeyes (value = alpha, 0 = disabled)
+cvar_t	cl_rot = {"cl_rot", "", CVAR_ARCHIVE}; // woods #clmrotate
 
 cvar_t  w_switch = {"w_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
 cvar_t  b_switch = {"b_switch", "0", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #autoweapon
@@ -81,8 +89,11 @@ cvar_t  f_status = {"f_status", "on", CVAR_ARCHIVE | CVAR_USERINFO}; // woods #f
 cvar_t  cl_ambient = {"cl_ambient", "1", CVAR_ARCHIVE}; // woods #stopsound
 cvar_t  r_coloredpowerupglow = {"r_coloredpowerupglow", "1", CVAR_ARCHIVE}; // woods
 cvar_t  cl_bobbing = {"cl_bobbing", "0", CVAR_ARCHIVE}; // woods (joequake #weaponbob)
-cvar_t	cl_web_download_url = {"cl_web_download_url", "q1tools.github.io", CVAR_ARCHIVE}; // woods #webdl
+cvar_t	cl_web_download_url = {"cl_web_download_url", "q1tools/q1tools.github.io", CVAR_ARCHIVE}; // woods #webdl
 cvar_t	cl_web_download_url2 = { "cl_web_download_url2", "maps.quakeworld.nu", CVAR_ARCHIVE }; // woods #webdl
+cvar_t	cl_autovote = {"cl_autovote", "0", CVAR_ARCHIVE}; // woods #autovote
+cvar_t	cl_onload = {"cl_onload", "", CVAR_ARCHIVE}; // woods #onload
+cvar_t	cl_contentfilter = {"cl_contentfilter", "0", CVAR_ARCHIVE}; // woods #contentfilter
 
 client_static_t	cls;
 client_state_t	cl;
@@ -99,6 +110,7 @@ extern float	host_netinterval;	//Spike
 
 extern cvar_t	allow_download; // woods #ftehack
 extern cvar_t	pq_lag; // woods
+extern cvar_t	sv_mapcrc; // woods #mapcrc
 extern qboolean	qeintermission; // woods #qeintermission
 extern qboolean	crxintermission; // woods #crxintermission
 
@@ -113,6 +125,7 @@ extern qboolean netquakeio; // woods
 extern int retry_counter; // woods #ms
 extern int grenadecache, rocketcache; // woods #r2g
 extern qboolean pausedprint; // woods
+static qboolean prediction_msg_shown = false; // woods #prednotify
 
 void CL_ClearTrailStates(void)
 {
@@ -209,8 +222,7 @@ void CL_Disconnect (void)
 
 // stop sounds (especially looping!)
 	S_StopAllSounds (true);
-	BGM_Stop();
-	CDAudio_Stop();
+	BGM_Pause ();
 
 // if running a local server, shut it down
 	if (cls.demoplayback)
@@ -247,14 +259,20 @@ void CL_Disconnect (void)
 	cl.matchinp = 0; // woods
 	netquakeio = false; // woods
 
+	Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*mapmismatch", ""); // clear -- woods #mapcrc
+
 	if (cl.modtype == 1 || cl.modtype == 4)
 		Cbuf_AddText("setinfo observing off\n"); // woods
 	pausedprint = false;  // woods
+	cl.match_pause_time = 0; // woods
+	prediction_msg_shown = false; // woods #prednotify
 }
 
 void CL_Disconnect_f (void)
 {
 	CL_Disconnect ();
+	BGM_Stop ();
+	CDAudio_Stop ();
 	if (sv.active)
 		Host_ShutdownServer (false);
 }
@@ -272,7 +290,7 @@ void CL_EstablishConnection (const char *host)
 	static char lasthost[NET_NAMELEN];
 
 	char addressip[70] = {'\0'}; // woods
-	char local_verbose[64]; // woods
+	char local_verbose[NET_NAMELEN + sizeof(addressip)]; // woods
 
 	int	numaddresses; // woods
 	qhostaddr_t addresses[16]; // woods
@@ -300,12 +318,18 @@ void CL_EstablishConnection (const char *host)
 	numaddresses = NET_ListAddresses(addresses, sizeof(addresses) / sizeof(addresses[0])); // woods
 
 	if (numaddresses && !strstr(addresses[0], "[")) // woods, no [ for ipv6
-		snprintf(addressip, sizeof(addressip), " -- %s", addresses[0]);
+	{
+		q_strlcpy(addressip, " -- ", sizeof(addressip));
+		q_strlcat(addressip, addresses[0], sizeof(addressip));
+	}
 
 	if (!strcmp(host, "local") || !strcmp(host, "localhost")) // woods
-		sprintf(local_verbose, "%s%s", host, addressip);
+	{
+		q_strlcpy(local_verbose, host, sizeof(local_verbose));
+		q_strlcat(local_verbose, addressip, sizeof(local_verbose));
+	}
 	else
-		sprintf(local_verbose, "%s", host);
+		q_strlcpy(local_verbose, host, sizeof(local_verbose));
 
 	if (!strstr(lasthost, ":"))
 		Con_Printf("connecting to ^m%s:%i\n", local_verbose, net_hostport); // woods include port if not specified
@@ -336,10 +360,8 @@ void CL_EstablishConnection (const char *host)
 
 void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)
 {
-	//if (*key == '*')
-	//	return;	//servers don't like that sort of userinfo key
-
-	Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*ver", ENGINE_NAME_AND_VER); // woods, allow initial only #*ver
+	if (*key == '*' && strcmp(key, "*ver"))
+		return;	//servers don't like that sort of userinfo key
 
 	if (!strcmp(key, "name"))
 		return;	//already unconditionally sent earlier.
@@ -384,6 +406,8 @@ void CL_SignonReply (void)
 		MSG_WriteByte (&cls.message, clc_stringcmd);
 		MSG_WriteString (&cls.message, va("name \"%s\"\n", cl_name.string));
 
+		Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*ver", ENGINE_NAME_AND_VER); // woods, allow initial only #*ver
+
 		cl.sendprespawn = true;
 		break;
 
@@ -411,10 +435,13 @@ void CL_SignonReply (void)
 
 		if (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected && !cl_ambient.value) // woods for no background sounds #stopsound
 			Cmd_ExecuteString("stopsound\n", src_command);
-		if ((cl_autodemo.value == 1 || cl_autodemo.value == 4) && !cls.demoplayback && !cls.demorecording)   // woods for #autodemo
-			Cmd_ExecuteString("record\n", src_command);
-		if (cl_autodemo.value == 3 && !cls.demoplayback && !cls.demorecording && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected))   // woods for #autodemo
-			Cmd_ExecuteString("record\n", src_command);
+		if (!cls.demoplayback && !cls.demorecording &&
+			(cl_autodemo.value == 1 ||
+				(cl_autodemo.value == 3 && cl.gametype == GAME_DEATHMATCH) ||
+				cl_autodemo.value == 4))
+		{
+			Cbuf_AddText("record\n");
+		}
 		if (VID_HasMouseOrInputFocus())
 			key_dest = key_game; // woods exit console on server connect
 		maptime = SDL_GetTicks(); // woods connected map time #maptime
@@ -424,8 +451,12 @@ void CL_SignonReply (void)
 
 		qeintermission = false; // woods #qeintermission
 		crxintermission = false; // woods #crxintermission
+		pausedprint = false; // woods
+		cl.match_pause_time = 0; // woods
 
 		cl.realviewentity = cl.viewentity; // woods -- eyecam reports wrong viewentity, lets record real one
+
+		strncpy(cl.observer, "n", sizeof(cl.observer));
 
 		if (COM_FileExists("connect.cfg", NULL))
 			SDL_AddTimer(900, exec_connect_cfg, NULL); // 2 sec delay after connect #execdelay
@@ -493,7 +524,69 @@ void CL_SignonReply (void)
 		if (!q_strcasecmp(val2, "practice"))
 			cl.playmode = 3;
 
+		const char* val3;
+		char buf8[4];
+		val3 = Info_GetKey(cl.serverinfo, "sv_fullpitch", buf8, sizeof(buf8)); // woods #pqfullpitch
+		if (val3 && val3[0] != '\0')
+		{
+			if (strcmp(val3, "0") == 0)
+				cl.fullpitch = 0;
+			else
+				cl.fullpitch = 1;
+		}
+		else
+			cl.fullpitch = 1;
+
 		retry_counter = 0; // woods #ms
+
+		if (sv_mapcrc.value && !sv.active) // woods #mapcrc -- skip CRC validation for listen servers
+		{
+			// Validate map CRC now that we're fully connected and have complete serverinfo
+			char crc_quick_str[64], crc_full_str[64];
+			Con_DPrintf("Starting two-stage map CRC validation after full connection...\n");
+			
+			qboolean has_quick = Info_GetKey(cl.serverinfo, "*mapcrc_quick", crc_quick_str, sizeof(crc_quick_str)) && *crc_quick_str;
+			qboolean has_full = Info_GetKey(cl.serverinfo, "*mapcrc_full", crc_full_str, sizeof(crc_full_str)) && *crc_full_str;
+			
+			if (has_quick && has_full)
+			{
+				cls.map_crc_quick_server = strtoul(crc_quick_str, NULL, 10);
+				cls.map_crc_full_server = strtoul(crc_full_str, NULL, 10);
+				Con_DPrintf("Server Quick CRC: %u, Full CRC: %u\n", cls.map_crc_quick_server, cls.map_crc_full_server);
+				Con_DPrintf("Validating map: %s\n", cl.model_name[1]);
+				
+				// Validate map CRC - allow connection but track mismatch
+				if (!CL_MapCRC_Validate(cl.model_name[1], cls.map_crc_quick_server, cls.map_crc_full_server))
+				{
+					// Set userinfo flag to indicate map mismatch
+					Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*mapmismatch", "1");
+					Con_Warning("Your map version differs from the server's version\n");
+				}
+				else
+				{
+					// Clear any previous mismatch flag
+					Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*mapmismatch", "");
+					Con_DPrintf("Map CRC validation passed - maps match\n");
+				}
+			}
+			else
+			{
+				Con_DPrintf("Server did not provide complete CRC info (quick='%s', full='%s')\n", 
+				          has_quick ? crc_quick_str : "(missing)", 
+				          has_full ? crc_full_str : "(missing)");
+				cls.map_crc_quick_server = 0;
+				cls.map_crc_full_server = 0;
+				// Clear mismatch flag when server doesn't provide complete CRC
+				Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*mapmismatch", "");
+			}
+		}
+		else if (sv_mapcrc.value)
+		{
+			Con_DPrintf("Skipping map CRC validation for listen server\n");
+			cls.map_crc_quick_server = 0;
+			cls.map_crc_full_server = 0;
+			Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*mapmismatch", "");
+		}
 
 		break;
 	}
@@ -700,6 +793,12 @@ static qboolean CL_LerpEntity(entity_t *ent, vec3_t org, vec3_t ang, float frac)
 
 	if (ent->netstate.pmovetype && ent-cl.entities==cl.viewentity && qcvm->worldmodel && !cl_nopred.value && cls.signon == SIGNONS)
 	{	//note: V_CalcRefdef will copy from cl.entities[viewent] to get its origin, so doing it here is the proper place anyway.
+		if (!prediction_msg_shown && !cls.demoplayback) // woods #prednotify
+		{
+			prediction_msg_shown = true;
+			Con_Printf("Server movement prediction enabled\n");
+		}
+
 		static struct
 		{
 			int seq;
@@ -933,6 +1032,337 @@ static void CL_RocketTrail(entity_t* ent, int type)
 	VectorCopy(ent->origin, ent->trailorg);
 }
 
+
+/* --------------------------------------------------*/
+/*    Client-side coloured player glows -- woods     */
+/* --------------------------------------------------*/
+
+/* Match dlight key (full entnum or low 8 bits — supports common forks) */
+static qboolean CPG_KeyMatch(int k, int entnum)
+{
+	return (k == entnum) || (k == (entnum & 0xFF));
+}
+
+/* Kill any active dlights tied to entnum */
+static void CPG_KillDlights(int entnum)
+{
+	for (int i = 0; i < MAX_DLIGHTS; ++i) {
+		dlight_t* dl = &cl_dlights[i];
+		if (!dl->die || dl->die <= cl.time) continue;
+		if (CPG_KeyMatch(dl->key, entnum)) {
+			dl->die = cl.time;
+			dl->radius = 0;
+		}
+	}
+}
+
+/* Retint active dlights tied to entnum (RGB 0..1) */
+static void CPG_TintDlights(int entnum, float r, float g, float b)
+{
+	for (int i = 0; i < MAX_DLIGHTS; ++i) {
+		dlight_t* dl = &cl_dlights[i];
+		if (!dl->die || dl->die <= cl.time) continue;
+		if (CPG_KeyMatch(dl->key, entnum)) {
+			dl->color[0] = r;
+			dl->color[1] = g;
+			dl->color[2] = b;
+		}
+	}
+}
+
+/*
+	Apply local-player powerup tinting.
+	Call once per frame *before* EF_DIMLIGHT dlights are spawned if possible.
+*/
+static void CL_ClientsidePowerupColor(entity_t* ent, int entnum)
+{
+	if (!r_coloredpowerupglow.value)
+		return;
+
+	if (cl.gametype == GAME_DEATHMATCH || cl.maxclients > 1)
+		return;
+
+	const qboolean is_local = (entnum == cl.viewentity);
+
+	/* Non-local ents: only known player models */
+	if (!is_local) {
+		if (!ent->model || !ent->model->name[0]) return;
+		if (strcmp(ent->model->name, "progs/player.mdl"))
+			return;
+	}
+
+	/* Snapshot local inventory */
+	const int items = cl.items;
+	const qboolean have_quad = (items & IT_QUAD) != 0;
+	const qboolean have_pent = (items & IT_INVULNERABILITY) != 0;
+	const qboolean have_ring = (items & IT_INVISIBILITY) != 0;
+
+	/* No powerups → no glow */
+	if (!have_quad && !have_pent && !have_ring) {
+		ent->effects &= ~(EF_DIMLIGHT | EF_RED | EF_BLUE);
+		CPG_KillDlights(entnum);
+		return;
+	}
+
+	/* Ring only → no glow */
+	if (have_ring && !have_quad && !have_pent) {
+		ent->effects &= ~(EF_DIMLIGHT | EF_RED | EF_BLUE);
+		CPG_KillDlights(entnum);
+		return;
+	}
+
+	/* Quad and/or Pent (Ring may also be present) */
+	if (!(ent->effects & EF_DIMLIGHT))
+		ent->effects |= EF_DIMLIGHT;
+
+	ent->effects &= ~(EF_RED | EF_BLUE);
+
+	if (have_quad && have_pent) {
+		ent->effects |= (EF_RED | EF_BLUE);    /* purple */
+		CPG_TintDlights(entnum, 1, 0, 1);
+	}
+	else if (have_quad) {
+		ent->effects |= EF_BLUE;               /* blue */
+		CPG_TintDlights(entnum, 0, 0, 1);
+	}
+	else { /* have_pent */
+		ent->effects |= EF_RED;                /* red */
+		CPG_TintDlights(entnum, 1, 0, 0);
+	}
+}
+
+/* ------------------------------------------------------*/
+/*    woods #demoeyes show player model for eyes entity  */
+/* ------------------------------------------------------*/
+
+#define DEMOEYES_ANIM_FPS        10.0f
+#define DEMOEYES_SOURCE_MODEL    "progs/eyes.mdl"
+#define DEMOEYES_PLAYER_MODEL    "progs/player.mdl"
+
+/* Player model animation frames (from player.qc) */
+#define DEMOEYES_AXRUN_FIRST     0
+#define DEMOEYES_AXRUN_COUNT     6
+#define DEMOEYES_ROCKRUN_FIRST   6
+#define DEMOEYES_ROCKRUN_COUNT   6
+#define DEMOEYES_STAND_FIRST     12
+#define DEMOEYES_STAND_COUNT     5
+#define DEMOEYES_AXSTND_FIRST    17
+#define DEMOEYES_AXSTND_COUNT    12
+#define DEMOEYES_AXPAIN_FIRST    29
+#define DEMOEYES_AXPAIN_COUNT    6
+#define DEMOEYES_PAIN_FIRST      35
+#define DEMOEYES_PAIN_COUNT      6
+#define DEMOEYES_NAILATT_FIRST   103
+#define DEMOEYES_NAILATT_COUNT   2
+#define DEMOEYES_LIGHT_FIRST     105
+#define DEMOEYES_LIGHT_COUNT     2
+#define DEMOEYES_ROCKATT_FIRST   107
+#define DEMOEYES_ROCKATT_COUNT   6
+#define DEMOEYES_SHOTATT_FIRST   113
+#define DEMOEYES_SHOTATT_COUNT   6
+#define DEMOEYES_AXATT_FIRST     119
+#define DEMOEYES_AXATT_COUNT     6
+
+/* Animation state for viewentity */
+typedef enum {
+	DEMOEYES_ANIM_NONE = 0,
+	DEMOEYES_ANIM_ATTACK,
+	DEMOEYES_ANIM_PAIN
+} demoeyes_anim_type_t;
+
+static struct {
+	demoeyes_anim_type_t type;
+	double start_time;
+	int last_health;
+	int first_frame;
+	int frame_count;
+	qmodel_t *cached_player_model;
+} cl_demoeyes_state = {DEMOEYES_ANIM_NONE, 0.0, -1, 0, 0, NULL};
+
+static qmodel_t *CL_DemoEyesFindPlayerModel(void)
+{
+	if (cl_demoeyes_state.cached_player_model && 
+	    cl_demoeyes_state.cached_player_model->name[0] &&
+	    !strcmp(cl_demoeyes_state.cached_player_model->name, DEMOEYES_PLAYER_MODEL))
+		return cl_demoeyes_state.cached_player_model;
+
+	for (int i = 0; i < MAX_MODELS; ++i) {
+		qmodel_t *candidate = cl.model_precache[i];
+		if (!candidate || !candidate->name[0])
+			continue;
+		if (!strcmp(candidate->name, DEMOEYES_PLAYER_MODEL)) {
+			cl_demoeyes_state.cached_player_model = candidate;
+			return candidate;
+		}
+	}
+
+	return NULL;
+}
+
+static qboolean CL_DemoEyesIsObserving(void)
+{
+	if (cl.realviewentity < 1 || cl.realviewentity > cl.maxclients)
+		return false;
+	
+	char buf1[32], buf2[32];
+	const char *obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf1, sizeof(buf1));
+	const char *star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf2, sizeof(buf2));
+	
+	if (!strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk") ||
+	    !strcmp(star_obs, "eyecam") || !strcmp(star_obs, "chase") || !strcmp(star_obs, "fly") || !strcmp(star_obs, "walk"))
+		return true;
+	
+	return false;
+}
+
+static qboolean CL_DemoEyesIsAxe(qmodel_t *weapon_model)
+{
+	return (weapon_model && weapon_model->name[0] && 
+	        !strcmp(weapon_model->name, "progs/v_axe.mdl"));
+}
+
+static void CL_DemoEyesGetAttackAnim(qmodel_t *weapon_model, int *first, int *count)
+{
+	if (!weapon_model || !weapon_model->name[0]) {
+		*first = DEMOEYES_ROCKATT_FIRST;
+		*count = DEMOEYES_ROCKATT_COUNT;
+		return;
+	}
+	
+	if (!strcmp(weapon_model->name, "progs/v_axe.mdl")) {
+		*first = DEMOEYES_AXATT_FIRST; *count = DEMOEYES_AXATT_COUNT;
+	}
+	else if (!strcmp(weapon_model->name, "progs/v_shot.mdl") || 
+	         !strcmp(weapon_model->name, "progs/v_shot2.mdl")) {
+		*first = DEMOEYES_SHOTATT_FIRST; *count = DEMOEYES_SHOTATT_COUNT;
+	}
+	else if (!strcmp(weapon_model->name, "progs/v_nail.mdl") || 
+	         !strcmp(weapon_model->name, "progs/v_nail2.mdl")) {
+		*first = DEMOEYES_NAILATT_FIRST; *count = DEMOEYES_NAILATT_COUNT;
+	}
+	else if (!strcmp(weapon_model->name, "progs/v_rock.mdl") || 
+	         !strcmp(weapon_model->name, "progs/v_rock2.mdl")) {
+		*first = DEMOEYES_ROCKATT_FIRST; *count = DEMOEYES_ROCKATT_COUNT;
+	}
+	else if (!strcmp(weapon_model->name, "progs/v_light.mdl")) {
+		*first = DEMOEYES_LIGHT_FIRST; *count = DEMOEYES_LIGHT_COUNT;
+	}
+	else {
+		*first = DEMOEYES_ROCKATT_FIRST; *count = DEMOEYES_ROCKATT_COUNT;
+	}
+}
+
+static void CL_DemoEyesMaybeAnimate(entity_t *ent, int entnum)
+{
+	qmodel_t *current_model = ent->model;
+	if (!current_model || !current_model->name[0])
+		return;
+	
+	if (strcmp(current_model->name, DEMOEYES_SOURCE_MODEL) != 0)
+		return;
+	
+	const float alpha_value = cl_demoeyes.value;
+	if (alpha_value <= 0.0f)
+		return;
+	
+	if (!cls.demoplayback && !CL_DemoEyesIsObserving())
+		return;
+
+	qmodel_t *player_model = CL_DemoEyesFindPlayerModel();
+	if (!player_model)
+		return;
+
+	ent->model = player_model;
+	float clamped_alpha = (alpha_value > 1.0f) ? 1.0f : alpha_value;
+	ent->alpha = ENTALPHA_ENCODE(clamped_alpha);
+
+	double now = cl.time;
+	int cycle = (int)(now * DEMOEYES_ANIM_FPS);
+	if (cycle < 0) cycle = 0;
+	
+	/* Get weapon model for viewentity */
+	qmodel_t *weapon_model = NULL;
+	qboolean is_axe = false;
+	if (entnum == cl.viewentity) {
+		int weapon_index = cl.stats[STAT_WEAPON];
+		if (weapon_index > 0 && weapon_index < MAX_MODELS)
+			weapon_model = cl.model_precache[weapon_index];
+		is_axe = CL_DemoEyesIsAxe(weapon_model);
+		
+		/* Check for attack animation trigger */
+		if (cl.stats[STAT_WEAPONFRAME] != 0) {
+			if (cl_demoeyes_state.type != DEMOEYES_ANIM_ATTACK) {
+				cl_demoeyes_state.type = DEMOEYES_ANIM_ATTACK;
+				cl_demoeyes_state.start_time = now;
+				CL_DemoEyesGetAttackAnim(weapon_model, 
+					&cl_demoeyes_state.first_frame, &cl_demoeyes_state.frame_count);
+			}
+		}
+		
+		/* Check for pain animation trigger (health dropped by 5+) */
+		int health = cl.stats[STAT_HEALTH];
+		if (cl_demoeyes_state.last_health >= 0 && 
+		    health <= cl_demoeyes_state.last_health - 5 &&
+		    cl_demoeyes_state.type != DEMOEYES_ANIM_PAIN) {
+			cl_demoeyes_state.type = DEMOEYES_ANIM_PAIN;
+			cl_demoeyes_state.start_time = now;
+			cl_demoeyes_state.first_frame = is_axe ? DEMOEYES_AXPAIN_FIRST : DEMOEYES_PAIN_FIRST;
+			cl_demoeyes_state.frame_count = is_axe ? DEMOEYES_AXPAIN_COUNT : DEMOEYES_PAIN_COUNT;
+		}
+		cl_demoeyes_state.last_health = health;
+		
+		/* Check if current animation has finished */
+		if (cl_demoeyes_state.type != DEMOEYES_ANIM_NONE) {
+			int elapsed_frames = (int)((now - cl_demoeyes_state.start_time) * DEMOEYES_ANIM_FPS) + 1;
+			if (elapsed_frames > cl_demoeyes_state.frame_count) {
+				cl_demoeyes_state.type = DEMOEYES_ANIM_NONE;
+				cl_demoeyes_state.start_time = now;
+				
+				/* Restart attack if still firing */
+				if (cl.stats[STAT_WEAPONFRAME] != 0) {
+					cl_demoeyes_state.type = DEMOEYES_ANIM_ATTACK;
+					CL_DemoEyesGetAttackAnim(weapon_model,
+						&cl_demoeyes_state.first_frame, &cl_demoeyes_state.frame_count);
+				}
+			}
+		}
+		
+		/* Play current animation */
+		if (cl_demoeyes_state.type != DEMOEYES_ANIM_NONE) {
+			int frame_num = (int)((now - cl_demoeyes_state.start_time) * DEMOEYES_ANIM_FPS);
+			if (frame_num >= cl_demoeyes_state.frame_count)
+				frame_num = cl_demoeyes_state.frame_count - 1;
+			if (frame_num < 0) frame_num = 0;
+			ent->frame = cl_demoeyes_state.first_frame + frame_num;
+			return;
+		}
+	}
+	
+	/* Default: run/stand animation based on speed */
+	float speed = 0.0f;
+	int playernum = entnum - 1;
+	if (playernum >= 0 && playernum < cl.maxclients && 
+	    cl.scores[playernum].tinfo.time > cl.time) {
+		speed = cl.scores[playernum].tinfo.speed;
+	}
+	else {
+		vec3_t move;
+		VectorSubtract(ent->origin, ent->msg_origins[1], move);
+		speed = sqrt(move[0]*move[0] + move[1]*move[1]) / host_frametime;
+	}
+	
+	if (speed > 20.0f) {
+		int first = is_axe ? DEMOEYES_AXRUN_FIRST : DEMOEYES_ROCKRUN_FIRST;
+		int count = is_axe ? DEMOEYES_AXRUN_COUNT : DEMOEYES_ROCKRUN_COUNT;
+		ent->frame = first + (cycle % count);
+	}
+	else {
+		int first = is_axe ? DEMOEYES_AXSTND_FIRST : DEMOEYES_STAND_FIRST;
+		int count = is_axe ? DEMOEYES_AXSTND_COUNT : DEMOEYES_STAND_COUNT;
+		ent->frame = first + (cycle % count);
+	}
+}
+
 /*
 ===============
 CL_RelinkEntities
@@ -1026,6 +1456,9 @@ void CL_RelinkEntities (void)
 		}
 
 		VectorCopy (ent->origin, oldorg);
+
+		CL_ClientsidePowerupColor(ent, i); // woods
+		CL_DemoEyesMaybeAnimate(ent, i); // woods #demoeyes
 
 		if (CL_LerpEntity(ent, ent->origin, ent->angles, frac))
 			ent->lerpflags |= LERP_RESETMOVE;
@@ -1306,6 +1739,8 @@ typedef struct
 {
 	char filename[MAX_OSPATH];
 	char url[MAX_URLPATH];
+        qboolean is_skybox;
+        char display_name[64];
 } DownloadData;
 
 qboolean web2check = false;
@@ -1322,6 +1757,100 @@ typedef struct {
 SDL_Thread* currentWebCheckThread = NULL;
 SDL_Thread* currentWeb2CheckThread = NULL;
 
+
+qboolean IsGithubRepoPath(const char* s)
+{
+	if (!s)
+		return false;
+
+	const char* first = strchr(s, '/');
+	if (!first)
+		return false;
+
+	// Now accepts both user/repo and user/repo/branch patterns
+	return true; // Must have at least 1 slash (user/repo)
+}
+
+/*
+==============================================================================
+* NormalizeGithubRepoPath
+*     Ensures GitHub repo paths have "/main" appended if they only have user/repo
+*     e.g., "q1tools/q1tools.github.io" becomes "q1tools/q1tools.github.io/main"
+==============================================================================
+*/
+static void NormalizeGithubRepoPath(const char* input, char* output, size_t output_size)
+{
+	if (!input || !output || output_size == 0)
+		return;
+
+	// Count slashes to determine if we need to append "/main"
+	int slash_count = 0;
+	for (const char* p = input; *p; ++p)
+	{
+		if (*p == '/')
+			slash_count++;
+	}
+
+	// If we have exactly 1 slash (user/repo), append "/main"
+	if (slash_count == 1)
+	{
+		q_snprintf(output, output_size, "%s/main", input);
+	}
+	else
+	{
+		// Otherwise, use as-is
+		q_strlcpy(output, input, output_size);
+	}
+}
+
+static inline const char* DL_DisplayTag(const char* base, char* buf, size_t bufsz)
+{
+	if (IsGithubRepoPath(base))
+	{
+		const char* s1 = strchr(base, '/');        /* after user/ */
+		const char* s2 = strchr(s1 + 1, '/');      /* after repo/ */
+		size_t len = s2 ? (size_t)(s2 - s1 - 1) : strlen(s1 + 1);
+		if (len >= bufsz) len = bufsz - 1;
+		memcpy(buf, s1 + 1, len);
+		buf[len] = '\0';
+		return buf;                                /* e.g. "q1tools.github.io" */
+	}
+	return base;                                   /* e.g. "maps.quakeworld.nu" */
+}
+
+/*
+==============================================================================
+*  GithubExtractUserRepo
+*     Splits "user/repo[/branch[/dir]]" into USER and REPO.
+*     Returns false if the input does not match that pattern.
+==============================================================================
+*/
+static qboolean GithubExtractUserRepo(const char *in,
+                                      char *user, size_t usz,
+                                      char *repo, size_t rsz)
+{
+    if (!IsGithubRepoPath(in))
+        return false;
+
+    /* 1st slash separates USER / REPO */
+    const char *slash1 = strchr(in, '/');
+    size_t ulen = slash1 - in;                 /* bytes before first '/' */
+
+    /* REPO ends at next slash (branch) or end of string */
+    const char *slash2 = strchr(slash1 + 1, '/');
+    size_t rlen = slash2 ? (size_t)(slash2 - slash1 - 1)
+                         : strlen(slash1 + 1);
+
+    /* sanity-check lengths and buffers */
+    if (ulen == 0 || rlen == 0 || ulen >= usz || rlen >= rsz)
+        return false;
+
+    memcpy(user, in, ulen);          user[ulen]  = '\0';
+    memcpy(repo, slash1 + 1, rlen);  repo[rlen]  = '\0';
+    return true;
+}
+
+
 int checkWebsite (void* ptr)  // ping the potential websites in advance
 {
 	ThreadData* data = (ThreadData*)ptr;
@@ -1332,6 +1861,31 @@ int checkWebsite (void* ptr)  // ping the potential websites in advance
 		return -1;
 	}
 
+	for (const char* p = data->url; *p; ++p)
+		if ((unsigned char)*p <= 32 || ((unsigned char)*p & 0x80))
+		{
+			if (data->web == 1) webcheck = false;
+			if (data->web == 2) web2check = false;
+			free(data->url);
+			free(data);
+			return 0;
+		}
+
+	/* user/repo[/branch] names may only use A-Z a-z 0-9 . _ - and / */
+	if (IsGithubRepoPath(data->url))
+	{
+		for (const char* p = data->url; *p; ++p)
+			if (!isalnum((unsigned char)*p) &&
+				*p != '/' && *p != '.' && *p != '-' && *p != '_')
+			{
+				if (data->web == 1) webcheck = false;
+				if (data->web == 2) web2check = false;
+				free(data->url);
+				free(data);
+				return 0;
+			}
+	}
+
 	CURL* curl = curl_easy_init();
 	if (curl == NULL) {
 		free(data->url);
@@ -1339,9 +1893,32 @@ int checkWebsite (void* ptr)  // ping the potential websites in advance
 		return -1;
 	}
 
-	curl_easy_setopt(curl, CURLOPT_URL, data->url);
-	curl_easy_setopt(curl, CURLOPT_NOBODY, 1); // HEAD request
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
+	char fullurl[256];
+	char user[64], repo[64];
+	
+	// Normalize the URL to include /main if needed for GitHub repo paths
+	char normalized_url[MAX_URLPATH];
+	if (IsGithubRepoPath(data->url))
+	{
+		NormalizeGithubRepoPath(data->url, normalized_url, sizeof(normalized_url));
+		if (GithubExtractUserRepo(normalized_url, user, sizeof(user), repo, sizeof(repo)))
+		{
+			q_snprintf(fullurl, sizeof(fullurl), "https://github.com/%s/%s", user, repo);
+		}
+	}
+	else if (GithubExtractUserRepo(data->url, user, sizeof(user), repo, sizeof(repo)))
+	{
+		q_snprintf(fullurl, sizeof(fullurl), "https://github.com/%s/%s", user, repo);
+	}
+	else if (!strstr(data->url, "://"))
+		q_snprintf(fullurl, sizeof(fullurl), "https://%s/", data->url);
+	else
+		q_strlcpy(fullurl, data->url, sizeof(fullurl));
+
+	curl_easy_setopt(curl, CURLOPT_URL, fullurl);
+	curl_easy_setopt(curl, CURLOPT_NOBODY, 1L); // HEAD request
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
 	CURLcode res = curl_easy_perform(curl);
 	if (res == CURLE_OK)
@@ -1358,7 +1935,7 @@ int checkWebsite (void* ptr)  // ping the potential websites in advance
 	}
 	else
 	{
-		Con_DPrintf("cl_web_download_url %s is not responsive", data->url);
+		Con_DPrintf("cl_web_download_url %s is not responsive: %s\n", data->url, curl_easy_strerror(res));
 
 		switch (data->web)
 		{
@@ -1523,6 +2100,9 @@ int Progress_Callback (void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl
 				progress = (int)((double)dlnow / (double)dltotal * 100.0);
 
 			char urlLimited[21];
+			if (dataFromCurl->is_skybox && dataFromCurl->display_name[0] != '\0')
+				Q_strncpy(urlLimited, dataFromCurl->display_name, 20);
+			else
 			Q_strncpy(urlLimited, dataFromCurl->url, 20);
 			urlLimited[20] = '\0';
 
@@ -1546,18 +2126,14 @@ int Progress_Callback (void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl
 
 			if (scr_disabled_for_loading != true)
 			{
-				static double now, oldtime, newtime;
-				newtime = Sys_DoubleTime();
-				now = newtime - oldtime;
-				Host_Frame(now);
-				oldtime = newtime;
+				SDL_PumpEvents();
 			}
 		}
 	}
 	return 0;
 }
 
-qboolean Curl_DownloadFile (const char* url, const char* filename, const char* local_path) // main curl function
+qboolean Curl_DownloadFile (const char* url, const char* filename, const char* local_path, qboolean is_skybox, const char* display_name) // main curl function
 {
 	stop_curl_download = false;
 	cls.download.active = true;
@@ -1569,7 +2145,51 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 	char full_url[MAX_URLPATH];
 	const char* skipped_path = COM_SkipPath(filename);
 
-	if (strstr(url, "github.io") && strstr(filename, "maps")) // special case for github.io
+	
+	if (IsGithubRepoPath(url))
+	{
+		/* Normalize the URL to include /main if needed */
+		char normalized_url[MAX_URLPATH];
+		NormalizeGithubRepoPath(url, normalized_url, sizeof(normalized_url));
+		
+		/* Build the common prefix once */
+		char repo_base[MAX_URLPATH];
+		q_snprintf(repo_base, sizeof(repo_base),
+			"https://raw.githubusercontent.com/%s/", normalized_url);
+
+		/* 1.  Skyboxes -> skyboxes/<face>.(tga|png|...) */
+		if (is_skybox && !strncmp(filename, "gfx/env/", 8))
+		{
+			/* skip the "gfx/env/" part */
+			q_snprintf(full_url, sizeof(full_url),
+				"%sgfx/env/%s", repo_base, filename + 8);
+		}
+		/* 2.  Maps -> maps/<A-Z or 0-9>/<basename>.bsp */
+		else if (!strncmp(filename, "maps/", 5))
+		{
+			const char* base = COM_SkipPath(filename);   /* DM4.bsp */
+			char directory[5];
+
+			if (isdigit((unsigned char)base[0]))
+				strcpy(directory, "0-9/");
+			else {
+				directory[0] = (char)toupper((unsigned char)base[0]);
+				directory[1] = '/';
+				directory[2] = '\0';
+			}
+
+			q_snprintf(full_url, sizeof(full_url),
+				"%smaps/%s%s", repo_base, directory, base);
+		}
+		/* 3.  Everything else -> branch/<original path> */
+		else
+		{
+			q_snprintf(full_url, sizeof(full_url),
+				"%s%s", repo_base, filename);
+		}
+	}
+
+	else if (strstr(url, "github.io") && strstr(filename, "maps")) // special case for github.io
 	{
 		char directory[5];
 
@@ -1600,6 +2220,11 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 	memset(&dl_data, 0, sizeof(dl_data)); // Reset dl_data
 	Q_strncpy(dl_data.filename, filename, MAX_OSPATH);
 	Q_strncpy(dl_data.url, url, MAX_URLPATH); // the server set in cl_web_download_url
+        dl_data.is_skybox = is_skybox;
+        if (display_name)
+            Q_strncpy(dl_data.display_name, display_name, sizeof(dl_data.display_name));
+        else
+            dl_data.display_name[0] = '\0';
 	q_strlcpy(cls.download.current, filename, sizeof(cls.download.current));
 
 	CURL* curl = curl_easy_init();
@@ -1684,7 +2309,13 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 
 	}
 
-	Con_Printf("Downloaded ^m%s^m (%s) from %s\n", COM_SkipPath(filename), sizeStr, url);
+	char tagbuf[64];
+	const char* src = (display_name && display_name[0])
+		? display_name
+		: DL_DisplayTag(url, tagbuf, sizeof(tagbuf));
+
+	Con_Printf("Downloaded ^m%s^m (%s) from %s\n",
+		COM_SkipPath(filename), sizeStr, src);
 
 	return true; // File successfully downloaded
 }
@@ -1712,8 +2343,8 @@ void CL_Download_Finished_f(void)
 			if (tmp)
 			{
 				fseek(cls.download.file, 0, SEEK_SET);
-				fread(tmp, 1, size, cls.download.file);
-				hashokay = (hash == CRC_Block(tmp, size));
+				size_t bytes_read = fread(tmp, 1, size, cls.download.file); // woods
+				hashokay = (bytes_read == size && hash == CRC_Block(tmp, size)); // woods
 				free(tmp);
 
 				if (!hashokay) Con_Warning("Download hash failure\n");
@@ -1852,11 +2483,11 @@ qboolean CL_CheckDownload(const char *filename)
 	}
 
 	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
-		if (Curl_DownloadFile (cl_web_download_url.string, filename, local_path))
+                if (Curl_DownloadFile (cl_web_download_url.string, filename, local_path, false, NULL))
 			return false;
 
 	if (web2check && (cl_web_download_url2.string != NULL && cl_web_download_url2.string[0] != '\0')) // only run if server is verified
-		if (Curl_DownloadFile (cl_web_download_url2.string, filename, local_path))
+                if (Curl_DownloadFile (cl_web_download_url2.string, filename, local_path, false, NULL))
 			return false;
 
 	// woods, if not available via web, try the server #webdl
@@ -1884,12 +2515,170 @@ qboolean CL_CheckDownload(const char *filename)
 	return true;
 }
 
+/*
+=============================================================================
+ Sky_PeekSkyKeyFromBSP -- woods
+-----------------------------------------------------------------------------
+Looks for a worldspawn "sky" key in a map.
+Order of search
+   1. Inside the BSP's entity lump
+   2. If not found, an external entity file  maps/<mapname>.ent
+
+Returns true and puts the sky string in *outbuf  (truncated to outsz-1)
+if a key is found; otherwise returns false and leaves *outbuf empty.
+=============================================================================
+*/
+qboolean Sky_PeekSkyKeyFromBSP(const char* bspname,
+	char* outbuf,
+	size_t      outsz)
+{
+	dheader_t  hdr;
+	lump_t* ent;
+	FILE* f;
+	qboolean   ok = false;
+
+	/* ------------------ sanity ------------------ */
+	if (!outsz)
+		return false;
+	*outbuf = 0;
+
+	/* ------------------ open BSP ---------------- */
+	if (COM_FOpenFile(bspname, &f, NULL) < (int)sizeof(hdr) || !f)
+		goto try_external_ent;
+
+	/* read + validate header */
+	if (fread(&hdr, sizeof(hdr), 1, f) != 1)
+		goto close_bsp;
+
+	hdr.version = LittleLong(hdr.version);
+	if (hdr.version != BSPVERSION &&
+		hdr.version != BSP2VERSION_2PSB &&
+		hdr.version != BSP2VERSION_BSP2 &&
+		hdr.version != BSPVERSION_QUAKE64)
+		goto close_bsp;
+
+	for (int i = 1; i < (int)sizeof(hdr) / 4; i++)
+		((int*)&hdr)[i] = LittleLong(((int*)&hdr)[i]);
+
+	/* --------------- scan entity lump ---------- */
+	ent = &hdr.lumps[LUMP_ENTITIES];
+	if (ent->filelen > 0 && ent->filelen <= 32768)
+	{
+		char* buf = (char*)Z_Malloc(ent->filelen + 1);
+		fseek(f, ent->fileofs, SEEK_SET);
+		size_t readlen = fread(buf, 1, ent->filelen, f);
+		if (readlen != (size_t)ent->filelen)
+		{
+			Z_Free(buf);
+			goto close_bsp;
+		}
+		buf[ent->filelen] = 0;
+
+		const char* p = COM_Parse(buf);
+		if (p && com_token[0] == '{')
+		{
+			while ((p = COM_Parse(p)))
+			{
+				if (com_token[0] == '}')
+					break;
+
+				char key[64];
+				if (com_token[0] == '_')
+					q_strlcpy(key, com_token + 1, sizeof(key));
+				else q_strlcpy(key, com_token, sizeof(key));
+
+				p = COM_Parse(p);
+				if (!p) break;
+
+				if (!q_strcasecmp(key, "sky") ||
+					!q_strcasecmp(key, "_sky") ||
+					!q_strcasecmp(key, "skyname") ||
+					!q_strcasecmp(key, "qlsky"))
+				{
+					q_strlcpy(outbuf, com_token, outsz);
+					ok = true;
+					break;
+				}
+			}
+		}
+		Z_Free(buf);
+	}
+
+close_bsp:
+	fclose(f);
+	if (ok)
+		return true;
+
+	/* ---------------- external .ent ------------- */
+try_external_ent:
+	{
+		char mapname[MAX_QPATH];
+		char entpath[MAX_QPATH];
+
+		/* get file name w/o path or extension */
+		q_strlcpy(mapname, COM_SkipPath(bspname), sizeof(mapname));
+		COM_StripExtension(mapname, mapname, sizeof(mapname));
+
+		q_snprintf(entpath, sizeof(entpath), "maps/%s.ent", mapname);
+
+		char* ebuf = (char*)COM_LoadMallocFile(entpath, NULL);
+		if (!ebuf)
+			return false;
+
+		const char* p = COM_Parse(ebuf);
+		while (p)
+		{
+			if (com_token[0] != '{')
+			{   /* not an entity start – skip line */
+				p = COM_Parse(p);
+				continue;
+			}
+
+			/* entity loop */
+			while ((p = COM_Parse(p)))
+			{
+				if (com_token[0] == '}')
+					break;
+
+				char key[64];
+				if (com_token[0] == '_')
+					q_strlcpy(key, com_token + 1, sizeof(key));
+				else q_strlcpy(key, com_token, sizeof(key));
+
+				p = COM_Parse(p);
+				if (!p) break;
+
+				if (!q_strcasecmp(key, "sky") ||
+					!q_strcasecmp(key, "_sky") ||
+					!q_strcasecmp(key, "skyname") ||
+					!q_strcasecmp(key, "qlsky"))
+				{
+					q_strlcpy(outbuf, com_token, outsz);
+					ok = true;
+					break;
+				}
+			}
+			if (ok) break;
+
+			/* continue with next entity */
+			p = COM_Parse(p);
+		}
+
+		free(ebuf);
+	}
+
+	return ok;
+}
+
+extern qboolean Sky_DownloadsDisabled(void);
+extern qboolean Sky_DownloadSkybox(const char* name);
+
 //download+load models and sounds as needed, once complete let the server know we're ready for the next stage.
 //returning false will trigger nops.
 qboolean CL_CheckDownloads(void)
 {
 	int i;
-	if (cl.model_download == 0 && cl.model_count && cl.model_name[1])
+	if (cl.model_download == 0 && cl.model_count && cl.model_name[1][0]) // woods
 	{	//haxors, download the lit first, but only if we don't already have the bsp
 		//this ensures that we don't keep requesting the lit for maps that just don't have one (although may be problematic if the first server we find deleted them all, but oh well)
 		char litname[MAX_QPATH];
@@ -1925,9 +2714,31 @@ qboolean CL_CheckDownloads(void)
 		cl.loc_download++;
 	}
 
+	if (cl.skybox_download == 0                   /* run once              */
+		&& cl.model_name[1][0]                    /* we know the BSP path  */
+		&& COM_FileExists(cl.model_name[1], NULL)) /* BSP already here      */
+	{
+		char skyname[64] = { 0 };
+
+		if (Sky_PeekSkyKeyFromBSP(cl.model_name[1], skyname, sizeof(skyname))
+			&& skyname[0])
+		{
+			/* Only try if any face is missing; Sky_DownloadSkybox itself
+			   skips mirrors that aren't in user/repo/branch form       */
+			if (!Sky_DownloadsDisabled() && Sky_DownloadSkybox(skyname))
+			{
+				/* success – carry on */
+			}
+			/* on failure we still fall through – we tried once */
+		}
+
+		cl.skybox_download++;      /* always advance so we never loop */
+		return false;              /* block exactly like .loc stage   */
+	}
+
 	for (; cl.model_download < cl.model_count; )
 	{
-		if (*cl.model_name[cl.model_download])
+		if (cl.model_name[cl.model_download][0]) // woods
 		{
 			if (CL_CheckDownload(cl.model_name[cl.model_download]))
 				return false;
@@ -2100,11 +2911,11 @@ void CL_ManualDownload_f (const char* filename)
 		q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, prefixedArg);
 
 	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
-		if (Curl_DownloadFile(cl_web_download_url.string, prefixedArg, local_path))
+                if (Curl_DownloadFile(cl_web_download_url.string, prefixedArg, local_path, false, NULL))
 			return;
 
 	if (web2check && (cl_web_download_url2.string != NULL && cl_web_download_url2.string[0] != '\0')) // only run if server is verified
-		if (Curl_DownloadFile(cl_web_download_url2.string, prefixedArg, local_path))
+                if (Curl_DownloadFile(cl_web_download_url2.string, prefixedArg, local_path, false, NULL))
 			return;
 }
 
@@ -2145,8 +2956,8 @@ int CL_ReadFromServer (void)
 		CL_ParseServerMessage ();
 	} while (ret && cls.state == ca_connected);
 
-	if (cl_shownet.value)
-		Con_Printf ("\n");
+//	if (cl_shownet.value)
+//		Con_Printf ("\n");
 
 	PR_SwitchQCVM(&cl.qcvm);
 	CL_RelinkEntities ();
@@ -2357,32 +3168,364 @@ void CL_Viewpos_f (void)
 
 /*
 ===============
+GetBspVersionString -- woods #entcopy -- get string representation of BSP version
+===============
+*/
+static const char* GetBspVersionString(int version)
+{
+	switch (version)
+	{
+	case BSPVERSION:
+		return "BSP29";
+	case BSP2VERSION_2PSB:
+		return "BSP2 (2PSB)";
+	case BSP2VERSION_BSP2:
+		return "BSP2";
+	case BSPVERSION_QUAKE64:
+		return "BSP64";
+	default:
+		return "Unknown";
+	}
+}
+
+static qboolean Entdump_MakeUnique(char *out, size_t outsz, const char *map_lower) // woods #entcopy
+{
+    char candidate[MAX_OSPATH], full[MAX_OSPATH];
+
+    /* 1) Try plain maps/<name>.ent */
+    if ((size_t)q_snprintf(candidate, sizeof(candidate), "maps/%s.ent", map_lower) >= sizeof(candidate))
+        return false;
+    q_snprintf(full, sizeof(full), "%s/%s", com_gamedir, candidate);
+    if (!(Sys_FileType(full) & FS_ENT_FILE)) { /* not present -> use it */
+        q_strlcpy(out, candidate, outsz);
+        return true;
+    }
+
+    /* 2) Try maps/<name> (n).ent, n = 1..99 */
+    for (int i = 1; i < 100; ++i) {
+        if ((size_t)q_snprintf(candidate, sizeof(candidate), "maps/%s(%d).ent", map_lower, i) >= sizeof(candidate))
+            return false;
+        q_snprintf(full, sizeof(full), "%s/%s", com_gamedir, candidate);
+        if (!(Sys_FileType(full) & FS_ENT_FILE)) {
+            q_strlcpy(out, candidate, outsz);
+            return true;
+        }
+    }
+    return false; /* too many duplicates */
+}
+
+/*
+===============
 CL_Entdump_f -- woods (source: github.com/alexey-lysiuk/quakespasm-exp) #entcopy
 ===============
 */
 void CL_Entdump_f(void)
 {
-	char entfilename[MAX_QPATH];
-	size_t entlen;
-
-	if (!cl.worldmodel)
+	if (Cmd_Argc() < 2) // Handle case when no argument is given - use loaded map
 	{
-		Con_SafePrintf("no map loaded, cannot save .ent\n");
+		if (!cl.worldmodel)
+		{
+			Con_Printf("no map loaded, cannot save .ent\n");
+			return;
+		}
+
+		if (!cl.worldmodel->entities)
+		{
+			Con_Printf("no entities in current map\n");
+			return;
+		}
+
+		char entfilename[MAX_OSPATH];
+		char map_lower[MAX_QPATH];
+		char full[MAX_OSPATH];
+		q_strlcpy(map_lower, cl.mapname, sizeof(map_lower));
+		for (char *p = map_lower; *p; ++p)
+			*p = q_tolower(*p);
+		if (!Entdump_MakeUnique(entfilename, sizeof(entfilename), map_lower)) {
+			Con_Printf("could not form unique .ent path\n");
+			return;
+		}
+		q_snprintf(full, sizeof(full), "%s/%s", com_gamedir, entfilename);
+		COM_CreatePath(full); /* ensure "<gamedir>/maps/" exists */
+		COM_WriteFile(entfilename, cl.worldmodel->entities, strlen(cl.worldmodel->entities));
+		Con_Printf("saved entities from maps/%s.bsp (%s) to ^m%s^m\n",
+			cl.mapname, GetBspVersionString(cl.worldmodel->bspversion), entfilename);
 		return;
 	}
 
-	entlen = strlen(cl.worldmodel->entities);
+	// Handle case when map name is provided as argument
+	const char* mapname = Cmd_Argv(1);
+	char cleaned_mapname[MAX_QPATH];
 
-	if (Cmd_Argc() < 2)
-		q_snprintf(entfilename, sizeof entfilename, "%s.ent", cl.mapname);
+	COM_StripExtension(mapname, cleaned_mapname, sizeof(cleaned_mapname));
+
+	// Check if this is the currently loaded map
+	qboolean matches_current;
+	if (FS_IsCaseSensitive())
+		matches_current = (cl.worldmodel && !strcmp(cleaned_mapname, cl.mapname));
 	else
+		matches_current = (cl.worldmodel && !q_strcasecmp(cleaned_mapname, cl.mapname));
+
+	if (matches_current)
 	{
-		strncpy(entfilename, Cmd_Argv(1), sizeof entfilename - 1);
-		entfilename[sizeof entfilename - 1] = '\0';
+		if (!cl.worldmodel->entities)
+		{
+			Con_SafePrintf("no entities in current map\n");
+			return;
+		}
+
+		char entfilename[MAX_OSPATH];
+		char map_lower[MAX_QPATH];
+		char full[MAX_OSPATH];
+		q_strlcpy(map_lower, cleaned_mapname, sizeof(map_lower));
+		for (char *p = map_lower; *p; ++p)
+			*p = q_tolower(*p);
+		if (!Entdump_MakeUnique(entfilename, sizeof(entfilename), map_lower)) {
+			Con_Printf("could not form unique .ent path\n");
+			return;
+		}
+		q_snprintf(full, sizeof(full), "%s/%s", com_gamedir, entfilename);
+		COM_CreatePath(full);
+		COM_WriteFile(entfilename, cl.worldmodel->entities, strlen(cl.worldmodel->entities));
+		Con_Printf("saved entities from maps/%s.bsp (%s) to ^m%s^m\n",
+			cleaned_mapname, GetBspVersionString(cl.worldmodel->bspversion), entfilename);
+		return;
 	}
 
-	COM_WriteFile(entfilename, cl.worldmodel->entities, entlen);
-	Con_Printf("saved %s.ent to game directory\n", cl.mapname);
+	char bspfilename[MAX_OSPATH];
+
+	// Build full BSP path
+	if ((size_t)q_snprintf(bspfilename, sizeof(bspfilename), "maps/%s.bsp", cleaned_mapname) >= sizeof(bspfilename))
+	{
+		Con_Printf("map name too long\n");
+		return;
+	}
+
+	// Open and read BSP file
+	FILE* f;
+	unsigned path_id;
+	int length = COM_FOpenFile(bspfilename, &f, &path_id);
+	if (length <= 0)
+	{
+		if (f)
+			fclose(f);
+		Con_Printf("couldn't load %s\n", bspfilename);
+		return;
+	}
+
+	byte* buffer = malloc(length);
+	if (!buffer)
+	{
+		fclose(f);
+		Con_Printf("out of memory for BSP file\n");
+		return;
+	}
+
+	if (fread(buffer, 1, length, f) != (size_t)length)
+	{
+		free(buffer);
+		fclose(f);
+		Con_Printf("error reading BSP file\n");
+		return;
+	}
+	fclose(f);
+
+	dheader_t* header = (dheader_t*)buffer;
+	header->version = LittleLong(header->version);
+
+	const char* bspversion = GetBspVersionString(header->version);
+	if (!strcmp(bspversion, "Unknown"))
+	{
+		int version = header->version; // woods
+		free(buffer);
+		Con_Printf("unsupported BSP version %d\n", version);
+		return;
+	}
+
+	// Swap header integers to correct endianness
+	for (int i = 0; i < HEADER_LUMPS; i++)
+	{
+		header->lumps[i].fileofs = LittleLong(header->lumps[i].fileofs);
+		header->lumps[i].filelen = LittleLong(header->lumps[i].filelen);
+	}
+
+	// Get entities lump
+	const lump_t* entlump = &header->lumps[LUMP_ENTITIES];
+	if (entlump->filelen <= 0)
+	{
+		free(buffer);
+		Con_Printf("no entities in %s\n", bspfilename);
+		return;
+	}
+
+	// Validate entity lump position
+	if (entlump->fileofs < 0 || entlump->fileofs + entlump->filelen >(unsigned int)length)
+	{
+		free(buffer);
+		Con_Printf("invalid entity lump in %s\n", bspfilename);
+		return;
+	}
+
+	// Point to the entities data in the buffer
+	char* entities_data = (char*)(buffer + entlump->fileofs);
+
+	char entfilename[MAX_OSPATH];
+	char map_lower[MAX_QPATH];
+	char full[MAX_OSPATH];
+	q_strlcpy(map_lower, cleaned_mapname, sizeof(map_lower));
+	for (char *p = map_lower; *p; ++p)
+		*p = q_tolower(*p);
+	if (!Entdump_MakeUnique(entfilename, sizeof(entfilename), map_lower)) {
+		free(buffer);
+		Con_Printf("could not form unique .ent path\n");
+		return;
+	}
+	q_snprintf(full, sizeof(full), "%s/%s", com_gamedir, entfilename);
+	COM_CreatePath(full);
+
+	// Find the actual length of valid entity text
+	size_t text_length = 0;
+	while (text_length < entlump->filelen && entities_data[text_length])
+		text_length++;
+
+	// Basic validation - check for either '{' or '//' to indicate valid entity data
+	qboolean valid_start = false;
+	for (size_t i = 0; i < text_length - 1; i++) {
+		if (entities_data[i] == '{' || (entities_data[i] == '/' && entities_data[i + 1] == '/')) {
+			valid_start = true;
+			break;
+		}
+		// Skip whitespace during validation
+		if (entities_data[i] != ' ' && entities_data[i] != '\n' && entities_data[i] != '\r' && entities_data[i] != '\t')
+			break;
+	}
+
+	if (!valid_start) {
+		free(buffer);
+		Con_Printf("invalid entity data in %s (no valid entity data found)\n", bspfilename);
+		return;
+	}
+
+	COM_WriteFile(entfilename, entities_data, text_length);
+	Con_Printf("saved entities from %s (%s) to ^m%s^m\n", bspfilename, bspversion, entfilename);
+
+	free(buffer);
+}
+
+static void CL_ServerExtension_ItemTimer_f (void) // woods #obstimers (FTE)
+{
+	// it[cur / ]duration x y z radius 0xRRGGBB "timername" owningent
+
+	if (Cmd_Argc() < 8)
+	{
+		Con_DPrintf2("Ignoring stufftext: %s\n", Cmd_Argv(0));
+		return;
+	}
+
+	// Check deathmatch mode
+	char buf[4];
+	const char* val;
+	val = Info_GetKey(cl.serverinfo, "deathmatch", buf, sizeof(buf));
+	int deathmatch_mode = val ? atoi(val) : 0;
+
+	float timeout;
+	float start = cl.time;
+	const char* e;
+	timeout = strtod(Cmd_Argv(1), (char**)&e);
+	if (*e == '/') 
+	{
+		start += timeout;
+		timeout = atof(e + 1);
+		start -= timeout;
+	}
+
+	// Parse remaining arguments
+	vec3_t org =
+	{
+		atof(Cmd_Argv(2)),  // x
+		atof(Cmd_Argv(3)),  // y
+		atof(Cmd_Argv(4))   // z
+	};
+	float radius = atof(Cmd_Argv(5));
+	const char* tint = Cmd_Argv(6);
+	unsigned int rgb = strtoul(tint, NULL, 16);  // Convert tint string to RGB
+	const char* timername = (Cmd_Argc() > 7) ? Cmd_Argv(7) : "";
+	unsigned int entnum = (Cmd_Argc() > 8) ? strtoul(Cmd_Argv(8), NULL, 0) : 0;
+
+	// Skip weapon timers in deathmatch 3
+	if (deathmatch_mode == 3 &&
+		(strcmp(timername, "lg") == 0 || strcmp(timername, "rl") == 0))
+		return;
+
+	// Set defaults if needed
+	if (!timeout)
+		timeout = FLT_MAX;
+	if (!radius)
+		radius = 32;
+
+	// Find existing timer or create new one
+	struct itemtimer_s* timer;
+	for (timer = cl.itemtimers; timer; timer = timer->next)
+	{
+		if (entnum)
+		{
+			if (timer->entnum == entnum)
+				break;
+		}
+		else if (VectorCompare(timer->origin, org))
+			break;
+	}
+	if (!timer)
+	{   //didn't find it.
+		timer = Z_Malloc(sizeof(*timer));
+		timer->next = cl.itemtimers;
+		cl.itemtimers = timer;
+	}
+
+	extern cvar_t scr_obsitems;
+	if (scr_obsitems.value)
+	PScript_RunParticleEffectTypeString(org, NULL, 1, "EF_ITEMTIMER");
+
+	// Update timer properties
+	VectorCopy(org, timer->origin);
+	timer->start = start;
+	timer->duration = timeout;
+	timer->radius = radius;
+	timer->entnum = entnum;
+	timer->end = start + timer->duration;
+	timer->rgb[0] = ((rgb >> 16) & 0xff) / 255.0;
+	timer->rgb[1] = ((rgb >> 8) & 0xff) / 255.0;
+	timer->rgb[2] = ((rgb) & 0xff) / 255.0;
+
+	// Properly handle the timername string
+	if (timer->timername)
+		Z_Free(timer->timername);
+	timer->timername = Z_Strdup(timername);  // Allocate and copy the string
+}
+
+static void CL_ServerExtension_TeamInfo_f(void) // woods #teaminfo
+{
+	int pidx = atoi(Cmd_Argv(1));
+	vec3_t org = {
+		atof(Cmd_Argv(2)),
+		atof(Cmd_Argv(3)),
+		atof(Cmd_Argv(4))
+	};
+	float health = atof(Cmd_Argv(5));
+	float armor = atof(Cmd_Argv(6));
+	unsigned int items = strtoul(Cmd_Argv(7), NULL, 0);
+	float speed = atof(Cmd_Argv(8));
+
+	if (pidx < cl.maxclients)
+	{
+		scoreboard_t* player = &cl.scores[pidx];
+		player->tinfo.time = cl.time + 5;
+		player->tinfo.health = health;
+		player->tinfo.armor = armor;
+		player->tinfo.items = items;
+		player->tinfo.speed = speed;
+		VectorCopy(org, player->tinfo.origin);
+	}
 }
 
 static void CL_ServerExtension_FullServerinfo_f(void)
@@ -2519,6 +3662,7 @@ static void SV_DecodeUserInfo(client_t *client)
 			Con_Printf ("%s renamed to %s\n", host_client->name, tmp);
 		Q_strcpy (host_client->name, tmp);
 		client->edict->v.netname = PR_SetEngineString(client->name);
+		SV_CheckDuplicateNames(client); // woods #dupnames
 	}
 }
 void SV_UpdateInfo(int edict, const char *keyname, const char *value)
@@ -2561,7 +3705,27 @@ void SV_UpdateInfo(int edict, const char *keyname, const char *value)
 	{	//its changed. actually broadcast it.
 		Info_SetKey(info, infosize, keyname, value);
 		if (infoplayer)
+		{
 			SV_DecodeUserInfo(infoplayer);
+
+			if (!strcmp(keyname, "name") && infoplayer->name[0]) // woods #dupnames
+				SV_CheckDuplicateNames(infoplayer);
+
+			if (sv_mapcrc.value && !strcmp(keyname, "*mapmismatch") && !strcmp(value, "1")) // woods #mapcrc
+			{
+				// Notify all players about the map mismatch
+				client_t *notify_cl;
+				for (notify_cl = svs.clients; notify_cl < svs.clients+svs.maxclients; notify_cl++)
+				{
+					if (notify_cl->active && notify_cl != infoplayer)
+					{
+						MSG_WriteByte(&notify_cl->message, svc_print);
+						MSG_WriteString(&notify_cl->message, va("^3%s connected with a different map version\n", infoplayer->name));
+					}
+				}
+				Con_Printf("^3%s connected with a different map version\n", infoplayer->name);
+			}
+		}
 
 		if (*keyname == '_' || !sv.active)
 			return;	//underscore means private (user) keys. these are not networked to clients.
@@ -2603,6 +3767,26 @@ static void CL_LegacyColor_f(void)
 	int col = atoi(Cmd_Argv(1));
 	Cvar_SetValue("topcolor",		(col>>4)&0xf);
 	Cvar_SetValue("bottomcolor",	(col>>0)&0xf);
+}
+
+/*
+===============
+CL_Onload_Completion_f -- woods #onload
+===============
+*/
+static void CL_Onload_Completion_f(cvar_t* cvar, const char* partial)
+{
+	Con_AddToTabList("\"\"", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("bookmarks", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("browser", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("connect", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("console", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("demo", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("exec", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("history", partial, NULL, NULL); // #demolistsort add arg
+	Con_AddToTabList("save", partial, NULL, NULL); // #demolistsort add arg
+
+	return;
 }
 
 /*
@@ -2652,6 +3836,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_recordingdemo); //spike -- for mod hacks. combine with cvar_string or something
 	Cvar_RegisterVariable (&cl_demoreel);
 
+	Cvar_RegisterVariable (&cl_beams_polygons); // woods #beamspoly
 	Cvar_RegisterVariable (&cl_truelightning); // woods for #truelight
 	Cvar_RegisterVariable (&gl_lightning_alpha); // woods for lighting alpha #lightalpha
 	Cvar_RegisterVariable (&cl_say); // woods for #ezsay
@@ -2662,6 +3847,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_muzzleflash); // woods #muzzleflash
 	Cvar_RegisterVariable (&cl_deadbodyfilter); // woods #deadbody
 	Cvar_RegisterVariable (&cl_r2g); // woods #r2g
+	Cvar_RegisterVariable (&cl_demoeyes); // woods #demoeyes
 
 	Cvar_RegisterVariable (&w_switch); // woods #autoweapon
 	Cvar_RegisterVariable (&b_switch); // woods #autoweapon
@@ -2678,6 +3864,15 @@ void CL_Init (void)
 	Cvar_SetCallback (&cl_web_download_url, &WebCheckCallback_f); // woods #webdl
 	Cvar_SetCallback (&cl_web_download_url2, &Web2CheckCallback_f); // woods #webdl
 
+	Cvar_RegisterVariable (&cl_autovote); // woods #autovote
+	Cvar_RegisterVariable (&cl_onload); // woods #onload
+	Cvar_SetCompletion (&cl_onload, &CL_Onload_Completion_f); // woods #onload
+	Cvar_RegisterVariable (&cl_contentfilter); // woods #contentfilter
+
+	Cvar_RegisterVariable(&cl_rot); // woods #clmrotate
+	Cvar_SetCallback(&cl_rot, CL_RotateModel_OnChange); // woods #clmrotate
+	CL_RotateModel_RebuildFromCvar(); // woods #clmrotate
+
 	WebCheckInit (); // woods -- check if the web downloads servers are live at launch (threaded) #webdl
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
@@ -2691,6 +3886,7 @@ void CL_Init (void)
 	Cmd_AddCommand ("viewpos", CL_Viewpos_f); //johnfitz
 
 	Cmd_AddCommand("entdump", &CL_Entdump_f); // woods #entcopy
+	Cmd_AddCommand("rotatemodel", CL_RotateModel_f); // woods #clmrotate
 
 	//spike -- serverinfo stuff
 	Cmd_AddCommand_ServerCommand ("fullserverinfo", CL_ServerExtension_FullServerinfo_f);
@@ -2706,8 +3902,8 @@ void CL_Init (void)
 	//Cmd_AddCommand_ServerCommand ("vwep", CL_ServerExtension_Ignore_f); //invalid for nq, provides an alternative list of model precaches for vweps.
 	//Cmd_AddCommand_ServerCommand ("at", CL_ServerExtension_Ignore_f); //invalid for nq, autotrack info for mvds
 	Cmd_AddCommand_ServerCommand ("wps", CL_ServerExtension_Ignore_f); //ktx/cspree weapon stats
-	Cmd_AddCommand_ServerCommand ("it", CL_ServerExtension_Ignore_f); //cspree item timers
-	Cmd_AddCommand_ServerCommand ("tinfo", CL_ServerExtension_Ignore_f); //ktx team info
+	Cmd_AddCommand_ServerCommand ("it", CL_ServerExtension_ItemTimer_f); //cspree item timers -- woods #obstimers
+	Cmd_AddCommand_ServerCommand ("tinfo", CL_ServerExtension_TeamInfo_f); //ktx team info -- woods #teaminfo
 	Cmd_AddCommand_ServerCommand ("exectrigger", CL_ServerExtension_Ignore_f); //spike
 	Cmd_AddCommand_ServerCommand ("csqc_progname", CL_ServerExtension_Ignore_f); //spike
 	Cmd_AddCommand_ServerCommand ("csqc_progsize", CL_ServerExtension_Ignore_f); //spike
@@ -2719,11 +3915,9 @@ void CL_Init (void)
 	Cmd_AddCommand_ServerCommand("crx_ignorethis", CL_ServerExtension_Ignore_f); // woods crx
 	Cmd_AddCommand_ServerCommand("ignorethis_crx", CL_ServerExtension_Ignore_f); // woods crx
 	Cmd_AddCommand_ServerCommand("init", CL_ServerExtension_Ignore_f); // woods runequake
-	Cmd_AddCommand_ServerCommand("r_ambient", CL_ServerExtension_Ignore_f); // woods crmod66 legacy
 	
 	Cmd_AddCommand_ServerCommand ("cl_serverextension_download", CL_ServerExtension_Download_f); //spike
 	Cmd_AddCommand_ServerCommand ("cl_downloadbegin", CL_Download_Begin_f); //spike
 	Cmd_AddCommand_ServerCommand ("cl_downloadfinished", CL_Download_Finished_f); //spike
 	Cmd_AddCommand ("stopdownload", CL_StopDownload_f); //spike
 }
-

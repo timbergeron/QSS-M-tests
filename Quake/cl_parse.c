@@ -42,7 +42,8 @@ extern cvar_t allow_download; // woods #ftehack
 
 int VID_GetCurrentDPI(void);
 
-extern cvar_t gl_overbright_models; // woods for f_config
+extern cvar_t cl_iDrive; // woods for f_config
+extern qboolean WordFilter_Check(const char* text, char* dest_buffer, size_t buffer_size); // woods #contentfilter
 
 int ogflagprecache = 0, swapflagprecache = 0, swapflagprecache2 = 0, swapflagprecache3 = 0; // woods #alternateflags
 int grenadecache = -1, rocketcache = -1; // woods #r2g
@@ -52,6 +53,7 @@ extern int	maptime; // woods connected map time #maptime
 extern char videosetg[50];	// woods #q_sysinfo (qrack)
 extern char videoc[40];		// woods #q_sysinfo (qrack)
 qboolean	endscoreprint = false; // woods pq_confilter+
+extern qboolean pausedprint; // woods
 
 extern Uint32 exec_dm_cfg (Uint32 interval, void* param); // woods #execdelay
 server_alias_t* server_aliases = NULL; // woods #serveralias
@@ -1376,11 +1378,13 @@ static void CL_ParseServerInfo (void)
 {
 	const char	*str;
 	int		i;
-	qboolean	gamedirswitchwarning = false;
 	char gamedir[1024];
 	char protname[64];
 
 	Con_DPrintf ("Serverinfo packet received.\n");
+
+	if (cl_autodemo.value && cls.demorecording && !cls.demoplayback)
+		Cbuf_AddText("stop\n");
 
 // ericw -- bring up loading plaque for map changes within a demo.
 //          it will be hidden in CL_SignonReply.
@@ -1511,10 +1515,6 @@ static void CL_ParseServerInfo (void)
 		Con_Printf ("\n");
 	Con_Printf ("Using protocol %s\n", protname);
 
-	// seperate the printfs so the server message can have a color
-	Con_Printf ("\n%s\n", Con_Quakebar(40)); //johnfitz
-	Con_Printf ("%c%s\n", 2, str);
-
 // first we go through and touch all of the precache data that still
 // happens to be in the cache, so precaching something else doesn't
 // needlessly purge it
@@ -1598,6 +1598,13 @@ static void CL_ParseServerInfo (void)
 
 	// copy the naked name of the map file to the cl structure -- O.S
 	COM_StripExtension (COM_SkipPath(cl.model_name[1]), cl.mapname, sizeof(cl.mapname));
+
+	if (cl.levelname[0] == '\0')
+		q_strlcpy(cl.levelname, cl.mapname, sizeof cl.levelname);
+
+	// seperate the printfs so the server message can have a color
+	Con_Printf ("\n%s\n", Con_Quakebar(40)); //johnfitz
+	Con_Printf ("%c%s\n", 2, cl.levelname);
 
 	//johnfitz -- clear out string; we don't consider identical
 	//messages to be duplicates if the map has changed in between
@@ -2036,6 +2043,18 @@ static void CL_ParseClientdata (void)
 		CL_SetHudStat(STAT_ARMOR, armourval);
 		CL_SetHudStat(STAT_WEAPON, weaponmodel);
 		CL_SetHudStat(STAT_ACTIVEWEAPON, activeweapon);
+		// woods #cdead - detect death/respawn for protocol 15
+		if (cl.stats[STAT_HEALTH] > 0 && health <= 0)
+		{
+			cl.cshifts[CSHIFT_DEAD].destcolor[0] = 70;
+			cl.cshifts[CSHIFT_DEAD].destcolor[1] = 0;
+			cl.cshifts[CSHIFT_DEAD].destcolor[2] = 0;
+			cl.cshifts[CSHIFT_DEAD].percent = 0;
+		}
+		else if (cl.stats[STAT_HEALTH] <= 0 && health > 0)
+		{
+			cl.cshifts[CSHIFT_DEAD].percent = 0;
+		}
 		CL_SetHudStat(STAT_HEALTH, health);
 		CL_SetHudStat(STAT_AMMO, ammo);
 		CL_SetHudStat(STAT_SHELLS, ammovals[0]);
@@ -2385,12 +2404,14 @@ void CL_ParseProQuakeMessage(void)
 	}
 }
 
+static Uint32 last_vote_time = 0; // woods #autovote
+
 /* 
 =======================
 CL_ParseProQuakeString -- // begin rook / woods #pqteam
 =======================
 */
-void CL_ParseProQuakeString(char* string) // #pqteam
+qboolean CL_ParseProQuakeString(const char* string) // #pqteam
 {
 	static int checkping = -1;
 	int i;
@@ -2406,23 +2427,45 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 	const char* observer = "null";
 	const char* observing = "null";
 	const char* mode = "null";
+	const char* spectator = "null"; // woods #autovote
+	const char* star_observer = "null"; // woods #autovote
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{// am I colored up?
 
 		char buf[10];
-		char buf2[10];
+		char buf2[32];
 		char buf3[10];
+		char buf4[10];
+		char buf5[10];
 		observer = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf)); // userinfo
+		star_observer = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf5, sizeof(buf5));  // userinfo
 		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf2, sizeof(buf2)); // userinfo
 		mode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf3, sizeof(buf3)); // userinfo
-
+		spectator = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*spectator", buf4, sizeof(buf4)); // woods #autovote
 	}
 
-	if (!q_strcasecmp(observer, "off") && !q_strcasecmp(observing, "off")) // use info keys to detect
+	if (cl.modtype == 4) // no *obs key
+	{
+		if ((!q_strcasecmp(observer, "off") || observer[0] == '\0') &&
+			(!q_strcasecmp(observing, "off") || observing[0] == '\0')) // use info keys to detect
+			cl.notobserver = 1;
+		else
+			cl.notobserver = 0;
+	}
+	else 
+	{
+	if ((!q_strcasecmp(observer, "off") || observer[0] == '\0' ||
+		!q_strcasecmp(star_observer, "off") || star_observer[0] == '\0') &&
+		(!q_strcasecmp(observing, "off") || observing[0] == '\0')) // use info keys to detect
 		cl.notobserver = 1;
 	else
 		cl.notobserver = 0;
+	}
+
+	cl.eyecam = (q_strcasecmp(observing, "off") != 0) &&
+		(q_strcasecmp(observing, "") != 0) &&
+		((!q_strcasecmp(observer, "eyecam")) || (!q_strcasecmp(star_observer, "eyecam")));
 
 	if (((cl.seconds > 0 && cl.seconds != 255) || (cl.minutes > 0 && cl.minutes != 255)) && cl.match_pause_time == 0 && q_strcasecmp(mode, "ffa")) // is there a match in progress?
 		cl.matchinp = 1;
@@ -2481,12 +2524,14 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 			{
 				cl.last_match_time += (cl.time - cl.match_pause_time);
 				cl.match_pause_time = 0;
+				pausedprint = false; // woods
 				cl.matchinp = 1;
 			}
 			else
 			{
 				if (!strcmp(string, "The match is over\n"))
 				{
+					pausedprint = false;
 					endscoreprint = true; // woods pq_confilter +
 					cl.matchinp = 0;
 					cl.match_pause_time = 0;
@@ -2505,7 +2550,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 					{
 						Cmd_ExecuteString("record\n", src_command);
 					}
-				if (strstr(string, "welcome to CRx"))  // woods differemt cfgs per mod #modcfg
+				if (q_strcasestr(string, "Website: https://www.crxquake.com"))  // woods differemt cfgs per mod #modcfg
 				{
 					cl.modtype = 4; // woods #modtype [qecrx server check]
 					strncpy(cl.observer, "n", sizeof(cl.observer)); // woods #observer set to no on join #observerhud
@@ -2522,10 +2567,45 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 				}
 
 				char qfmatchlength[13] = { 237, 225, 244, 227, 232, 32, 236, 229, 238, 231, 244, 232,'\0' }; // woods -- quake font red 'match length'
+				
+				Uint32 current_time = SDL_GetTicks(); // get current time in milliseconds
 
-				if ((strstr(string, qfmatchlength) || (strstr(string, "match length"))))  // woods vote match length auto vote yes
+				if (cl_autovote.value) // woods #autovote --  yes on timelimit requests
 				{
-					Cbuf_AddText("impulse 115\n");
+					if ((current_time - last_vote_time) >= 31000 && !strstr(string, cl_name.string)) // check if 31 seconds
+					{
+						if ((strstr(string, qfmatchlength) || (strstr(string, "match length"))))  // hybrid, crx
+						{
+							if (Cmd_AliasExists("yes"))
+								Cbuf_AddText("yes\n");
+							else
+								Cbuf_AddText("impulse 115\n");
+							last_vote_time = current_time; // update last vote time
+						}
+					}
+				}
+
+				char qfrequests[13] = { 242, 229, 241, 245, 229, 243, 244, 243, ' ', 't', 'o', ' ', '\0' }; // "requests to" with " to" appended
+
+				if (cl_autovote.value == 2 && atoi(spectator) != 1) // yes vote on all requests
+				{
+					if ((current_time - last_vote_time) >= 31000 && !strstr(string, cl_name.string)) // check if 31 seconds
+					{
+						if (strstr(string, " requests to ") || strstr(string, "Request to ") || strstr(string, qfrequests)) // crx, crmod, hybrid
+						{
+							if (Cmd_AliasExists("yes"))
+								Cbuf_AddText("yes\n");
+							else
+								Cbuf_AddText("impulse 115\n");
+
+							last_vote_time = current_time; // update last vote time
+						}
+					}
+				}
+
+				if (strstr(string, "cancelled their request") || strstr(string, "The request has expired.") || strstr(string, "Vote cancelled")) // reset
+				{
+					last_vote_time = 0;
 				}
 
 				char qfClanRing[9] = { 195, 236, 225, 238, 210, 233, 238, 231, '\0' }; // woods -- quake font red 'ClanRing'
@@ -2569,7 +2649,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 
 	// JPG 1.05 check for IP information  // woods for #iplog
 	if (iplog_size)
-	{
+	{		
 		if (!strncmp(string, "host:    ", 9))
 		{
 			begin_status = 1;
@@ -2583,7 +2663,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 			if (sscanf(string + 9, "%d", &playercount))
 			{
 				if (!cl.console_status)
-					*string = 0;
+					return true;
 			}
 			else
 				playercount = 0;
@@ -2593,7 +2673,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 			if (!sscanf(string, "#%d", &checkip) || --checkip < 0 || checkip >= cl.maxclients)
 				checkip = -1;
 			if (!cl.console_status)
-				*string = 0;
+				return true;
 			remove_status = 0;
 		}
 		else if (checkip != -1)
@@ -2605,7 +2685,7 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 			}
 			checkip = -1;
 			if (!cl.console_status)
-				*string = 0;
+				return true;
 			remove_status = 0;
 
 			if (!--playercount)
@@ -2615,9 +2695,11 @@ void CL_ParseProQuakeString(char* string) // #pqteam
 		{
 			playercount = 0;
 			if (remove_status)
-				*string = 0;
+				return true;
 		}
 	}
+
+	return false;
 }
 
 #if 0	/* for debugging. from fteqw. */
@@ -2663,6 +2745,21 @@ static void CL_ParseStatNumeric(int stat, int ival, float fval)
 	{
 		Con_DWarning ("svc_updatestat: %i is invalid\n", stat);
 		return;
+	}
+
+	if (stat == STAT_HEALTH) // woods #cdead
+	{
+		if (cl.stats[STAT_HEALTH] > 0 && ival <= 0)
+		{
+			cl.cshifts[CSHIFT_DEAD].destcolor[0] = 70;
+			cl.cshifts[CSHIFT_DEAD].destcolor[1] = 0;
+			cl.cshifts[CSHIFT_DEAD].destcolor[2] = 0;
+			cl.cshifts[CSHIFT_DEAD].percent = 0;
+		}
+		else if (cl.stats[STAT_HEALTH] <= 0 && ival > 0)
+		{
+			cl.cshifts[CSHIFT_DEAD].percent = 0;
+		}
 	}
 	cl.stats[stat] = ival;
 	cl.statsf[stat] = fval;
@@ -2820,8 +2917,21 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 			{
 				if (!*cl.scores[i].name)
 					continue; //player slot is empty
-				if (strncmp(cl.scores[i].name, n, e-n))
-					continue; //reported name is screwy
+
+				char name_to_compare_with_n[32];
+				if (cl_contentfilter.value == 2)
+				{
+					WordFilter_Check(cl.scores[i].name, name_to_compare_with_n, sizeof(name_to_compare_with_n));
+					name_to_compare_with_n[sizeof(name_to_compare_with_n) - 1] = '\0';
+				}
+				else
+				{
+					Q_strncpy(name_to_compare_with_n, cl.scores[i].name, sizeof(name_to_compare_with_n) - 1);
+					name_to_compare_with_n[sizeof(name_to_compare_with_n) - 1] = '\0';
+				}
+
+				if (strncmp(name_to_compare_with_n, n, e - n))
+					continue; // Names don't match
 
 				cl.scores[i++].ping = ping;
 				cl.printplayer = i;
@@ -2857,34 +2967,52 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 	{
 		if (realtime > cl.printrandom)
 		{
-			char coin[6];
-			char color[5];
-			char rps[10];
+			const char* coin; // heads or tails
+			const char* color; // red or blue
+			const char* rps; // rock, paper, scissors
+			char blackjack[20]; // blackjack hand (with "bust" suffix)
 			int v1 = rand() % 2; // head / tails
 			int v2 = rand() % 100 + 1; // 1-100
 			int v3 = rand() % 3 + 1; // rock, paper, scissors
 			int v4 = rand() % 2; // red or blue
-			int v5 = rand() % 21 + 1; // blackjack
+			int v5; // Generate weighted blackjack hand (15-24)
+			int r = rand() % 100;  // Generate 0-99 for percentage
 
-			if (v1 == 1)
-				sprintf(coin, "heads");
-			else
-				sprintf(coin, "tails");
+			// Weighted blackjack hand generation
+			if (r < 8)  // 8% chance for 21
+			{
+				v5 = 21;
+			}
+			else if (r < 23)  // 15% chance to bust, with weighted bust numbers
+			{
+				int bust_r = rand() % 100;
+				if (bust_r < 60)        // 60% of busts are 22
+					v5 = 22;
+				else if (bust_r < 85)   // 25% of busts are 23
+					v5 = 23;
+				else                    // 15% of busts are 24
+					v5 = 24;
+			}
+			else  // 77% chance for normal hand (15-20)
+			{
+				v5 = 15 + (rand() % 6);  // Random number between 15-20
+			}
 
-			if (v3 == 1)
-				sprintf(rps, "rock");
-			else if (v3 == 2)
-				sprintf(rps, "paper");
+			if (v5 > 21)
+				q_snprintf(blackjack, sizeof(blackjack), "%d (bust)", v5);
 			else
-				sprintf(rps, "scissors");
+				q_snprintf(blackjack, sizeof(blackjack), "%d", v5);
 
-			if (v4 == 1)
-				sprintf(color, "red");
-			else
-				sprintf(color, "blue");
+			coin = v1 == 1 ? "heads" : "tails"; // heads or tails
+			color = v4 == 1 ? "red" : "blue"; // red or blue
+
+			const char* rps_table[] = { "rock", "paper", "scissors" };
+			rps = rps_table[v3 - 1];
 
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say %s, %s, %s, blackjack: %d, 1-100: %d", coin, rps, color, v5, v2));
+			MSG_WriteString(&cls.message, va("say %s, %s, %s, blackjack: %s, 1-100: %d",
+				coin, rps, color, blackjack, v2));
+
 			cl.printrandom = realtime + 20;
 		}
 	}
@@ -2895,7 +3023,7 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 		if (realtime > cl.printconfig)
 		{
 			char key[2];
-			char particles[15];
+			char particles[8];
 			char textures[4];
 			char hud[3];
 			char lfps[20];
@@ -2903,26 +3031,26 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 			
 			if (!strcmp(r_particledesc.string, ""))
-				sprintf(particles, "classic");
+				strcpy(particles, "classic");
 			else
-				sprintf(particles, "%s", r_particledesc.string);
+				strncpy(particles, r_particledesc.string, sizeof(particles) - 1);
 
 			if (r_lightmap.value == 1 || gl_picmip.value >= 2)
-				sprintf(textures, "%s", "OFF");
+				strcpy(textures, "OFF");
 			else
-				sprintf(textures, "%s", "ON");
+				strcpy(textures, "ON");
 
 			if (clampedSbar == 2)
-				sprintf(hud, "%s", "qw");
+				strcpy(hud, "qw");
 			else if (clampedSbar == 3)
-				sprintf(hud, "%s", "qe");
+				strcpy(hud, "qe");
 			else
-				sprintf(hud, "%s", "nq");
+				strcpy(hud, "nq");
 
 			if (!strcmp(gl_enemycolor.string, ""))
-				sprintf(ecolor, "%s", "off");
+				strcpy(ecolor, "off");
 			else
-				sprintf(ecolor, "%.8s", gl_enemycolor.string);
+				strncpy(ecolor, gl_enemycolor.string, sizeof(ecolor) - 1);
 
 			// for movement key
 			int	i, count;
@@ -2937,31 +3065,26 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 					{
 							if (strlen(Key_KeynumToString(i)) == 1) // could be UPARROW?
 							{
-								sprintf(key, "%s", Key_KeynumToString(i));
+								strncpy(key, Key_KeynumToString(i), sizeof(key) - 1);
 								break;
 							}
 					}
 					else
 					{ 
-						sprintf(key, "%s", "?");
+						strcpy(key, "?");
 					}
 					count++;
 				}
 			}
 
 			// for fps
-			if (scr_showfps.value)
-			{ 
-				if (host_maxfps.value == 0)
-					sprintf(lfps, "fps (0) %d", cl.fps);
-				else
-					sprintf(lfps, "fps %d/%s", cl.fps, host_maxfps.string);
-			}
+			if (host_maxfps.value == 0)
+				q_snprintf(lfps, sizeof(lfps), "fps (0) %d", cl.fps);
 			else
-				sprintf(lfps, "fpsmax %s", host_maxfps.string);
+				q_snprintf(lfps, sizeof(lfps), "fps %d/%s", cl.fps, host_maxfps.string);
 			
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say fov %s, sens %s, fshaft %s, fbmodels %s, %s", scr_fov.string, sensitivity.string, cl_truelightning.string, gl_overbright_models.string, lfps));
+			MSG_WriteString(&cls.message, va("say fov %s, sens %s, fshaft %s, iDrive %s, %s", scr_fov.string, sensitivity.string, cl_truelightning.string, cl_iDrive.string, lfps));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say cross %s, vmodel %s, hud %s, particles %s", crosshair.string, r_drawviewmodel.string, hud, particles));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
@@ -3098,7 +3221,9 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			}
 			else
 			{
-				if (!strncmp(buf2, "15.", 3))
+				if (!strncmp(buf2, "26.", 3))
+					os_codename = "macOS Tahoe (2025)";
+				else if (!strncmp(buf2, "15.", 3))
 					os_codename = "macOS Sequoia (2024)";
 				else if (!strncmp(buf2, "14.", 3))
 					os_codename = "macOS Sonoma (2023)";
@@ -3222,7 +3347,18 @@ if (!strcmp(printtext, "Client ping times:\n") && (cl.expectingpingtimes > realt
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say Video: %s", videoc));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
-			MSG_WriteString(&cls.message, va("say %s %d ppi", videosetg, dpi_num));
+
+			char resolution_suffix[10] = "";
+
+			// Use vid.width and vid.height which are updated when videosetg is set
+			if ((vid.width == 3840 && vid.height == 2160) || (vid.width == 4096 && vid.height == 2160)) { // Common 4K resolutions
+				strcpy(resolution_suffix, " (4k)");
+			}
+			else if (vid.width == 2560 && vid.height == 1440) { // Common 2K resolution (QHD)
+				strcpy(resolution_suffix, " (2k)");
+			}
+
+			MSG_WriteString(&cls.message, va("say %s %d ppi%s", videosetg, dpi_num, resolution_suffix));
 			MSG_WriteByte(&cls.message, clc_stringcmd);
 			MSG_WriteString(&cls.message, va("say Audio: %s", sound));
 		
@@ -3294,6 +3430,462 @@ static void CL_ParseCenterPrint(const char *msg)
 }
 
 /*
+=======================
+Content Filtering -- inspired by Mark V -- woods #contentfilter
+=======================
+*/
+
+typedef struct {
+	const char* word;        // Word to filter
+	const char* replacement; // Replacement text
+	qboolean whole_word;     // Only match whole words
+} filter_word_t;
+
+filter_word_t filter_words[] = {
+	{"@$$", "***", false},
+	{"@55h013", "person", false},
+	{"@55h0l3", "person", false},
+	{"@55hole", "person", false},
+	{"@ss", "***", false},
+	{"a$$", "***", false},
+	{"a55", "jazz", false},
+	{"a55h013", "person", false},
+	{"a55h0le", "person", false},
+	{"abo", "person", true},
+	{"af", "very", true},
+	{"anus", "snus", false},
+	{"arse", "bummer", false},
+	{"ass", "***", true},
+	{"asshole", "person", false},
+	{"azz", "jazz", false},
+	{"b!+ch", "witch", false},
+	{"b!7ch", "witch", false},
+	{"b!tch", "witch", false},
+	{"b00n3r", "person", false},
+	{"b17ch", "witch", false},
+	{"b1tch", "witch", false},
+	{"banana", "fruit", true},
+	{"bastard", "mustard", false},
+	{"batty boy", "person", false},
+	{"battyboy", "person", false},
+	{"beaner", "person", false},
+	{"bimbo", "person", false},
+	{"bitch", "witch", false},
+	{"blind", "unseeing", true},
+	{"blow my brains", "clear my mind", false},
+	{"boong", "person", false},
+	{"broad", "person", true},
+	{"bs", "nonsense", true},
+	{"bullshit", "nonsense", false},
+	{"butt", "****", false},
+	{"c0ck5uck3r", "person", false},
+	{"c0ck5uck4", "person", false},
+	{"camel jockey", "person", false},
+	{"chinaman", "person", false},
+	{"chink", "neighbor", false},
+	{"cock", "****", false},
+	{"cok", "***", true},
+	{"coconut", "fruit", true},
+	{"coon", "raccoon", true},
+	{"cooned", "raccoon", false},
+	{"cooning", "raccoon", false},
+	{"coonery", "raccoon", false},
+	{"coons", "raccoons", false},
+	{"coolie", "worker", false},
+	{"cretin", "person", false},
+	{"cripple", "person", false},
+	{"crossdresser", "person", false},
+	{"cu57", "cute", false},
+	{"cun7", "cute", false},
+	{"cunt", "cute", false},
+	{"curry muncher", "chef", false},
+	{"cut myself", "love myself", false},
+	{"d!ck", "person", false},
+	{"d1ck", "person", false},
+	{"dago", "friend", false},
+	{"dame", "lady", true},
+	{"darkie", "person", false},
+	{"darky", "person", false},
+	{"deaf", "unhearing", true},
+	{"dickhead", "silly", false},
+	{"dilligaf", "care", false},
+	{"douche", "******", false},
+	{"dumb", "quiet", true},
+	{"dyke", "bike", true},
+	{"dyked", "biked", false},
+	{"dykes", "bikes", false},
+	{"dykey", "bikey", false},
+	{"dyking", "biking", false},
+	{"end my life", "enjoy my life", false},
+	{"eskimo", "inuit", false},
+	{"f$$k", "f**k", false},
+	{"f$ck", "f**k", false},
+	{"f0ck", "f**k", false},
+	{"f4660t", "maddog", false},
+	{"f46607", "maddog", false},
+	{"f4gg07", "maddog", false},
+	{"f4gg0t", "maddog", false},
+	{"f@6607", "maddog", false},
+	{"f@gg0t", "maddog", false},
+	{"fag", "fan", true},
+	{"fagged", "fanned", false},
+	{"fagging", "fanning", false},
+	{"faggot", "maddog", false},
+	{"faggy", "fancy", false},
+	{"fagot", "cairo", false},
+	{"fagots", "cairos", false},
+	{"fags", "fans", false},
+	{"faget", "italy", false},
+	{"fairy", "sprite", true},
+	{"fck", "heck", false},
+	{"fckn", "freaking", false},
+	{"fcking", "freaking", false},
+	{"fcuk", "fun", false},
+	{"fggt", "hawk", false},
+	{"fgt", "yam", true},
+	{"fk", "heck", true},
+	{"fking", "freaking", false},
+	{"fkn", "freaking", false},
+	{"floozy", "person", false},
+	{"fml", "sigh", false},
+	{"foad", "go away", false},
+	{"fok", "fun", false},
+	{"ftm", "person", false},
+	{"fu", "forget", true},
+	{"fuc", "fun", false},
+	{"fuck", "f**k", false},
+	{"fucking", "cheddar", false},
+	{"fuk", "fun", false},
+	{"fukking", "beijing", false},
+	{"fuq", "fun", false},
+	{"fvck", "f**k", false},
+	{"gfy", "good for you", false},
+	{"gimp", "person", false},
+	{"goddamn", "goshdarn", false},
+	{"gold digger", "person", false},
+	{"golddigger", "person", false},
+	{"golliwog", "doll", false},
+	{"gook", "buddy", false},
+	{"gringo", "visitor", false},
+	{"gtfo", "leave", false},
+	{"guido", "person", false},
+	{"guinea", "person", true},
+	{"gyp", "person", true},
+	{"gypped", "tricked", false},
+	{"gypsy", "traveler", false},
+	{"half-breed", "person", false},
+	{"halfbreed", "person", false},
+	{"hang myself", "help myself", false},
+	{"harlot", "person", false},
+	{"heeb", "person", false},
+	{"heshe", "person", false},
+	{"heshim", "them", false},
+	{"ho", "hey", true},
+	{"hoe", "gardener", true},
+	{"homo", "mang", true},
+	{"homophobe", "person", false},
+	{"homophobic", "fearful", false},
+	{"homos", "mangs", false},
+	{"honky", "pal", true},
+	{"hooker", "person", false},
+	{"hurt myself", "help myself", false},
+	{"hussy", "person", false},
+	{"hymie", "friend", false},
+	{"idiot", "person", false},
+	{"imbecile", "person", false},
+	{"injun", "friend", false},
+	{"jap", "pal", true},
+	{"jappy", "happy", false},
+	{"japs", "pals", false},
+	{"jewboy", "person", false},
+	{"jezebel", "person", false},
+	{"jfc", "jeez", false},
+	{"jigaboo", "person", false},
+	{"jiggaboo", "person", false},
+	{"jungle bunny", "person", false},
+	{"kill myself", "hug myself", false},
+	{"kike", "friend", false},
+	{"kms", "hug", false},
+	{"kraut", "friend", false},
+	{"kys", "smile", false},
+	{"ladyboy", "person", false},
+	{"lame", "weak", true},
+	{"lmfao", "haha", false},
+	{"mf", "friend", true},
+	{"mfer", "person", false},
+	{"mick", "buddy", true},
+	{"micks", "buddies", false},
+	{"midget", "person", false},
+	{"mofo", "person", false},
+	{"mongoloid", "person", false},
+	{"mong", "person", false},
+	{"moron", "person", false},
+	{"motherfucker", "motherfudger", false},
+	{"mtf", "person", false},
+	{"mulatto", "person", false},
+	{"n166a", "friend", false},
+	{"n1663r", "friend", false},
+	{"n199a", "friend", false},
+	{"n199er", "friend", false},
+	{"n1g", "man", true},
+	{"n1gg3r", "friend", false},
+	{"n1gg4", "friend", false},
+	{"nancy", "person", true},
+	{"nancy boy", "person", false},
+	{"nancyboy", "person", false},
+	{"neck myself", "respect myself", false},
+	{"negro", "person", false},
+	{"ngr", "ron", true},
+	{"niger", "frank", false},
+	{"nigg3r", "friend", false},
+	{"nigg4", "friend", false},
+	{"nigger", "friend", false},
+	{"off myself", "treat myself", false},
+	{"omfg", "omg", false},
+	{"oreo", "cookie", true},
+	{"paki", "buddy", true},
+	{"pakis", "buddies", false},
+	{"pansy", "flower", true},
+	{"penis", "sonar", false},
+	{"penus", "sugar", false},
+	{"ph0ck", "f**k", false},
+	{"phuck", "f**k", false},
+	{"pikey", "person", false},
+	{"pillow biter", "person", false},
+	{"polack", "person", false},
+	{"poof", "magic", true},
+	{"poofter", "person", false},
+	{"pos", "piece", true},
+	{"psycho", "person", false},
+	{"puss", "cat", true},
+	{"pusses", "cats", false},
+	{"pussy", "kitty", false},
+	{"queer", "zebop", false},
+	{"r374rd", "smart", false},
+	{"r3+4rd", "smart", false},
+	{"r3+@rd", "smart", false},
+	{"r3t4rd", "smart", false},
+	{"raghead", "neighbor", false},
+	{"redskin", "person", false},
+	{"retard", "smart", false},
+	{"rope myself", "help myself", false},
+	{"sambo", "friend", true},
+	{"schizo", "person", false},
+	{"self harm", "self care", false},
+	{"selfharm", "selfcare", false},
+	{"sh!t", "s__t", false},
+	{"sh1t", "s__t", false},
+	{"sheeny", "person", false},
+	{"shemale", "human", false},
+	{"shit", "s__t", false},
+	{"shite", "shoot", false},
+	{"sht", "shoot", false},
+	{"shyt", "shoot", false},
+	{"shim", "them", false},
+	{"sissy", "gentle", true},
+	{"51u7", "person", false},
+	{"5lu7", "person", false},
+	{"slag", "person", false},
+	{"slattern", "person", false},
+	{"slit my wrists", "call a friend", false},
+	{"slut", "person", false},
+	{"sob", "son", true},
+	{"spade", "person", true},
+	{"spastic", "person", false},
+	{"spaz", "person", false},
+	{"spic", "friend", false},
+	{"spook", "ghost", true},
+	{"spooked", "scared", false},
+	{"spooking", "scaring", false},
+	{"spooky", "scary", false},
+	{"spooks", "ghosts", false},
+	{"squaw", "woman", false},
+	{"stfu", "shush", false},
+	{"stg", "swear", false},
+	{"strumpet", "person", false},
+	{"suicidal", "sad", false},
+	{"suicide", "self-care", false},
+	{"tard", "card", true},
+	{"tart", "pie", true},
+	{"tfo", "the", false},
+	{"tfu", "up", false},
+	{"thot", "person", false},
+	{"towelhead", "citizen", false},
+	{"tramp", "person", false},
+	{"trannie", "person", false},
+	{"tranny", "person", false},
+	{"trap", "door", true},
+	{"trapped", "closed", false},
+	{"trapping", "closing", false},
+	{"traps", "doors", false},
+	{"transvestite", "individual", false},
+	{"tgirl", "person", false},
+	{"trollop", "person", false},
+	{"twink", "person", false},
+	{"vagina", "robert", false},
+	{"vegetable", "plant", true},
+	{"wench", "person", false},
+	{"wetback", "houston", false},
+	{"wh0r3", "person", false},
+	{"whore", "person", false},
+	{"wigger", "person", true},
+	{"wop", "pal", true},
+	{"wtaf", "what", false},
+	{"wtf", "wow", false},
+	{"wth", "what", false},
+	{"zipperhead", "person", false},
+
+	{NULL, NULL, false} // Terminator
+};
+
+char* String_Edit_Normalize_Text(const char* text)
+{
+	static char normalized_buffer[MAXCMDLINE];
+	q_strlcpy(normalized_buffer, text, MAXCMDLINE);
+
+	size_t i = 0, j = 0;
+	while (normalized_buffer[i] != '\0' && j < MAXCMDLINE - 1)
+	{
+		// Check if the current token is purely numeric.
+		if (isdigit((unsigned char)normalized_buffer[i]))
+		{
+			size_t k = i;
+			int all_numeric = 1;
+			while (normalized_buffer[k] != '\0' && !isspace((unsigned char)normalized_buffer[k]))
+			{
+				if (!isdigit((unsigned char)normalized_buffer[k]))
+				{
+					all_numeric = 0;
+					break;
+				}
+				k++;
+			}
+			if (all_numeric)
+			{
+				// Copy the numeric token unchanged.
+				while (normalized_buffer[i] != '\0' &&
+					!isspace((unsigned char)normalized_buffer[i]) &&
+					j < MAXCMDLINE - 1)
+				{
+					normalized_buffer[j++] = normalized_buffer[i++];
+				}
+				continue;  // Go to the next character after the token.
+			}
+		}
+
+		// Process non-numeric (or mixed) characters.
+		unsigned char c = normalized_buffer[i];
+		if (c > 128)
+			c -= 128;
+		c = tolower(c);
+
+		switch (c)
+		{
+		case '4': case '@': c = 'a'; break;
+		case '3': c = 'e'; break;
+		case '1': case '!': c = 'i'; break;
+		case '0': c = 'o'; break;
+		case '5': case '$': c = 's'; break;
+		case '7': case '+': c = 't'; break;
+		case '8': c = 'b'; break;
+		case '6': case '9': c = 'g'; break;
+		case '2': c = 'z'; break;
+			// Remove common punctuation used to bypass filters.
+		case '.': case ',': case '-': case '_': case '*':
+		case '\'': case '"': case '`': case '\\': case '/':
+			c = ' '; break;
+		}
+		normalized_buffer[j++] = c;
+		i++;
+	}
+	normalized_buffer[j] = '\0';
+	return normalized_buffer;
+}
+
+qboolean WordFilter_Check(const char* text, char* dest_buffer, size_t buffer_size)
+{
+	// 1) Create a normalized copy of the entire input
+	char norm_text[MAXCMDLINE];
+	strcpy(norm_text, String_Edit_Normalize_Text(text));
+
+	size_t dest_index = 0;
+	size_t i = 0;
+	size_t text_len = strlen(text);
+	qboolean replaced_any = false;
+
+	while (i < text_len && dest_index < buffer_size - 1)
+	{
+		qboolean match_found = false;
+
+		// Check all filter words at position i
+		for (int j = 0; filter_words[j].word != NULL; j++)
+	{
+			const char* fword = filter_words[j].word;
+			const char* replacement = filter_words[j].replacement;
+			int word_len = strlen(fword);
+
+			// Enough room left in input to match fword?
+			if (i + word_len > text_len)
+				continue;
+
+			// Compare norm_text[i..(i+word_len)] vs filter_word
+			if (strncmp(&norm_text[i], fword, word_len) == 0)
+		{
+				// If 'whole_word' is set, check boundaries in norm_text
+				if (filter_words[j].whole_word)
+			{
+					// left boundary
+					qboolean left_ok = (i == 0);
+					if (!left_ok && i > 0)
+					{
+						left_ok = !isalnum((unsigned char)norm_text[i - 1]);
+			}
+
+					// right boundary
+					qboolean right_ok = (i + word_len >= text_len);
+					if (!right_ok && (i + word_len) < text_len)
+			{
+						right_ok = !isalnum((unsigned char)norm_text[i + word_len]);
+					}
+
+					if (!left_ok || !right_ok)
+						continue;  // boundary check failed
+				}
+
+				// If we get here, we have a match (including boundary check)
+				// Copy replacement into dest_buffer if there's room
+				size_t repl_len = strlen(replacement);
+				if (dest_index + repl_len < buffer_size)
+				{
+					memcpy(dest_buffer + dest_index, replacement, repl_len);
+					dest_index += repl_len;
+					i += word_len;
+					replaced_any = true;
+					match_found = true;
+					break;  // no need to check other filter words
+				}
+				else
+				{
+					// Not enough space for replacement
+					dest_buffer[buffer_size - 1] = '\0';
+					return replaced_any;
+				}
+				}
+			}
+
+		// If no filter word matched at position i, copy original char
+		if (!match_found)
+		{
+			dest_buffer[dest_index++] = text[i++];
+		}
+	}
+
+	// Null-terminate
+	dest_buffer[dest_index < buffer_size ? dest_index : buffer_size - 1] = '\0';
+	return replaced_any;
+}
+
+/*
 =====================
 CL_ParseServerMessage
 =====================
@@ -3304,7 +3896,7 @@ void CL_ParseServerMessage (void)
 	int			i;
 	const char		*str; //johnfitz
 	int			lastcmd; //johnfitz
-	char*		s;	// woods #pqteam
+	const char*		s;	// woods #pqteam
 //
 // if recording demos, copy the message out
 //
@@ -3396,10 +3988,24 @@ void CL_ParseServerMessage (void)
 		case svc_disconnect:
 			Host_EndGame ("Server disconnected\n");
 
-		case svc_print:
- 			s = MSG_ReadString();           //   woods pq string #pqteam
-			CL_ParseProQuakeString(s);      //   woods pq string #pqteam
-			CL_ParsePrint(s);				//   woods pq string #pqteam
+		case svc_print: //   woods pq string #pqteam #contentfilter
+		{
+			char filtered_buffer[MAXCMDLINE];
+			s = MSG_ReadString();
+
+			if (cl_contentfilter.value == 2 && WordFilter_Check(s, filtered_buffer, sizeof(filtered_buffer))) 
+			{
+				filtered_buffer[sizeof(filtered_buffer) - 1] = '\0';
+
+				if (!CL_ParseProQuakeString(filtered_buffer))
+					CL_ParsePrint(filtered_buffer);
+			}
+			else
+			{
+			if (!CL_ParseProQuakeString(s))
+				CL_ParsePrint(s);
+			}
+		}
 			break;
 
 		case svc_centerprint:
@@ -3485,6 +4091,12 @@ void CL_ParseServerMessage (void)
 		case svc_updatename:
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
+			if (cl.maxclients <= 0) // woods - serverinfo not received yet, consume args so buffer stays aligned
+			{
+				MSG_ReadString();
+				Con_DPrintf("Skipped early svc_updatename (slot %d) before serverinfo\n", i);
+				break;
+			}
 			if (i >= cl.maxclients)
 				Host_Error ("CL_ParseServerMessage: svc_updatename (%u) > MAX_SCOREBOARD (%u)", i, cl.maxclients); // woods - temporary? fix for connection issue
 			q_strlcpy (cl.scores[i].name, MSG_ReadString(), MAX_SCOREBOARDNAME);
@@ -3494,6 +4106,12 @@ void CL_ParseServerMessage (void)
 		case svc_updatefrags:
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
+			if (cl.maxclients <= 0) // woods - serverinfo not received yet, consume args so buffer stays aligned
+			{
+				MSG_ReadShort();
+				Con_DPrintf("Skipped early svc_updatefrags (slot %d) before serverinfo\n", i);
+				break;
+			}
 			if (i >= cl.maxclients)
 				Host_Error ("CL_ParseServerMessage: svc_updatefrags > MAX_SCOREBOARD");
 			cl.scores[i].frags = MSG_ReadShort ();
@@ -3502,6 +4120,12 @@ void CL_ParseServerMessage (void)
 		case svc_updatecolors:
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
+			if (cl.maxclients <= 0) // woods - serverinfo not received yet, consume args so buffer stays aligned
+			{
+				MSG_ReadByte();
+				Con_DPrintf("Skipped early svc_updatecolors (slot %d) before serverinfo\n", i);
+				break;
+			}
 			if (i >= cl.maxclients)
 				Host_Error ("CL_ParseServerMessage: svc_updatecolors > MAX_SCOREBOARD");
 			CL_NewTranslation (i, MSG_ReadByte());
@@ -3805,4 +4429,3 @@ void CL_ParseServerMessage (void)
 		lastcmd = cmd; //johnfitz
 	}
 }
-

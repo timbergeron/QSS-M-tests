@@ -28,9 +28,86 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 server_t	sv;
 server_static_t	svs;
 
+static qboolean SV_ClassnameMatches(const edict_t *ent, const char *classname) // woods #spawn
+{
+	if (!ent || ent->free || !ent->v.classname)
+		return false;
+
+	return !strcmp(PR_GetString(ent->v.classname), classname);
+}
+
+static edict_t *SV_FindEdictByClassname(const char *classname) // woods #spawn
+{
+	int	entnum;
+
+	for (entnum = 0; entnum < qcvm->num_edicts; ++entnum)
+	{
+		edict_t *ent = EDICT_NUM(entnum);
+
+		if (SV_ClassnameMatches(ent, classname))
+			return ent;
+	}
+
+	return NULL;
+}
+
+static void SV_EnsureSinglePlayerStart(void) // woods #spawn
+{
+	edict_t		*existing;
+	edict_t		*source = NULL;
+	edict_t		*start;
+	dfunction_t	*func;
+	vec3_t		origin = {0.f, 0.f, 0.f};
+	vec3_t		angles = {0.f, 0.f, 0.f};
+	const char	*source_name = "map origin";
+	int		old_self;
+
+	if (deathmatch.value > 0.f)
+		return;
+
+	existing = SV_FindEdictByClassname("info_player_start");
+	if (existing)
+		return;
+
+	source = SV_FindEdictByClassname("info_player_coop");
+	if (!source)
+		source = SV_FindEdictByClassname("info_player_deathmatch");
+
+	if (source)
+	{
+		VectorCopy(source->v.origin, origin);
+		VectorCopy(source->v.angles, angles);
+		source_name = PR_GetString(source->v.classname);
+	}
+
+	start = ED_Alloc();
+	start->v.classname = PR_SetEngineString("info_player_start");
+	VectorCopy(origin, start->v.origin);
+	VectorCopy(angles, start->v.angles);
+
+	func = ED_FindFunction("spawnfunc_info_player_start");
+	if (!func)
+		func = ED_FindFunction("info_player_start");
+
+	if (func)
+	{
+		old_self = pr_global_struct->self;
+		pr_global_struct->self = EDICT_TO_PROG(start);
+		PR_ExecuteProgram(func - qcvm->functions);
+		pr_global_struct->self = old_self;
+	}
+
+	if (source)
+		Con_Warning("Map \"%s\" is missing info_player_start; using %s as fallback spawn point.\n", sv.name, source_name);
+	else
+		Con_Warning("Map \"%s\" is missing info_player_start; created fallback spawn point at origin.\n", sv.name);
+}
+
 static char	localmodels[MAX_MODELS][8];	// inline model names for precache
 
 cvar_t	sv_defaultmap = {"sv_defaultmap","start", CVAR_ARCHIVE}; // woods #mapchangeprotect (R00k) 
+cvar_t  sv_idlesleep = {"sv_idlesleep", "8", CVAR_ARCHIVE}; // woods #idlesleep (ezquake)
+cvar_t	sv_mapcrc = {"sv_mapcrc", "0", CVAR_ARCHIVE|CVAR_SERVERINFO}; // woods #mapcrc
 
 int				sv_protocol = PROTOCOL_RMQ;//spike -- enough maps need this now that we can probably afford incompatibility with engines that still don't support 999 (vanilla was already broken) -- PROTOCOL_FITZQUAKE; //johnfitz
 unsigned int	sv_protocol_pext1 = PEXT1_SUPPORTED_SERVER; //spike
@@ -706,6 +783,7 @@ void SVFTE_Ack(client_t *client, int sequence)
 //		else Con_SafePrintf("dupe or stale ack (%s, %i->%i)\n", client->name, client->lastacksequence, sequence);
 		return;	//panic
 	}
+	
 	if ((unsigned)(dropseq-sequence) >= client->numframes)
 		dropseq = sequence - client->numframes;
 	while(dropseq < sequence)
@@ -1437,6 +1515,7 @@ void MSG_WriteStaticOrBaseLine(sizebuf_t *buf, int idx, entity_state_t *state, u
 
 
 static void SV_Pext_f(void);
+static void SV_SetTimer_f(void); // woods #svtimer
 
 /*
 ===============
@@ -1576,6 +1655,8 @@ void SV_Init (void)
 	extern	cvar_t	sv_map_rotation;		// woods #maprotation
 	extern	cvar_t	sv_defaultmap;		// woods #mapchangeprotect
 	extern	cvar_t	sv_bunnyhopqw; // woods #qwbunnyhop
+	extern	cvar_t	sv_fullpitch; // woods #pqfullpitch
+	extern	cvar_t	sv_mapcrc; // woods #mapcrc
 
 	PM_Register();
 	Cvar_RegisterVariable (&sv_maxvelocity);
@@ -1600,6 +1681,8 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_autoload); // woods #autoload (iw)
 	Cvar_RegisterVariable (&sv_nqplayerphysics);	//spike
 	Cvar_RegisterVariable (&sv_bunnyhopqw); // woods #qwbunnyhop
+	Cvar_RegisterVariable (&sv_fullpitch); // woods
+
 
 	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
 	Cvar_RegisterVariable (&sv_sound_land); //spike
@@ -1608,6 +1691,8 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_map_rotation); // woods #maprotation
 	Cvar_RegisterVariable (&sv_defaultmap); // woods #mapchangeprotect
 	Cvar_SetCompletion (&sv_defaultmap, &Extralevels_Completion_f); // woods #iwtabcomplete
+	Cvar_RegisterVariable (&sv_idlesleep); // woods #idlesleep
+	Cvar_RegisterVariable (&sv_mapcrc); // Map CRC handshake feature
 
 	if (isDedicated)
 		sv_public.string = "1";
@@ -1623,6 +1708,7 @@ void SV_Init (void)
 
 	Cmd_AddCommand_ClientCommand("pext", SV_Pext_f);
 	Cmd_AddCommand ("sv_protocol", &SV_Protocol_f); //johnfitz
+	Cmd_AddCommand ("sv_settimer", &SV_SetTimer_f);  // woods #svtimer
 
 	for (i=0 ; i<MAX_MODELS ; i++)
 		sprintf (localmodels[i], "*%i", i);
@@ -1706,7 +1792,8 @@ Larger attenuations will drop off.  (max 4 attenuation)
 */
 void SV_StartSound2 (edict_t *entity, float *origin, int channel, const char *sample, int volume, float attenuation, float speed, int flags, float timeoffset)
 {
-	unsigned int	sound_num, ent, msgsize;
+	unsigned int	sound_num, ent;
+	int			msgsize;
 	int			i, field_mask, client_mask;
 	int			p;
 	client_t	*cl;
@@ -2020,7 +2107,7 @@ void SV_SendServerinfo (client_t *client)
 	}
 	if (client->limit_entities > 0x8000 && !(client->protocol_pext2 & PEXT2_REPLACEMENTDELTAS))
 		client->limit_entities = 0x8000;	//pext2 changes the encoding of entities to support 23 bits instead of dpp7's 15bits or vanilla's 16bits, but our writeentity is lazy.
-	if (client->limit_entities > qcvm->max_edicts)
+	if (client->limit_entities > (unsigned int)qcvm->max_edicts)
 		client->limit_entities = qcvm->max_edicts;
 
 
@@ -2119,7 +2206,7 @@ retry:
 	client->signon_sounds = i;
 	//johnfitz
 
-	if (svs.serverinfo)
+	if (svs.serverinfo[0]) // woods
 	{
 		const char *pre = "//fullserverinfo \"";
 		MSG_WriteByte (&client->message, svc_stufftext);
@@ -2260,6 +2347,70 @@ void SV_Pext_f(void)
 
 		host_client->pextknown = true;
 		SV_SendServerinfo(host_client);
+	}
+}
+
+void SV_CheckDuplicateNames (client_t* client) // woods #dupnames
+{
+	size_t i;
+	unsigned int dupc = 1;
+	char newname[32], tmpname[32], * p;
+	client_t* cl;
+	size_t namelen;
+
+	if (!client->name[0])
+		return;
+
+	q_strlcpy(newname, client->name, sizeof(newname));
+
+	while (1)
+	{		
+		for (i = 0, cl = svs.clients; i < (size_t)svs.maxclients; i++, cl++)
+		{ // Check for duplicate names
+			if (!cl->active || cl == client)
+				continue;
+			if (!q_strcasecmp(cl->name, newname))
+				break;
+		}
+
+		if (i == (size_t)svs.maxclients)
+			break;  // no duplicate found
+
+		p = newname;
+
+		if (newname[0] == '(')
+		{ // Check if name already has a numeric prefix and strip it
+			if (newname[2] == ')')
+				p = newname + 3;
+			else if (newname[3] == ')')
+				p = newname + 4;
+		}
+
+		q_strlcpy(tmpname, p, sizeof(tmpname));
+
+		// Check if we have enough space for prefix
+		namelen = strlen(tmpname);
+		if (namelen + 5 >= sizeof(newname))  // "(xxx)" needs 5 chars max
+		{
+			tmpname[sizeof(newname) - 5] = 0; // Truncate base name to make room for prefix
+		}
+
+		// Add new numeric prefix with safe snprintf
+		if (dupc < 10)
+			q_snprintf(newname, sizeof(newname), "(%u)%s", dupc++, tmpname);
+		else if (dupc < 100)
+			q_snprintf(newname, sizeof(newname), "(%u)%s", dupc++, tmpname);
+		else
+			break; // Prevent excessive duplicates
+
+		newname[sizeof(newname) - 1] = 0;
+	}
+
+	// If name changed, update client name and userinfo safely
+	if (strcmp(client->name, newname))
+	{
+		q_strlcpy(client->name, newname, sizeof(client->name));
+		Info_SetKey(client->userinfo, sizeof(client->userinfo), "name", client->name);
 	}
 }
 
@@ -2491,7 +2642,7 @@ SV_EdictInPVS -- woods #iwshowbboxes
 */
 qboolean SV_EdictInPVS (edict_t* test, byte* pvs)
 {
-	int i;
+	unsigned int i;
 	for (i = 0; i < test->num_leafs; i++)
 		if (pvs[test->leafnums[i] >> 3] & (1 << (test->leafnums[i] & 7)))
 			return true;
@@ -3211,7 +3362,7 @@ qboolean SV_SendPrespawnModelPrecaches(void)
 {
 	return false;
 	size_t maxsize = host_client->message.maxsize;	//we can go quite large
-	int idx = host_client->signon_models;
+	unsigned int idx = host_client->signon_models;
 	if (!host_client->protocol_pext2)
 		return false;	//unsupported by this client.
 	for (;idx < host_client->limit_models;idx++)
@@ -3229,7 +3380,7 @@ qboolean SV_SendPrespawnModelPrecaches(void)
 }
 qboolean SV_SendPrespawnSoundPrecaches(void)
 {
-	int idx = host_client->signon_sounds;
+	unsigned int idx = host_client->signon_sounds;
 	size_t maxsize = host_client->message.maxsize;	//we can go quite large
 	if (!host_client->protocol_pext2)
 		return false;	//unsupported by this client...
@@ -3682,6 +3833,7 @@ void SV_SpawnServer (const char *server)
 
 	Con_DPrintf ("SpawnServer: %s\n",server);
 	svs.changelevel_issued = false;		// now safe to issue another
+	LOG_Maintenance();// deferred log roll at level changes
 
 	PR_SwitchQCVM(NULL);
 
@@ -3816,12 +3968,79 @@ void SV_SpawnServer (const char *server)
 	sv.models[1] = qcvm->worldmodel;
 	qcvm->GetModel = SV_ModelForIndex;
 
+	if (sv_mapcrc.value) // woods #mapcrc
+	{
+		Con_DPrintf("sv_mapcrc: Starting two-stage map CRC calculation for %s\n", sv.modelname);
+
+		unsigned path_id;
+		byte* map = COM_LoadMallocFile(sv.modelname, &path_id);
+		if (map)
+		{
+			double start_time = Sys_DoubleTime();
+
+			// Quick CRC: first 4KB only
+			int quick_size = (com_filesize > 4096) ? 4096 : com_filesize;
+			sv.map_crc_quick = Com_BlockChecksum(map, quick_size);
+			double quick_time = Sys_DoubleTime();
+
+			// Full CRC: entire file
+			sv.map_crc_full = Com_BlockChecksum(map, com_filesize);
+			double full_time = Sys_DoubleTime();
+
+			// Free the allocated memory
+			free(map);
+
+			// Publish both CRCs in serverinfo
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo),
+				"*mapcrc_quick", va("%u", sv.map_crc_quick));
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo),
+				"*mapcrc_full", va("%u", sv.map_crc_full));
+
+			Con_DPrintf("=== SERVER MAP CRC CALCULATION ===\n");
+			Con_DPrintf("Map: %s (path_id: %u)\n", sv.modelname, path_id);
+			Con_DPrintf("File size: %d bytes\n", (int)com_filesize);
+			Con_DPrintf("Quick CRC (%d bytes): %u (0x%08x) [%.1fms]\n",
+				quick_size, sv.map_crc_quick, sv.map_crc_quick,
+				(quick_time - start_time) * 1000.0);
+			Con_DPrintf("Full CRC (%d bytes):  %u (0x%08x) [%.1fms]\n",
+				(int)com_filesize, sv.map_crc_full, sv.map_crc_full,
+				(full_time - quick_time) * 1000.0);
+			Con_DPrintf("Total CRC time: %.1fms\n", (full_time - start_time) * 1000.0);
+			Con_DPrintf("==================================\n");
+		}
+		else
+		{
+			sv.map_crc_quick = 0;
+			sv.map_crc_full = 0;
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo),
+				"*mapcrc_quick", "");
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo),
+				"*mapcrc_full", "");
+			Con_DPrintf("Failed to load map file for CRC: %s\n", sv.modelname);
+		}
+	}
+
 //
 // clear world interaction links
 //
 	SV_ClearWorld ();
 
 	sv.sound_precache[0] = dummy;
+	
+	// woods #give+
+	SV_Precache_Sound("items/protect.wav"); 
+	SV_Precache_Sound("items/protect2.wav");
+	SV_Precache_Sound("items/protect3.wav");
+	SV_Precache_Sound("items/armor1.wav");
+	SV_Precache_Sound("items/damage.wav");
+	SV_Precache_Sound("items/damage2.wav");
+	SV_Precache_Sound("items/damage3.wav");
+	SV_Precache_Sound("items/inv1.wav");
+	SV_Precache_Sound("items/inv2.wav");
+	SV_Precache_Sound("items/inv3.wav");
+	SV_Precache_Sound("items/r_item1.wav");
+	SV_Precache_Sound("items/suit.wav");
+	SV_Precache_Sound("items/suit2.wav");
 	sv.model_precache[0] = dummy;
 	sv.model_precache[1] = sv.modelname;
 	if (qcvm->worldmodel->numsubmodels > MAX_MODELS)
@@ -3859,6 +4078,8 @@ void SV_SpawnServer (const char *server)
 
 	ED_LoadFromFile (qcvm->worldmodel->entities);
 
+	SV_EnsureSinglePlayerStart(); // woods #spawn
+
 	sv.active = true;
 
 	SV_Precache_Model("progs/player.mdl");	//Spike -- SV_CreateBaseline depends on this model.
@@ -3891,3 +4112,205 @@ void SV_SpawnServer (const char *server)
 	Con_DPrintf ("Server spawned.\n");
 }
 
+//================
+// sv_timer -- woods #svtimer
+//================
+
+// Global variables for timer state
+static SDL_TimerID sv_timer_id = 0;
+static SDL_atomic_t sv_timer_count = {0};
+static char sv_timer_command[1024] = "";  // Increased buffer size
+static cmd_source_t sv_timer_source = src_command;
+static SDL_atomic_t sv_timer_execute_pending = {0};
+
+/*
+================
+SV_TimerCallback
+
+SDL2 timer callback - runs in separate thread, so we just set a flag
+================
+*/
+static Uint32 SV_TimerCallback(Uint32 interval, void* param)
+{
+	// Don't execute commands directly from timer thread - not thread safe
+	// Just set a flag to execute from main thread
+	SDL_AtomicSet(&sv_timer_execute_pending, 1);
+	
+	// For finite timers, atomically decrement and find the new value
+	int old_count = SDL_AtomicAdd(&sv_timer_count, -1);  // Returns *previous* value
+	int new_count = old_count - 1;                       // Value *after* decrement
+	
+	if (new_count == 0)             // We just executed the last repetition
+	{
+		// SDL will auto-remove the timer when we return 0
+		// Don't modify sv_timer_id from callback thread - race condition!
+		return 0;                   // Returning 0 disarms the SDL timer
+	}
+	
+	// -1 means "infinite"; we never touch it, so it stays -1 forever
+	
+	return interval; // Continue with same interval
+}
+
+/*
+================
+SV_SetTimer_f
+
+Sets up a repeating timer using SDL2
+================
+*/
+static void SV_SetTimer_f(void)
+{
+	int count;
+	float interval;
+	int i;
+	char combined_args[1024];  // Increased buffer size to match sv_timer_command
+	Uint32 interval_ms;
+	size_t cmd_len;
+
+	if (Cmd_Argc() < 4)
+	{
+		Con_Printf("Usage: %s <count> <interval> <command>\n", Cmd_Argv(0));
+		Con_Printf("  count: number of executions (-1 for infinite, 0 to disable)\n");
+		Con_Printf("  interval: time between executions in seconds\n");
+		Con_Printf("  command: command to execute (avoid quotes and semicolons)\n");
+		return;
+	}
+
+	count = atoi(Cmd_Argv(1));
+	interval = atof(Cmd_Argv(2));
+
+	// Special case: disable timer
+	if (!count && Cmd_Argc() == 3)
+	{
+		if (sv_timer_id)
+		{
+			SDL_RemoveTimer(sv_timer_id);
+			sv_timer_id = 0;
+		}
+		SDL_AtomicSet(&sv_timer_count, 0);   // Ensure non-positive to prevent dangling decrements
+		SDL_AtomicSet(&sv_timer_execute_pending, 0);
+		Con_Printf("Timer disabled\n");
+		return;
+	}
+
+	// Validate arguments
+	if (interval <= 0 || (count <= 0 && count != -1))
+	{
+		Con_Printf("Count must be positive or -1 for infinite, interval must be positive\n");
+		return;
+	}
+
+	// Remove existing timer if any
+	// Note: SDL_RemoveTimer() handles invalid/expired timer IDs gracefully
+	if (sv_timer_id)
+	{
+		SDL_RemoveTimer(sv_timer_id);
+		sv_timer_id = 0;
+	}
+
+	// Combine command arguments with length checking
+	combined_args[0] = '\0';
+	for (i = 3; i < Cmd_Argc(); i++)
+	{
+		if (i > 3)
+		{
+			if (q_strlcat(combined_args, " ", sizeof(combined_args)) >= sizeof(combined_args))
+			{
+				Con_Printf("Warning: Timer command truncated (too long)\n");
+				break;
+			}
+		}
+		if (q_strlcat(combined_args, Cmd_Argv(i), sizeof(combined_args)) >= sizeof(combined_args))
+		{
+			Con_Printf("Warning: Timer command truncated (too long)\n");
+			break;
+		}
+	}
+
+	// Check for problematic characters that could break command parsing
+	if (strchr(combined_args, ';') || strchr(combined_args, '"') || strchr(combined_args, '\n'))
+	{
+		Con_Printf("Warning: Command contains special characters (quotes, semicolons, newlines)\n");
+		Con_Printf("         that may cause unexpected parsing behavior.\n");
+	}
+
+	// Set up timer state
+	cmd_len = q_strlcpy(sv_timer_command, combined_args, sizeof(sv_timer_command));
+	if (cmd_len >= sizeof(sv_timer_command))
+	{
+		Con_Printf("Error: Timer command too long (max %d characters)\n", 
+			(int)sizeof(sv_timer_command) - 1);
+		return;
+	}
+
+	SDL_AtomicSet(&sv_timer_count, count);
+	sv_timer_source = cmd_source;
+	SDL_AtomicSet(&sv_timer_execute_pending, 0);
+	
+	// Convert to milliseconds with safer rounding
+	interval_ms = (Uint32)SDL_max(1, (int)SDL_roundf(interval * 1000.0f));
+	
+	// Start SDL timer
+	sv_timer_id = SDL_AddTimer(interval_ms, SV_TimerCallback, NULL);
+	
+	if (sv_timer_id)
+	{
+		// Prettier banner with infinity symbol for unlimited timers
+		const char *count_str = (count == -1) ? "∞" : va("%d", count);
+		Con_Printf("Timer set: %s executions of \"%s\" every %.2f seconds\n",
+			count_str, sv_timer_command, interval);
+	}
+	else
+	{
+		Con_Printf("Failed to create timer\n");
+	}
+}
+
+/*
+================
+SV_ProcessTimerExecution
+
+Call this from the main game loop to execute pending timer commands
+This ensures commands execute from the main thread, not the timer thread
+
+Timer lifecycle:
+- Main thread creates timer, sets sv_timer_id
+- Timer callback sets atomic flag, may return 0 to auto-expire
+- Main thread processes atomic flag and executes command
+- When replacing/stopping timer, main thread calls SDL_RemoveTimer() (safe even for expired timers)
+================
+*/
+void SV_ProcessTimerExecution(void)
+{
+	// Use atomic CAS to check and clear the flag atomically
+	if (SDL_AtomicCAS(&sv_timer_execute_pending, 1, 0) && sv_timer_command[0])
+	{
+		Cbuf_AddText(sv_timer_command);
+		Cbuf_AddText("\n");
+		
+		// If this was the final execution (count reached 0), clear the timer ID
+		// since SDL has already auto-removed the expired timer
+		if (SDL_AtomicGet(&sv_timer_count) == 0)
+		{
+			sv_timer_id = 0;
+		}
+	}
+}
+
+/*
+================
+SV_CleanupTimer
+
+Call this during shutdown to clean up the timer
+================
+*/
+void SV_CleanupTimer(void)
+{
+	if (sv_timer_id)
+	{
+		SDL_RemoveTimer(sv_timer_id);
+		sv_timer_id = 0;
+	}
+	SDL_AtomicSet(&sv_timer_execute_pending, 0);
+}

@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // server.h
 
+#define PWARN_GIVE (1<<0) // woods - #resurrect #give
+
 typedef struct
 {
 	int			maxclients;
@@ -106,6 +108,9 @@ typedef struct
 
 	qboolean skyroom_pos_known;
 	vec4_t skyroom_pos;
+
+	unsigned	map_crc_quick; // woods #mapcrc - CRC of first 4KB of map file
+	unsigned	map_crc_full;// woods #mapcrc - CRC of entire map file
 } server_t;
 
 
@@ -230,6 +235,7 @@ typedef struct client_s
 	} download;
 	qboolean		knowntoqc;			// putclientinserver was called
 	qboolean		csqcactive;			// its prepared to accept csqc entities.
+	int				powerup_warn_flags;	// woods - #resurrect #giveflags for powerup warning sounds
 } client_t;
 
 
@@ -366,6 +372,11 @@ void SV_SaveSpawnparms ();
 void SV_SpawnServer (const char *server);
 
 void SV_SetupSkyRoom(char *value);
+
+void SV_CheckDuplicateNames(client_t* client); // woods #dupnames
+
+void SV_ProcessTimerExecution(void); // woods #svtimer
+void SV_CleanupTimer(void); // woods #svtimer
 
 #endif	/* _QUAKE_SERVER_H */
 

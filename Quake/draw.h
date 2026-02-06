@@ -61,7 +61,10 @@ void Draw_Fill (int x, int y, int w, int h, int c, float alpha); //johnfitz -- a
 void Draw_FillPlayer (int x, int y, int w, int h, plcolour_t c, float alpha); //Spike - for richer player colours.
 void Draw_FadeScreen (void);
 void Draw_String (int x, int y, const char *str);
+void Draw_StringAnimatedDots(int x, int y, const char* str); // woods
+void Draw_StringGradientSweep(int x, int y, const char* str, float speed, float span_px, float alpha, qboolean masked); // woods
 void Draw_StringRGBA (int x, int y, const char* str, plcolour_t c, float alpha); // woods
+void Draw_ScaledPicAlpha (int x, int y, qpic_t* pic, float scale, float alpha); // woods #observerhud #eyemouse
 qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags);
 qpic_t *Draw_PicFromWad (const char *name);
 qpic_t *Draw_CachePic (const char *path);
@@ -69,6 +72,10 @@ qpic_t *Draw_TryCachePic (const char *path, unsigned int texflags);
 void Draw_NewGame (void);
 void Draw_GetMenuTransform(vrect_t* bounds, vrect_t* viewport); // woods #mousemenu (iw)
 qboolean Draw_ReloadTextures(qboolean force);
+plcolour_t Draw_GetConcharsAccentColor(void); // woods #goldtext
+plcolour_t Draw_GetConcharsCursorColor(void); // woods #cursorcolor
+plcolour_t Draw_GetConcharsCursorColorByIndex(int index); // woods #nadecount
+void Draw_PicRGBA (int x, int y, qpic_t *pic, plcolour_t c, float alpha); // woods #cursorcolor
 
 //Spike -- this is for csqc
 typedef struct

@@ -26,10 +26,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "q_ctype.h"
+#include <curl/curl.h> // woods #uri
 
+static float g_menu_vm_scale_override = 0.0f; // woods #spinnymodel
 static float PR_GetVMScale(void)
 {	//sigh, this is horrible (divides glwidth)
 	float s;
+	if (g_menu_vm_scale_override > 0.0f) // woods #spinnymodel
+		return g_menu_vm_scale_override;
 	if (qcvm == &cls.menu_qcvm)
 	{
 		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
@@ -52,6 +56,7 @@ static int pr_ext_warned_particleeffectnum;	//so these only spam once per map
 
 static void *PR_FindExtGlobal(int type, const char *name);
 void SV_CheckVelocity (edict_t *ent);
+extern cvar_t gl_load24bit, gl_load24bit_skins; // woods #spinnymodel
 
 typedef enum multicast_e
 {
@@ -1701,6 +1706,14 @@ static void PF_ftoi(void)
 static void PF_itof(void)
 {
 	G_FLOAT(OFS_RETURN) = G_INT(OFS_PARM0);
+}
+static void PF_ftou(void)
+{
+	G_UINT(OFS_RETURN) = G_FLOAT(OFS_PARM0);
+}
+static void PF_utof(void)
+{
+	G_FLOAT(OFS_RETURN) = G_UINT(OFS_PARM0);
 }
 
 //collision stuff
@@ -4121,7 +4134,7 @@ static void PF_buf_cvarlist(void)
 	size_t bufno = G_FLOAT(OFS_PARM0)-BUFSTRBASE;
 	const char *pattern = G_STRING(OFS_PARM1);
 	const char *antipattern = G_STRING(OFS_PARM2);
-	int i;
+	unsigned int i;
 	cvar_t	*var;
 	int plen = strlen(pattern), alen = strlen(antipattern);
 	qboolean pwc = strchr(pattern, '*')||strchr(pattern, '?'),
@@ -4270,6 +4283,7 @@ static void PF_findchain(void)
 	int cfld;
 
 	chain = (edict_t *)qcvm->edicts;
+	ent = NEXT_EDICT(qcvm->edicts);
 
 	f = G_INT(OFS_PARM0);
 	s = G_STRING(OFS_PARM1);
@@ -4326,6 +4340,7 @@ static void PF_findchainfloat(void)
 	int cfld;
 
 	chain = (edict_t *)qcvm->edicts;
+	ent = NEXT_EDICT(qcvm->edicts);
 
 	f = G_INT(OFS_PARM0);
 	s = G_FLOAT(OFS_PARM1);
@@ -4382,6 +4397,7 @@ static void PF_findchainflags(void)
 	int cfld;
 
 	chain = (edict_t *)qcvm->edicts;
+	ent = NEXT_EDICT(qcvm->edicts);
 
 	f = G_INT(OFS_PARM0);
 	s = G_FLOAT(OFS_PARM1);
@@ -4546,7 +4562,7 @@ static void PF_isfunction(void)
 }
 
 //other stuff
-static void PF_gettime (void)
+static void PF_gettimef (void)
 {
 	int timer = (qcvm->argc > 0)?G_FLOAT(OFS_PARM0):0;
 	switch(timer)
@@ -4558,6 +4574,25 @@ static void PF_gettime (void)
 		break;
 	case 1:		//actual time
 		G_FLOAT(OFS_RETURN) = Sys_DoubleTime();
+		break;
+	//case 2:	//highres.. looks like time into the frame. no idea
+	//case 3:	//uptime
+	//case 4:	//cd track
+	//case 5:	//client simtime
+	}
+}
+static void PF_gettimed (void)
+{
+	int timer = (qcvm->argc > 0)?G_INT(OFS_PARM0):0;
+	switch(timer)
+	{
+	default:
+		Con_DPrintf("PF_gettime: unsupported timer %i\n", timer);
+	case 0:		//cached time at start of frame
+		G_DOUBLE(OFS_RETURN) = realtime;
+		break;
+	case 1:		//actual time
+		G_DOUBLE(OFS_RETURN) = Sys_DoubleTime();
 		break;
 	//case 2:	//highres.. looks like time into the frame. no idea
 	//case 3:	//uptime
@@ -6461,7 +6496,460 @@ static void PF_gethostcacheindexforkey(void)
 //static void PF_addwantedhostcachekey(void){G_VECTORSET(OFS_RETURN, 0,0,0);}
 //static void PF_getextresponse(void){G_VECTORSET(OFS_RETURN, 0,0,0);}
 //static void PF_netaddress_resolve(void){G_VECTORSET(OFS_RETURN, 0,0,0);}
-static void PF_uri_get(void){G_VECTORSET(OFS_RETURN, 0,0,0);}
+
+// Async URI subsystem -- woods #uri
+
+#define URIGET_ENABLED                 1
+#define URIGET_MAX_BYTES               (1*1024*1024)
+#define URIGET_CALLBACKS_PER_FRAME     6
+#define URIGET_MAX_ACTIVE              32
+#define URIGET_INSECURE                0
+
+typedef struct uri_request_s {
+    char url[2048];
+    float id;
+    char mimetype[256];
+    char *postdata;
+    size_t postlen;
+    int use_strbuf;
+    int strbuf_id;
+    qcvm_t *target_qcvm;
+    struct uri_request_s *next;
+} uri_request_t;
+
+typedef struct uri_response_s {
+    char *data;
+    size_t size;
+    size_t capacity;
+    long http_status;
+    char content_type[256];
+
+    float id;
+    qcvm_t *target_qcvm;
+    int ok;
+    struct uri_response_s *next;
+} uri_response_t;
+
+static SDL_Thread *uri_worker_thread = NULL;
+static SDL_mutex  *uri_pending_mtx   = NULL;
+static SDL_cond   *uri_pending_cv    = NULL;
+static SDL_mutex  *uri_completed_mtx = NULL;
+
+static uri_request_t  *pending_head   = NULL;
+static uri_request_t  *pending_tail   = NULL;
+static uri_response_t *completed_head = NULL;
+static uri_response_t *completed_tail = NULL;
+
+static volatile int uri_worker_running = 0;
+static int active_uri_requests = 0;
+
+static void enqueue_request(uri_request_t *r) {
+    SDL_LockMutex(uri_pending_mtx);
+    if (!pending_tail) {
+        pending_head = pending_tail = r;
+    } else {
+        pending_tail->next = r;
+        pending_tail = r;
+    }
+    r->next = NULL;
+    SDL_CondSignal(uri_pending_cv);
+    SDL_UnlockMutex(uri_pending_mtx);
+}
+
+static uri_request_t *dequeue_request_blocking(void) {
+    uri_request_t *r = NULL;
+    SDL_LockMutex(uri_pending_mtx);
+    while (uri_worker_running && pending_head == NULL) {
+        SDL_CondWait(uri_pending_cv, uri_pending_mtx);
+    }
+    if (!uri_worker_running) {
+        SDL_UnlockMutex(uri_pending_mtx);
+        return NULL;
+    }
+    r = pending_head;
+    if (r) {
+        pending_head = r->next;
+        if (!pending_head) pending_tail = NULL;
+        r->next = NULL;
+    }
+    SDL_UnlockMutex(uri_pending_mtx);
+    return r;
+}
+
+static void enqueue_completed(uri_response_t *res) {
+    SDL_LockMutex(uri_completed_mtx);
+    if (!completed_tail) {
+        completed_head = completed_tail = res;
+    } else {
+        completed_tail->next = res;
+        completed_tail = res;
+    }
+    res->next = NULL;
+    SDL_UnlockMutex(uri_completed_mtx);
+}
+
+static uri_response_t *dequeue_completed(void) {
+    uri_response_t *r = NULL;
+    SDL_LockMutex(uri_completed_mtx);
+    r = completed_head;
+    if (r) {
+        completed_head = r->next;
+        if (!completed_head) completed_tail = NULL;
+        r->next = NULL;
+    }
+    SDL_UnlockMutex(uri_completed_mtx);
+    return r;
+}
+
+static size_t URI_WriteCallback(void *contents, size_t size, size_t nmemb, void *userp) {
+    size_t realsize = size * nmemb;
+    uri_response_t *response = (uri_response_t *)userp;
+    if (response->size + realsize > (size_t)URIGET_MAX_BYTES) {
+        Con_Printf("URI: response exceeds URIGET_MAX_BYTES (%d bytes)\n", (int)URIGET_MAX_BYTES);
+        return 0;
+    }
+    if (response->size + realsize + 1 > response->capacity) {
+        size_t newcap = response->capacity ? response->capacity * 2 : 1024;
+        if (newcap < response->size + realsize + 1)
+            newcap = response->size + realsize + 1024;
+        char *ndata = (char *)realloc(response->data, newcap);
+        if (!ndata) {
+            Con_Printf("URI_WriteCallback: Out of memory\n");
+            return 0;
+        }
+        response->data = ndata;
+        response->capacity = newcap;
+    }
+    memcpy(response->data + response->size, contents, realsize);
+    response->size += realsize;
+    response->data[response->size] = 0;
+    return realsize;
+}
+
+static size_t URI_HeaderCallback(char *buffer, size_t size, size_t nitems, void *userdata) {
+    size_t realsize = size * nitems;
+    uri_response_t *response = (uri_response_t *)userdata;
+    if (realsize > 13 && !q_strncasecmp(buffer, "content-type:", 13)) {
+        const char *start = buffer + 13;
+        while (*start == ' ' || *start == '\t') start++;
+        size_t len = realsize - (size_t)(start - buffer);
+        if (len > 0) {
+            if (len >= sizeof(response->content_type))
+                len = sizeof(response->content_type) - 1;
+            memcpy(response->content_type, start, len);
+            response->content_type[len] = 0;
+            char *end = response->content_type + len - 1;
+            while (end >= response->content_type && (*end == '\r' || *end == '\n')) {
+                *end = 0;
+                --end;
+            }
+        }
+    }
+    return realsize;
+}
+
+static void URI_PerformCurl(const uri_request_t *req, uri_response_t *out) {
+    CURL *curl = curl_easy_init();
+    if (!curl) {
+        Con_Printf("URI_PerformCurl: Failed to initialize curl\n");
+        out->ok = 0;
+        out->http_status = 0;
+        return;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, req->url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, URI_WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, out);
+    curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, URI_HeaderCallback);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, out);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 10L);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 10L);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, ENGINE_NAME_AND_VER);
+    curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+#if URIGET_INSECURE
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+#endif
+    struct curl_slist *headers = NULL;
+    if (req->mimetype[0] && req->postdata && req->postlen > 0) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req->postdata);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)req->postlen);
+        char ctbuf[512];
+        q_snprintf(ctbuf, sizeof(ctbuf), "Content-Type: %s", req->mimetype);
+        headers = curl_slist_append(headers, ctbuf);
+        headers = curl_slist_append(headers, "Expect:");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    }
+    CURLcode res = curl_easy_perform(curl);
+    long code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+    out->http_status = code;
+    if (!out->content_type[0]) {
+        q_strlcpy(out->content_type, "application/octet-stream", sizeof(out->content_type));
+    }
+    out->ok = (res == CURLE_OK && code >= 200 && code < 300) ? 1 : 0;
+    if (headers) curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+}
+
+static int URI_Worker(void *unused) {
+    (void)unused;
+    while (uri_worker_running) {
+        uri_request_t *req = dequeue_request_blocking();
+        if (!req) continue;
+        uri_response_t *resp = (uri_response_t *)calloc(1, sizeof(uri_response_t));
+        if (!resp) {
+            Con_Printf("URI_Worker: out of memory\n");
+            SDL_LockMutex(uri_pending_mtx);
+            active_uri_requests--;
+            SDL_UnlockMutex(uri_pending_mtx);
+            if (req->postdata) free(req->postdata);
+            free(req);
+            continue;
+        }
+        resp->id = req->id;
+        resp->target_qcvm = req->target_qcvm;
+        resp->content_type[0] = 0;
+        resp->data = NULL;
+        resp->size = 0;
+        resp->capacity = 0;
+        URI_PerformCurl(req, resp);
+        if (req->postdata) free(req->postdata);
+        free(req);
+        enqueue_completed(resp);
+        SDL_LockMutex(uri_pending_mtx);
+        active_uri_requests--;
+        SDL_UnlockMutex(uri_pending_mtx);
+    }
+    return 0;
+}
+
+static void URI_DispatchToQC(uri_response_t *r) {
+    qcvm_t *old = qcvm;
+    if (r->target_qcvm && r->target_qcvm->extfuncs.URI_Get_Callback) {
+        PR_SwitchQCVM(r->target_qcvm);
+        /* fteextensions.qc: URI_Get_Callback(id, responsecode, resourcebody, resourcebytes) */
+        G_FLOAT(OFS_PARM0) = r->id;
+        /* Use HTTP status; map transport failure to a negative code (DP-style). */
+        {
+            float responsecode = (float)r->http_status;
+            if (!r->ok && r->http_status == 0 && (!r->data || r->size == 0)) {
+                responsecode = -1.0f; /* libcurl/transport failure */
+            }
+            G_FLOAT(OFS_PARM1) = responsecode;
+        }
+        /* resourcebody = full response body (NOT the content-type). */
+        G_INT  (OFS_PARM2) = PR_MakeTempString(r->data ? r->data : "");
+        /* resourcebytes = exact byte count. */
+        G_INT  (OFS_PARM3) = (int)r->size;
+        PR_ExecuteProgram(r->target_qcvm->extfuncs.URI_Get_Callback);
+        PR_SwitchQCVM(old);
+    } else {
+        Con_Printf("URI_DispatchToQC: no callback available\n");
+    }
+}
+
+void URI_Init(void) {
+    uri_pending_mtx   = SDL_CreateMutex();
+    uri_completed_mtx = SDL_CreateMutex();
+    uri_pending_cv    = SDL_CreateCond();
+    if (!uri_pending_mtx || !uri_completed_mtx || !uri_pending_cv) {
+        Con_Printf("URI_Init: SDL mutex/cond init failed\n");
+        return;
+    }
+    uri_worker_running = 1;
+    uri_worker_thread = SDL_CreateThread(URI_Worker, "uri_worker", NULL);
+    if (!uri_worker_thread) {
+        Con_Printf("URI_Init: failed to start worker thread\n");
+        uri_worker_running = 0;
+    }
+}
+
+void URI_Shutdown(void) {
+    if (uri_worker_running) {
+        SDL_LockMutex(uri_pending_mtx);
+        uri_worker_running = 0;
+        SDL_CondBroadcast(uri_pending_cv);
+        SDL_UnlockMutex(uri_pending_mtx);
+        if (uri_worker_thread) {
+            SDL_WaitThread(uri_worker_thread, NULL);
+            uri_worker_thread = NULL;
+        }
+    }
+    SDL_LockMutex(uri_pending_mtx);
+    uri_request_t *rq = pending_head;
+    while (rq) {
+        uri_request_t *n = rq->next;
+        if (rq->postdata) free(rq->postdata);
+        free(rq);
+        rq = n;
+    }
+    pending_head = pending_tail = NULL;
+    SDL_UnlockMutex(uri_pending_mtx);
+    SDL_LockMutex(uri_completed_mtx);
+    uri_response_t *rs = completed_head;
+    while (rs) {
+        uri_response_t *n = rs->next;
+        if (rs->data) free(rs->data);
+        free(rs);
+        rs = n;
+    }
+    completed_head = completed_tail = NULL;
+    SDL_UnlockMutex(uri_completed_mtx);
+    if (uri_pending_cv)  { SDL_DestroyCond(uri_pending_cv); uri_pending_cv = NULL; }
+    if (uri_pending_mtx) { SDL_DestroyMutex(uri_pending_mtx); uri_pending_mtx = NULL; }
+    if (uri_completed_mtx){ SDL_DestroyMutex(uri_completed_mtx); uri_completed_mtx = NULL; }
+}
+
+void URI_Frame(void) {
+    int budget = URIGET_CALLBACKS_PER_FRAME;
+    if (budget < 1) budget = 1;
+    for (int i = 0; i < budget; ++i) {
+        uri_response_t *r = dequeue_completed();
+        if (!r) break;
+        URI_DispatchToQC(r);
+        if (r->data) free(r->data);
+        free(r);
+    }
+}
+
+static void PF_uri_get(void) {
+    const char *url      = G_STRING(OFS_PARM0);
+    float id             = G_FLOAT(OFS_PARM1);
+    const char *mimetype = (qcvm->argc >= 3) ? G_STRING(OFS_PARM2) : "";
+    const char *postdata = (qcvm->argc >= 4) ? G_STRING(OFS_PARM3) : "";
+    int strbufid         = (qcvm->argc >= 5) ? (int)G_FLOAT(OFS_PARM4) : 0;
+    G_FLOAT(OFS_RETURN) = 0;
+#if URIGET_ENABLED
+    (void)0;
+#else
+    Con_Printf("uri_get: disabled by build-time flag\n");
+    return;
+#endif
+    if (!url || !url[0]) {
+        Con_Printf("PF_uri_get: empty URL\n");
+        return;
+    }
+    SDL_LockMutex(uri_pending_mtx);
+    if (active_uri_requests >= URIGET_MAX_ACTIVE) {
+        SDL_UnlockMutex(uri_pending_mtx);
+        Con_Printf("PF_uri_get(\"%s\",%g): too many in-flight downloads (>%d)\n",
+                   url, id, (int)URIGET_MAX_ACTIVE);
+        return;
+    }
+    active_uri_requests++;
+    SDL_UnlockMutex(uri_pending_mtx);
+    uri_request_t *req = (uri_request_t *)calloc(1, sizeof(uri_request_t));
+    if (!req) {
+        SDL_LockMutex(uri_pending_mtx);
+        active_uri_requests--;
+        SDL_UnlockMutex(uri_pending_mtx);
+        Con_Printf("PF_uri_get: out of memory\n");
+        return;
+    }
+    q_strlcpy(req->url, url, sizeof(req->url));
+    req->id = id;
+    q_strlcpy(req->mimetype, mimetype ? mimetype : "", sizeof(req->mimetype));
+    req->target_qcvm = qcvm;
+    req->use_strbuf = (strbufid != 0);
+    req->strbuf_id = strbufid;
+    if (req->mimetype[0] && postdata && postdata[0]) {
+        if (postdata[0] == '@') {
+            /* File payload mode: read body from disk to bypass QC string cap.
+               Resolve relative to game dir so QC paths like "json/..." or "data/json/..."
+               work regardless of OS current working directory. */
+            const char *rel = postdata + 1; /* after '@' */
+            char cand[MAX_OSPATH];
+            FILE *f = NULL;
+
+            /* Try as-is first (absolute or cwd-relative) */
+            f = fopen(rel, "rb");
+
+            /* Try <com_gamedir>/<rel> */
+            if (!f && com_gamedir[0]) {
+                q_snprintf(cand, sizeof(cand), "%s/%s", com_gamedir, rel);
+                f = fopen(cand, "rb");
+            }
+
+            /* Try <com_gamedir>/data/<rel> (QC often writes to data/) */
+            if (!f && com_gamedir[0]) {
+                q_snprintf(cand, sizeof(cand), "%s/data/%s", com_gamedir, rel);
+                f = fopen(cand, "rb");
+            }
+
+            /* Try id1/<rel> and id1/data/<rel> as last resorts (classic layout) */
+            if (!f) { q_snprintf(cand, sizeof(cand), "id1/%s", rel); f = fopen(cand, "rb"); }
+            if (!f) { q_snprintf(cand, sizeof(cand), "id1/data/%s", rel); f = fopen(cand, "rb"); }
+
+            if (!f) {
+                SDL_LockMutex(uri_pending_mtx);
+                active_uri_requests--;
+                SDL_UnlockMutex(uri_pending_mtx);
+                free(req);
+                Con_Printf("PF_uri_get: cannot open payload file \"%s\" (tried game-relative paths)\n", rel);
+                return;
+            }
+            if (fseek(f, 0, SEEK_END) != 0) { /* ignore */ }
+            long flen = ftell(f);
+            if (flen < 0) flen = 0;
+            rewind(f);
+            if ((size_t)flen > (size_t)URIGET_MAX_BYTES) {
+                Con_Printf("PF_uri_get: file payload exceeds URIGET_MAX_BYTES, truncating\n");
+                flen = URIGET_MAX_BYTES;
+            }
+            req->postdata = (char *)malloc((size_t)flen + 1);
+            if (!req->postdata) {
+                fclose(f);
+                SDL_LockMutex(uri_pending_mtx);
+                active_uri_requests--;
+                SDL_UnlockMutex(uri_pending_mtx);
+                free(req);
+                Con_Printf("PF_uri_get: out of memory for file POST body\n");
+                return;
+            }
+            size_t rd = fread(req->postdata, 1, (size_t)flen, f);
+            fclose(f);
+            req->postlen = rd;
+            req->postdata[rd] = 0;
+            /* Log whichever path actually succeeded (cand holds last attempt if not as-is) */
+            Con_DPrintf("PF_uri_post(file:%s,%g) bytes=%d\n",
+                        (cand[0] ? cand : rel), req->id, (int)rd);
+        } else {
+            /* Normal string payload from QC */
+            size_t len = strlen(postdata);
+            if (len > (size_t)URIGET_MAX_BYTES) {
+                Con_Printf("PF_uri_get: POST body exceeds URIGET_MAX_BYTES, truncating\n");
+                len = (size_t)URIGET_MAX_BYTES;
+            }
+            req->postdata = (char *)malloc(len + 1);
+            if (!req->postdata) {
+                SDL_LockMutex(uri_pending_mtx);
+                active_uri_requests--;
+                SDL_UnlockMutex(uri_pending_mtx);
+                free(req);
+                Con_Printf("PF_uri_get: out of memory for POST body\n");
+                return;
+            }
+            memcpy(req->postdata, postdata, len);
+            req->postdata[len] = 0;
+            req->postlen = len;
+        }
+    }
+    enqueue_request(req);
+    if (req->mimetype[0]) {
+        /* Note: file mode already logged above; keep this for normal payloads */
+        Con_DPrintf("PF_uri_post(%s,%g)\n", req->url, req->id);
+    }
+    else
+        Con_DPrintf("PF_uri_get(%s,%g)\n", req->url, req->id);
+    G_FLOAT(OFS_RETURN) = 1;
+}
 
 static const char *csqcmapentitydata;
 static void PF_cs_getentitytoken(void)
@@ -7203,6 +7691,489 @@ static void PF_cl_renderscene(void)
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 }
 
+// woods #spinnymodel -- QSS DevKit
+
+static void PR_addentity_internalNew(edict_t* ed) // woods #spinnymodel
+{
+	qmodel_t* model = qcvm->GetModel(ed->v.modelindex);
+
+	if (model)
+	{
+		entity_t* e = CL_NewTempEntity();
+		if (e)
+		{
+			/* Basic fields */
+			VectorCopy(ed->v.origin, e->origin);
+			VectorCopy(ed->v.angles, e->angles);
+			e->model = model;
+			e->skinnum = ed->v.skin;
+			/* colormap support (scoreboard index or DP-legacy encoding) */
+			if (ed->v.colormap)
+			{
+				int cm = (int)ed->v.colormap;
+				e->netstate.colormap = cm & 0xFFFF;
+				if (cm & 4096)
+					e->eflags |= EFLAGS_COLOURMAPPED;
+			}
+
+			/* Defaults */
+			e->alpha = ENTALPHA_DEFAULT;
+			e->lerpflags = LERP_EXPLICIT | LERP_RESETANIM | LERP_RESETMOVE;
+			e->frame = ed->v.frame;
+
+			/* If a progs is active, honor any extended fields safely */
+			if (qcvm->progs)
+			{
+				eval_t* frame2 = GetEdictFieldValue(ed, qcvm->extfields.frame2);
+				eval_t* lerpfrac = GetEdictFieldValue(ed, qcvm->extfields.lerpfrac);
+				eval_t* frame1time = GetEdictFieldValue(ed, qcvm->extfields.frame1time);
+				eval_t* frame2time = GetEdictFieldValue(ed, qcvm->extfields.frame2time);
+				eval_t* colormod = GetEdictFieldValue(ed, qcvm->extfields.colormod);
+				eval_t* alpha = GetEdictFieldValue(ed, qcvm->extfields.alpha);
+				eval_t* scale = GetEdictFieldValue(ed, qcvm->extfields.scale);
+				eval_t* renderflags = GetEdictFieldValue(ed, qcvm->extfields.renderflags);
+				int rf = renderflags ? renderflags->_float : 0;
+
+				if (colormod && (colormod->vector[0] || colormod->vector[1] || colormod->vector[2]))
+				{
+					e->netstate.colormod[0] *= colormod->vector[0];
+					e->netstate.colormod[1] *= colormod->vector[1];
+					e->netstate.colormod[2] *= colormod->vector[2];
+				}
+				if (alpha)
+					e->alpha = ENTALPHA_ENCODE(alpha->_float);
+				if (scale)
+					e->netstate.scale = ENTSCALE_ENCODE(scale->_float);
+
+				e->lerp.snap.frame2 = frame2 ? frame2->_float : 0;
+				e->lerp.snap.lerpfrac = lerpfrac ? lerpfrac->_float : 0;
+				e->lerp.snap.lerpfrac = q_max(0.f, e->lerp.snap.lerpfrac);
+				e->lerp.snap.lerpfrac = q_min(1.f, e->lerp.snap.lerpfrac);
+				e->lerp.snap.time[0] = frame1time ? frame1time->_float : 0;
+				e->lerp.snap.time[1] = frame2time ? frame2time->_float : 0;
+
+				if (rf & RF_VIEWMODEL)
+					e->eflags |= EFLAGS_VIEWMODEL;
+				if (rf & RF_EXTERNALMODEL)
+					e->eflags |= EFLAGS_EXTERIORMODEL;
+				if (rf & RF_WEIRDFRAMETIMES)
+				{
+					e->lerp.snap.time[0] = qcvm->time - e->lerp.snap.time[0];
+					e->lerp.snap.time[1] = qcvm->time - e->lerp.snap.time[1];
+				}
+			}
+		}
+	}
+}
+
+static qboolean g_menu_preview_hascolors;
+static int g_menu_preview_top, g_menu_preview_bottom;
+
+static qboolean g_menu_preview_hasrgb;
+static unsigned char g_menu_preview_toprgb[3], g_menu_preview_bottomrgb[3];
+
+// Offscreen preview FBO (to avoid compositor/driver ghosts on some Windows setups)
+typedef struct
+{
+	GLuint fbo;
+	GLuint color_tex;
+	GLuint depth_rb;
+	int    w, h;
+} menu_preview_fbo_t;
+static menu_preview_fbo_t preview_fbo;
+
+static qboolean MenuPreviewFBO_Ensure(int w, int h)
+{
+	extern qboolean gl_fbo_able;
+	if (!gl_fbo_able)
+		return false;
+
+	if (preview_fbo.fbo && (preview_fbo.w != w || preview_fbo.h != h))
+	{
+		if (preview_fbo.depth_rb)
+		{
+			GL_DeleteRenderbuffersFunc(1, &preview_fbo.depth_rb);
+			preview_fbo.depth_rb = 0;
+		}
+		if (preview_fbo.color_tex)
+		{
+			glDeleteTextures(1, &preview_fbo.color_tex);
+			preview_fbo.color_tex = 0;
+		}
+		if (preview_fbo.fbo)
+		{
+			GL_DeleteFramebuffersFunc(1, &preview_fbo.fbo);
+			preview_fbo.fbo = 0;
+		}
+	}
+
+	if (!preview_fbo.fbo)
+	{
+		glGenTextures(1, &preview_fbo.color_tex);
+		glBindTexture(GL_TEXTURE_2D, preview_fbo.color_tex);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+		GL_GenRenderbuffersFunc(1, &preview_fbo.depth_rb);
+		GL_BindRenderbufferFunc(GL_RENDERBUFFER, preview_fbo.depth_rb);
+		GL_RenderbufferStorageFunc(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+
+		GL_GenFramebuffersFunc(1, &preview_fbo.fbo);
+		GL_BindFramebufferFunc(GL_FRAMEBUFFER, preview_fbo.fbo);
+		GL_FramebufferTexture2DFunc(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, preview_fbo.color_tex, 0);
+		/* Attach depth and stencil explicitly for broader GL compatibility */
+		GL_FramebufferRenderbufferFunc(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, preview_fbo.depth_rb);
+		GL_FramebufferRenderbufferFunc(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, preview_fbo.depth_rb);
+
+		if (GL_CheckFramebufferStatusFunc(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		{
+			GL_BindFramebufferFunc(GL_FRAMEBUFFER, 0);
+			GL_DeleteFramebuffersFunc(1, &preview_fbo.fbo);
+			preview_fbo.fbo = 0;
+			GL_DeleteRenderbuffersFunc(1, &preview_fbo.depth_rb);
+			preview_fbo.depth_rb = 0;
+			glDeleteTextures(1, &preview_fbo.color_tex);
+			preview_fbo.color_tex = 0;
+			return false;
+		}
+		GL_BindFramebufferFunc(GL_FRAMEBUFFER, 0);
+
+		preview_fbo.w = w;
+		preview_fbo.h = h;
+	}
+	return true;
+}
+
+static void MenuPreview_DrawQuad(GLuint tex, float px, float py, float pw, float ph)
+{
+	GLboolean wasBlend = glIsEnabled(GL_BLEND);
+	GLboolean wasDepth = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean wasAlpha = glIsEnabled(GL_ALPHA_TEST);
+	glColor4f(1, 1, 1, 1);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_ALPHA_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glEnable(GL_TEXTURE_2D);
+	/* Ensure fixed pipeline for simple textured quad */
+	GL_UseProgramFunc(0);
+	glBegin(GL_QUADS);
+	/* Flip vertically: FBO texture origin is lower-left, menu Y grows down */
+	glTexCoord2f(0, 1); glVertex2f(px, py);
+	glTexCoord2f(1, 1); glVertex2f(px + pw, py);
+	glTexCoord2f(1, 0); glVertex2f(px + pw, py + ph);
+	glTexCoord2f(0, 0); glVertex2f(px, py + ph);
+	glEnd();
+	if (!wasBlend) glDisable(GL_BLEND);
+	if (wasDepth)  glEnable(GL_DEPTH_TEST);
+	if (wasAlpha)  glEnable(GL_ALPHA_TEST);
+}
+
+/* Render a spinning model into a menu viewport (menu units or pixels via Pixels API). */
+static void DrawSpinningModelToMenu(const char* modelname,
+	float rect_min_x, float rect_min_y,
+	float rect_size_x, float rect_size_y,
+	float afov,
+	float zbias,
+	float firstframe, float framecount,
+	float shootframe, float shootframes)
+{
+	qcvm_t* oldvm = qcvm;
+	edict_t ed; /* transient edict carrying fields for PR_addentity_internal */
+	qmodel_t* mdl;
+	float vm_scale;
+	vec3_t vieworg = { -128, 0, 0 };
+	vec3_t viewang = { 0, 0, 0 };
+
+	/* persistent local state across calls */
+	static float s_angles_y;
+	static float s_lerpfrac;
+	static float s_frame;
+	static float s_frame2;
+	static char  s_lastmodel[MAX_QPATH];
+
+	if (!modelname || !*modelname)
+		return;
+
+	qcvm_t* menuvm = &cls.menu_qcvm;
+	PR_SwitchQCVM(menuvm);
+	/* Ensure GetModel callback is valid for menu path */
+	extern qmodel_t* PR_CSQC_GetModel(int idx);
+	qmodel_t* (*old_GetModel)(int) = menuvm->GetModel;
+	menuvm->GetModel = PR_CSQC_GetModel;
+
+	/* Reset scene + defaults (sets viewprops to sane values) */
+	PF_cl_clearscene();
+
+	/* Configure viewport and view properties */
+	memset(&viewprops, 0, sizeof(viewprops));
+	vm_scale = PR_GetVMScale();
+	/* Do not inject extra offsets here. Callers should provide either
+	   menu-virtual coords or pixel-aligned coords (via the Pixels API),
+	   and we will map directly using PR_GetVMScale. */
+	viewprops.rect_pos[0] = rect_min_x;
+	viewprops.rect_pos[1] = rect_min_y;
+	viewprops.rect_size[0] = rect_size_x ? rect_size_x : (glwidth / vm_scale);
+	viewprops.rect_size[1] = rect_size_y ? rect_size_y : (glheight / vm_scale);
+	if (afov > 0)
+		viewprops.afov = afov;
+	viewprops.drawsbar = false;
+	viewprops.drawcrosshair = false;
+	VectorCopy(vieworg, viewprops.origin);
+	VectorCopy(viewang, viewprops.angles);
+
+	memset(&ed, 0, sizeof(ed));
+
+	/* Precache and fetch model for size info + modelindex */
+	if (strcmp(s_lastmodel, modelname))
+	{
+		q_strlcpy(s_lastmodel, modelname, sizeof(s_lastmodel));
+		s_frame = firstframe;
+		s_frame2 = 0;
+		s_lerpfrac = 0;
+	}
+
+	/* Load model resource and get mins/maxs for centering */
+	mdl = Mod_ForName(modelname, false);
+
+	if (!zbias && mdl)
+	{
+		zbias = ((mdl->mins[2] - mdl->maxs[2]) * 0.5f) - mdl->mins[2];
+	}
+
+	/* Spin the model around the Y axis */
+	s_angles_y += 45.0f * (float)host_frametime;
+	if (s_angles_y >= 360.0f)
+		s_angles_y -= 360.0f;
+
+	/* Optional simple frame animation */
+	if (framecount > 0 || shootframes > 0)
+	{
+		s_lerpfrac -= 10.0f * (float)host_frametime;
+		while (s_lerpfrac < 0)
+		{
+			s_lerpfrac += 1.0f;
+			s_frame2 = s_frame;
+			s_frame += 1.0f;
+
+			if (s_angles_y >= 170.0f && shootframes > 0)
+			{
+				if (s_frame == shootframe + shootframes)
+				{
+					s_frame = firstframe;
+					s_angles_y -= 360.0f;
+				}
+				else if (s_frame < shootframe || s_frame >= shootframe + shootframes)
+				{
+					s_frame = shootframe;
+				}
+			}
+			else
+			{
+				if (s_frame < firstframe || s_frame >= firstframe + framecount)
+					s_frame = firstframe;
+			}
+		}
+	}
+	else
+	{
+		s_frame = 0;
+		s_frame2 = 0;
+		s_lerpfrac = 0;
+	}
+
+	VectorClear(ed.v.origin);
+	ed.v.origin[2] = zbias;
+	VectorClear(ed.v.angles);
+	ed.v.angles[1] = s_angles_y;
+	ed.v.skin = 0;
+	ed.v.frame = s_frame;
+	/* Colour mapping: RGB > legacy > fallback */
+	scoreboard_t* saved_scores = NULL;
+	int saved_maxclients = 0;
+	static scoreboard_t preview_sb; /* static to keep stable address during draw */
+	if (g_menu_preview_hasrgb)
+	{
+		saved_scores = cl.scores;
+		saved_maxclients = cl.maxclients;
+		memset(&preview_sb, 0, sizeof(preview_sb));
+		preview_sb.shirt.type = 2;
+		preview_sb.shirt.basic = 0;
+		preview_sb.shirt.rgb[0] = g_menu_preview_toprgb[0];
+		preview_sb.shirt.rgb[1] = g_menu_preview_toprgb[1];
+		preview_sb.shirt.rgb[2] = g_menu_preview_toprgb[2];
+		preview_sb.pants.type = 2;
+		preview_sb.pants.basic = 0;
+		preview_sb.pants.rgb[0] = g_menu_preview_bottomrgb[0];
+		preview_sb.pants.rgb[1] = g_menu_preview_bottomrgb[1];
+		preview_sb.pants.rgb[2] = g_menu_preview_bottomrgb[2];
+		cl.scores = &preview_sb;
+		cl.maxclients = 1;
+		ed.v.colormap = 1; /* scoreboard index */
+	}
+	else if (g_menu_preview_hascolors)
+	{
+		if (gl_load24bit.value <= 0 || gl_load24bit_skins.value <= 0)
+		{
+			ed.v.colormap = 4096 | ((g_menu_preview_top & 15) << 4) | (g_menu_preview_bottom & 15);
+		}
+		else
+		{
+			saved_scores = cl.scores;
+			saved_maxclients = cl.maxclients;
+			memset(&preview_sb, 0, sizeof(preview_sb));
+			preview_sb.shirt.type = 1;
+			preview_sb.shirt.basic = (g_menu_preview_top & 15);
+			preview_sb.pants.type = 1;
+			preview_sb.pants.basic = (g_menu_preview_bottom & 15);
+			cl.scores = &preview_sb;
+			cl.maxclients = 1;
+			ed.v.colormap = 1; /* scoreboard index */
+		}
+	}
+	else
+	{
+		ed.v.colormap = cl.viewentity; /* fallback to local player's scoreboard colours */
+	}
+
+	/* supply explicit lerp fields if available */
+	if (qcvm->progs && qcvm->extfields.frame2 >= 0)
+	{
+		eval_t* ev;
+		ev = GetEdictFieldValue(&ed, qcvm->extfields.frame2);
+		if (ev) ev->_float = s_frame2;
+		ev = GetEdictFieldValue(&ed, qcvm->extfields.lerpfrac);
+		if (ev) ev->_float = s_lerpfrac;
+		ev = GetEdictFieldValue(&ed, qcvm->extfields.frame1time);
+		if (ev) ev->_float = cl.time;
+		ev = GetEdictFieldValue(&ed, qcvm->extfields.frame2time);
+		if (ev) ev->_float = cl.time;
+	}
+
+	/* bind modelindex */
+	{
+		extern int CL_Precache_Model(const char* name);
+		int mi = CL_Precache_Model(modelname);
+		ed.v.modelindex = mi;
+	}
+
+	PR_addentity_internalNew(&ed);
+	PF_cl_renderscene();
+
+	PR_SwitchQCVM(oldvm);
+	if (saved_scores)
+	{
+		cl.scores = saved_scores;
+		cl.maxclients = saved_maxclients;
+	}
+	menuvm->GetModel = old_GetModel;
+}
+
+void DrawSpinningModelToMenuPixels(const char* modelname,
+	float pixel_x, float pixel_y,
+	float pixel_w, float pixel_h,
+	float afov,
+	float zbias,
+	float firstframe, float framecount,
+	float shootframe, float shootframes)
+{
+	/* Offscreen FBO: render model, then draw textured quad at pixel rect. */
+	if (MenuPreviewFBO_Ensure((int)pixel_w, (int)pixel_h))
+	{
+		GLint oldVP[4];
+		glGetIntegerv(GL_VIEWPORT, oldVP);
+
+		GL_BindFramebufferFunc(GL_FRAMEBUFFER, preview_fbo.fbo);
+		glViewport(0, 0, preview_fbo.w, preview_fbo.h);
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		float prev_override = g_menu_vm_scale_override;
+		extern int glx, gly, glwidth, glheight;
+		int old_glx = glx, old_gly = gly, old_glw = glwidth, old_glh = glheight;
+		glx = 0; gly = 0; glwidth = preview_fbo.w; glheight = preview_fbo.h;
+		g_menu_vm_scale_override = 1.0f;
+		/* Render with viewport at (0,0,pw,ph) */
+		DrawSpinningModelToMenu(modelname,
+			0.0f, 0.0f,
+			(float)preview_fbo.w, (float)preview_fbo.h,
+			afov, zbias,
+			firstframe, framecount, shootframe, shootframes);
+		g_menu_vm_scale_override = prev_override;
+		glx = old_glx; gly = old_gly; glwidth = old_glw; glheight = old_glh;
+
+		/* Back to default FB and draw textured quad in pixel space */
+		GL_BindFramebufferFunc(GL_FRAMEBUFFER, 0);
+		glViewport(oldVP[0], oldVP[1], oldVP[2], oldVP[3]);
+		/* Convert back to CANVAS_MENU virtual units for the textured quad */
+		float s = q_min((float)glwidth / 320.0f, (float)glheight / 200.0f);
+		s = CLAMP(1.0f, scr_menuscale.value, s);
+		float vp_x = glx + (glwidth - 320.0f * s) * 0.5f;
+		float vp_y = gly + (glheight - 200.0f * s) * 0.5f;
+		float mx = (pixel_x - vp_x) / s;
+		float my = (pixel_y - vp_y) / s;
+		float mw = pixel_w / s;
+		float mh = pixel_h / s;
+		GL_SetCanvas(CANVAS_MENU);
+		MenuPreview_DrawQuad(preview_fbo.color_tex, mx, my, mw, mh);
+		return;
+	}
+
+	/* Fallback: draw directly into backbuffer (pixel space) if FBO unsupported */
+	float prev_override = g_menu_vm_scale_override;
+	g_menu_vm_scale_override = 1.0f;
+	DrawSpinningModelToMenu(modelname,
+		pixel_x, pixel_y,
+		pixel_w, pixel_h,
+		afov, zbias,
+		firstframe, framecount, shootframe, shootframes);
+	g_menu_vm_scale_override = prev_override;
+}
+
+void PR_SetMenuPreviewLegacyColors(int top, int bottom)
+{
+	if (top >= 0 && top <= 13 && bottom >= 0 && bottom <= 13)
+	{
+		g_menu_preview_hascolors = true;
+		g_menu_preview_top = top;
+		g_menu_preview_bottom = bottom;
+	}
+	else
+	{
+		g_menu_preview_hascolors = false;
+		g_menu_preview_top = g_menu_preview_bottom = 0;
+	}
+}
+
+/* Set or clear true-RGB preview colours for menu preview.
+   Pass negatives to disable. */
+void PR_SetMenuPreviewRGBColors(int top_r, int top_g, int top_b,
+	int bot_r, int bot_g, int bot_b)
+{
+	if (top_r >= 0 && top_r <= 255 && top_g >= 0 && top_g <= 255 && top_b >= 0 && top_b <= 255 &&
+		bot_r >= 0 && bot_r <= 255 && bot_g >= 0 && bot_g <= 255 && bot_b >= 0 && bot_b <= 255)
+	{
+		g_menu_preview_hasrgb = true;
+		g_menu_preview_toprgb[0] = (unsigned char)top_r;
+		g_menu_preview_toprgb[1] = (unsigned char)top_g;
+		g_menu_preview_toprgb[2] = (unsigned char)top_b;
+		g_menu_preview_bottomrgb[0] = (unsigned char)bot_r;
+		g_menu_preview_bottomrgb[1] = (unsigned char)bot_g;
+		g_menu_preview_bottomrgb[2] = (unsigned char)bot_b;
+	}
+	else
+	{
+		g_menu_preview_hasrgb = false;
+		g_menu_preview_toprgb[0] = g_menu_preview_toprgb[1] = g_menu_preview_toprgb[2] = 0;
+		g_menu_preview_bottomrgb[0] = g_menu_preview_bottomrgb[1] = g_menu_preview_bottomrgb[2] = 0;
+	}
+}
+
 static void PF_cl_genProjectMatricies(mat4_t viewproj)
 {
 	mat4_t view;
@@ -7344,7 +8315,7 @@ static void PF_checkpvs (void)
 
 	mleaf_t *leaf = Mod_PointInLeaf (org, qcvm->worldmodel);
 	byte *pvs = Mod_LeafPVS (leaf, qcvm->worldmodel); //johnfitz -- worldmodel as a parameter
-	int i;
+	unsigned int i;
 
 	for (i=0 ; i < ed->num_leafs ; i++)
 	{
@@ -7801,6 +8772,8 @@ static struct
 	{"htos",			PF_htos,			PF_htos,			262,	PF_htos,0, D("string(int)", "Formats an integer as a base16 string, with leading 0s and no prefix. Always returns 8 characters.")},
 	{"ftoi",			PF_ftoi,			PF_ftoi,			0,		PF_ftoi,0, D("int(float)", "Converts the given float into a true integer without depending on extended qcvm instructions.")},
 	{"itof",			PF_itof,			PF_itof,			0,		PF_itof,0, D("float(int)", "Converts the given true integer into a float without depending on extended qcvm instructions.")},
+	{"ftou",			PF_ftou,			PF_ftou,			0,		PF_ftou,0, D("__uint(float)", "Converts the given float into a true integer without depending on extended qcvm instructions.")},
+	{"utof",			PF_utof,			PF_utof,			0,		PF_utof,0, D("float(__uint)", "Converts the given true integer into a float without depending on extended qcvm instructions.")},
 //	{"skel_create",		PF_skel_create,		PF_skel_create,		263,	PF_NoMenu, D("float(float modlindex, optional float useabstransforms)", "Allocates a new uninitiaised skeletal object, with enough bone info to animate the given model.\neg: self.skeletonobject = skel_create(self.modelindex);")}, // (FTE_CSQC_SKELETONOBJECTS)
 //	{"skel_build",		PF_skel_build,		PF_skel_build,		264,	PF_NoMenu, D("float(float skel, entity ent, float modelindex, float retainfrac, float firstbone, float lastbone, optional float addfrac)", "Animation data (according to the entity's frame info) is pulled from the specified model and blended into the specified skeletal object.\nIf retainfrac is set to 0 on the first call and 1 on the others, you can blend multiple animations together according to the addfrac value. The final weight should be 1. Other values will result in scaling and/or other weirdness. You can use firstbone and lastbone to update only part of the skeletal object, to allow legs to animate separately from torso, use 0 for both arguments to specify all, as bones are 1-based.")}, // (FTE_CSQC_SKELETONOBJECTS)
 //	{"skel_get_numbones",PF_skel_get_numbones,PF_skel_get_numbones,265,	PF_NoMenu, D("float(float skel)", "Retrives the number of bones in the model. The valid range is 1<=bone<=numbones.")}, // (FTE_CSQC_SKELETONOBJECTS)
@@ -8062,7 +9035,8 @@ static struct
 	{"argv_end_index",	PF_argv_end_index,	PF_argv_end_index,	516,	PF_argv_end_index,516, D("float(float idx)", "Returns the character index that the tokenized arg stopped at.")},
 	{"buf_cvarlist",	PF_buf_cvarlist,	PF_buf_cvarlist,	517,	PF_buf_cvarlist,517, D("void(strbuf strbuf, string pattern, string antipattern)", "Populates the strbuf with a list of known cvar names.")},
 	{"cvar_description",PF_cvar_description,PF_cvar_description,518,	PF_cvar_description,518, D("string(string cvarname)", "Retrieves the description of a cvar, which might be useful for tooltips or help files. This may still not be useful.")},
-	{"gettime",			PF_gettime,			PF_gettime,			519,	PF_gettime,519, "float(optional float timetype)"},
+	{"gettime",			PF_gettimef,		PF_gettimef,		519,	PF_gettimef,519, "float(optional float timetype)"},
+	{"gettimed",		PF_gettimed,		PF_gettimed,		0,		PF_gettimef,0, "double(optional int timetype)"},
 	{"findkeysforcommand",PF_NoSSQC,		PF_cl_findkeysforcommand,521,PF_cl_findkeysforcommand,610, D("string(string command, optional float bindmap)", "Returns a list of keycodes that perform the given console command in a format that can only be parsed via tokenize (NOT tokenize_console). This always returns at least two values - if only one key is actually bound, -1 will be returned. The bindmap argument is listed for compatibility with dp-specific defs, but is ignored in FTE.")},
 	{"findkeysforcommandex",PF_NoSSQC,		PF_cl_findkeysforcommandex,0,PF_cl_findkeysforcommandex,0, D("string(string command, optional float bindmap)", "Returns a list of key bindings in keyname format instead of keynums. Use tokenize to parse. This list may contain modifiers. May return large numbers of keys.")},
 //	{"loadfromdata",	PF_loadfromdata,	PF_loadfromdata,	529,	PF_NoMenu, D("void(string s)", "Reads a set of entities from the given string. This string should have the same format as a .ent file or a saved game. Entities will be spawned as required. If you need to see the entities that were created, you should use parseentitydata instead.")},

@@ -49,7 +49,7 @@
 
 struct mdfour {
 	uint32 A, B, C, D;
-	uint32 totalN;
+	size_t totalN;
 };
 
 static void mdfour_begin(struct mdfour *md); // old: MD4Init
@@ -168,7 +168,7 @@ static void mdfour_tail(struct mdfour *m, const unsigned char *in, size_t n)
 
 	m->totalN += n;
 
-	b = m->totalN * 8;
+	b = (uint32)(m->totalN * 8);
 
 	memset(buf, 0, 128);
 	if (n) memcpy(buf, in, n);

@@ -103,6 +103,10 @@ void TexturePointer_Draw(void); // woods #texturepointer
 extern qpic_t* sb_nums[2][11]; // woods #varmatchclock
 extern qpic_t* sb_colon; // woods #varmatchclock
 
+extern cvar_t scr_scoreboard_teamsort; // woods #teamscoreboard
+void Sbar_SortFrags_TeamOrder(qboolean sort_ascending); // woods #teamscoreboard
+qboolean Sbar_ShouldSortByTeam(void); // woods #teamscoreboard
+
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_centerprintbg = {"scr_centerprintbg", "0", CVAR_ARCHIVE}; // 0 = off; 1 = text box; 2 = menu box; 3 = menu strip -- woods #centerprintbg (iw)
@@ -120,8 +124,11 @@ cvar_t		scr_crosshaircolor = {"scr_crosshaircolor", "0xffffff", CVAR_ARCHIVE}; /
 cvar_t		scr_crosshairalpha = {"scr_crosshairalpha", "1", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_crosshaircshift = { "scr_crosshaircshift", "0xfc7303", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_crosshairoutline = { "scr_crosshairoutline", "1", CVAR_ARCHIVE }; // woods #crosshair
+cvar_t		scr_crosshair_x = {"scr_crosshair_x", "0", CVAR_ARCHIVE}; // woods #crosshair
+cvar_t		scr_crosshair_y = {"scr_crosshair_y", "0", CVAR_ARCHIVE}; // woods #crosshair
 cvar_t		scr_showfps = {"scr_showfps", "0", CVAR_ARCHIVE};
 cvar_t		scr_clock = {"scr_clock", "0", CVAR_ARCHIVE};
+cvar_t		scr_showgrenadecounter = {"scr_showgrenadecounter", "0", CVAR_ARCHIVE}; // woods #nadecount
 cvar_t		scr_ping = {"scr_ping", "1", CVAR_ARCHIVE};  // woods #scrping
 cvar_t		scr_match_hud = {"scr_match_hud", "1", CVAR_ARCHIVE};  // woods #matchhud
 cvar_t		scr_showspeed = {"scr_showspeed", "0",CVAR_ARCHIVE}; // woods #speed
@@ -134,7 +141,9 @@ cvar_t		scr_matchclockscale = {"scr_matchclockscale", "1",CVAR_ARCHIVE}; // wood
 cvar_t		scr_showscores = {"scr_showscores", "0",CVAR_ARCHIVE}; // woods #observerhud
 cvar_t		scr_shownet = {"scr_shownet", "0",CVAR_ARCHIVE}; // woods #shownet scr_obscenterprint
 cvar_t		scr_obscenterprint = {"scr_obscenterprint", "0",CVAR_ARCHIVE}; // woods
+cvar_t		scr_obsitems = {"scr_obsitems", "1",CVAR_ARCHIVE}; // woods
 cvar_t		scr_hints = {"scr_hints", "1",CVAR_ARCHIVE}; // woods #qssmhints
+cvar_t		scr_customcursor = {"scr_customcursor", "1", CVAR_ARCHIVE}; // woods #customcursor
 //johnfitz
 cvar_t		scr_usekfont = {"scr_usekfont", "0", CVAR_NONE}; // 2021 re-release
 cvar_t		cl_predict = { "cl_predict", "0", CVAR_NONE }; // 2021 re-release
@@ -145,16 +154,25 @@ cvar_t		scr_fov = {"fov","90",CVAR_ARCHIVE};	// 10 - 170
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
 cvar_t		scr_zoomfov = {"zoom_fov","30",CVAR_ARCHIVE};	// 10 - 170 // woods #zoom (ironwail)
 cvar_t		scr_zoomspeed = {"zoom_speed","8",CVAR_ARCHIVE}; // woods #zoom (ironwail)
+cvar_t		scr_scopealpha = {"scr_scopealpha",".55",CVAR_ARCHIVE}; // woods #scope
+cvar_t		scr_scoperadius = {"scr_scoperadius",".4",CVAR_ARCHIVE}; // woods #scope
+cvar_t		scr_scopefadespeed = {"scr_scopefadespeed","70",CVAR_ARCHIVE}; // woods #scope
 cvar_t		scr_conspeed = {"scr_conspeed","500",CVAR_ARCHIVE};
 cvar_t		scr_centertime = {"scr_centertime","2",CVAR_NONE};
 cvar_t		scr_showturtle = {"showturtle","0",CVAR_NONE};
 cvar_t		scr_showpause = {"showpause","1",CVAR_NONE};
 cvar_t		scr_printspeed = {"scr_printspeed","8",CVAR_NONE};
 cvar_t		scr_autoid = {"scr_autoid","1",CVAR_ARCHIVE}; // woods #autoid
+cvar_t		scr_scoreboard_teamsort = {"scr_scoreboard_teamsort","0",CVAR_ARCHIVE}; // woods #teamscoreboard
 cvar_t		gl_triplebuffer = {"gl_triplebuffer", "1", CVAR_ARCHIVE};
+extern cvar_t	r_clearcolor; // woods #fxaa
 
 cvar_t		cl_gun_fovscale = {"cl_gun_fovscale","1",CVAR_ARCHIVE}; // Qrack
 cvar_t		cl_menucrosshair = { "cl_menucrosshair","0",CVAR_ARCHIVE}; // woods #menucrosshair
+cvar_t		cl_pong = {"cl_pong","2",CVAR_ARCHIVE}; // woods #pong -- 0 = disabled, >0 = enabled with speed multiplier
+
+static const float GRENADE_EXPLOSION_TIME = 2.5f; // woods #nadecount
+static const float GRENADE_TIMER_WIDTH = 24.0f; // woods #nadecount
 
 extern	cvar_t	crosshair;
 extern	cvar_t	con_notifyfade; // woods #confade
@@ -207,6 +225,7 @@ qboolean	cameras; // woods #crxcamera
 qboolean	qeintermission; // woods #qeintermission
 qboolean draw; // woods #crxcamera #qeintermission
 qboolean crxintermission; // woods #crxintermission
+extern qboolean WordFilter_Check(const char* text, char* dest_buffer, size_t buffer_size); // woods #contentfilter
 
 /*
 ==============
@@ -270,6 +289,9 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 
 	if ((strstr(str, qfPAUSED)) || (strstr(str, "PAUSED"))) // #showpaused
 	{
+		if (!cl.match_pause_time) // let client connecting during pause know by setting cl.match_pause_time
+			cl.match_pause_time = cl.time;
+		
 		pausedprint = true; // woods #qssmhints
 		return;
 	}
@@ -279,8 +301,6 @@ void SCR_CenterPrint (const char *str) //update centerprint data
 	if ((strstr(str, qfrunequake)))
 	{
 		cl.modtype = 6;
-		strncpy(cl.observer, "y", sizeof(cl.observer));
-		return;
 	}
 
 // ===============================
@@ -539,16 +559,38 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	float	alpha; // woods #confade
 
 	char buf[15];
+	char buf2[15];
 	const char* realobs;
+	const char* star_realobs;
 	realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+	star_realobs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf2, sizeof(buf2));
 
-	if (!scr_obscenterprint.value && !cameras && !countdown && !qeintermission && ((cl.modtype == 1 || cl.modtype == 4) && (!strcmp(realobs, "eyecam") || (!strcmp(realobs, "chase")))))
+	if (!scr_obscenterprint.value && !cameras && !countdown && !qeintermission && !crxintermission &&
+		((cl.modtype == 1 || cl.modtype == 4) &&
+			((!strcmp(realobs, "eyecam") || !strcmp(realobs, "chase")) ||
+				(!strcmp(star_realobs, "eyecam") || !strcmp(star_realobs, "chase")))))
 		return;
 
 	if (!strcmp(cl.observer, "y") && (cl.modtype >= 2)) // woods #observer
 		GL_SetCanvas(CANVAS_OBSERVER); //johnfitz //  center print moved down near weapon
 	else
 		GL_SetCanvas(CANVAS_MOD); //johnfitz // woods messages scale with console font size instead
+
+	char filtered_centerstring[1024];
+	if (cl_contentfilter.value == 2) // woods #contentfilter
+	{
+		if (WordFilter_Check(scr_centerstring, filtered_centerstring, sizeof(filtered_centerstring))) {
+			// Ensure the filtered string is null-terminated
+			filtered_centerstring[sizeof(filtered_centerstring) - 1] = '\0';
+			start = filtered_centerstring;
+		}
+		else {
+			start = scr_centerstring;
+		}
+	}
+	else {
+		start = scr_centerstring;
+	}
 
 // the finale prints the characters one at a time
 	if (cl.intermission)
@@ -564,7 +606,6 @@ void SCR_DrawCenterString (void) //actually do the drawing
 	}
 
 	scr_erase_center = 0;
-	start = scr_centerstring;
 
 	if (scr_center_lines <= 4)
 		y = 200*0.35;	//johnfitz -- 320x200 coordinate system
@@ -898,6 +939,40 @@ static void Crosshair_Color_Completion_f(cvar_t* cvar, const char* partial)
 }
 
 /*
+===============
+Clock_Completion_f
+===============
+*/
+static void Clock_Completion_f(cvar_t* cvar, const char* partial)
+{
+	Con_AddToTabList("0", partial, "off", NULL);
+	Con_AddToTabList("1", partial, "level time", NULL);
+	Con_AddToTabList("2", partial, "12hr clock", NULL);
+	Con_AddToTabList("3", partial, "24hr clock", NULL);
+	Con_AddToTabList("4", partial, "date only", NULL);
+	Con_AddToTabList("5", partial, "date + 12hr", NULL);
+	Con_AddToTabList("6", partial, "date + 24hr", NULL);
+	Con_AddToTabList("7", partial, "showscores date + 12hr", NULL);
+	Con_AddToTabList("8", partial, "showscores date + 24hr", NULL);
+
+	return;
+}
+
+/*
+==================
+SCR_CustomCursor_f -- woods #customcursor
+Keep OS cursor assets in sync with scr_customcursor changes.
+==================
+*/
+static void SCR_CustomCursor_f(cvar_t* cvar)
+{
+	LoadCustomCursorImage();
+	Con_ReloadIBeamCursor();
+	VID_UpdateCursor();
+	IN_UpdateGrabs();
+}
+
+/*
 ==================
 SCR_Init
 ==================
@@ -925,8 +1000,12 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_crosshairalpha); // woods #crosshair
 	Cvar_RegisterVariable (&scr_crosshaircshift); // woods #crosshair
 	Cvar_RegisterVariable (&scr_crosshairoutline); // woods #crosshair
+	Cvar_RegisterVariable (&scr_crosshair_x); // woods #crosshair
+	Cvar_RegisterVariable (&scr_crosshair_y); // woods #crosshair
 	Cvar_RegisterVariable (&scr_showfps);
+	Cvar_SetCompletion (&scr_clock, &Clock_Completion_f); // woods #iwtabcomplete
 	Cvar_RegisterVariable (&scr_clock);
+	Cvar_RegisterVariable (&scr_showgrenadecounter); // woods #nadecount
 	Cvar_RegisterVariable (&scr_ping); // woods #scrping
 	Cvar_RegisterVariable(&scr_match_hud); // woods #matchhud
 	Cvar_RegisterVariable (&scr_showspeed); // woods #speed
@@ -939,7 +1018,11 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_showscores); // woods #observerhud
 	Cvar_RegisterVariable (&scr_shownet); // woods #shownet
 	Cvar_RegisterVariable (&scr_obscenterprint); // woods
+	Cvar_RegisterVariable (&scr_obsitems); // woods
 	Cvar_RegisterVariable (&scr_hints); // woods #qssmhints
+	Cvar_RegisterVariable (&scr_customcursor); // woods #customcursor
+	Cvar_SetCallback (&scr_customcursor, SCR_CustomCursor_f); // woods #customcursor
+	SCR_CustomCursor_f(&scr_customcursor); // woods #customcursor - load cursors with current setting
 	//johnfitz
 	Cvar_RegisterVariable(&scr_demobar_timeout); // woods (iw) #democontrols
 	Cvar_RegisterVariable (&scr_usekfont); // 2021 re-release
@@ -952,6 +1035,9 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_fov_adapt); // woods #zoom (ironwail)
 	Cvar_RegisterVariable(&scr_zoomfov); // woods #zoom (ironwail)
 	Cvar_RegisterVariable(&scr_zoomspeed);
+	Cvar_RegisterVariable (&scr_scopealpha); // woods #scope
+	Cvar_RegisterVariable (&scr_scoperadius); // woods #scope
+	Cvar_RegisterVariable (&scr_scopefadespeed); // woods #scope
 	Cvar_RegisterVariable (&scr_viewsize);
 	Cvar_SetCompletion (&scr_viewsize, CompleteViewsize_f); // woods #scrviewsize
 	Cvar_RegisterVariable (&scr_conspeed);
@@ -960,9 +1046,11 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_centertime);
 	Cvar_RegisterVariable (&scr_printspeed);
 	Cvar_RegisterVariable (&scr_autoid); // woods #autoid
+	Cvar_RegisterVariable (&scr_scoreboard_teamsort); // woods #teamscoreboard
 	Cvar_RegisterVariable (&gl_triplebuffer);
 	Cvar_RegisterVariable (&cl_gun_fovscale);
 	Cvar_RegisterVariable (&cl_menucrosshair); // woods #menucrosshair
+	Cvar_RegisterVariable (&cl_pong); // woods #pong
 
 	Cmd_AddCommand ("screenshot",SCR_ScreenShot_f);
 	Cmd_AddCommand ("sizeup",SCR_SizeUp_f);
@@ -978,6 +1066,7 @@ void SCR_Init (void)
 	scr_initialized = true;
 
 	LoadCustomCursorImage (); // woods #customcursor
+	Pong_Init (); // woods #pong
 }
 
 //============================================================================
@@ -1016,14 +1105,17 @@ void SCR_DrawFPS (void)
 		oldframecount = host_framecount;
 	}
 
+	cl.fps = (int)lastfps; // woods #f_config
+
 	if (scr_showfps.value)
 	{
-		char	st[16];
-		char	st2[16]; // woods #f_config
+		char	st[12];
 		int	x, y;
-		sprintf (st, "%4.0f fps", lastfps);
-		sprintf (st2, "%4.0f", lastfps); // woods #f_config
-		cl.fps = atoi(st2); // woods #f_config
+		if (scr_showfps.value == 2)
+			q_snprintf(st, sizeof(st), "%4.0f", lastfps);
+		else
+			q_snprintf(st, sizeof(st), "%4.0f fps", lastfps);
+
 		x = 312 - (strlen(st)<<3); // woods added padding
 		if (clampedSbar == 3 && scr_viewsize.value <= 110) // woods #qehud
 		{
@@ -1048,8 +1140,11 @@ void SCR_DrawFPS (void)
 			x = 312;
 			y = 186;
 		}
-		if (scr_clock.value) y -= 12; //make room for clock // woods added padding
-			Draw_String (x - (strlen(st) << 3), y, st);
+
+		if (scr_clock.value)
+			y -= 12; //make room for clock // woods added padding
+
+		Draw_String (x - (strlen(st) << 3), y, st);
 
 		scr_tileclear_updates = 0;
 	}
@@ -1367,7 +1462,8 @@ void SCR_ShowPing(void)
 
 				if (fragsort[i] == cl.realviewentity - 1) {
 
-					sprintf (num, "%-4i", s->ping);
+					q_snprintf(num, sizeof(num), "%i%s", s->ping,
+						(scr_ping.value == 1 || scr_ping.value == 3) ? " ms" : "");
 
 					if (ct > 5 && !scr_con_current) // dont update when console down or report ping 0
 						M_PrintWhite (x - 8 * 5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays 
@@ -1401,6 +1497,9 @@ void SCR_ShowPL(void)
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
 
 	if (scr_viewsize.value >= 130)
+		return;
+
+	if (!scr_ping.value)
 		return;
 
 	ct = (SDL_GetTicks() - maptime) / 1000; // woods connected map time #maptime
@@ -1444,7 +1543,7 @@ void SCR_ShowPL(void)
 
 			if (key_dest != key_console && ((ct != (int)cl.time) && (ct > 6)))
 			{
-				sprintf(num, "%-4i", lastPL);
+				q_snprintf(num, sizeof(num), "%i%s", lastPL, scr_ping.value == 3 ? " pl" : "");
 				M_Print(x, y, num);
 
 			}
@@ -1460,6 +1559,14 @@ void SCR_ShowPL(void)
 SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match clock upper right corner #matchhud
 ====================
 */
+
+#define MATCHCLOCK_REF_W 1920.0f
+#define MATCHCLOCK_REF_H 1080.0f
+
+// Track current minute-digit count (1-3) for the numeric match clock (modes 1/2)
+// Baseline alignment assumes 3 digits; other HUD elements can offset relative to this
+static int scr_matchclock_minute_digits = 3;
+
 void SCR_DrawMatchClock(void)
 {
 	char			num[22] = "empty";
@@ -1504,6 +1611,14 @@ void SCR_DrawMatchClock(void)
 				const char* simt;
 				simt = Info_GetKey(cl.serverinfo, "matchtime", buf, sizeof(buf));
 				tl = atoi(simt);
+
+				char buf2[10];
+				const char* mode;
+				mode = Info_GetKey(cl.serverinfo, "mode", buf2, sizeof(buf2));
+
+				if (!q_strcasecmp(mode, "clanarena") || !q_strcasecmp(mode, "wipeout"))
+					tl = 0;
+
 			}
 			else if (cl.modtype == 4) // qecrx server check, if so parse userinfo for timelimit
 			{
@@ -1533,6 +1648,28 @@ void SCR_DrawMatchClock(void)
 			sprintf(num, " 0:%02d", cl.seconds - 128);
 
 		// now lets draw the clocks
+
+		// Always update scr_matchclock_minute_digits based on the current clock string
+		// so other HUD elements (like differentials) can align even when the clock
+		// itself is hidden or drawn in a different mode.
+		{
+			char* p_clock = num;
+			int minutes_for_digits = 0;
+
+			while (*p_clock == ' ')
+				p_clock++;
+
+			if (*p_clock >= '0' && *p_clock <= '9')
+			{
+				minutes_for_digits = (*p_clock++ - '0');
+				if (*p_clock >= '0' && *p_clock <= '9')
+					minutes_for_digits = minutes_for_digits * 10 + (*p_clock++ - '0');
+				if (*p_clock >= '0' && *p_clock <= '9')
+					minutes_for_digits = minutes_for_digits * 10 + (*p_clock++ - '0');
+			}
+
+			scr_matchclock_minute_digits = (minutes_for_digits >= 100) ? 3 : ((minutes_for_digits >= 10) ? 2 : 1);
+		}
 
 		if (!strcmp(num, "empty"))
 			return;
@@ -1564,10 +1701,28 @@ void SCR_DrawMatchClock(void)
 		{
 			GL_SetCanvas(CANVAS_MATCHCLOCK);
 
+			float  s       = CLAMP(0.05f, scr_matchclockscale.value, 8.0f);
+
+			float  view_w  = scr_vrect.width  / s;
+			float  view_h  = scr_vrect.height / s;
+
+            float user_x_percent = CLAMP(0.0f, scr_matchclock_x.value, 100.0f);
+            float user_y_percent = CLAMP(0.0f, scr_matchclock_y.value, 100.0f);
+
+            float  base_x  = (user_x_percent / 100.0f) * view_w;
+            float  base_y  = (user_y_percent / 100.0f) * view_h;
+
 			if (sb_showscores == false && (cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected)) // woods don't overlap crosshair with scoreboard
 			{
 				int scr_matchclock_int = (int)scr_matchclock.value; // get the integer part of scr_matchclock.value
 
+				char buf3[10];
+				const char* mode;
+				mode = Info_GetKey(cl.serverinfo, "mode", buf3, sizeof(buf3));
+
+				if (!q_strcasecmp(mode, "clanarena") || !q_strcasecmp(mode, "wipeout"))
+					return;
+				
 				if (scr_matchclock_int == 1 || scr_matchclock_int == 2)
 				{
 					int color = 0; // Default to brown
@@ -1601,35 +1756,35 @@ void SCR_DrawMatchClock(void)
 					if (minutes >= 100)
 					{
 						int hundreds = minutes / 100;
-						Draw_Pic_RGBA_Outline(scr_matchclock_x.value, scr_matchclock_y.value, sb_nums[color][hundreds], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw hundreds place of minutes
-						x_offset = 24; // Move the x position for the tens place
+						Draw_Pic_RGBA_Outline(base_x, base_y, sb_nums[color][hundreds], CL_PLColours_Parse("0xffffff"), 1.0f, border);
+						x_offset = 24; // Move the offset for the tens place
 					}
 					if (minutes >= 10) {
 						int tens = (minutes / 10) % 10;
-						Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset, scr_matchclock_y.value, sb_nums[color][tens], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw tens place of minutes
-						x_offset += 24; // Move the x position for the ones place
+						Draw_Pic_RGBA_Outline(base_x + x_offset, base_y, sb_nums[color][tens], CL_PLColours_Parse("0xffffff"), 1.0f, border);
+						x_offset += 24; // Move the offset for the ones place
 					}
 
-					int ones = minutes % 10;
-					Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset, scr_matchclock_y.value, sb_nums[color][ones], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw ones place of minutes
+					int ones_min = minutes % 10;
+					Draw_Pic_RGBA_Outline(base_x + x_offset, base_y, sb_nums[color][ones_min], CL_PLColours_Parse("0xffffff"), 1.0f, border);
 
-					if (scr_matchclock.value == 2 || ((minutes == 0 && seconds < 15 && seconds > 0) && teamscores))
-						Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 24, scr_matchclock_y.value, sb_colon, CL_PLColours_Parse("0xff0000"), 1.0f, border); // red, there is no red colon in wad
-					else
-						Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 24, scr_matchclock_y.value, sb_colon, CL_PLColours_Parse("0xffffff"), 1.0f, border);
+					qboolean red_colon = (scr_matchclock.value == 2 || ((minutes == 0 && seconds < 15 && seconds > 0) && teamscores));
+					plcolour_t colon_color = CL_PLColours_Parse(red_colon ? "0xff0000" : "0xffffff");
+					// Use base_x, base_y + offset
+					Draw_Pic_RGBA_Outline(base_x + x_offset + 24, base_y, sb_colon, colon_color, 1.0f, border);
 
-					int tens = seconds / 10;
-					ones = seconds % 10;
+					int tens_sec = seconds / 10;
+					int ones_sec = seconds % 10;
 
-					Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 38, scr_matchclock_y.value, sb_nums[color][tens], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw tens place of seconds
-					Draw_Pic_RGBA_Outline(scr_matchclock_x.value + x_offset + 62, scr_matchclock_y.value, sb_nums[color][ones], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw ones place of seconds
+					Draw_Pic_RGBA_Outline(base_x + x_offset + 38, base_y, sb_nums[color][tens_sec], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw tens place of seconds
+					Draw_Pic_RGBA_Outline(base_x + x_offset + 62, base_y, sb_nums[color][ones_sec], CL_PLColours_Parse("0xffffff"), 1.0f, border); // draw ones place of seconds
 				}
 				else if (scr_matchclock.value == 3)
 				{
 					if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128) // color last 15 seconds or CRMOD condition
-						M_Print(scr_matchclock_x.value, scr_matchclock_y.value, num);
+						M_Print(base_x, base_y, num);
 					else
-						Draw_String(scr_matchclock_x.value, scr_matchclock_y.value, num);
+						Draw_String(base_x, base_y, num);
 				}
 			}
 		}
@@ -1642,89 +1797,136 @@ int divide_round_up(int a, int b) // woods #capturediff
 }
 
 /*====================
-SCR_DrawMatchScores   -- woods  (Adapted from Sbar_DrawFrags from r00k) -- draw match scores upper right corner #matchhud
-====================++
-*/
-void SCR_DrawMatchScores(void)
+SCR_CalculateTeamScoresForDemo -- woods - calculate team scores for demo playback #matchhud
+====================*/
+void SCR_CalculateTeamScoresForDemo(int* team_colors, int* team_scores, int* num_teams, int* redteamplayers, int* blueteamplayers)
 {
-	int				i, k, l;
-	int				top, bottom;
-	int				x, y, f;
-	char			num[30];
-	int				teamscores, colors;// JPG - added these
-	int				ts1, ts2, tc1, tc2, diff, l2; // woods #hud_diff
-	char			tcolor[12]; // woods #hud_diff
-	scoreboard_t* s; // woods #hud_diff
-	int				totalteamplayers, redteamplayers, blueteamplayers, capturepoints, capdiff; // woods #capturediff
+	int i, j, k, colors;
+	scoreboard_t* s;
 
-	if (scr_viewsize.value >= 130)
-		return;
+	// Initialize arrays
+	memset(team_colors, 0, sizeof(int) * MAX_SCOREBOARD);
+	memset(team_scores, 0, sizeof(int) * MAX_SCOREBOARD);
+	*num_teams = 0;
+	*redteamplayers = 0;
+	*blueteamplayers = 0;
 
-	// JPG - check to see if we should sort teamscores instead
-	teamscores = /*pq_teamscores.value && */cl.teamgame;
+	Sbar_SortFrags();
 
-	if (teamscores)    // display frags if it's a teamgame match
-		Sbar_SortTeamFrags();
-	else
-		return;
+	// First pass: identify all team colors
+	for (i = 0; i < scoreboardlines; i++) {
+		k = fragsort[i];
+		s = &cl.scores[k];
 
-	// draw the text
-	l = scoreboardlines <= 4 ? scoreboardlines : 4;
+		if (!s->name[0])
+			continue;
 
-	x = 0;
-	y = 0; // woods to position vertical
-	redteamplayers = 0;
-	blueteamplayers = 0;
-	totalteamplayers = 0;
-	capturepoints = 0;
-	capdiff = 0;
+		colors = s->pants.basic;
 
-	if (cl.gametype == GAME_DEATHMATCH)
-	{
-		GL_SetCanvas(CANVAS_TOPRIGHT3);
+		// Skip white (color 0)
+		if (colors == 0)
+			continue;
 
-		char buf[10];
+		// Check if we've seen this team color before
+		int found = 0;
+		for (j = 0; j < *num_teams; j++) {
+			if (team_colors[j] == colors) {
+				found = 1;
+				break;
+			}
+		}
 
-		const char* uiplaymode;
-		uiplaymode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf, sizeof(buf)); // userinfo (qecrx)
+		if (!found && *num_teams < MAX_SCOREBOARD) {
+			team_colors[(*num_teams)++] = colors;
+		}
 
-		if (!q_strcasecmp(uiplaymode, "ffa"))
-			return;
+		// Count players for each team color for CTF calculations
+		if (colors == 4) // red team
+			(*redteamplayers)++;
+		else if (colors == 13) // blue team
+			(*blueteamplayers)++;
+	}
 
-		if (cl.modetype == 3) // no teamscores for crx ra
-			return;
+	// Second pass: sum up frags for each team
+	for (i = 0; i < scoreboardlines; i++) {
+		k = fragsort[i];
+		s = &cl.scores[k];
 		
-		if (scr_match_hud.value)   // woods for console var off and on
+		if (!s->name[0])
+			continue;
+
+		colors = s->pants.basic;
+
+		// Skip white (color 0)
+		if (colors == 0)
+			continue;
+
+		// Add this player's frags to their team's total
+		for (j = 0; j < *num_teams; j++) {
+			if (team_colors[j] == colors) {
+				team_scores[j] += s->frags;
+				break;
+			}
+		}
+	}
+
+	// Sort teams by score (bubble sort)
+	for (i = 0; i < *num_teams - 1; i++) {
+		for (j = 0; j < *num_teams - i - 1; j++) {
+			if (team_scores[j] < team_scores[j + 1]) {
+				// Swap scores
+				int temp_score = team_scores[j];
+				team_scores[j] = team_scores[j + 1];
+				team_scores[j + 1] = temp_score;
+
+				// Swap colors
+				int temp_color = team_colors[j];
+				team_colors[j] = team_colors[j + 1];
+				team_colors[j + 1] = temp_color;
+			}
+		}
+	}
+}
+
+/*====================
+SCR_DrawTeamScores -- woods - draw the team scores in the upper right corner #matchhud
+====================*/
+int SCR_DrawTeamScores(int x, int y, int l, qboolean use_demo_calculation, int* team_colors, int* team_scores)
 		{
-			if (cl.teamcolor[0])
+	int i, k, colors, f;
+	int top, bottom;
+	char num[30];
+
+	if (cl.teamcolor[0] || (use_demo_calculation && team_colors[0]))
 				Draw_Fill(11, 1, 32, 18, 0, 0.3);  // rectangle for missing team
 
 			for (i = 0; i < l; i++)
 			{
+		// Get team color and score based on calculation method
+		if (use_demo_calculation) {
+			colors = team_colors[i];
+			f = team_scores[i];
+		}
+		else {
 				k = fragsort[i];
-
-				// JPG - check for teamscores
-				if (teamscores)
-				{
 					colors = cl.teamscores[k].colors;
 					f = cl.teamscores[k].frags;
+		}
+
+		// Store for diff calculation
 					cl.teamscore[i] = f;
 					cl.teamcolor[i] = colors;
-				}
-				else
-					return;
 
 				// draw background
-				if (teamscores)
-				{
+		if (use_demo_calculation) {
+			top = colors << 4;
+			bottom = colors << 4;
+		}
+		else {
 					top = (colors & 15) << 4;
 					bottom = (colors & 15) << 4;
 				}
-				else
-				{
-					top = colors & 0xf0;
-					bottom = (colors & 15) << 4;
-				}
+
 				top = Sbar_ColorForMap(top);
 				bottom = Sbar_ColorForMap(bottom);
 
@@ -1740,17 +1942,146 @@ void SCR_DrawMatchScores(void)
 				Sbar_DrawCharacter(((x + 2) * 8) + 7, y - 23, num[1]);
 				Sbar_DrawCharacter(((x + 3) * 8) + 7, y - 23, num[2]);
 
-				x += 0;
 				y += 9;  // woods to position vertical
 			}
 
-			// woods #hud_diff display point differential
+	return y; // Return the updated y position
+}
 
-			if (!cl.teamcolor[2]) // only for two colors
+static void SCR_DrawPositiveDiffString(int x, int y, const char* str) // woods #goldtext
+{
+        int cx = x;
+        const char* p;
+        plcolour_t accent = Draw_GetConcharsAccentColor();
+
+        for (p = str; *p; ++p)
+        {
+                int ch = *p;
+
+                if (ch >= '0' && ch <= '9')
+                        M_DrawCharacter(cx, y, ch - 30);
+                else if (ch == ' ')
+                        M_DrawCharacter(cx, y, ch);
+                else
+                        M_DrawCharacterRGBA(cx, y, ch, accent, 1.0f);
+
+                cx += 8;
+        }
+}
+
+static void SCR_DrawFFADifferential(void) // woods
+{
+	int player_index;
+	scoreboard_t* player;
+	int highest_score = 0;
+	int second_highest = 0;
+	int player_score = 0;
+	qboolean found_highest = false;
+	qboolean found_second = false;
+	qboolean found_player = false;
+	int leaders_at_highest = 0;
+	char diff_str[16];
+
+	if (cl.viewentity <= 0 || cl.viewentity > cl.maxclients)
+		return;
+
+	if (cl.intermission || qeintermission || crxintermission || scr_viewsize.value >= 120)
+		return;
+
+	player_index = cl.viewentity - 1;
+	player = &cl.scores[player_index];
+
+	if (!player->name[0] || player->spectator || player->frags == -99)
+		return;
+
+	Sbar_SortFrags();
+
+	if (!scoreboardlines)
+		return;
+
+	for (int i = 0; i < scoreboardlines; ++i)
+	{
+		int idx = fragsort[i];
+		scoreboard_t* entry = &cl.scores[idx];
+
+		if (!entry->name[0])
+			continue;
+
+		if (entry->spectator || entry->frags == -99)
+			continue;
+
+		if (!found_highest) {
+			highest_score = entry->frags;
+			found_highest = true;
+			leaders_at_highest = 1;
+		}
+		else {
+			if (entry->frags == highest_score) {
+				leaders_at_highest++;
+			}
+			else if (!found_second) {
+				// first score strictly below the leader = runner-up
+				second_highest = entry->frags;
+				found_second = true;
+			}
+		}
+
+		if (idx == player_index) {
+			player_score = entry->frags;
+			found_player = true;
+			// don't break; we still need to count ties and find runner-up
+		}
+	}
+
+	if (!found_highest)
+		return;
+
+	if (!found_player)
+		player_score = player->frags;
+
+	// If player is tied for the lead, show nothing
+	if (player_score == highest_score && leaders_at_highest >= 2)
+		return;
+
+	// Sole leader: show +diff vs runner-up (if any)
+	if (player_score == highest_score) {
+		if (!found_second) // no runner-up exists (e.g., only one valid player)
+			return;
+
+		GL_SetCanvas(CANVAS_TOPRIGHT4);
+		q_snprintf(diff_str, sizeof(diff_str), "+%d", player_score - second_highest);
+		{
+			int digit_adjust_px = (scr_matchclock_minute_digits - 1) * 24; // missing digits
+			SCR_DrawPositiveDiffString(120 - (strlen(diff_str) << 3) - digit_adjust_px, 11, diff_str);
+		}
+		return;
+}
+
+	// Player is behind the leader: show negative diff vs the leader
+	GL_SetCanvas(CANVAS_TOPRIGHT4);
+	q_snprintf(diff_str, sizeof(diff_str), "%d", player_score - highest_score);
+	{
+		int digit_adjust_px = (scr_matchclock_minute_digits - 1) * 24; // missing digits
+		M_Print(120 - (strlen(diff_str) << 3) - digit_adjust_px, 11, diff_str);
+	}
+}
+
+/*====================
+SCR_DrawTeamDifferential -- woods - draw the team differential display #capturediff #matchhud
+====================*/
+void SCR_DrawTeamDifferential(int y, qboolean use_demo_calculation, int redteamplayers, int blueteamplayers, int l)
 			{
-				for (i = 0; i < l; i++)
-				{
-					k = fragsort[i];
+	int i, k, l2, ts1, ts2, tc1, tc2, diff;
+	int totalteamplayers = 0, capturepoints = 0, capdiff = 0;
+	char tcolor[12];
+	char num[30];
+	char buf[10];
+	const char* val;
+	qboolean is_ctf = false;
+	scoreboard_t* s;
+
+	if (cl.teamcolor[2]) // only for two colors
+		return;
 
 					ts1 = cl.teamscore[0]; // high score
 					ts2 = cl.teamscore[1]; // low score
@@ -1759,10 +2090,21 @@ void SCR_DrawMatchScores(void)
 					tc1 = cl.teamcolor[0]; // top score [color]
 					tc2 = cl.teamcolor[1]; // bottom score [color]
 
-					// lets get YOUR team color from scoreboard
+	// Check if this is CTF mode
+	is_ctf = (cl.modetype == 1);
 
+	// Also check serverinfo for CTF by looking for the "red flag" key
+	val = Info_GetKey(cl.serverinfo, "red flag", buf, sizeof(buf));
+	if (val && *val) {  // If key exists and has any value
+		is_ctf = true;
+	}
+
+	// lets get YOUR team color from scoreboard
+	if (!use_demo_calculation) {
 					Sbar_SortFrags();
 					l2 = scoreboardlines;
+		redteamplayers = 0;
+		blueteamplayers = 0;
 
 					for (i = 0; i < l2; i++)
 					{
@@ -1776,21 +2118,28 @@ void SCR_DrawMatchScores(void)
 						}
 
 						// woods, lets see how many players are on each team #capturediff
-
 						if (s->pants.basic == 4) // count number of red players
 							redteamplayers += 1;
 
 						if (s->pants.basic == 13) // count number of blue players
 							blueteamplayers += 1;
+		}
+	}
+	else {
+		// For demo playback, get the player's team color
+		s = &cl.scores[cl.viewentity - 1];
+		if (s->name[0]) {
+			sprintf(tcolor, "%u", s->pants.basic);
+		}
+		// Note: redteamplayers and blueteamplayers were already counted above
+	}
 
 						if (redteamplayers == blueteamplayers) // equal teams? 3 vs 3 not 2 vs 1
 							totalteamplayers = blueteamplayers;
 						else
 							totalteamplayers = 0;
-					}
 
 					// woods, lets do some ctf math! #capturediff
-
 					capturepoints = (totalteamplayers * 10) + 5; // capture 10 and +5 for cap
 					if (diff != 0 && capturepoints != 0)
 						capdiff = divide_round_up(diff, capturepoints); // how many ctf captures up or down
@@ -1798,39 +2147,137 @@ void SCR_DrawMatchScores(void)
 					GL_SetCanvas(CANVAS_TOPRIGHT4); // lets do some printing
 
 					if ((ts1 == ts2) || (l < 2)) // don't show ties, l = # of teams
-						continue;
+		return;
 
 					else if ((atoi(tcolor) == tc1) || atoi(tcolor) == (tc1/17))// top score [color] is the same as your color
 					{
-						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
+		if (totalteamplayers && ((cl.modetype == 1) || is_ctf)) // equal teams and CTF
 							snprintf(num, sizeof(num), "+%-i (%i)", diff, capdiff);
 						else
 							snprintf(num, sizeof(num), "+%-i", diff);
 
-						M_Print(120 - (strlen(num) << 3), y, num);
+					SCR_DrawPositiveDiffString(120 - (strlen(num) << 3), 32, num);
 					}
 
 					else if ((atoi(tcolor) == tc2) || atoi(tcolor) == (tc2 / 17)) // bottom score [color] is the same as your color
 					{
-						if (totalteamplayers && cl.modetype == 1) // equal teams and CTF
+		if (totalteamplayers && ((cl.modetype == 1) || is_ctf)) // equal teams and CTF
 							snprintf(num, sizeof(num), "-%-i (%i)", diff, capdiff);
 						else
 							snprintf(num, sizeof(num), "-%-i", diff);
-						M_Print(120 - (strlen(num) << 3), y + 20, num);
+						M_Print(120 - (strlen(num) << 3), 32 + 20, num);
 					}				
 				}
+
+/*====================
+SCR_DrawMatchScores   -- woods  (Adapted from Sbar_DrawFrags from r00k) -- draw match scores upper right corner #matchhud
+====================*/
+void SCR_DrawMatchScores(void)
+{
+	int team_colors[MAX_SCOREBOARD]; // For demo calculation
+	int team_scores[MAX_SCOREBOARD]; // For demo calculation
+	int num_teams = 0;               // For demo calculation
+	int redteamplayers = 0, blueteamplayers = 0;
+	int x, y, l;
+	qboolean use_demo_calculation = false;
+	int teamscores;
+	char buf[10];
+	char buf2[10];
+	const char* uiplaymode;
+	const char* siplaymode;
+
+	if (scr_viewsize.value >= 130)
+		return;
+
+	// Check if we need to calculate team scores manually (for demos)
+	if (cls.demoplayback && cl.teamscores && (!cl.teamscores[0].colors || !cl.teamscores[1].colors)) {
+		use_demo_calculation = true;
 			}
+
+	uiplaymode = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "mode", buf, sizeof(buf)); // serverinfo
+	siplaymode = Info_GetKey(cl.serverinfo, "playmode", buf2, sizeof(buf2)); // userinfo (qecrx)
+
+	if (scr_match_hud.value && cl.gametype == GAME_DEATHMATCH)   // woods for console var off and on
+	{
+		if (!q_strcasecmp(uiplaymode, "ffa") || !q_strcasecmp(siplaymode, "ffa"))
+		{
+			SCR_DrawFFADifferential();
 		}
 	}
-	else
+
+	// Only proceed if it's a team game
+	teamscores = cl.teamgame;
+	if (!teamscores)
 		return;
+
+	// For regular games, sort team frags
+	if (!use_demo_calculation) {
+		Sbar_SortTeamFrags();
+		}
+	// For demos, calculate team scores manually
+	else {
+		SCR_CalculateTeamScoresForDemo(team_colors, team_scores, &num_teams, &redteamplayers, &blueteamplayers);
+	}
+
+	// draw the text
+	l = use_demo_calculation ?
+		(num_teams <= 4 ? num_teams : 4) :
+		(scoreboardlines <= 4 ? scoreboardlines : 4);
+
+	x = 0;
+	y = 0; // woods to position vertical
+
+	if (cl.gametype == GAME_DEATHMATCH)
+	{
+		GL_SetCanvas(CANVAS_TOPRIGHT3);
+
+
+		if (!q_strcasecmp(uiplaymode, "ffa"))
+		return;
+
+		if (cl.modetype == 3) // no teamscores for crx ra
+			return;
+
+		if (scr_match_hud.value)   // woods for console var off and on
+		{
+			y = SCR_DrawTeamScores(x, y, l, use_demo_calculation, team_colors, team_scores);
+			SCR_DrawTeamDifferential(y, use_demo_calculation, redteamplayers, blueteamplayers, l);
+		}
+	}
+}
+
+// woods #eyemouse
+
+static int obs_frags_x;
+static int obs_frags_y;
+static int obs_frags_height;
+static qboolean obs_frags_active;  // Track if the frags list is currently being displayed	
+void Sbar_DrawSubPicAlpha (int x, int y, qpic_t* pic, int ofsx, int ofsy, int w, int h, float alpha);
+
+void getShortName(const char* fullName, char* shortName)
+{
+	// Copy up to the first 15 characters into shortName
+	// Make sure to leave space for the null terminator
+	size_t len = strlen(fullName);
+	size_t copyLen = (len < 15) ? len : 15;
+
+	memcpy(shortName, fullName, copyLen);
+	shortName[copyLen] = '\0';  // Ensure null termination
+
+	// Trim trailing spaces
+	len = copyLen;
+	while (len > 0 && isspace((unsigned char)shortName[len - 1])) {
+		shortName[--len] = '\0';
+	}
 }
 
 /*
 =======================
-SCR_ShowObsFrags -- added by woods #observerhud
+SCR_ShowObsFrags -- added by woods #observerhud #eyemouse
 =======================
 */
+
+#define OBS_POWERUP_DURATION 30.5f
 
 void SCR_ShowObsFrags(void)
 {
@@ -1839,25 +2286,61 @@ void SCR_ShowObsFrags(void)
 	scoreboard_t* s;
 	char	shortname[16]; // woods for dynamic scoreboard during match, don't show ready
 	char buf[15];
+	char buf2[15];
 	const char* obs;
+	const char* star_obs;
 	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+	static qpic_t* weapon_icons = NULL;
+	static qpic_t* sb_quad = NULL;
+	static qpic_t* sb_pent = NULL;
+	static qpic_t* sb_ring = NULL;
+	static qpic_t* sb_key1 = NULL;
+	static qpic_t* sb_key2 = NULL;
+	static qpic_t* sb_sigil[4] = { NULL, NULL, NULL, NULL };
 
-	if (cl.intermission)
-		return;
-
-	if (qeintermission)
+	if (cl.intermission || qeintermission || crxintermission)
 		return;
 
 	if (scr_viewsize.value >= 120)
 		return;
 
+	if ((!cl.notobserver && scr_obsitems.value) || (cls.demoplayback && scr_obsitems.value))
+	{
+		if (COM_FileExists("gfx/ibar2.lmp", NULL))
+			weapon_icons = Draw_CachePic("gfx/ibar2.lmp");
+
+		sb_quad = Draw_PicFromWad("sb_quad");
+		sb_pent = Draw_PicFromWad("sb_invuln");
+		sb_ring = Draw_PicFromWad("sb_invis");
+		sb_key1 = Draw_PicFromWad("sb_key1");
+		sb_key2 = Draw_PicFromWad("sb_key2");
+
+		sb_sigil[0] = Draw_PicFromWad("sb_sigil1");
+		sb_sigil[1] = Draw_PicFromWad("sb_sigil2");
+		sb_sigil[2] = Draw_PicFromWad("sb_sigil3");
+		sb_sigil[3] = Draw_PicFromWad("sb_sigil4");
+	}
+
+	obs_frags_active = true;
+
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+		star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf2, sizeof(buf2));
 
-		if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) || scr_showscores.value || !strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk"))
+		if ((!strcmp(cl.observer, "y") && (cl.modtype >= 2)) ||
+			scr_showscores.value ||
+			!strcmp(obs, "eyecam") || !strcmp(obs, "chase") || !strcmp(obs, "fly") || !strcmp(obs, "walk") ||
+			!strcmp(star_obs, "eyecam") || !strcmp(star_obs, "chase") || !strcmp(star_obs, "fly") || !strcmp(star_obs, "walk"))
 		{
-			Sbar_SortFrags_Obs ();
+			if (scr_scoreboard_teamsort.value && Sbar_ShouldSortByTeam()) // woods #teamscoreboard
+			{
+				Sbar_SortFrags_TeamOrder(true);
+			}
+			else
+			{
+				Sbar_SortFrags_Obs();
+			}
 
 			if (clampedSbar == 3)
 			{
@@ -1871,6 +2354,11 @@ void SCR_ShowObsFrags(void)
 				x = 10;
 				y = 160;
 			}
+
+			// Store coordinates for click detection
+			obs_frags_x = x;
+			obs_frags_y = y;
+			obs_frags_height = scoreboardlines * 8;
 
 			char qflbracket[2] = { 144, '\0' }; // woods  -- quake font left bracket
 			char qfrbracket[2] = { 145, '\0' }; // woods  -- quake font right bracket
@@ -1894,17 +2382,306 @@ void SCR_ShowObsFrags(void)
 
 				// number
 				f = s->frags;
-				sprintf(num, "%3i", f);
+				q_snprintf(num, sizeof(num), "%3i", f);
 				Draw_Character(x + 8, y, num[0]);
 				Draw_Character(x + 16, y, num[1]);
 				Draw_Character(x + 24, y, num[2]);
 
 				// name
-				sprintf(shortname, "%.15s", s->name); // woods only show name, not 'ready' or 'afk' -- 15 characters
+				char filtered_name[32];
+				qboolean was_filtered = false;
+
+				if (cl_contentfilter.value == 2) // woods #contentfilter
+				{
+					was_filtered = WordFilter_Check(s->name, filtered_name, sizeof(filtered_name));
+					filtered_name[sizeof(filtered_name) - 1] = '\0';
+				}
+
+				// Get the short name and respect content filter setting
+				if (cl_contentfilter.value == 2 && was_filtered) // woods #contentfilter
+					getShortName(filtered_name, shortname);
+				else
+				getShortName(s->name, shortname);
+
 				M_PrintWhite(x + 50, y, shortname);
+
+				if ((!cl.notobserver && scr_obsitems.value) || (cls.demoplayback && scr_obsitems.value))
+				{
+					// Calculate name width for icon placement
+					int nameWidth = strlen(shortname) * 8;
+					int iconX = x + 50 + nameWidth + 4; // 4 pixels padding after name
+					int iconSpacing = 10;
+
+					// Check if player info is recent enough (within 5 seconds)
+					if (s->tinfo.time > cl.time)
+					{
+						// Check for weapons in items
+						qboolean hasRL = (s->tinfo.items & IT_ROCKET_LAUNCHER) != 0;
+						qboolean hasLG = (s->tinfo.items & IT_LIGHTNING) != 0;
+
+						if (weapon_icons)
+						{
+							if (hasRL)
+							{
+								// Draw rocket icon (3rd ammo type in ibar2.lmp)
+								Sbar_DrawSubPicAlpha(iconX - 34, y - 24, weapon_icons, 3 + (2 * 48), 0, 42, 11, 1);
+								iconX += iconSpacing; // Move to next icon position
+							}
+
+							if (hasLG)
+							{
+								// Draw cell icon (4th ammo type in ibar2.lmp)
+								Sbar_DrawSubPicAlpha(iconX - 34, y - 24, weapon_icons, 3 + (3 * 48), 0, 42, 11, 1);
+								iconX += iconSpacing; // Move to next icon position
+							}
+							iconX -= 2;
+						}
+
+						qboolean hasQuad = (s->tinfo.items & IT_QUAD) != 0;
+						qboolean hasPent = (s->tinfo.items & IT_INVULNERABILITY) != 0;
+						qboolean hasRing = (s->tinfo.items & IT_INVISIBILITY) != 0;
+						qboolean hasSilverKey = (s->tinfo.items & IT_KEY1) != 0;
+						qboolean hasGoldKey = (s->tinfo.items & IT_KEY2) != 0;
+						qboolean hasMega = (s->tinfo.items & IT_SUPERHEALTH) != 0;
+
+						qboolean hasSigil1 = (s->tinfo.items & (1 << 23)) != 0;
+						qboolean hasSigil2 = (s->tinfo.items & (1 << 24)) != 0;
+						qboolean hasSigil3 = (s->tinfo.items & (1 << 25)) != 0;
+						qboolean hasSigil4 = (s->tinfo.items & (1 << 26)) != 0;
+
+						float scale = 0.65; // Draw powerup/rune icons with scaling
+
+						float quadAlpha = 1.0f;
+						float pentAlpha = 1.0f;
+						float ringAlpha = 1.0f;
+
+						if (hasQuad && s->tinfo.quad_time > 0)
+						{
+							float elapsed = cl.time - s->tinfo.quad_time;
+							if (elapsed <= OBS_POWERUP_DURATION)
+							{
+								quadAlpha = 0.3f + (1.0f - (elapsed / OBS_POWERUP_DURATION)) * 0.7f;
+								if (quadAlpha > 1.0f) quadAlpha = 1.0f;
+							}
+							else
+							{
+								quadAlpha = 0.3f;
+							}
+						}
+
+						if (hasPent && s->tinfo.pent_time > 0)
+						{
+							float elapsed = cl.time - s->tinfo.pent_time;
+							if (elapsed <= OBS_POWERUP_DURATION)
+							{
+								pentAlpha = 0.3f + (1.0f - (elapsed / OBS_POWERUP_DURATION)) * 0.7f;
+								if (pentAlpha > 1.0f) pentAlpha = 1.0f;
+							}
+							else
+							{
+								pentAlpha = 0.3f;
+							}
+						}
+
+						if (hasRing && s->tinfo.ring_time > 0)
+						{
+							float elapsed = cl.time - s->tinfo.ring_time;
+							if (elapsed <= OBS_POWERUP_DURATION)
+							{
+								ringAlpha = 0.3f + (1.0f - (elapsed / OBS_POWERUP_DURATION)) * 0.7f;
+								if (ringAlpha > 1.0f) ringAlpha = 1.0f;
+							}
+							else
+							{
+								ringAlpha = 0.3f;
+							}
+						}
+
+						if (hasQuad && sb_quad)
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_quad, scale, quadAlpha);
+							iconX += iconSpacing;
+						}
+
+						if (hasPent && sb_pent)
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_pent, scale, pentAlpha);
+							iconX += iconSpacing;
+						}
+
+						if (hasRing && sb_ring)
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_ring, scale, ringAlpha);
+							iconX += iconSpacing;
+						}
+
+						if (hasMega)
+						{
+							float megaAlpha = 0.3f + (s->tinfo.health - 101) / 99.0f * 0.7f;
+							if (megaAlpha > 1.0f) megaAlpha = 1.0f;
+
+							Draw_CharacterRGBA(iconX + 1, y + 1, '+' + 128, CL_PLColours_Parse("0xffffff"), megaAlpha);
+							iconX += iconSpacing;
+						}
+
+						if (hasSilverKey && sb_key1)
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_key1, scale, 1);
+							iconX += iconSpacing;
+						}
+
+						if (hasGoldKey && sb_key2)
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_key2, scale, 1);
+							iconX += iconSpacing;
+						}
+
+						if (hasSigil1 || hasSigil2 || hasSigil3 || hasSigil4)
+							iconX += 1;
+
+						// Draw runes
+						if (hasSigil1 && sb_sigil[0])
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_sigil[0], scale, 1);
+							iconX += iconSpacing;
+						}
+
+						if (hasSigil2 && sb_sigil[1])
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_sigil[1], scale, 1);
+							iconX += iconSpacing;
+						}
+
+						if (hasSigil3 && sb_sigil[2])
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_sigil[2], scale, 1);
+							iconX += iconSpacing;
+						}
+
+						if (hasSigil4 && sb_sigil[3])
+						{
+							Draw_ScaledPicAlpha(iconX, y, sb_sigil[3], scale, 1);
+						}
+					}
+				}
 			}
+			obs_frags_active = true;
 		}
 	}
+}
+
+void Draw_GetScoreboardTransform (vrect_t* bounds, vrect_t* viewport) // woods #eyemouse
+{
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
+	if (clampedSbar == 3)
+	{
+		bounds->x = 0;
+		bounds->y = 0;
+		bounds->width = 320;
+		bounds->height = 300;
+
+		viewport->x = glx;
+		viewport->y = gly;
+		viewport->width = glwidth;
+		viewport->height = glheight;
+	}
+	else
+	{
+		bounds->x = 0;
+		bounds->y = 0;
+		bounds->width = 320;
+		bounds->height = 200;
+
+		viewport->x = glx;
+		viewport->y = gly;
+		viewport->width = glwidth;
+		viewport->height = glheight;
+		}
+}
+
+void IN_ObsFragsClick(int x, int y) // woods #eyemouse
+{
+	// Early return if observer frags aren't active
+	if (!obs_frags_active)
+		return;
+
+	vrect_t bounds, viewport;
+	Draw_GetScoreboardTransform(&bounds, &viewport);
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
+	float scale;
+	int row = -1;
+	int itemheight = 8; // each entry is 8 units tall
+
+	// Calculate row based on sbar mode
+	if (clampedSbar == 3)
+	{
+		scale = CLAMP(1.0, scr_sbarscale.value / 1.2, (float)glwidth / 320.0);
+		x = (int)(x / scale);
+		y = (int)((viewport.height - y) / scale);
+		y = 300 - y;
+		row = (182 - y) / itemheight;
+	}
+	else
+	{
+		scale = (float)glwidth / vid.conwidth;
+		x = (int)(x / scale);
+		y = (int)((viewport.height - y) / scale);
+		y += 19;
+		row = (y - 151) / itemheight;
+	}
+
+	// Validate row bounds
+	if (row < 0 || row >= scoreboardlines)
+	{
+		Con_DPrintf("ObsFragsClick: Row %d is out of bounds (valid range: 0 to %d)\n",
+			row, scoreboardlines - 1);
+		return;
+	}
+
+	// Get the player corresponding to the computed row
+	int playernum = fragsort[row];
+	scoreboard_t* s = &cl.scores[playernum];
+
+	// Skip empty entries
+	if (!s->name[0])
+	{
+		Con_DPrintf("ObsFragsClick: Empty player entry at row %d\n", row);
+		return;
+	}
+	// Create a shortened name (max 15 characters) and trim trailing spaces
+	char shortname[16];
+	char trimmed_name[16];
+	q_snprintf(shortname, sizeof(shortname), "%.15s", s->name);
+
+	// Trim trailing spaces
+	q_strlcpy(trimmed_name, shortname, sizeof(trimmed_name));
+	int len = strlen(trimmed_name);
+	while (len > 0 && trimmed_name[len - 1] == ' ')
+	{
+		trimmed_name[len - 1] = '\0';
+		len--;
+	}
+
+	// Calculate click boundaries
+	int startx = obs_frags_x;
+	int name_offset = 50;
+	int name_width = strlen(trimmed_name) * 8;
+	int total_width = name_offset + name_width;
+
+	// Validate horizontal click position
+	if (x < startx || x >= startx + total_width)
+	{
+		Con_DPrintf("ObsFragsClick: Click outside valid region (x=%d, valid=%d-%d)\n",
+			x, startx, startx + total_width);
+		return;
+	}
+
+	// Issue the track command
+	char cmd[64];
+	q_snprintf(cmd, sizeof(cmd), "cmd eyecam %d\n", playernum + 1);
+	Cbuf_AddText(cmd);
 }
 
 /*
@@ -1918,49 +2695,83 @@ void SCR_ShowFlagStatus(void)
 	float z;
 	int x, y, xx, yy;
 
+	if (scr_viewsize.value >= 130)
+		return;
+
 	// woods lets get some info from server infokeys
 
-	const char* redflag;
-	char buf[10];
-	redflag = Info_GetKey(cl.serverinfo, "red flag", buf, sizeof(buf));
+	static char cached_redflag[10] = "";
+	static char cached_blueflag[10] = "";
+	static Uint32 last_cache_time = 0;
+	Uint32 current_time = SDL_GetTicks();
 
-	const char* blueflag;
-	char buf2[10];
-	blueflag = Info_GetKey(cl.serverinfo, "blue flag", buf2, sizeof(buf2));
+	// Cache the values for 100 milliseconds to prevent blinking
 
-	if ((blueflag[0] != '\0' && redflag[0] != '\0') && !cls.demoplayback) // is there a key on the server (newer version of crx)
+	if (current_time - last_cache_time > 100 || cached_redflag[0] == '\0' || cached_blueflag[0] == '\0')
 	{
-		strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus)); // null flag, reset all flag ... flags :)
+	char buf[10];
+		const char* redflag = Info_GetKey(cl.serverinfo, "red flag", buf, sizeof(buf));
+		Q_strncpy(cached_redflag, redflag, sizeof(cached_redflag) - 1);
+		cached_redflag[sizeof(cached_redflag) - 1] = '\0';
+
+	char buf2[10];
+		const char* blueflag = Info_GetKey(cl.serverinfo, "blue flag", buf2, sizeof(buf2));
+		Q_strncpy(cached_blueflag, blueflag, sizeof(cached_blueflag) - 1);
+		cached_blueflag[sizeof(cached_blueflag) - 1] = '\0';
+
+		last_cache_time = current_time;
+	}
+
+	if (cached_blueflag[0] != '\0' && cached_redflag[0] != '\0') // is there a key on the server (newer version of crx)
+	{
+		Q_strncpy(cl.flagstatus, "n", sizeof(cl.flagstatus) - 1);
+		cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
 
 		// RED
 
-		if (!strcmp(redflag, "carried"))
-			strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus)); // red taken
+		if (!strcmp(cached_redflag, "carried")) {
+			Q_strncpy(cl.flagstatus, "r", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
-		if (!strcmp(redflag, "dropped"))
-			strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus)); // red abandoned
+		if (!strcmp(cached_redflag, "dropped")) {
+			Q_strncpy(cl.flagstatus, "x", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
 		// BLUE
 
-		if (!strcmp(blueflag, "carried"))
-			strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus)); // blue abandoned
+		if (!strcmp(cached_blueflag, "carried")) {
+			Q_strncpy(cl.flagstatus, "b", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
-		if (!strcmp(blueflag, "dropped"))
-			strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus)); // blue abandoned
+		if (!strcmp(cached_blueflag, "dropped")) {
+			Q_strncpy(cl.flagstatus, "y", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
 		// RED & BLUE
 
-		if (!strcmp(blueflag, "carried") && !strcmp(redflag, "carried")) // blue & red taken
-			strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus));
+		if (!strcmp(cached_blueflag, "carried") && !strcmp(cached_redflag, "carried")) {
+			Q_strncpy(cl.flagstatus, "p", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
-		if (!strcmp(blueflag, "dropped") && !strcmp(redflag, "dropped")) // blue & red abandoned
-			strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus));
+		if (!strcmp(cached_blueflag, "dropped") && !strcmp(cached_redflag, "dropped")) {
+			Q_strncpy(cl.flagstatus, "z", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
-		if (!strcmp(blueflag, "dropped") && !strcmp(redflag, "carried")) // blue abandoned, red taken
-			strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus));
+		if (!strcmp(cached_blueflag, "dropped") && !strcmp(cached_redflag, "carried")) {
+			Q_strncpy(cl.flagstatus, "j", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 
-		if (!strcmp(blueflag, "carried") && !strcmp(redflag, "dropped")) // red abandoned, blue taken
-			strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus));
+		if (!strcmp(cached_blueflag, "carried") && !strcmp(cached_redflag, "dropped")) {
+			Q_strncpy(cl.flagstatus, "k", sizeof(cl.flagstatus) - 1);
+			cl.flagstatus[sizeof(cl.flagstatus) - 1] = '\0';
+		}
 	}
 
 	GL_SetCanvas(CANVAS_TOPRIGHT3);
@@ -2047,6 +2858,50 @@ void SCR_ShowFlagStatus(void)
 		}
 }
 
+// woods #speed #speedometer
+
+#define SPEED_UPDATE_INTERVAL 0.167f
+static float last_speed = 0;
+static float current_speed = 0;
+static float speed_update_time = 0;
+
+static float GetLocalVelocity(void)
+{
+	vec3_t vel;
+
+	vel[0] = cl.velocity[0];
+	vel[1] = cl.velocity[1];
+	vel[2] = 0;
+
+	return VectorLength(vel);
+}
+
+static float GetSpeedValue(void)
+{
+	if (!cl.notobserver &&
+		cl.viewentity - 1 >= 0 && cl.viewentity - 1 < MAX_SCOREBOARD)
+	{
+		int new_speed = (int)cl.scores[cl.viewentity - 1].tinfo.speed;
+
+		if (new_speed != 0)  // Check if speed data exists
+		{
+			// If we got a new speed update
+			if (new_speed != current_speed)
+			{
+				last_speed = current_speed;
+				current_speed = new_speed;
+				speed_update_time = cl.time;
+			}
+
+			// Interpolate between last and current speed
+			float frac = (cl.time - speed_update_time) / SPEED_UPDATE_INTERVAL;
+			frac = CLAMP(0, frac, 1);
+			return last_speed + (current_speed - last_speed) * frac;
+		}
+	}
+	return GetLocalVelocity();
+}
+
 /*
 ==============
 SCR_Speedometer -- woods #speedometer (https://github.com/matthewearl/quakespasm f4411f0 from joequake)
@@ -2055,7 +2910,6 @@ SCR_Speedometer -- woods #speedometer (https://github.com/matthewearl/quakespasm
 void SCR_Speedometer(void)
 {
 	float speed;
-	vec3_t vel;
 	int bad_jump = 0;
 	static float maxspeed = 0, display_speed = -1;
 	static double lastrealtime = 0;
@@ -2066,9 +2920,6 @@ void SCR_Speedometer(void)
 	float alpha = 0.5;
 	int y = scr_showspeed_y.value;
 
-	if (cl.intermission || qeintermission || scr_viewsize.value >= 120)
-		return;
-
 	GL_SetCanvas(CANVAS_SBAR2);
 
 	if (lastrealtime > realtime)
@@ -2078,9 +2929,7 @@ void SCR_Speedometer(void)
 		maxspeed = 0;
 	}
 
-	VectorCopy(cl.velocity, vel);
-	vel[2] = 0;
-	speed = VectorLength(vel);
+	speed = GetSpeedValue();
 
 	if (speed > maxspeed)
 		maxspeed = speed;
@@ -2133,9 +2982,19 @@ SCR_DrawSpeed -- woods #speed
 */
 void SCR_DrawSpeed (void)
 {
+	if (cl.intermission || qeintermission || crxintermission || scr_viewsize.value >= 120)
+		return;
+	
+	if (scr_showspeed.value > 1)
+	{
+		SCR_Speedometer();
+		return;
+	}
+	
 	char			st[64];
 	int				x, y;
 	int				clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+	float			speed = 0;
 
 	if (scr_viewsize.value > 110 || scr_viewsize.value >= 130)
 		return;
@@ -2143,7 +3002,7 @@ void SCR_DrawSpeed (void)
 	if (clampedSbar == 3)
 	{
 		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
-		y = 175;
+		y = 177;
 		x = 134;
 	}
 	else
@@ -2160,9 +3019,9 @@ void SCR_DrawSpeed (void)
 			y = 233;
 	}
 
-	if (scr_showspeed.value == 1 && !cl.intermission) {
-		vec3_t	vel = { cl.velocity[0], cl.velocity[1], 0 };
-		float	speed = VectorLength(vel);
+	if (scr_showspeed.value == 1 && (!cl.intermission || !qeintermission || !crxintermission))
+	{
+		speed = GetSpeedValue();
 
 	sprintf(st, "%-3.0f", speed);
 	if (scr_viewsize.value <= 110)
@@ -2175,10 +3034,6 @@ void SCR_DrawSpeed (void)
 					M_PrintWhite(x, y, st);  // white
 		}
 	}
-
-	if (scr_showspeed.value > 1)
-		SCR_Speedometer (); // woods #speedometer
-
 }
 
 /*
@@ -2188,7 +3043,7 @@ SCR_DrawMovementKeys -- woods #movementkeys (soruced from: https://github.com/j0
 */
 void SCR_DrawMovementKeys(void)
 {
-	if (!scr_movekeys.value || cl.intermission || qeintermission || scr_viewsize.value > 110)
+	if (!scr_movekeys.value || cl.intermission || qeintermission || crxintermission || scr_viewsize.value > 110)
 		return;
 
 	extern kbutton_t in_moveleft, in_moveright, in_forward, in_back, in_jump, in_up;
@@ -2232,6 +3087,245 @@ void SCR_DrawMovementKeys(void)
 		M_Print(x, y - 1, "j");
 	else if (in_up.state & 1)
 		M_Print(x, y -1, "s");
+}
+
+/*
+===============
+SCR_DrawGrenadeTimer -- woods #nadecount
+===============
+*/
+void SCR_DrawGrenadeTimer(void)
+{
+	static qboolean finish_state = false;
+	static float last_time_remaining = -1.0f;
+	static float smooth_time_frac = -1.0f;
+
+	if (cls.state != ca_connected || !scr_showgrenadecounter.value)
+	{
+		finish_state = false;
+		last_time_remaining = -1.0f;
+		smooth_time_frac = -1.0f;
+		return;
+	}
+
+	if (!sv.active)
+	{
+		finish_state = false;
+		last_time_remaining = -1.0f;
+		smooth_time_frac = -1.0f;
+		return;
+	}
+
+	float time_remaining = 0.0f;
+	qboolean should_draw = false;
+
+	qcvm_t *oldvm = qcvm;
+	qboolean switched_vm = false;
+
+	if (qcvm != &sv.qcvm)
+	{
+		PR_SwitchQCVM(&sv.qcvm);
+		switched_vm = true;
+	}
+
+	do
+	{
+		if (!qcvm)
+		{
+			finish_state = false;
+			break;
+		}
+
+		if (cl.viewentity <= 0 || cl.viewentity >= qcvm->num_edicts)
+		{
+			finish_state = false;
+			break;
+		}
+
+		edict_t *player = EDICT_NUM(cl.viewentity);
+		float best_remaining = FLT_MAX;
+
+		for (int i = 0; i < qcvm->num_edicts; ++i)
+		{
+			edict_t *ent = EDICT_NUM(i);
+
+			if (ent->free)
+				continue;
+
+			if (!ent->v.classname)
+				continue;
+
+			if (strcmp(PR_GetString(ent->v.classname), "grenade"))
+				continue;
+
+			edict_t *owner = ent->v.owner ? PROG_TO_EDICT(ent->v.owner) : NULL;
+
+			if (owner != player)
+				continue;
+
+			float remaining = !ent->v.touch ? 0.0f : (ent->v.nextthink - cl.time);
+
+			if (remaining < 0.0f || remaining >= GRENADE_EXPLOSION_TIME)
+				continue;
+
+			if (remaining < best_remaining)
+				best_remaining = remaining;
+		}
+
+		if (best_remaining == FLT_MAX)
+		{
+			finish_state = false;
+			break;
+		}
+
+		time_remaining = best_remaining;
+
+		if (time_remaining >= GRENADE_EXPLOSION_TIME || time_remaining < 0.0f)
+		{
+			finish_state = false;
+			break;
+		}
+
+		if (time_remaining > 0.2f)
+			finish_state = false;
+		else if (time_remaining < 0.02f)
+			finish_state = true;
+
+		if (finish_state)
+			time_remaining = 0.0f;
+
+		should_draw = true;
+	} while (0);
+
+	if (switched_vm)
+	{
+		PR_SwitchQCVM(NULL);
+		if (oldvm)
+			PR_SwitchQCVM(oldvm);
+	}
+
+	if (!should_draw)
+	{
+		last_time_remaining = -1.0f;
+		smooth_time_frac = -1.0f;
+		return;
+	}
+
+	if (last_time_remaining >= 0.0f)
+	{
+		const float reset_epsilon = 0.05f; // detect new grenade
+
+		if (time_remaining > last_time_remaining + reset_epsilon)
+		{
+			last_time_remaining = time_remaining; // new grenade, reset
+			smooth_time_frac = -1.0f;
+		}
+		else
+			time_remaining = q_min(time_remaining, last_time_remaining); // clamp to never increase
+	}
+
+	last_time_remaining = time_remaining;
+
+	float scale = CLAMP(1.0f, scr_sbarscale.value, (float)glwidth / 320.0f);
+	int size = q_max(1, (int)(8.0f * scale + 0.5f));
+	int half_size = size / 2;
+
+	GL_SetCanvas(CANVAS_DEFAULT);
+
+	float center_x = scr_vrect.x + (scr_vrect.width * 0.5f);
+	float center_y = scr_vrect.y + (scr_vrect.height * 0.4f);
+
+	float half_width = (GRENADE_TIMER_WIDTH * size) * 0.5f;
+	float left = center_x - half_width;
+	float right = center_x + half_width;
+	float border_thickness = 2.0f;
+
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_BLEND);
+	glDisable(GL_ALPHA_TEST);
+
+	float inner_left = left + half_size;
+	float inner_right = right - half_size;
+	float line_thickness = q_max(1.0f, size / 2.0f);
+	float line_top = center_y - line_thickness * 0.5f;
+	float line_bottom = center_y + line_thickness * 0.5f;
+
+	// 1-pixel black border around the white meter
+	glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+	glBegin(GL_QUADS);
+	// top border
+	glVertex2f(inner_left, line_top);
+	glVertex2f(inner_right, line_top);
+	glVertex2f(inner_right, line_top + border_thickness);
+	glVertex2f(inner_left, line_top + border_thickness);
+	// bottom border
+	glVertex2f(inner_left, line_bottom - border_thickness);
+	glVertex2f(inner_right, line_bottom - border_thickness);
+	glVertex2f(inner_right, line_bottom);
+	glVertex2f(inner_left, line_bottom);
+	// left border
+	glVertex2f(inner_left, line_top + border_thickness);
+	glVertex2f(inner_left + border_thickness, line_top + border_thickness);
+	glVertex2f(inner_left + border_thickness, line_bottom - border_thickness);
+	glVertex2f(inner_left, line_bottom - border_thickness);
+	// right border
+	glVertex2f(inner_right - border_thickness, line_top + border_thickness);
+	glVertex2f(inner_right, line_top + border_thickness);
+	glVertex2f(inner_right, line_bottom - border_thickness);
+	glVertex2f(inner_right - border_thickness, line_bottom - border_thickness);
+	glEnd();
+
+	glColor4f(1.0f, 1.0f, 1.0f, 150.0f / 255.0f);
+	glBegin(GL_QUADS);
+	glVertex2f(inner_left, line_top);
+	glVertex2f(inner_right, line_top);
+	glVertex2f(inner_right, line_bottom);
+	glVertex2f(inner_left, line_bottom);
+	glEnd();
+
+	float clamped = CLAMP(0.0f, time_remaining, GRENADE_EXPLOSION_TIME);
+	float target_frac = (GRENADE_EXPLOSION_TIME > 0.0f) ? (clamped / GRENADE_EXPLOSION_TIME) : 0.0f;
+
+	// Smooth pointer movement using host_frametime
+	if (smooth_time_frac < 0.0f)
+		smooth_time_frac = target_frac;
+	else
+	{
+		const float lerp_speed = 10.0f; // higher = snappier, lower = smoother
+		float alpha = host_frametime * lerp_speed;
+		if (alpha > 1.0f)
+			alpha = 1.0f;
+		smooth_time_frac += (target_frac - smooth_time_frac) * alpha;
+	}
+	smooth_time_frac = CLAMP(0.0f, smooth_time_frac, 1.0f);
+
+	float travel = inner_right - inner_left;
+	float pos = travel * smooth_time_frac;
+	float pointer_x = inner_left + pos;
+	float pointer_half_width = q_max(1.0f, (size / 2.0f) * 0.5f);
+	float pointer_top = center_y - half_size / 2.0f;
+	float pointer_bottom = center_y + half_size / 2.0f;
+
+	// Color ramp: cursor color 2 (gold) -> cursor color 1 (red) as time runs out
+	float frac_elapsed = 1.0f - smooth_time_frac; // 0=start, 1=explode
+	plcolour_t start_color = Draw_GetConcharsCursorColorByIndex(2); // gold
+	plcolour_t end_color = Draw_GetConcharsCursorColorByIndex(1);   // red
+	float r = (start_color.rgb[0] + (end_color.rgb[0] - start_color.rgb[0]) * frac_elapsed) / 255.0f;
+	float g = (start_color.rgb[1] + (end_color.rgb[1] - start_color.rgb[1]) * frac_elapsed) / 255.0f;
+	float b = (start_color.rgb[2] + (end_color.rgb[2] - start_color.rgb[2]) * frac_elapsed) / 255.0f;
+
+	glColor4f(r, g, b, 1.0f);
+	glBegin(GL_QUADS);
+	glVertex2f(pointer_x - pointer_half_width, pointer_top);
+	glVertex2f(pointer_x + pointer_half_width, pointer_top);
+	glVertex2f(pointer_x + pointer_half_width, pointer_bottom);
+	glVertex2f(pointer_x - pointer_half_width, pointer_bottom);
+	glEnd();
+
+	glDisable(GL_BLEND);
+	glEnable(GL_ALPHA_TEST);
+	glEnable(GL_TEXTURE_2D);
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 /*
@@ -2326,13 +3420,21 @@ void SCR_Observing(void)
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
 		char printtxt[25];
+		char original_observing_name[25]; // Buffer to store the original name from Info_GetKey
 		char buf2[25];
 		char buf3[25];
+		char buf4[25];
 		const char* obs;
-		const char* observing;
+		const char* star_obs;
+		const char* observing_ptr;
 		int color, y;
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf2, sizeof(buf2));
-		observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
+		star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf4, sizeof(buf4));
+		observing_ptr = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf3, sizeof(buf3));
+
+		Q_strncpy(original_observing_name, observing_ptr, sizeof(original_observing_name) - 1);
+		original_observing_name[sizeof(original_observing_name) - 1] = '\0';
+
 		color = cl.scores[cl.viewentity - 1].pants.basic; // get color 0-13
 		color = Sbar_ColorForMap((color & 15) << 4); // translate to proper drawfill color
 		int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
@@ -2348,31 +3450,40 @@ void SCR_Observing(void)
 		if (clampedSbar == 3)
 			y += 34;
 
-		if (cl.intermission)
+		if (cl.intermission || qeintermission || crxintermission)
 			return;
 
-		if (qeintermission)
+		if (!strcmp(original_observing_name, "off")) // Check original name
 			return;
 
-		if (!strcmp(observing, "off"))
-			return;
+		char name_to_display[25];
+		if (cl_contentfilter.value == 2) // Assuming this is your condition to apply the filter
+		{
+			WordFilter_Check(original_observing_name, name_to_display, sizeof(name_to_display));
+			name_to_display[sizeof(name_to_display) - 1] = '\0';
+		}
+		else
+		{
+			Q_strncpy(name_to_display, original_observing_name, sizeof(name_to_display) -1);
+			name_to_display[sizeof(name_to_display) - 1] = '\0';
+		}
 
 		GL_SetCanvas(CANVAS_SBAR2);
 
 		if (cl.modtype == 1 || cl.modtype == 4) // crx case
 		{
-			if (!strcmp(obs, "chase")) // chase
+			if (!strcmp(obs, "chase") || !strcmp(star_obs, "chase")) // chase
 			{
-				sprintf(printtxt, "%s", observing); // print who you are observering
-				M_PrintWhite(166 - (strlen(observing)*4), y, printtxt);
+				sprintf(printtxt, "%s", name_to_display);
+				M_PrintWhite(166 - (strlen(name_to_display)*4), y, printtxt);
 			}
-			else if (!strcmp(obs, "eyecam"))// eyecam
+			else if (!strcmp(obs, "eyecam") || !strcmp(star_obs, "eyecam")) // eyecam
 			{
 				if (r_drawviewmodel.value)
-					Draw_Fill(152 - strlen(observing)*4, y, (strlen(observing)*8) + 15, 9, 0, .8); // show their color
-				sprintf(printtxt, "%s", observing); // // print self (name), viewentity hack (eyecam thinks your are them)
-				M_PrintWhite(165-strlen(observing)*4, y, printtxt);
-				Draw_Fill(154 - (strlen(observing)*4), y + 1, 7, 7, color, 1); // show their color
+					Draw_Fill(152 - strlen(name_to_display)*4, y, (strlen(name_to_display)*8) + 15, 9, 0, .8); // show their color
+				sprintf(printtxt, "%s", name_to_display); 
+				M_PrintWhite(165-strlen(name_to_display)*4, y, printtxt);
+				Draw_Fill(154 - (strlen(name_to_display)*4), y + 1, 7, 7, color, 1); // show their color
 			}		
 		}
 	}
@@ -2458,10 +3569,12 @@ SCR_DrawNet
 */
 void SCR_DrawNet (void)
 {
+	scr_shownet.value = CLAMP(0, scr_shownet.value, 10);
+	
 	if (!scr_shownet.value)
 		return;
-	
-	if (realtime - cl.last_received_message < 0.3)
+
+	if (realtime - cl.last_received_message < scr_shownet.value)
 		return;
 	if (cls.demoplayback)
 		return;
@@ -2697,51 +3810,60 @@ void SCR_DrawCrosshair (void)
 
 	GL_SetCanvas (CANVAS_CROSSHAIR);
 
+	float cross_x = scr_crosshair_x.value;
+	float cross_y = scr_crosshair_y.value;
+
+	if (crosshair.value < 0) // Negative values select a character index from conchars (custom crosshair glyphs) -- iw, used in QBJ3
+	{
+		int custom_char = ((int)-crosshair.value) & 255;
+		Draw_CharacterRGBA(-4 + cross_x, -4 + cross_y, custom_char, color, alpha); // 0,0 is center of viewport
+	}
+
 	if (crosshair.value == 1)
-		Draw_CharacterRGBA (-4, -4, '+', color, alpha); //0,0 is center of viewport
+		Draw_CharacterRGBA (-4 + cross_x, -4 + cross_y, '+', color, alpha); //0,0 is center of viewport
 
 	if (crosshair.value == 2) 
 	{
 		if (scr_crosshairoutline.value)
-			Draw_FillPlayer (-2, -2, 4, 4, outline, alpha); // simple dot (black bg)
-		Draw_FillPlayer (-1, -1, 2, 2, color, alpha); // simple dot
+			Draw_FillPlayer (-2 + cross_x, -2 + cross_y, 4, 4, outline, alpha); // simple dot (black bg)
+		Draw_FillPlayer (-1 + cross_x, -1 + cross_y, 2, 2, color, alpha); // simple dot
 	}
 
 	if (crosshair.value == 3)
 	{
 		if (scr_crosshairoutline.value) 
 		{
-			Draw_FillPlayer (-2, 5, 4, 12, outline, alpha); // SOUTH (black bg)
-			Draw_FillPlayer (-17, -2, 12, 4, outline, alpha); // WEST (black bg)
-			Draw_FillPlayer (5, -2, 12, 4, outline, alpha); // EAST (black bg)
-			Draw_FillPlayer (-2, -17, 4, 12, outline, alpha); // NORTH (black bg)
+			Draw_FillPlayer (-2 + cross_x, 5 + cross_y, 4, 12, outline, alpha); // SOUTH (black bg)
+			Draw_FillPlayer (-17 + cross_x, -2 + cross_y, 12, 4, outline, alpha); // WEST (black bg)
+			Draw_FillPlayer (5 + cross_x, -2 + cross_y, 12, 4, outline, alpha); // EAST (black bg)
+			Draw_FillPlayer (-2 + cross_x, -17 + cross_y, 4, 12, outline, alpha); // NORTH (black bg)
 		}
-		Draw_FillPlayer (-1, 6, 2, 10, color, alpha); // SOUTH
-		Draw_FillPlayer (-16, -1, 10, 2, color, alpha); // WEST
-		Draw_FillPlayer (6, -1, 10, 2, color, alpha); // EAST
-		Draw_FillPlayer (-1, -16, 2, 10, color, alpha); // NORTH
+		Draw_FillPlayer (-1 + cross_x, 6 + cross_y, 2, 10, color, alpha); // SOUTH
+		Draw_FillPlayer (-16 + cross_x, -1 + cross_y, 10, 2, color, alpha); // WEST
+		Draw_FillPlayer (6 + cross_x, -1 + cross_y, 10, 2, color, alpha); // EAST
+		Draw_FillPlayer (-1 + cross_x, -16 + cross_y, 2, 10, color, alpha); // NORTH
 	}
 
 	if (crosshair.value == 4)
 	{
 		if (scr_crosshairoutline.value)
 		{
-			Draw_FillPlayer (-2, -10, 4, 20, outline, alpha); // vertical (black bg)
-			Draw_FillPlayer (-10, -2, 20, 4, outline, alpha); // horizontal (black bg)
+			Draw_FillPlayer (-2 + cross_x, -10 + cross_y, 4, 20, outline, alpha); // vertical (black bg)
+			Draw_FillPlayer (-10 + cross_x, -2 + cross_y, 20, 4, outline, alpha); // horizontal (black bg)
 		}
-		Draw_FillPlayer (-1, -9, 2, 18, color, alpha); // vertical
-		Draw_FillPlayer (-9, -1, 18, 2, color, alpha); // horizontal
+		Draw_FillPlayer (-1 + cross_x, -9 + cross_y, 2, 18, color, alpha); // vertical
+		Draw_FillPlayer (-9 + cross_x, -1 + cross_y, 18, 2, color, alpha); // horizontal
 	}
 
 	if (crosshair.value == 5)
 	{
 		if (scr_crosshairoutline.value) 
 		{
-			Draw_FillPlayer (-3, -10, 6, 20, outline, 1); // vertical (black bg)
-			Draw_FillPlayer (-10, -3, 20, 6, outline, 1); // horizontal (black bg)
+			Draw_FillPlayer (-3 + cross_x, -10 + cross_y, 6, 20, outline, 1); // vertical (black bg)
+			Draw_FillPlayer (-10 + cross_x, -3 + cross_y, 20, 6, outline, 1); // horizontal (black bg)
 		}
-		Draw_FillPlayer (-2, -9, 4, 18, color, alpha); // vertical (thicker)
-		Draw_FillPlayer (-9, -2, 18, 4, color, alpha); // horizontal (thicker)
+		Draw_FillPlayer (-2 + cross_x, -9 + cross_y, 4, 18, color, alpha); // vertical (thicker)
+		Draw_FillPlayer (-9 + cross_x, -2 + cross_y, 18, 4, color, alpha); // horizontal (thicker)
 	}
 
 	glDisable(GL_DEPTH_TEST);
@@ -2773,26 +3895,26 @@ void SCR_DrawCrosshair (void)
 		if (scr_crosshairoutline.value)
 		{
 			glColor4f(ro, go, bo, alpha); // Black color for outline
-			renderSmoothDot(0.0f, 0.0f, outlineSize); // Slightly larger dot for outline
+			renderSmoothDot(0.0f + cross_x, 0.0f + cross_y, outlineSize); // Slightly larger dot for outline
 		}
 
 		glColor4f(r, g, b, alpha); // Set color for actual dot
-		renderSmoothDot(0.0f, 0.0f, dotSize); // Actual dot size
+		renderSmoothDot(0.0f + cross_x, 0.0f + cross_y, dotSize); // Actual dot size
 	}
 
 	if (crosshair.value == 7)
 	{
 		glColor4f(r, g, b, alpha / 12); // Set color with alpha
-		renderCircle(0.0f, 0.0f, 10.0f, 200, scaledLineWidth); // Draw circle at center with radius 10, more segments for smoothness
+		renderCircle(0.0f + cross_x, 0.0f + cross_y, 10.0f, 200, scaledLineWidth); // Draw circle at center with radius 10, more segments for smoothness
 
 		if (scr_crosshairoutline.value)
 		{
 			glColor4f(ro, go, bo, 1.0f); // Black color for outline
-			renderSmoothDot(0.0f, 0.0f, outlineSize); // Slightly larger dot for outline
+			renderSmoothDot(0.0f + cross_x, 0.0f + cross_y, outlineSize); // Slightly larger dot for outline
 		}
 
 		glColor4f(r, g, b, 1.0f);
-		renderSmoothDot(0.0f, 0.0f, dotSize); // Actual dot size
+		renderSmoothDot(0.0f + cross_x, 0.0f + cross_y, dotSize); // Actual dot size
 	}
 
 	glColor4f(1, 1, 1, 1);
@@ -2864,7 +3986,7 @@ void LaserSight (void)
 			glDisable(GL_POINT_SMOOTH);
 			glPointSize(1.0f);
 
-			PScript_RunParticleEffectTypeString(wall, NULL, 1, "laserpoint"); // particle cfg "r_part laserpoint" for dot on wall
+			PScript_RunParticleEffectTypeString(wall, NULL, 1, "EF_LASERPOINT"); // particle cfg "r_part laserpoint" for dot on wall
 		}
 	}
 
@@ -2921,6 +4043,8 @@ void SCR_SetUpToDrawConsole (void)
 
 	if (scr_conlines < scr_con_current)
 	{
+		if (cls.timedemo)
+			scr_con_current = scr_conlines;	// spoike -- turbocharge any console shrinkage, to make it more deterministic.
 		// ericw -- (glheight/600.0) factor makes conspeed resolution independent, using 800x600 as a baseline
 		scr_con_current -= conspeed*(glheight/600.0)*host_frametime/timescale; //johnfitz -- timescale
 		if (scr_conlines > scr_con_current)
@@ -3136,6 +4260,12 @@ void SCR_SetupAutoID(void)
 	char buf2[15];
 	const char* playmode;
 
+	char buf3[15];
+	const char* mode;
+
+	char buf4[15];
+	const char* star_obs;
+
 	//if (r_refdef.viewangles[ROLL] == 80) // dead, could rotate text?
 
 	if (!scr_autoid.value || cls.state != ca_connected || cl.intermission || qeintermission || crxintermission)
@@ -3144,21 +4274,23 @@ void SCR_SetupAutoID(void)
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected) && !cls.demoplayback)
 	{
 		obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+		star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf4, sizeof(buf4));
 		playmode = Info_GetKey(cl.serverinfo, "playmode", buf2, sizeof(buf2));
+		mode = Info_GetKey(cl.serverinfo, "mode", buf3, sizeof(buf3));
 
 		if (cl.modtype == 1 || cl.modtype == 4) // mods with observer keys
 		{
 			if (
-				(strcmp(obs, "eyecam") != 0) && // allow in mp if an observer
-				(strcmp(obs, "chase") != 0) &&
-				(strcmp(obs, "fly") != 0) &&
-				(strcmp(obs, "walk") != 0) &&
+				(strcmp(obs, "eyecam") != 0 && strcmp(star_obs, "eyecam") != 0) && // allow in mp if an observer
+				(strcmp(obs, "chase") != 0 && strcmp(star_obs, "chase") != 0) &&
+				(strcmp(obs, "fly") != 0 && strcmp(star_obs, "fly") != 0) &&
+				(strcmp(obs, "walk") != 0 && strcmp(star_obs, "walk") != 0) &&
 				(
 					(strcmp(playmode, "practice") != 0) || // allow in practice mode if value 2
 					((int)scr_autoid.value != 2)
 					) &&
 				(
-					(strcmp(playmode, "match") != 0) || // allow in pre-match if value 2
+					((strcmp(playmode, "match") != 0 || (strcmp(mode, "dm") != 0 && strcmp(mode, "ctf") != 0))) || // allow in pre-match if value 2
 					(cl.matchinp || (int)scr_autoid.value != 2)
 					)
 				) {
@@ -3212,6 +4344,8 @@ void SCR_DrawAutoID(void)
 	char formatted_name[16]; // 15 chars + null terminator
 	int name_length;
 	int y_offset = 12;
+	char filtered_name[16]; // Buffer for filtered name
+	qboolean was_filtered = false; // Flag if filtering occurred
 
 	float alpha = scr_autoid.value;
 	int integer_part = (int)alpha;
@@ -3225,6 +4359,10 @@ void SCR_DrawAutoID(void)
 
 	GL_SetCanvas(CANVAS_AUTOID);
 
+	const char* observing = "null";
+	char buf[16];
+	observing = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observing", buf, sizeof(buf)); // userinfo
+
 	for (i = 0; i < autoid_count; i++)
 	{
 		// Adjust coordinates according to the scaling factor
@@ -3237,15 +4375,233 @@ void SCR_DrawAutoID(void)
 			y -= y_offset;
 		}
 
-		q_snprintf(formatted_name, sizeof(formatted_name), "%.15s", autoids[i].player->name);
+		if (cl_contentfilter.value == 2) // woods #contentfilter
+		{
+			was_filtered = WordFilter_Check(autoids[i].player->name, filtered_name, sizeof(filtered_name));
+			filtered_name[sizeof(filtered_name) - 1] = '\0'; 
+		}
+
+		const char* name_to_use = (cl_contentfilter.value == 2 && was_filtered) ? filtered_name : autoids[i].player->name;
+
+		q_snprintf(formatted_name, sizeof(formatted_name), "%.15s", name_to_use);
 
 		TrimTrailingSpaces(formatted_name);
 
 		name_length = strlen(formatted_name);
 
+		if (!strcmp(formatted_name, observing))
+			continue;
+
 		Draw_FillPlayer(x - 4 * name_length - 1, y - 1, (name_length * 8) + 2, 11, CL_PLColours_Parse("0x000000"), decimal_part);
 
 		Draw_String(x - 4 * name_length, y, formatted_name);
+	}
+}
+
+void SCR_DrawStatusIndicators (void)
+{
+	int i, x, y;
+	const int y_offset = 12;
+
+	if (cls.state != ca_connected || cl.intermission || qeintermission || crxintermission)
+		return;
+	if (!autoid_count)
+		return;
+
+	GL_SetCanvas(CANVAS_AUTOID);
+
+	for (i = 0; i < autoid_count; ++i)
+	{
+		const char* fullname = autoids[i].player->name;
+
+		/* inline test that ignores the 0x80 red-mask bit */
+		char clean[64];  int n = 0;
+		for (const char* p = fullname; *p && n < (int)sizeof(clean) - 1; ++p)
+			clean[n++] = (char)tolower(*p & 0x7F);   /* strip bit, lower-case */
+		clean[n] = '\0';
+
+		qboolean is_typing = q_strcasestr(clean, "typing") != NULL;
+
+		/* Case sensitive AFK detection that only triggers after 15th character */
+		qboolean is_afk = false;
+		if (strlen(fullname) > 15) {
+			/* Check for both regular "AFK" and Quake-encoded "AFK" (ÁÆË) */
+			const char* afk_pos = strstr(fullname + 15, "AFK");
+			if (!afk_pos) {
+				/* Check for Quake-encoded AFK: ÁÆË (0xC1 0xC6 0xCB with possible 0x80 mask) */
+				for (const char* p = fullname + 15; p[0] && p[1] && p[2]; ++p) {
+					if ((p[0] & 0x7F) == 0x41 && /* A */
+						(p[1] & 0x7F) == 0x46 && /* F */
+						(p[2] & 0x7F) == 0x4B)   /* K */
+					{
+						afk_pos = p;
+						break;
+					}
+				}
+			}
+			is_afk = (afk_pos != NULL);
+		}
+
+		if (!is_typing && !is_afk)
+			continue;
+
+		/* projected coords prepared by SCR_SetupAutoID() */
+		x = autoids[i].x / canvas_scaling;
+		y = (glheight - autoids[i].y) / canvas_scaling - y_offset;
+
+		if (r_refdef.viewangles[ROLL] == 80) { x += 26; y -= y_offset; }
+		if (scr_autoid.value > 0)             y -= y_offset;   /* above shown name */
+
+		if (is_afk) {
+			/* Draw red "AFK" using 128 mask */
+			char afk_text[4];
+			afk_text[0] = 'A' | 128;  // Red A
+			afk_text[1] = 'F' | 128;  // Red F
+			afk_text[2] = 'K' | 128;  // Red K
+			afk_text[3] = '\0';
+			Draw_String(x - 12, y, afk_text);
+		}
+		else {
+			/* Animated typing dots */
+			Draw_StringAnimatedDots(x - 12, y, "...");
+		}
+	}
+}
+
+float last_pause_time = 0.0f; // woods #obstimers - Store pause start time
+float pause_offset = 0.0f; // woods #obstimers - Accumulated pause offset
+
+/*
+==============
+SCR_DrawObsTimers -- woods #obstimers
+==============
+*/
+void SCR_DrawObsTimers (void)
+{
+	char playmode_buf[32]; // Buffer for the playmode string
+	const char* playmode_val;
+	qboolean is_playmode_match;
+
+	// Get the playmode from server info
+	playmode_val = Info_GetKey(cl.serverinfo, "playmode", playmode_buf, sizeof(playmode_buf));
+	is_playmode_match = (strcmp(playmode_val, "match") == 0);
+	
+	if (!scr_obsitems.value || !cl.itemtimers ||
+		cl.intermission ||
+		qeintermission ||
+		crxintermission ||
+		scr_viewsize.value >= 130 ||
+		(is_playmode_match && !cl.matchinp))
+		return;
+
+#define MAX_VISIBLE_TIMERS 32
+#define COUNTDOWN_TIME 5
+#define TIMER_SPACING 10
+
+// Position setup
+	int base_y = 0;
+	int x = 0;
+	int clampedSbar = CLAMP(1, (int)scr_sbar.value, 3);
+
+	// Set canvas and calculate positions based on HUD type
+	if (clampedSbar == 3 && scr_viewsize.value <= 110) 
+	{
+		GL_SetCanvas(CANVAS_BOTTOMLEFTQE);
+		base_y = 177;
+		x = (scr_showspeed.value != 1 && !scr_movekeys.value) ? 134 : 172;
+
+		if ((scr_sbarscale.value > 3 && (scr_showspeed.value == 1 || scr_movekeys.value))
+			|| scr_sbarscale.value >= 4)
+			base_y -= 12;
+	}
+	else 
+	{
+		GL_SetCanvas(CANVAS_BOTTOMLEFT);
+		base_y = 186;
+		x = 6;
+		if (scr_ping.value || key_dest != key_console)
+			base_y -= 23;
+	}
+
+	if (cl.match_pause_time > 0) 
+	{
+		// During pause: calculate current pause duration
+		float pause_duration = cl.time - cl.match_pause_time;
+		last_pause_time = cl.match_pause_time;
+		pause_offset = pause_duration;
+	}
+	else if (last_pause_time > 0) 
+	{
+		// Pause just ended: keep the final offset
+		last_pause_time = 0;
+	}
+
+	// Timer collection structure
+	typedef struct {
+		struct itemtimer_s* timer;
+		float time_left;
+	} visible_timer_t;
+	visible_timer_t visible_timers[MAX_VISIBLE_TIMERS];
+	int num_visible = 0;
+
+	// Collect visible timers
+	for (struct itemtimer_s* timer = cl.itemtimers; timer; timer = timer->next)
+	{
+		float time_left = timer->end - cl.time;
+
+		// Add pause offset to time_left if we're paused or have a stored offset
+		if (cl.match_pause_time > 0 || pause_offset > 0)
+		{
+			time_left += pause_offset;
+		}
+
+		if (time_left <= COUNTDOWN_TIME && time_left > -1.0 &&
+			num_visible < MAX_VISIBLE_TIMERS) {
+			visible_timers[num_visible].timer = timer;
+			visible_timers[num_visible].time_left = time_left;
+			num_visible++;
+		}
+	}
+
+	// Sort timers (spawn first, then by remaining time)
+	for (int i = 0; i < num_visible - 1; i++) 
+	{
+		for (int j = 0; j < num_visible - i - 1; j++) 
+		{
+			qboolean should_swap = false;
+			float time1 = visible_timers[j].time_left;
+			float time2 = visible_timers[j + 1].time_left;
+
+			if (time1 > 0 && time2 <= 0)
+				should_swap = true;
+			else if (time1 > 0 && time2 > 0 && time1 > time2)
+				should_swap = true;
+
+			if (should_swap) {
+				visible_timer_t temp = visible_timers[j];
+				visible_timers[j] = visible_timers[j + 1];
+				visible_timers[j + 1] = temp;
+			}
+		}
+	}
+
+	// Draw timers
+	char str[32];
+	for (int i = 0; i < num_visible; i++) 
+	{
+		struct itemtimer_s* timer = visible_timers[i].timer;
+		float time_left = visible_timers[i].time_left;
+		int y = base_y - (i * TIMER_SPACING);
+		int name_width = strlen(timer->timername) * 8;
+
+		Draw_String(x, y, timer->timername);
+
+		if (time_left <= 0)
+			M_Print(x + name_width + 8, y, "spawn");
+		else {
+			sprintf(str, "%d", (int)ceil(time_left));
+			M_Print(x + name_width + 8, y, str);
+		}
 	}
 }
 
@@ -3440,7 +4796,16 @@ void SCR_ScreenShot_f (void)
 
 	if (ok)
 	{ 
-		Con_Printf ("Wrote %s\n", checkname);
+		if (cl_contentfilter.value) // woods #contentfilter
+		{
+			char filtered_path[MAX_OSPATH];
+			const char* gamedir_name = COM_SkipPath(com_gamedir);
+			q_snprintf(filtered_path, sizeof(filtered_path), "%s/screenshots/%s",
+				gamedir_name, COM_SkipPath(imagename));
+			Con_Printf("Wrote %s\n", filtered_path);
+		}
+		else
+			Con_Printf("Wrote %s\n", checkname);
 
 		const char* soundFile = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
 		S_LocalSound(soundFile); // woods add sound to screenshot
@@ -3644,6 +5009,7 @@ int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 		if (timeout) time2 = Sys_DoubleTime (); //johnfitz -- zero timeout means wait forever.
 	} while (lastchar != 'y' && lastchar != 'Y' &&
 		 lastchar != 'n' && lastchar != 'N' &&
+		 lastchar != '`' &&
 		 lastkey != K_ESCAPE &&
 		 lastkey != K_ABUTTON &&
 		 lastkey != K_BBUTTON &&
@@ -3662,6 +5028,595 @@ int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 	return (lastchar == 'y' || lastchar == 'Y' || lastkey == K_ABUTTON);
 }
 
+/*
+=================
+Pong -- woods #pong
+=================
+
+A simple Pong mini-game that runs whenever the game is paused (#pong).
+Controlled by the cl_pong cvar, it features resolution-independent scaling,
+an adjustable speed multiplier, basic AI paddle logic, and standard
+Quake engine rendering and input handling for a retro diversion.
+*/
+
+extern cvar_t gl_load24bit;
+extern qpic_t* sb_nums[2][11];
+extern qboolean windowhasfocus;
+
+#define BASE_W          1920.0f
+#define BASE_H          1080.0f
+#define MAX_BALL_SPEED  900.f
+#define AI_OFFSET_TIME  0.25f
+
+static inline float GetScale(void)
+{
+	float sx = (float)glwidth / BASE_W;
+	float sy = (float)glheight / BASE_H;
+	return q_min(sx, sy);
+}
+static inline float Clamp(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+typedef struct { float x, y, w, h, speed; } paddle_t;
+typedef struct {
+	float x, y, size, dx, dy, speed;
+	qmodel_t* model;
+	struct gltexture_s* texture;
+	mspriteframe_t* frame;
+} ball_t;
+
+static paddle_t player, ai;
+static ball_t   ball;
+static int      scr_w, scr_h;
+static int      paddle_w = 15, paddle_h = 80, ball_sz = 10;
+static int      ply_score = 0, ai_score = 0;
+static float pong_last_maptime_init = 0; // Store maptime when pong last init'd
+static qpic_t* pong_pause_pic = NULL; // Cache the pause picture pointer
+
+
+static qboolean game_init = false;
+static qboolean sprite_checked = false;
+
+static float    last_upd_time = 0;
+static float    player_paddle_flash_time = 0.0f; // Time when the flash should end
+static qboolean pong_user_frozen = false;
+
+void Pong_ToggleFreeze(void)
+{
+	pong_user_frozen = !pong_user_frozen;
+}
+
+/* ----------------------------------------------------------------------
+   Return the PAUSE‑banner rectangle in "virtual" coordinates.
+   ---------------------------------------------------------------------- */
+static qboolean Pong_GetPauseRect(float sc,
+	float* x, float* y, float* w, float* h)
+{
+	if (!pong_pause_pic)                       /* texture not in memory   */
+		return false;
+
+	/* 1. Base menu-scale used by the *actual* canvas ------------------- */
+	float menuscale =
+		cl.match_pause_time ? scr_menuscale.value - 1.f   // CANVAS_MENU2
+		: scr_menuscale.value;        // CANVAS_MENU
+	menuscale = Clamp(menuscale, 1.f, menuscale);             // keep ≥ 1
+
+	const float msc = Clamp(q_min((float)glwidth / 320.f,
+		(float)glheight / 200.f),
+		1.f, menuscale);
+
+
+	/* -----------------------------------------------------------------
+	   Choose the picture width/height we’re going to *centre*.
+	   ----------------------------------------------------------------- */
+	float pic_w = pong_pause_pic->width;
+	float pic_h = pong_pause_pic->height;
+
+	/* QUICK HACK: if external 24‑bit textures are OFF, assume the stock
+	   128×24 LMP so the X‑position lines up with what’s drawn.          */
+	if (!gl_load24bit.value)
+		pic_w = 128;                          /* << the only new line   */
+
+	/* Square sprite safety: fix broken 24×24 headers */
+	if (pic_w == pic_h && pic_h > 0)
+		pic_w = pic_h * (128.0f / 24.0f);     /* ≈ 5.333× wider */
+
+	/* 2. Pixel‑space rectangle (matches SCR_DrawPause) ---------------- */
+	float px = ((320 - pic_w) * 0.5f) * msc +
+		(glwidth - 320.f * msc) * 0.5f;
+	float py = ((240 - 48 - pic_h) * 0.5f) * msc +
+		(glheight - 200.f * msc) * 0.5f;
+	float pw = pic_w * msc;
+	float ph = pic_h * msc;
+
+	/* DEBUG overlay – keep or remove as you wish */
+	//Draw_Fill(px, py, pw, ph, 236, 0.3f);
+
+	/* 3. Convert back to our 1920×1080 “virtual” space ---------------- */
+	*x = px / sc;  *y = py / sc;
+	*w = pw / sc;  *h = ph / sc;
+	return true;
+}
+
+
+void Pong_Init(void)
+{
+	memset(&ball, 0, sizeof(ball));
+	sprite_checked = false;
+
+	// Cache pause pic on init
+	if (!pong_pause_pic)
+		pong_pause_pic = Draw_CachePic("gfx/pause.lmp");
+}
+
+static void Pong_Reset(void)
+{
+	const float sc = GetScale();
+	pong_user_frozen = false;
+	scr_w = vid.width;  scr_h = vid.height;
+
+	player.w = ai.w = paddle_w;
+	player.h = ai.h = paddle_h;
+	ball.size = ball_sz;
+
+	if (!game_init) {
+		int mx, my; SDL_GetMouseState(&mx, &my);
+		player.y = Clamp((float)my / sc - player.h * 0.5f, 0, (scr_h / sc) - player.h);
+		player.x = (scr_w / sc) - paddle_w - 20;
+		player.speed = 500.f;
+		ply_score = ai_score = 0; // Reset score only on first init
+	}
+	else {
+		player.x = (scr_w / sc) - paddle_w - 20;
+		player.y = Clamp(player.y, 0, (scr_h / sc) - player.h);
+	}
+
+	ai.x = 20; ai.y = ((scr_h / sc) - paddle_h) * 0.5f; ai.speed = 300.f;
+
+	float prx, pry, prw, prh;
+	if (!Pong_GetPauseRect(sc, &prx, &pry, &prw, &prh))
+	    return;                   /* nothing to bounce off - bail */
+
+	ball.x = (scr_w / sc) * 0.5f;
+	ball.y = Clamp(pry - ball.size * 8, ball.size * 4, (scr_h / sc) * 0.25f);
+	float ang = ((rand() % 60) - 30) * (M_PI / 180.f);
+	float dir = (rand() % 2) ? 1.f : -1.f;
+	ball.dx = dir * cosf(ang); ball.dy = sinf(ang);
+	float m = sqrtf(ball.dx * ball.dx + ball.dy * ball.dy);
+	ball.dx /= m; ball.dy /= m;
+	// Use pong_enable value as speed multiplier (will be 0 if disabled)
+	ball.speed = 300.f * cl_pong.value;
+
+	game_init = true;
+	last_upd_time = realtime;
+}
+
+static inline void Pong_HandlePaddleCollision(paddle_t* P)
+{
+	if (ball.x + ball.size * 0.5f > P->x && ball.x - ball.size * 0.5f < P->x + P->w &&
+		ball.y + ball.size * 0.5f > P->y && ball.y - ball.size * 0.5f < P->y + P->h)
+	{
+		ball.x = (ball.dx > 0 ? P->x - ball.size * 0.5f : P->x + P->w + ball.size * 0.5f);
+		ball.dx = -ball.dx;
+		S_LocalSound("buttons/switch21.wav");
+		float rel = (P->y + P->h * 0.5f) - ball.y;
+		ball.dy = -0.75f * (rel / (P->h * 0.5f));
+		if (fabsf(ball.dy) < 0.1f) ball.dy = (ball.dy > 0 ? 0.1f : -0.1f);
+		float m = sqrtf(ball.dx * ball.dx + ball.dy * ball.dy);
+		if (m != 0) { // Avoid division by zero
+			ball.dx /= m;
+			ball.dy /= m;
+		}
+		ball.speed = q_min(ball.speed * 1.05f, MAX_BALL_SPEED);
+	}
+}
+
+void Pong_Update(void)
+{
+	if (cl_pong.value <= 0 || (!cl.paused && !cl.match_pause_time) || cls.demoplayback) return;
+
+	if (game_init && (vid.width != scr_w || vid.height != scr_h)) // Check if the window was resized while paused
+	{
+		Pong_Reset(); // Re-initialize with new dimensions
+	}
+
+	if (maptime > pong_last_maptime_init) // Check if the map has changed since the last time Pong was active
+	{
+		game_init = false;      // Force re-initialization
+		sprite_checked = false; // Force sprite lookup
+		ball.model = NULL;      // Clear potentially stale pointers
+		ball.frame = NULL;
+		ball.texture = NULL;
+		pong_last_maptime_init = maptime; // Update our stored maptime
+	}
+
+	qboolean frozen = (pong_user_frozen ||
+		key_dest != key_game ||
+		!windowhasfocus);
+
+	// Initialize the game on the first *active* frame if needed
+	// We also need last_upd_time to be set correctly before calculating dt
+	if (!game_init) {
+		if (!frozen) {
+			Pong_Reset(); // This sets game_init and last_upd_time
+		}
+		else {
+			return; // Don't initialize or update if frozen
+		}
+	}
+
+	// If frozen, do not update game state or last_upd_time
+	if (frozen) {
+		return;
+	}
+
+	// --- Game logic proceeds only if not frozen ---
+
+	const float sc = GetScale();
+	const float sw = scr_w / sc, sh = scr_h / sc;
+
+	// Calculate dt based on last *active* update time
+	float dt = realtime - last_upd_time;
+	// Update last_upd_time *only when* logic runs
+	last_upd_time = realtime;
+
+	// Handle potential time issues (e.g., after regaining focus if dt wasn't clamped)
+	if (dt < 0) dt = 0; // Prevent issues if time goes backwards slightly
+	// Clamp large delta time - might still happen if focus is lost/regained rapidly
+	// between the frozen check and here, though unlikely. A clamp is safe.
+	if (dt > 0.1f) dt = 0.1f;
+
+	/* move ball --------------------------------------------------------- */
+	ball.x += ball.dx * ball.speed * dt;
+	ball.y += ball.dy * ball.speed * dt;
+	if (ball.y - ball.size * 0.5f < 0) { ball.y = ball.size * 0.5f; ball.dy = -ball.dy; }
+	if (ball.y + ball.size * 0.5f > sh) { ball.y = sh - ball.size * 0.5f;ball.dy = -ball.dy; }
+
+	/* bounce off pause pic --------------------------------------------- */
+	float prx, pry, prw, prh;
+	if (Pong_GetPauseRect(sc, &prx, &pry, &prw, &prh) &&
+	    ball.x + ball.size * .5f > prx && ball.x - ball.size * .5f < prx + prw &&
+	    ball.y + ball.size * .5f > pry && ball.y - ball.size * .5f < pry + prh)
+	{
+	    /* choose the nearest side and reflect */
+	    float d[4] = { ball.x - prx, (prx + prw) - ball.x,
+	                   ball.y - pry, (pry + prh) - ball.y };
+	    int side = 0;
+	    for (int i = 1; i < 4; ++i) if (d[i] < d[side]) side = i;
+
+	    switch (side) {
+	        case 0: ball.x = prx - ball.size * .5f;   ball.dx = -fabsf(ball.dx); break;
+	        case 1: ball.x = prx + prw + ball.size * .5f; ball.dx =  fabsf(ball.dx); break;
+	        case 2: ball.y = pry - ball.size * .5f;   ball.dy = -fabsf(ball.dy); break;
+	        case 3: ball.y = pry + prh + ball.size * .5f; ball.dy =  fabsf(ball.dy); break;
+	    }
+	}
+
+	/* paddle collision macro ------------------------------------------- */
+	if (ball.dx > 0) { Pong_HandlePaddleCollision(&player); }
+	else { Pong_HandlePaddleCollision(&ai); }
+
+	/* AI movement -------------------------------------------------------- */
+	// AI uses dt, so it freezes automatically when update logic stops
+	static float offset = 0, last_off = 0; // Keep these static within the function
+	static qboolean ball_right = true;     // Keep this static
+
+	qboolean ball_left = ball.x < sw * 0.5f;
+	if (ball.dx < 0 && (ball_right || realtime - last_off > AI_OFFSET_TIME)) {
+		float diff = ai_score - ply_score;
+		float t = Clamp(fabsf(diff) / 5.f, 0, 1);
+		float eff = (diff <= 0) ? (0.6f + 0.15f * t) : (0.6f - 0.35f * t);
+		// Calculate offset relative to scaled paddle height
+		float random_fraction = (rand() / (float)RAND_MAX) * 2.0f - 1.0f; // Random float between -1 and +1
+		float max_offset = ai.h * 0.5f * sc; // Max offset is half the paddle height (using ai.h which is already scaled)
+		offset = (1.f - eff) * random_fraction * max_offset; // Apply effectiveness factor
+		last_off = realtime;
+	}
+	ball_right = !ball_left; // Update ball_right state
+
+	float ai_tgt = ball.y - ai.h * 0.5f + offset;
+	if (ball.dx < 0) { // Only move AI paddle if ball is coming towards it
+		if (ai.y < ai_tgt) { ai.y += ai.speed * dt;if (ai.y > ai_tgt)ai.y = ai_tgt; }
+		else if (ai.y > ai_tgt) { ai.y -= ai.speed * dt;if (ai.y < ai_tgt)ai.y = ai_tgt; }
+	}
+	ai.y = Clamp(ai.y, 0, sh - ai.h);
+	// Player paddle position is updated by Pong_MouseMove
+
+	/* scoring ------------------------------------------------------------ */
+	if (ball.x < 0) { ++ply_score;S_LocalSound("zombie/z_miss.wav");Pong_Reset(); }
+	else if (ball.x > sw) {
+		++ai_score;S_LocalSound("zombie/z_miss.wav");
+		player_paddle_flash_time = realtime + 0.1f;
+		Pong_Reset();
+	}
+}
+
+static void Quad(float x, float y, float w, float h)
+{
+	glBegin(GL_QUADS);
+	glVertex2f(x, y); glVertex2f(x + w, y); glVertex2f(x + w, y + h); glVertex2f(x, y + h);
+	glEnd();
+}
+
+void Pong_Draw(void)
+{
+	// Skip drawing during demo playback
+	if (cls.demoplayback) return;
+
+	// Only draw if enabled and game is paused
+	if (cl_pong.value <= 0 || (!cl.paused && !cl.match_pause_time)) return;
+
+	GL_SetCanvas(CANVAS_DEFAULT);
+
+	// Ensure game is initialized before drawing. Call Pong_Reset if needed.
+	// This handles the case where Draw runs before Update initializes the game.
+	if (!game_init) {
+		Pong_Reset();
+		// If Pong_Reset failed (e.g. sprite not loaded yet), game_init might still be false.
+		if (!game_init) return;
+	}
+
+	if (!sprite_checked) {
+		if (!ball.model || !ball.frame || !ball.texture ||
+			!ball.frame->gltexture ||
+			strcmp(ball.texture->name, "progs/s_light.spr:frame0"))
+		{
+			ball.model = Mod_ForName("progs/s_light.spr", false);
+			if (ball.model && ball.model->type == mod_sprite) {
+				msprite_t* sp = (msprite_t*)ball.model->cache.data;
+				if (sp && sp->numframes && sp->frames[0].type == SPR_SINGLE) {
+					ball.frame = sp->frames[0].frameptr;
+					ball.texture = ball.frame->gltexture;
+				}
+			}
+		}
+		else ball.texture = ball.frame->gltexture;
+		sprite_checked = true;
+	}
+	if (!ball.texture) return;
+
+	const float sc = GetScale();
+
+	/* scores ----------------------------------------------------------- */
+	float prx, pry, prw, prh;
+	if (!Pong_GetPauseRect(sc, &prx, &pry, &prw, &prh))
+	    return;        /* still loading */
+
+	int psx = prx * sc, psy = pry * sc;      /* back to pixels for drawing */
+	int pw  = prw * sc, ph  = prh * sc;
+
+	glEnable(GL_TEXTURE_2D); glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // Set standard blend func
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // Use modulate for scores/pics
+	glColor4f(1, 1, 1, 0.9f);
+
+	float num_sc = sc * 1.2f;
+	int sy = psy + (ph - 24 * num_sc) / 2, pad = 20 * sc,
+		x = psx - pad - (ai_score >= 10 ? 2 : 1) * 24 * num_sc;
+
+	if (ai_score >= 10) { Draw_ScaledPicAlpha(x, sy, sb_nums[0][ai_score / 10], num_sc, 1);x += 24 * num_sc; }
+	Draw_ScaledPicAlpha(x, sy, sb_nums[0][ai_score % 10], num_sc, 1);
+
+	x = psx + pw + pad;
+	if (ply_score >= 10) { Draw_ScaledPicAlpha(x, sy, sb_nums[0][ply_score / 10], num_sc, 1);x += 24 * num_sc; }
+	Draw_ScaledPicAlpha(x, sy, sb_nums[0][ply_score % 10], num_sc, 1);
+	glDisable(GL_TEXTURE_2D); // Disable texture for paddles (solid color quads)
+
+	/* paddles ----------------------------------------------------------- */
+	float pwid = paddle_w * sc, phgt = paddle_h * sc;
+	glColor4f(0, 0, 0, 0.9f); // Black outline
+	Quad(player.x * sc - sc, player.y * sc - sc, pwid + 2 * sc, phgt + 2 * sc);
+	Quad(ai.x * sc - sc, ai.y * sc - sc, pwid + 2 * sc, phgt + 2 * sc);
+
+	// Determine player paddle color (flash or default)
+	byte paddle_rgb[3];
+	float paddle_alpha = 0.9f; // Default alpha
+	static byte white_rgb[3] = { 255, 255, 255 };
+	byte* default_col = (cl.viewentity > 0 && (unsigned)(cl.viewentity - 1) < (unsigned)cl.maxclients) ?
+		CL_PLColours_ToRGB(&cl.scores[cl.viewentity - 1].pants) :
+		white_rgb;
+	paddle_rgb[0] = default_col[0];
+	paddle_rgb[1] = default_col[1];
+	paddle_rgb[2] = default_col[2];
+
+	// Draw the base player paddle
+	glColor4f(paddle_rgb[0] / 255.f, paddle_rgb[1] / 255.f, paddle_rgb[2] / 255.f, paddle_alpha);
+	Quad(player.x * sc, player.y * sc, pwid, phgt);
+
+	// Overlay damage color if flashing
+	if (cl_damagehue.value != 0 && realtime < player_paddle_flash_time)
+	{
+		// Use damage hue color
+		plcolour_t damage_color = CL_PLColours_Parse(cl_damagehuecolor.string);
+		paddle_rgb[0] = damage_color.rgb[0];
+		paddle_rgb[1] = damage_color.rgb[1];
+		paddle_rgb[2] = damage_color.rgb[2];
+		float flash_alpha = 0.7f; // Opacity for the flash overlay
+
+		// Draw the flash overlay
+		glColor4f(paddle_rgb[0] / 255.f, paddle_rgb[1] / 255.f, paddle_rgb[2] / 255.f, flash_alpha);
+		Quad(player.x * sc, player.y * sc, pwid, phgt);
+	}
+	// No 'else' needed, base paddle is already drawn
+
+	glColor4f(0.5f, 0.5f, 0.5f, 0.9f); // AI paddle color
+	Quad(ai.x * sc, ai.y * sc, pwid, phgt);
+
+	/* ball -------------------------------------------------------------- */
+	GL_DisableMultitexture(); // Ensure multitexture is off
+	GL_ClearBindings(); // Clear previous texture bindings
+	glEnable(GL_TEXTURE_2D); // Enable texture for ball sprite
+	glEnable(GL_ALPHA_TEST); glAlphaFunc(GL_GREATER, 0.1f); // Use alpha test for sprite transparency
+	GL_Bind(ball.texture); glColor4f(1, 1, 1, 0.9f); // White color for sprite
+
+	float bs = ball.size * sc * 1.5f,
+		smax = ball.frame ? ball.frame->smax : 1.f,
+		tmax = ball.frame ? ball.frame->tmax : 1.f;
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0);        glVertex2f(ball.x * sc - bs, ball.y * sc + bs);
+	glTexCoord2f(smax, 0);     glVertex2f(ball.x * sc + bs, ball.y * sc + bs);
+	glTexCoord2f(smax, tmax);  glVertex2f(ball.x * sc + bs, ball.y * sc - bs);
+	glTexCoord2f(0, tmax);     glVertex2f(ball.x * sc - bs, ball.y * sc - bs);
+	glEnd();
+
+	/* ---------- restore “classic console” GL state ------------------ */
+	glEnable(GL_ALPHA_TEST);                                   /* hard mask   */
+	glAlphaFunc(GL_GREATER, 0.666f);                            /* typical cut-off */
+	glDisable(GL_BLEND);                                        /* opaque glyphs   */
+	glEnable(GL_TEXTURE_2D);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE); /* ignore colour   */
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);                          /* white           */
+	GL_ClearBindings();                                         /* unbind sprites  */
+}
+
+void Pong_MouseMove(int x, int y)
+{
+	if (cl_pong.value <= 0 || (!cl.paused && !cl.match_pause_time) || !game_init) return;
+	float sc = GetScale();
+	player.y = Clamp((float)y / sc - player.h * 0.5f, 0.f, (scr_h / sc) - player.h);
+}
+
+/*
+=================
+Scope Overlay — woods #scope
+=================
+
+A circular vignette for zoom, using the stencil buffer to darken the screen outside
+the reticle. It features a smooth fade-in/out after 50% zoom, an adaptive anti-aliased ring
+*/
+
+static void DrawScopeFadeQuad (float alpha)
+{
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_ALPHA_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glColor4f(0.f, 0.f, 0.f, alpha);          // black with desired strength
+	glBegin(GL_QUADS);
+	glVertex2f(0.f, 0.f);
+	glVertex2f(glwidth, 0.f);
+	glVertex2f(glwidth, glheight);
+	glVertex2f(0.f, glheight);
+	glEnd();
+
+	glColor4f(1.f, 1.f, 1.f, 1.f);            // restore white
+}
+
+static void DrawFilledCircle (float cx, float cy, float r, int segs)
+{
+	glBegin(GL_TRIANGLE_FAN);
+	glVertex2f(cx, cy);           // centre
+	for (int i = 0; i <= segs; ++i) {
+		float a = (float)i / (float)segs * 2.f * (float)M_PI;
+		glVertex2f(cx + cosf(a) * r, cy + sinf(a) * r);
+	}
+	glEnd();
+}
+
+static int Scope_SegmentsForRadius (float r)
+{
+	/* circumference ≈ 2πr  →  segment count ≈ circumference / 2.5  */
+	int segs = (int)(2.f * M_PI * r / 2.5f);
+
+	/* keep it sane */
+	if (segs < 64)   segs = 64;     /* never less than before   */
+	if (segs > 512)  segs = 512;    /* don't blow the CPU/GPU   */
+	return segs;
+}
+
+static void DrawScopeRing (float cx, float cy, float r, float thick)
+{
+	int   segs = Scope_SegmentsForRadius(r);
+	float r_in = r - thick;
+	float r_out = r;
+
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glColor4f(0.f, 0.f, 0.f, 1.f);
+
+	glBegin(GL_TRIANGLE_STRIP);
+	for (int i = 0; i <= segs; ++i) {
+		float a = (float)i / segs * 2.f * (float)M_PI;
+		float ca = cosf(a), sa = sinf(a);
+
+		glVertex2f(cx + ca * r_out, cy + sa * r_out);   /* outer edge */
+		glVertex2f(cx + ca * r_in, cy + sa * r_in);   /* inner edge */
+	}
+	glEnd();
+}
+
+
+static void SCR_DrawScopeOverlay (void)
+{
+	GL_SetCanvas(CANVAS_DEFAULT);
+
+	float r_frac = CLAMP(scr_scoperadius.value, 0.05f, 0.49f);
+	float radius = r_frac * q_min((float)glwidth, (float)glheight);
+	float cx = 0.5f * (float)glwidth;
+	float cy = 0.5f * (float)glheight;
+
+	static float fade_alpha = 0.f;          /* carries over frame-to-frame */
+
+	float z = CLAMP(cl.zoom, 0.f, 1.f);     /* 0 → 1, already eases in engine */
+
+	/* progress: 0 until zoom > 0.5, then maps linearly 0 → 1 */
+	float prog = (z > 0.5f) ? (z - 0.5f) * 2.0f : 0.0f;   /* multiply by 2 = (z-0.5)/(1-0.5) */
+
+	/* final target opacity (keep your existing scr_scopealpha cap) */
+	float target_alpha = scr_scopealpha.value * prog;
+
+	/* smoothing – chases target based on scr_scopefadespeed */
+	float k_unclamped = CLAMP(0.1f, scr_scopefadespeed.value, 80.f) * host_frametime; // Corrected order
+	float k = CLAMP(0.0f, k_unclamped, 0.99f); // Corrected order
+	fade_alpha += (target_alpha - fade_alpha) * k;
+
+	if (fade_alpha <= 0.004f && target_alpha <= 0.004f)
+		return;                             /* nothing to draw */
+
+
+	GLint bits;  glGetIntegerv(GL_STENCIL_BITS, &bits);
+	if (!bits) { Con_Printf("No stencil buffer; scope fade disabled\n"); return; }
+
+	glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT |
+		GL_STENCIL_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
+		GL_TEXTURE_BIT);
+
+	glDisable(GL_DEPTH_TEST);
+	glDepthMask(GL_FALSE);
+
+	/*── PASS 1 : write 1s inside the circle ─────────────────────────────*/
+	glEnable(GL_STENCIL_TEST);
+	glStencilMask(0xFF);
+	glClear(GL_STENCIL_BUFFER_BIT);
+
+	glStencilFunc(GL_ALWAYS, 1, 0xFF);
+	glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+
+	/* make sure every fragment makes it to the stencil buffer */
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_ALPHA_TEST);
+	glDisable(GL_CULL_FACE);
+
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	DrawFilledCircle(cx, cy, radius, Scope_SegmentsForRadius(radius)); // Use adaptive segments for stencil
+
+	/*── PASS 2 : darken where stencil == 0 (outside the glass) ─────────*/
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glStencilMask(0x00);                 /* read-only */
+	glStencilFunc(GL_EQUAL, 0, 0xFF);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+	DrawScopeFadeQuad(fade_alpha); // Use fade_alpha here
+
+	/*── PASS 3 : thin black ring (optional) ────────────────────────────*/
+	glDisable(GL_STENCIL_TEST);
+	// Draw the ring only when the fade effect is active and has reached its target opacity
+	if (target_alpha > 0.01f && fabsf(target_alpha - fade_alpha) < 0.01f)
+		DrawScopeRing(cx, cy, radius, 2.f);
+
+	glPopAttrib();
+}
 
 //=============================================================================
 
@@ -3775,10 +5730,18 @@ void SCR_UpdateScreen (void)
 		G_FLOAT(OFS_PARM0) = glwidth/s;
 		G_FLOAT(OFS_PARM1) = glheight/s;
 		G_FLOAT(OFS_PARM2) = true;
+
+		if (vid_fxaa.value > 0) // woods #fxaa
+			FXAA_BeginFrame();
+
 		if (cls.signon == SIGNONS||!cl.qcvm.extfuncs.CSQC_UpdateViewLoading)
 			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateView);
 		else
 			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateViewLoading);
+
+		if (vid_fxaa.value > 0) // woods #fxaa
+			FXAA_EndFrame();
+
 		PR_SwitchQCVM(NULL);
 
 		GL_Set2D ();
@@ -3797,7 +5760,13 @@ void SCR_UpdateScreen (void)
 //
 		SCR_SetUpToDrawConsole ();
 
+		if (vid_fxaa.value > 0) // woods #fxaa begin FXAA frame for 3D rendering
+			FXAA_BeginFrame();
+
 		V_RenderView ();
+
+		if (vid_fxaa.value > 0) // woods #fxaa end FXAA frame for 3D rendering
+			FXAA_EndFrame();
 
 		GL_Set2D ();
 
@@ -3840,6 +5809,8 @@ void SCR_UpdateScreen (void)
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
 		SCR_DrawPause2 (); // woods #showpaused
+		Pong_Update (); // woods #pong
+		Pong_Draw (); // woods #pong
 		SCR_CheckDrawCenterString ();
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
@@ -3853,10 +5824,13 @@ void SCR_UpdateScreen (void)
 		SCR_ShowObsFrags (); // woods #observerhud
 		SCR_DrawSpeed (); // woods #speed
 		SCR_DrawMovementKeys (); // woods #movementkeys
+		SCR_DrawGrenadeTimer(); // woods #nadecount
 		TP_DrawClosestLocText (); // woods #locext
+		SCR_DrawObsTimers (); // woods #obstimers
 		SCR_Mute (); // woods #usermute
 		SCR_Observing (); // woods
 		TexturePointer_Draw (); // woods #texturepointer
+		SCR_DrawScopeOverlay (); // woods #scope
 		SCR_DrawConsole ();
 		M_Draw ();
 	}
@@ -3868,3 +5842,613 @@ void SCR_UpdateScreen (void)
 	GL_EndRendering ();
 }
 
+//============================================================================
+//
+// FXAA IMPLEMENTATION -- woods #fxaa
+//
+//============================================================================
+
+// FXAA quality presets (copied from gl_vidsdl.c)
+typedef struct {
+    float subpix;
+    float edge;
+} fxaa_quality_t;
+
+/* 0 = off, 1-3 = presets */
+static const fxaa_quality_t fxaa_presets[4] = {
+    /* off   */ {0.00f, 0.00f},
+    /* low   */ {0.25f, 0.333f},
+    /* medium*/ {0.40f, 0.166f},   /* ← old defaults */
+    /* high  */ {0.75f, 0.063f}
+};
+
+// FXAA structures and variables
+typedef struct {
+    GLuint framebuffer;
+    GLuint color_texture;
+    GLuint depth_renderbuffer;
+    
+    /* simple 5-tap shader (low / med) */
+    GLuint program_simple;
+    GLint u_tex_simple;
+    GLint u_rcpFrame_simple;
+    GLint u_subpix;
+    GLint u_edge;
+    
+    /* FTE directional-search shader (high) */
+    GLuint program_fte;
+    GLint u_tex_fte;
+    GLint u_rcpFrame_fte;
+    
+    int width, height;
+    qboolean initialized;
+    fxaa_quality_t current; // Current quality preset
+} fxaa_t;
+
+static fxaa_t fxaa;
+
+// FXAA function declarations
+void FXAA_Init(void);
+void FXAA_Shutdown(void);
+static GLuint FXAA_CreateShader_Simple(void);
+static GLuint FXAA_CreateShader_FTE(void);
+static qboolean FXAA_CreateFramebuffer(int width, int height);
+void FXAA_VidFxaaChanged(cvar_t *v);
+
+/*
+===============
+FXAA_VidFxaaChanged
+===============
+*/
+void FXAA_VidFxaaChanged(cvar_t *v)
+{
+    /* clamp to [0‥3] so "vid_fxaa 99" doesn't explode */
+    int lvl = (int)CLAMP(0, v->value, 3);
+    if (lvl != v->value)
+        Cvar_SetValueQuick(v, (float)lvl);
+
+    /* turn resources on/off just like before */
+    // If FXAA was disabled, clean up resources
+    if (lvl == 0 && fxaa.initialized) {
+        if (fxaa.framebuffer) {
+            GL_DeleteFramebuffersFunc(1, &fxaa.framebuffer);
+            fxaa.framebuffer = 0;
+        }
+        
+        if (fxaa.color_texture) {
+            glDeleteTextures(1, &fxaa.color_texture);
+            fxaa.color_texture = 0;
+        }
+        
+        if (fxaa.depth_renderbuffer) {
+            GL_DeleteRenderbuffersFunc(1, &fxaa.depth_renderbuffer);
+            fxaa.depth_renderbuffer = 0;
+        }
+        
+        fxaa.width = fxaa.height = 0;
+    }
+
+    /* store current preset in the fxaa struct for fast access */
+    fxaa.current = fxaa_presets[lvl];
+}
+
+/*
+===============
+FXAA_CvarClamp01
+===============
+*/
+void FXAA_CvarClamp01(cvar_t *v)
+{
+    if (v->value < 0.0f)  Cvar_SetValueQuick(v, 0.0f);
+    if (v->value > 1.0f)  Cvar_SetValueQuick(v, 1.0f);
+}
+
+/*
+===============
+FXAA_CvarChanged
+===============
+*/
+void FXAA_CvarChanged(cvar_t *v)
+{
+    // If FXAA was disabled, clean up resources
+    if (v->value <= 0.0f && fxaa.initialized) {
+        if (fxaa.framebuffer) {
+            GL_DeleteFramebuffersFunc(1, &fxaa.framebuffer);
+            fxaa.framebuffer = 0;
+        }
+        
+        if (fxaa.color_texture) {
+            glDeleteTextures(1, &fxaa.color_texture);
+            fxaa.color_texture = 0;
+        }
+        
+        if (fxaa.depth_renderbuffer) {
+            GL_DeleteRenderbuffersFunc(1, &fxaa.depth_renderbuffer);
+            fxaa.depth_renderbuffer = 0;
+        }
+        
+        fxaa.width = fxaa.height = 0;
+    }
+}
+
+/*
+===============
+FXAA_CreateShader_Simple
+===============
+*/
+static GLuint FXAA_CreateShader_Simple(void)
+{
+    const GLchar *vertSource = 
+        "#version 110\n"
+        "void main()\n"
+        "{\n"
+        "    gl_TexCoord[0] = gl_MultiTexCoord0;\n"
+        "    gl_Position = gl_Vertex;\n"
+        "}\n";
+        
+	const GLchar* fragSource =
+		"#version 110\n"
+		"uniform sampler2D u_tex;\n"
+		"uniform vec2 u_rcpFrame;\n"
+		"uniform float u_subpix;\n"
+		"uniform float u_edge;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"    vec2 pos = gl_TexCoord[0].xy;\n"
+		"    vec4 color = texture2D(u_tex, pos);\n"
+	"    float alpha = color.a;\n"
+		"    \n"
+		"    // Enhanced FXAA implementation with quality parameters\n"
+		"    vec4 nw = texture2D(u_tex, pos + vec2(-1.0, -1.0) * u_rcpFrame);\n"
+		"    vec4 ne = texture2D(u_tex, pos + vec2(1.0, 1.0) * u_rcpFrame);\n"
+		"    vec4 sw = texture2D(u_tex, pos + vec2(-1.0, 1.0) * u_rcpFrame);\n"
+		"    vec4 se = texture2D(u_tex, pos + vec2(1.0, 1.0) * u_rcpFrame);\n"
+		"    \n"
+	"    vec4 blur = (nw + ne + sw + se + color) * 0.2;\n"
+		"    \n"
+		"    float luma_nw = dot(nw.rgb, vec3(0.299, 0.587, 0.114));\n"
+		"    float luma_ne = dot(ne.rgb, vec3(0.299, 0.587, 0.114));\n"
+		"    float luma_sw = dot(sw.rgb, vec3(0.299, 0.587, 0.114));\n"
+		"    float luma_se = dot(se.rgb, vec3(0.299, 0.587, 0.114));\n"
+	"    float luma_m = dot(color.rgb, vec3(0.299, 0.587, 0.114));\n"
+		"    \n"
+		"    float luma_min = min(luma_m, min(min(luma_nw, luma_ne), min(luma_sw, luma_se)));\n"
+		"    float luma_max = max(luma_m, max(max(luma_nw, luma_ne), max(luma_sw, luma_se)));\n"
+		"    \n"
+		"    float contrast = luma_max - luma_min;\n"
+		"    float threshold = max(0.0833, contrast * u_edge);\n"
+		"    \n"
+		"    if (contrast < threshold)\n"
+		"        gl_FragColor = color;\n"
+	"    else {\n"
+	"        vec3 blended = mix(color.rgb, blur.rgb, u_subpix);\n"
+	"        gl_FragColor = vec4(blended, alpha);\n"
+	"    }\n"
+		"}\n";
+    
+    if (!gl_glsl_able || !GL_CreateShaderFunc)
+        return 0;
+        
+    GLuint vertShader = GL_CreateShaderFunc(GL_VERTEX_SHADER);
+    GL_ShaderSourceFunc(vertShader, 1, &vertSource, NULL);
+    GL_CompileShaderFunc(vertShader);
+    
+    GLint compiled;
+    GL_GetShaderivFunc(vertShader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+        Con_Printf("FXAA vertex shader compilation failed\n");
+        GL_DeleteShaderFunc(vertShader);
+        return 0;
+    }
+    
+    GLuint fragShader = GL_CreateShaderFunc(GL_FRAGMENT_SHADER);
+    GL_ShaderSourceFunc(fragShader, 1, &fragSource, NULL);
+    GL_CompileShaderFunc(fragShader);
+    
+    GL_GetShaderivFunc(fragShader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+        Con_Printf("FXAA fragment shader compilation failed\n");
+        GL_DeleteShaderFunc(vertShader);
+        GL_DeleteShaderFunc(fragShader);
+        return 0;
+    }
+    
+    GLuint program = GL_CreateProgramFunc();
+    GL_AttachShaderFunc(program, vertShader);
+    GL_AttachShaderFunc(program, fragShader);
+    GL_LinkProgramFunc(program);
+    
+    GLint linked;
+    GL_GetProgramivFunc(program, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        Con_Printf("FXAA shader linking failed\n");
+        GL_DeleteShaderFunc(vertShader);
+        GL_DeleteShaderFunc(fragShader);
+        GL_DeleteProgramFunc(program);
+        return 0;
+    }
+    
+    GL_DeleteShaderFunc(vertShader);
+    GL_DeleteShaderFunc(fragShader);
+    
+    return program;
+}
+
+/*
+===============
+FXAA_CreateShader_FTE
+===============
+*/
+static GLuint FXAA_CreateShader_FTE(void)
+{
+    const GLchar *vertSource = 
+        "#version 110\n"
+        "void main()\n"
+        "{\n"
+        "    gl_TexCoord[0] = gl_MultiTexCoord0;\n"
+        "    gl_Position = gl_Vertex;\n"
+        "}\n";
+        
+    /* NOTE: uniform name matches the old code so we can reuse C-side plumbing */
+    const GLchar *fragSource =
+        "#version 110\n"
+        "uniform sampler2D u_tex;\n"
+        "uniform vec2      u_rcpFrame;\n"
+        "\n"
+        "void main(){\n"
+        "  vec3 luma = vec3(0.299,0.587,0.114);\n"
+        "  vec3 rgbNW = texture2D(u_tex, gl_TexCoord[0].xy + vec2(-1.0,-1.0)*u_rcpFrame).rgb;\n"
+        "  vec3 rgbNE = texture2D(u_tex, gl_TexCoord[0].xy + vec2( 1.0,-1.0)*u_rcpFrame).rgb;\n"
+        "  vec3 rgbSW = texture2D(u_tex, gl_TexCoord[0].xy + vec2(-1.0, 1.0)*u_rcpFrame).rgb;\n"
+        "  vec3 rgbSE = texture2D(u_tex, gl_TexCoord[0].xy + vec2( 1.0, 1.0)*u_rcpFrame).rgb;\n"
+    "  vec4 rgbaM = texture2D(u_tex, gl_TexCoord[0].xy);\n"
+    "  vec3 rgbM  = rgbaM.rgb;\n"
+    "  float alpha = rgbaM.a;\n"
+        "\n"
+        "  float lumaNW=dot(rgbNW,luma), lumaNE=dot(rgbNE,luma);\n"
+        "  float lumaSW=dot(rgbSW,luma), lumaSE=dot(rgbSE,luma);\n"
+        "  float lumaM =dot(rgbM ,luma);\n"
+        "\n"
+        "  float lumaMin=min(lumaM,min(min(lumaNW,lumaNE),min(lumaSW,lumaSE)));\n"
+        "  float lumaMax=max(lumaM,max(max(lumaNW,lumaNE),max(lumaSW,lumaSE)));\n"
+        "\n"
+        "  vec2 dir;\n"
+        "  dir.x = -((lumaNW+lumaNE) - (lumaSW+lumaSE));\n"
+        "  dir.y =  ((lumaNW+lumaSW) - (lumaNE+lumaSE));\n"
+        "\n"
+        "  float FXAA_REDUCE_MUL = 1.0/8.0;\n"
+        "  float FXAA_REDUCE_MIN = 1.0/128.0;\n"
+        "  float FXAA_SPAN_MAX   = 8.0;\n"
+        "\n"
+        "  float dirReduce = max((lumaNW+lumaNE+lumaSW+lumaSE)* (0.25*FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);\n"
+        "  float rcpDirMin = 1.0/(min(abs(dir.x),abs(dir.y))+dirReduce);\n"
+        "  dir = clamp(dir*rcpDirMin, vec2(-FXAA_SPAN_MAX), vec2(FXAA_SPAN_MAX))*u_rcpFrame;\n"
+        "\n"
+        "  vec3 rgbA = 0.5*(texture2D(u_tex, gl_TexCoord[0].xy + dir*(1.0/3.0-0.5)).rgb +\n"
+        "                   texture2D(u_tex, gl_TexCoord[0].xy + dir*(2.0/3.0-0.5)).rgb);\n"
+        "  vec3 rgbB = 0.25*(texture2D(u_tex, gl_TexCoord[0].xy + dir*(-0.5)).rgb +\n"
+        "                    texture2D(u_tex, gl_TexCoord[0].xy + dir*( 0.5)).rgb) + 0.5*rgbA;\n"
+        "  float lumaB = dot(rgbB,luma);\n"
+    "  vec3 rgbOut = ((lumaB < lumaMin)||(lumaB > lumaMax)) ? rgbA : rgbB;\n"
+    "  gl_FragColor = vec4(rgbOut, alpha);\n"
+        "}\n";
+    
+    if (!gl_glsl_able || !GL_CreateShaderFunc)
+        return 0;
+        
+    GLuint vertShader = GL_CreateShaderFunc(GL_VERTEX_SHADER);
+    GL_ShaderSourceFunc(vertShader, 1, &vertSource, NULL);
+    GL_CompileShaderFunc(vertShader);
+    
+    GLint compiled;
+    GL_GetShaderivFunc(vertShader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+        Con_Printf("FXAA FTE vertex shader compilation failed\n");
+        GL_DeleteShaderFunc(vertShader);
+        return 0;
+    }
+    
+    GLuint fragShader = GL_CreateShaderFunc(GL_FRAGMENT_SHADER);
+    GL_ShaderSourceFunc(fragShader, 1, &fragSource, NULL);
+    GL_CompileShaderFunc(fragShader);
+    
+    GL_GetShaderivFunc(fragShader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled) {
+        Con_Printf("FXAA FTE fragment shader compilation failed\n");
+        GL_DeleteShaderFunc(vertShader);
+        GL_DeleteShaderFunc(fragShader);
+        return 0;
+    }
+    
+    GLuint program = GL_CreateProgramFunc();
+    GL_AttachShaderFunc(program, vertShader);
+    GL_AttachShaderFunc(program, fragShader);
+    GL_LinkProgramFunc(program);
+    
+    GLint linked;
+    GL_GetProgramivFunc(program, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        Con_Printf("FXAA FTE shader linking failed\n");
+        GL_DeleteShaderFunc(vertShader);
+        GL_DeleteShaderFunc(fragShader);
+        GL_DeleteProgramFunc(program);
+        return 0;
+    }
+    
+    GL_DeleteShaderFunc(vertShader);
+    GL_DeleteShaderFunc(fragShader);
+    
+    return program;
+}
+
+/*
+===============
+FXAA_Init
+===============
+*/
+void FXAA_Init(void)
+{
+    if (!gl_fbo_able || !gl_glsl_able || fxaa.initialized)
+        return;
+        
+    memset(&fxaa, 0, sizeof(fxaa));
+    
+    fxaa.program_simple = FXAA_CreateShader_Simple();
+    if (!fxaa.program_simple) {
+        Con_DPrintf("FXAA: Failed to create simple shader\n");
+        return;
+    }
+    
+    fxaa.program_fte = FXAA_CreateShader_FTE();
+    if (!fxaa.program_fte) {
+        Con_Printf("FXAA: Failed to create FTE shader\n");
+        return;
+    }
+    
+    GL_UseProgramFunc(fxaa.program_simple);
+    fxaa.u_tex_simple = GL_GetUniformLocationFunc(fxaa.program_simple, "u_tex");
+    fxaa.u_rcpFrame_simple = GL_GetUniformLocationFunc(fxaa.program_simple, "u_rcpFrame");
+    fxaa.u_subpix = GL_GetUniformLocationFunc(fxaa.program_simple, "u_subpix");
+    fxaa.u_edge = GL_GetUniformLocationFunc(fxaa.program_simple, "u_edge");
+    GL_UseProgramFunc(0);
+    
+    GL_UseProgramFunc(fxaa.program_fte);
+    fxaa.u_tex_fte = GL_GetUniformLocationFunc(fxaa.program_fte, "u_tex");
+    fxaa.u_rcpFrame_fte = GL_GetUniformLocationFunc(fxaa.program_fte, "u_rcpFrame");
+    GL_UseProgramFunc(0);
+    
+    fxaa.initialized = true;
+    Con_DPrintf("FXAA initialized\n");
+    
+    // Disable MSAA if both are enabled
+    if (vid_fsaa.value > 0 && vid_fxaa.value > 0) {
+        Con_DPrintf("FXAA: Disabling MSAA (vid_fsaa) as FXAA is more efficient\n");
+        Cvar_SetQuick(&vid_fsaa, "0");
+    }
+}
+
+/*
+===============
+FXAA_Shutdown
+===============
+*/
+void FXAA_Shutdown(void)
+{
+    if (!fxaa.initialized)
+        return;
+        
+    if (fxaa.framebuffer) {
+        GL_DeleteFramebuffersFunc(1, &fxaa.framebuffer);
+        fxaa.framebuffer = 0;
+    }
+    
+    if (fxaa.color_texture) {
+        glDeleteTextures(1, &fxaa.color_texture);
+        fxaa.color_texture = 0;
+    }
+    
+    if (fxaa.depth_renderbuffer) {
+        GL_DeleteRenderbuffersFunc(1, &fxaa.depth_renderbuffer);
+        fxaa.depth_renderbuffer = 0;
+    }
+    
+    if (fxaa.program_simple) {
+        GL_DeleteProgramFunc(fxaa.program_simple);
+        fxaa.program_simple = 0;
+    }
+    
+    if (fxaa.program_fte) {
+        GL_DeleteProgramFunc(fxaa.program_fte);
+        fxaa.program_fte = 0;
+    }
+    
+    fxaa.initialized = false;
+}
+
+/*
+===============
+FXAA_CreateFramebuffer
+===============
+*/
+static qboolean FXAA_CreateFramebuffer(int width, int height)
+{
+    if (!fxaa.initialized)
+        return false;
+        
+    // Clean up old framebuffer if size changed
+    if (fxaa.width != width || fxaa.height != height) {
+        if (fxaa.framebuffer) {
+            GL_DeleteFramebuffersFunc(1, &fxaa.framebuffer);
+            fxaa.framebuffer = 0;
+        }
+        
+        if (fxaa.color_texture) {
+            glDeleteTextures(1, &fxaa.color_texture);
+            fxaa.color_texture = 0;
+        }
+        
+        if (fxaa.depth_renderbuffer) {
+            GL_DeleteRenderbuffersFunc(1, &fxaa.depth_renderbuffer);
+            fxaa.depth_renderbuffer = 0;
+        }
+    }
+    
+    if (!fxaa.framebuffer) {
+        // Create color texture
+        glGenTextures(1, &fxaa.color_texture);
+        glBindTexture(GL_TEXTURE_2D, fxaa.color_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        
+        // Create depth-stencil renderbuffer (combined for outline/shell effects)
+        GL_GenRenderbuffersFunc(1, &fxaa.depth_renderbuffer);
+        GL_BindRenderbufferFunc(GL_RENDERBUFFER, fxaa.depth_renderbuffer);
+        GL_RenderbufferStorageFunc(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+        
+        // Create framebuffer
+        GL_GenFramebuffersFunc(1, &fxaa.framebuffer);
+        GL_BindFramebufferFunc(GL_FRAMEBUFFER, fxaa.framebuffer);
+        GL_FramebufferTexture2DFunc(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fxaa.color_texture, 0);
+        GL_FramebufferRenderbufferFunc(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fxaa.depth_renderbuffer);
+        GL_FramebufferRenderbufferFunc(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fxaa.depth_renderbuffer);
+        
+        GLenum status = GL_CheckFramebufferStatusFunc(GL_FRAMEBUFFER);
+        if (status != GL_FRAMEBUFFER_COMPLETE) {
+            Con_DPrintf("FXAA: Framebuffer incomplete (status: 0x%x) - disabling\n", status);
+            SCR_CenterPrint("FXAA unavailable (driver bug)");
+            Cvar_SetQuick(&vid_fxaa, "0");
+            GL_BindFramebufferFunc(GL_FRAMEBUFFER, 0);
+            return false;
+        }
+        
+        GL_BindFramebufferFunc(GL_FRAMEBUFFER, 0);
+        
+        fxaa.width = width;
+        fxaa.height = height;
+    }
+    
+    return true;
+}
+
+/*
+===============
+FXAA_BeginFrame
+===============
+*/
+void FXAA_BeginFrame(void)
+{
+    if (!fxaa.initialized || vid_fxaa.value <= 0 || !gl_fbo_able || !gl_glsl_able)
+        return;
+        
+    if (!FXAA_CreateFramebuffer(glwidth, glheight))
+        return;
+        
+    GL_BindFramebufferFunc(GL_FRAMEBUFFER, fxaa.framebuffer);
+    glViewport(0, 0, glwidth, glheight);
+    
+    // Clear with alpha = 0 to support transparency detection
+    {
+        byte *rgb;
+        int s = (int)r_clearcolor.value & 0xFF;
+        rgb = (byte *)(d_8to24table + s);
+        glClearColor(rgb[0]/255.0f, rgb[1]/255.0f, rgb[2]/255.0f, 0.0f);
+    }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
+/*
+===============
+FXAA_EndFrame
+===============
+*/
+void FXAA_EndFrame(void)
+{
+    if (!fxaa.initialized || vid_fxaa.value <= 0 || !fxaa.framebuffer)
+        return;
+        
+    // Save current state
+    GLboolean wasBlend = glIsEnabled(GL_BLEND);
+    GLboolean wasAlphaTest = glIsEnabled(GL_ALPHA_TEST);
+    GLboolean wasDepthTest = glIsEnabled(GL_DEPTH_TEST);
+    GLboolean wasCullFace = glIsEnabled(GL_CULL_FACE);
+    GLboolean wasScissorTest = glIsEnabled(GL_SCISSOR_TEST);
+    GLboolean wasTexture2D = glIsEnabled(GL_TEXTURE_2D);
+    GLint polygonMode[2];
+    glGetIntegerv(GL_POLYGON_MODE, polygonMode);
+    GLint activeTexture = GL_TEXTURE0;
+    if (GL_SelectTextureFunc)
+        glGetIntegerv(GL_ACTIVE_TEXTURE, &activeTexture);
+    GLint boundTexture = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
+        
+    // Bind back buffer
+    GL_BindFramebufferFunc(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, glwidth, glheight);
+    
+    // Clear and set up for fullscreen quad
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    glDisable(GL_ALPHA_TEST);
+    if (!wasTexture2D)
+        glEnable(GL_TEXTURE_2D);
+    glDisable(GL_SCISSOR_TEST);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    
+    // Choose shader based on vid_fxaa value
+    GLuint prog = (vid_fxaa.value == 3) ? fxaa.program_fte : fxaa.program_simple;
+    GL_UseProgramFunc(prog);
+    
+    // Bind texture and set uniforms
+    if (GL_SelectTextureFunc)
+    GL_SelectTextureFunc(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, fxaa.color_texture);
+    
+    if (prog == fxaa.program_fte) {
+        GL_Uniform1iFunc(fxaa.u_tex_fte, 0);
+        GL_Uniform2fFunc(fxaa.u_rcpFrame_fte, 1.0f / (float)glwidth, 1.0f / (float)glheight);
+    } else {
+        GL_Uniform1iFunc(fxaa.u_tex_simple, 0);
+        GL_Uniform2fFunc(fxaa.u_rcpFrame_simple, 1.0f / (float)glwidth, 1.0f / (float)glheight);
+        GL_Uniform1fFunc(fxaa.u_subpix, fxaa.current.subpix);
+        GL_Uniform1fFunc(fxaa.u_edge, fxaa.current.edge);
+    }
+
+    // Draw fullscreen quad
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0f, -1.0f);
+    glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, -1.0f);
+    glTexCoord2f(1.0f, 1.0f); glVertex2f(1.0f, 1.0f);
+    glTexCoord2f(0.0f, 1.0f); glVertex2f(-1.0f, 1.0f);
+    glEnd();
+    
+    // Cleanup
+    GL_UseProgramFunc(0);
+    if (GL_SelectTextureFunc) {
+        if (activeTexture != GL_TEXTURE0)
+            GL_SelectTextureFunc((GLenum)activeTexture);
+        glBindTexture(GL_TEXTURE_2D, (GLuint)boundTexture);
+        if (activeTexture != GL_TEXTURE0)
+            GL_SelectTextureFunc(GL_TEXTURE0);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, (GLuint)boundTexture);
+    }
+    
+    // Restore state
+    if (wasDepthTest) glEnable(GL_DEPTH_TEST);
+    if (wasCullFace) glEnable(GL_CULL_FACE);
+    if (wasBlend) glEnable(GL_BLEND);
+    if (wasAlphaTest) glEnable(GL_ALPHA_TEST);
+    if (wasScissorTest) glEnable(GL_SCISSOR_TEST);
+    if (!wasTexture2D)
+        glDisable(GL_TEXTURE_2D);
+    if (GL_SelectTextureFunc && activeTexture != GL_TEXTURE0)
+        GL_SelectTextureFunc((GLenum)activeTexture);
+    glPolygonMode(GL_FRONT, polygonMode[0]);
+    glPolygonMode(GL_BACK, polygonMode[1]);
+}

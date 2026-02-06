@@ -29,7 +29,7 @@ const int	gl_alpha_format = 4;
 
 static cvar_t	gl_texturemode = {"gl_texturemode", "", CVAR_ARCHIVE};
 static cvar_t	gl_texture_anisotropy = {"gl_texture_anisotropy", "1", CVAR_ARCHIVE};
-static cvar_t	gl_max_size = {"gl_max_size", "0", CVAR_NONE};
+cvar_t	gl_max_size = {"gl_max_size", "0", CVAR_NONE}; // woods remove static for menu
 cvar_t	gl_picmip = {"gl_picmip", "0", CVAR_NONE}; // woods remove static for #f_config
 cvar_t	r_fastturb = {"r_fastturb", "0", CVAR_ARCHIVE}; // woods #fastturb
 
@@ -450,8 +450,15 @@ static void TexMgr_Imagedump_f (void)
 		count++; // woods add filter (ironwail)
 	}
 
-	if (filter) // woods add filter (ironwail)
+	if (filter)
+	{
+		if (cl_contentfilter.value) // woods #contentfilter
+			Con_Printf("dumped %i textures containing '%s' to %s/imagedump.\n", count, filter, COM_SkipPath(com_gamedir));
+		else
 		Con_Printf("dumped %i textures containing '%s' to %s\n", count, filter, dirname);
+	}
+	else if (cl_contentfilter.value) // woods #contentfilter
+		Con_Printf("dumped %i textures to %s/imagedump.\n", count, COM_SkipPath(com_gamedir));
 	else
 		Con_Printf("dumped %i textures to %s\n", count, dirname);
 }
@@ -671,7 +678,11 @@ void TexMgr_LoadPalette (void)
 
 	mark = Hunk_LowMark ();
 	pal = (byte *) Hunk_Alloc (768);
-	fread (pal, 1, 768, f);
+	if (fread (pal, 1, 768, f) != 768) // woods
+	{
+		fclose(f);
+		Sys_Error("Couldn't read gfx/palette.lmp");
+	}
 	fclose(f);
 
 	//standard palette, 255 is transparent
@@ -1275,7 +1286,7 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 		{ 
 			if (gl_max_size.value < 0) // woods - grayscale for negative values
 			{ 
-				for (int i = 0; i < (glt->width * glt->height); i++)
+				for (unsigned int i = 0; i < (glt->width * glt->height); i++)
 				{
 					unsigned char* pixel = (unsigned char*)&data[i];
 					// Calculate luminance
@@ -1800,7 +1811,11 @@ void TexMgr_ReloadImage (gltexture_t *glt, plcolour_t shirt, plcolour_t pants)
 
 		size = TexMgr_ImageSize(glt->source_width, glt->source_height, glt->source_format);
 		data = (byte *) Hunk_Alloc (size);
-		fread (data, 1, size, f);
+		if (fread (data, 1, size, f) != size) // woods
+		{
+			fclose(f);
+			goto invalid;
+		}
 		fclose (f);
 	}
 	else if (glt->source_file[0] && !glt->source_offset)

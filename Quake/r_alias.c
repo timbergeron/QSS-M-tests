@@ -27,10 +27,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
 extern cvar_t scr_fov, cl_gun_fovscale; // woods #zoom (ironwail)
 extern cvar_t r_coloredpowerupglow; // woods
-extern cvar_t gl_overbright_models_alpha; // woods #obmodelslist
-extern cvar_t gl_overbright_models_list; // woods #obmodelslist
+extern cvar_t r_model_light_desat; // woods - #desat
+extern cvar_t r_model_light_desat_list; // woods - #desat
+extern cvar_t r_outline; // woods #obmodelslist #routline
+extern cvar_t r_nooutline_list; // woods #routline
 
-qboolean nameInList(const char* list, const char* name); // woods #obmodelslist
+extern qboolean nameInList(const char* list, const char* name); // woods #desat #routline
+extern qboolean TP_IsPlayerVisible(vec3_t origin); // woods #routline
+extern qboolean IsOneVsOneMatch(void); // woods #routline
+extern void R_GetEntityBounds(const entity_t *e, vec3_t mins, vec3_t maxs); // woods #routline
+void Matrix3x4_RM_Transform4(const float* matrix, const float* vector, float* product); // woods #routline
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
 
@@ -99,6 +105,17 @@ typedef struct
 	GLuint useOverbrightLoc;
 	GLuint useAlphaTestLoc;
 	GLuint colorTintLoc;
+	GLuint outlineWidthLoc; // woods #routline
+	GLuint isOutlinePassLoc; // woods #routline
+	GLuint outlineColorLoc; // woods #routline
+	GLuint shellTexLoc; // woods #powershell
+	GLuint useShellTexLoc; // woods #powershell
+	GLuint clTimeLoc; // woods #powershell
+	GLuint shellColorLoc; // woods #powershell
+	GLuint shellAlphaLoc; // woods #powershell
+	GLuint shellModeLoc; // woods #powershell
+	GLuint shellTimeLoc; // woods #powershell
+	GLuint shellWaveParamsLoc; // woods #powershell
 } aliasglsl_t;
 static aliasglsl_t r_alias_glsl[ALIAS_GLSL_MODES];
 
@@ -183,8 +200,18 @@ void GLAlias_CreateShaders (void)
 		"#version 110\n"
 		"%s"
 		"\n"
+		"uniform float ClTime;\n" // woods #powershell
+		"varying vec2 ShellCoord;\n" // woods #powershell
+		"varying vec2 ShellCoord2;\n" // woods #powershell
+		"\n"
+		"uniform int shellMode;\n"      // 0=normal, 1=outline, 2=shell
+		"uniform float shellTime;\n"    // Time for animation
+		"uniform vec4 shellWaveParams;\n" // x=amplitude, y=frequency, z=phase, w=unused
+		"\n"
 		"uniform vec3 ShadeVector;\n"
 		"uniform vec4 LightColor;\n"
+		"uniform float outlineWidth; // Amount to expand vertices\n" // woods #routline
+		"uniform int isOutlinePass; // Indicates if this is the outline pass\n" // woods #routline
 		"attribute vec4 TexCoords; // only xy are used \n"
 		"attribute vec4 Pose1Vert;\n"
 		"attribute vec3 Pose1Normal;\n"
@@ -215,6 +242,23 @@ void GLAlias_CreateShaders (void)
 		"void main()\n"
 		"{\n"
 		"	gl_TexCoord[0] = TexCoords;\n"
+		"\n"
+		"	vec4 lerpedVert;\n" // woods #routline
+		"	vec3 lerpedNormal;\n" // woods #routline
+		"\n"
+		"\n" // woods #powershell
+		"	float s = TexCoords.x + sin(0.4 * (ClTime + TexCoords.y));\n"
+		"	s *= -140.0 * (0.5 / 64.0);\n"
+		"	float t = TexCoords.y + sin(0.4 * (ClTime + TexCoords.x));\n"
+		"	t *= -140.0 * (0.5 / 64.0);\n"
+		"	ShellCoord = vec2(s, t);\n"
+		"\n"
+		"	float s2 = TexCoords.x + sin(0.4 * (-ClTime + TexCoords.y));\n"
+		"	s2 *= -140.0 * (0.5 / 64.0);\n"
+		"	float t2 = TexCoords.y + sin(0.4 * (-ClTime + TexCoords.x));\n"
+		"	t2 *= -140.0 * (0.5 / 64.0);\n"
+		"	ShellCoord2 = vec2(s2, t2);\n"
+		"\n"
 		"#ifdef SKELETAL\n"
 		"	mat4 wmat;"
 		"	wmat[0]  = BoneTable[0+3*int(BoneIndex.x)] * BoneWeight.x;"
@@ -230,12 +274,57 @@ void GLAlias_CreateShaders (void)
 		"	wmat[2] += BoneTable[2+3*int(BoneIndex.z)] * BoneWeight.z;"
 		"	wmat[2] += BoneTable[2+3*int(BoneIndex.w)] * BoneWeight.w;"
 		"	wmat[3] = vec4(0.0,0.0,0.0,1.0);\n"
-		"	vec4 lerpedVert = (vec4(Pose1Vert.xyz, 1.0) * wmat);\n"
 		"	float dot1 = r_avertexnormal_dot(normalize((vec4(Pose1Normal.xyz, 0.0) * wmat).xyz));\n"
+		"\n"
+		"	// Transform the vertex position\n" // woods #routline
+		"	vec4 basePos = (vec4(Pose1Vert.xyz, 1.0) * wmat);\n"
+		"	vec3 transformedNormal = normalize((vec4(Pose1Normal.xyz, 0.0) * wmat).xyz);\n"
+		"   lerpedNormal = transformedNormal; // initialise for later use\n"
+		"\n"
+		"	float outlineScale = 1.0;\n"
+		"	if (isOutlinePass == 1 && outlineWidth > 0.0)\n"
+		"	{\n"
+		"		// Add the scaled normal for outline\n"
+			"		float weightSum = BoneWeight.x + BoneWeight.y + BoneWeight.z + BoneWeight.w;\n"
+			"		if (abs(weightSum - 1.0) < 0.001)\n"
+			"			lerpedVert = basePos + vec4(-transformedNormal * outlineWidth * outlineScale, 0.0);\n"
+			"		else\n"
+			"			lerpedVert = basePos + vec4(transformedNormal * outlineWidth * outlineScale, 0.0);\n"
+		"	}\n"
+		"	else\n"
+		"	{\n"
+		"		lerpedVert = basePos;\n"
+		"	}\n"
+		"\n"
 		"#else\n"
-		"	vec4 lerpedVert = mix(vec4(Pose1Vert.xyz, 1.0), vec4(Pose2Vert.xyz, 1.0), Blend);\n"
+		"	// Vertex position interpolation\n" // woods #routline
+		"	lerpedVert = mix(vec4(Pose1Vert.xyz, 1.0), vec4(Pose2Vert.xyz, 1.0), Blend);\n"
 		"	float dot1 = mix(r_avertexnormal_dot(Pose1Normal), r_avertexnormal_dot(Pose2Normal), Blend);\n"
+		"\n"
+		" 	// Normal interpolation\n" // woods #routline
+		"	lerpedNormal = mix(Pose1Normal, Pose2Normal, Blend);\n"
+		"	lerpedNormal = normalize(lerpedNormal);\n"
+		"\n"
+		"	// Apply outline expansion if in the outline pass\n" // woods #routline
+		"	if (isOutlinePass == 1 && outlineWidth > 0.0)\n"
+		"	{\n"
+		"		lerpedVert.xyz += lerpedNormal * outlineWidth;\n"
+		"	}\n"
+		"\n"
 		"#endif\n"
+		"	if (shellMode == 2)\n" // woods #powershell
+		"		{\n"
+		"		// Start with the original vertex position\n"
+		"		vec3 finalPos = lerpedVert.xyz;\n"
+		"		// Get a properly normalized normal vector\n"
+		"		vec3 normalDir = normalize(lerpedNormal);\n"
+		"		// Add scaled offset along the normal direction using outlineWidth\n"
+		"		finalPos += normalDir * outlineWidth;\n"
+		"		// Add a wave effect along the normal direction\n"
+		"		float wave = sin(shellTime * shellWaveParams.y + dot(lerpedVert.xyz, vec3(0.1, 0.1, 0.1)));\n"
+		"		finalPos += normalDir * wave * shellWaveParams.x;\n"
+		"		lerpedVert = vec4(finalPos, 1.0);\n"
+		"	}\n"
 		"	gl_Position = gl_ModelViewProjectionMatrix * lerpedVert;\n"
 		"	FogFragCoord = gl_Position.w;\n"
 		"	gl_FrontColor = LightColor * vec4(vec3(dot1), 1.0);\n"
@@ -244,39 +333,86 @@ void GLAlias_CreateShaders (void)
 		"#endif\n"
 		"}\n";
 
-	const GLchar *fragSource = \
-		"#version 110\n"
-		"\n"
-		"uniform sampler2D Tex;\n"
-		"uniform sampler2D LowerTex;\n"	//team colour
-		"uniform sampler2D UpperTex;\n"	//personal colour
-		"uniform sampler2D FullbrightTex;\n"
-		"uniform bool UseFullbrightTex;\n"
-		"uniform bool UseOverbright;\n"
-		"uniform bool UseAlphaTest;\n"
-		"uniform vec4 ColourTint[3];\n"	//base+bot+top+fb
-		"\n"
-		"varying float FogFragCoord;\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"	vec4 result = texture2D(Tex, gl_TexCoord[0].xy);\n"	//base
-		"	if (ColourTint[0].a != 0.0) result.rgb += texture2D(LowerTex, gl_TexCoord[0].xy).rgb * ColourTint[0].rgb;\n"	//team/lower/trousers
-		"	if (ColourTint[1].a != 0.0) result.rgb += texture2D(UpperTex, gl_TexCoord[0].xy).rgb * ColourTint[1].rgb;\n"	//personal/upper/torso
-		"	if (UseAlphaTest && (result.a < 0.666))\n"
-		"		discard;\n"
-		"	result *= gl_Color;\n"	//vertex lighting results (and colormod).
-		"	if (UseOverbright)\n"
-		"		result.rgb *= 2.0;\n"
-		"	if (UseFullbrightTex)\n"
-		"		result += texture2D(FullbrightTex, gl_TexCoord[0].xy) * ColourTint[2];\n" //fullbrights (with glowmod)
-		"	result = clamp(result, 0.0, 1.0);\n"
-		"	float fog = exp(-gl_Fog.density * gl_Fog.density * FogFragCoord * FogFragCoord);\n"
-		"	fog = clamp(fog, 0.0, 1.0) * gl_Fog.color.a;\n"
-		"	result.rgb = mix(gl_Fog.color.rgb, result.rgb, fog);\n"
-		"	result.a *= gl_Color.a;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
-		"	gl_FragColor = result;\n"
-		"}\n";
+		const GLchar *fragSource = \
+			"#version 110\n"
+			"\n"
+			"uniform sampler2D Tex;\n"
+			"uniform sampler2D LowerTex;\n"	//team colour
+			"uniform sampler2D UpperTex;\n"	//personal colour
+			"uniform sampler2D FullbrightTex;\n"
+			"\n"
+			"uniform sampler2D ShellTex;\n" // woods #powershell
+			"uniform bool UseShellTex;\n" // woods #powershell
+			"uniform vec3 ShellColor;\n" // woods #powershell
+			"uniform float ShellAlpha;\n" // woods #powershell
+			"uniform float shellTime;\n" // woods #powershell
+			"\n"
+			"uniform bool UseFullbrightTex;\n"
+			"uniform bool UseOverbright;\n"
+			"uniform bool UseAlphaTest;\n"
+			"uniform vec4 ColourTint[3];\n"	//base+bot+top+fb
+			"uniform int isOutlinePass;      // Indicates if this is the outline pass\n" // woods #routline
+			"uniform vec4 outlineColor;       // Color to use for the outline\n" // woods #routline
+			"\n"
+			"varying vec2 ShellCoord;\n" // woods #powershell
+			"varying vec2 ShellCoord2;\n" // woods #powershell
+			"\n"
+			"varying float FogFragCoord;\n"
+			"\n"
+			"void main()\n"
+			"{\n"
+			"if (isOutlinePass == 1)\n"
+			"    {\n"
+			"        // Render the outline with a solid color\n"
+			"        gl_FragColor = outlineColor;\n"
+			"        return;\n"
+			"    }\n"
+			"    else if (isOutlinePass == 2)\n" // woods #powershell
+			"	{\n"
+			"        // Create a complex shell effect with animated patterns\n"
+			"        float pattern = sin(gl_TexCoord[0].x * 10.0 + shellTime) * \n"
+			"                       sin(gl_TexCoord[0].y * 10.0 + shellTime) * 0.25 + 0.75;\n"
+			"        gl_FragColor = vec4(outlineColor.rgb * pattern, outlineColor.a);\n"
+			"        return;\n"
+			"    }\n"
+			"\n"
+			"	vec4 result = texture2D(Tex, gl_TexCoord[0].xy);\n"	//base
+			"\n"
+			"if (UseShellTex)\n" // woods #powershell
+			"{\n"
+			"    vec4 shell1 = texture2D(ShellTex, ShellCoord);\n"
+			"    float brightness1 = shell1.r;\n"
+			"    vec3 coloredShell1 = mix(vec3(1.0), ShellColor, brightness1);\n"
+			"    shell1.rgb *= coloredShell1;\n"
+			"    shell1.a = brightness1 * ShellAlpha;\n"
+			"\n"
+			"    vec4 shell2 = texture2D(ShellTex, ShellCoord2);\n"
+			"    float brightness2 = shell2.r;\n"
+			"    vec3 coloredShell2 = mix(vec3(1.0), ShellColor, brightness2);\n"
+			"    shell2.rgb *= coloredShell2;\n"
+			"    shell2.a = brightness2 * ShellAlpha;\n"
+			"\n"
+			"    vec4 combinedShell = mix(shell1, shell2, 0.5);\n"
+			"    result = mix(result, combinedShell * result + result * combinedShell, combinedShell.a);\n"
+			"}\n"
+
+			"\n"
+			"	if (ColourTint[0].a != 0.0) result.rgb += texture2D(LowerTex, gl_TexCoord[0].xy).rgb * ColourTint[0].rgb;\n"	//team/lower/trousers
+			"	if (ColourTint[1].a != 0.0) result.rgb += texture2D(UpperTex, gl_TexCoord[0].xy).rgb * ColourTint[1].rgb;\n"	//personal/upper/torso
+			"	if (UseAlphaTest && (result.a < 0.666))\n"
+			"		discard;\n"
+			"	result *= gl_Color;\n"	//vertex lighting results (and colormod).
+			"	if (UseOverbright)\n"
+			"		result.rgb *= 2.0;\n"
+			"	if (UseFullbrightTex)\n"
+			"		result += texture2D(FullbrightTex, gl_TexCoord[0].xy) * ColourTint[2];\n" //fullbrights (with glowmod)
+			"	result = clamp(result, 0.0, 1.0);\n"
+			"	float fog = exp(-gl_Fog.density * gl_Fog.density * FogFragCoord * FogFragCoord);\n"
+			"	fog = clamp(fog, 0.0, 1.0) * gl_Fog.color.a;\n"
+			"	result.rgb = mix(gl_Fog.color.rgb, result.rgb, fog);\n"
+			"	result.a *= gl_Color.a;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
+			"	gl_FragColor = result;\n"
+			"}\n";
 
 	if (!gl_glsl_alias_able)
 		return;
@@ -323,15 +459,609 @@ void GLAlias_CreateShaders (void)
 			glsl->useAlphaTestLoc = GL_GetUniformLocation (&glsl->program, "UseAlphaTest");
 			glsl->colorTintLoc = GL_GetUniformLocation (&glsl->program, "ColourTint");
 
+			glsl->outlineWidthLoc = GL_GetUniformLocation (&glsl->program, "outlineWidth"); // woods #routline
+			glsl->isOutlinePassLoc = GL_GetUniformLocation (&glsl->program, "isOutlinePass"); // woods #routline
+			glsl->outlineColorLoc = GL_GetUniformLocation (&glsl->program, "outlineColor"); // woods #routline
+
+			// woods #powershell
+			glsl->clTimeLoc = GL_GetUniformLocation (&glsl->program, "ClTime");
+			glsl->shellTexLoc = GL_GetUniformLocation (&glsl->program, "ShellTex");
+			glsl->useShellTexLoc = GL_GetUniformLocation (&glsl->program, "UseShellTex");
+			glsl->shellColorLoc = GL_GetUniformLocation (&glsl->program, "ShellColor");
+			glsl->shellAlphaLoc = GL_GetUniformLocation (&glsl->program, "ShellAlpha");
+			glsl->shellModeLoc = GL_GetUniformLocation(&glsl->program, "shellMode");
+			glsl->shellTimeLoc = GL_GetUniformLocation(&glsl->program, "shellTime");
+			glsl->shellWaveParamsLoc = GL_GetUniformLocation(&glsl->program, "shellWaveParams");
+
 			//we can do this here, its not going to change.
 			GL_UseProgramFunc (glsl->program);
 			GL_Uniform1iFunc (glsl->texLoc, 0);
 			GL_Uniform1iFunc (glsl->fullbrightTexLoc, 1);
 			GL_Uniform1iFunc (glsl->lowerTexLoc, 2);
 			GL_Uniform1iFunc (glsl->upperTexLoc, 3);
+			GL_Uniform1fFunc (glsl->outlineWidthLoc, 0.0f); // woods #routline
+			GL_Uniform1iFunc (glsl->isOutlinePassLoc, 0); // woods #routline
+			GL_Uniform1iFunc (glsl->shellTexLoc, 3);  // woods #powershell
+			GL_Uniform1iFunc(glsl->shellModeLoc, 0);  // woods #powershell
+			GL_Uniform1fFunc(glsl->shellTimeLoc, 0.0f);  // woods #powershell
+			GL_Uniform4fFunc(glsl->shellWaveParamsLoc, 0.1f, 4.0f, 0.0f, 0.0f);  // woods #powershell
 			GL_UseProgramFunc (0);
 		}
 	}
+}
+
+/*
+=============
+R_CalculateAliasModelOutlineWidth -- woods #routline
+=============
+*/
+float R_CalculateAliasModelOutlineWidth(aliashdr_t* paliashdr, entity_t* e, lerpdata_t* lerpdata)
+{
+	if (r_outline.value <= 0 ||
+		cl.viewent.model == e->model ||
+		nameInList(r_nooutline_list.string, e->model->name))
+		return 0.0f;
+
+	float radius;
+	qboolean isMD5Model = false;
+	maliasframedesc_t* frame = &paliashdr->frames[e->frame];
+
+	// Calculate radius based on model format
+	switch (paliashdr->poseverttype)
+	{
+	case PV_QUAKE3:  // MD3 format
+	{
+		// Calculate current frame offset
+		int frameOffset = frame->firstpose * paliashdr->numverts;
+		meshxyz_md3_t* verts = (meshxyz_md3_t*)((byte*)paliashdr + paliashdr->vertexes + (frameOffset * sizeof(meshxyz_md3_t)));
+
+		// Find maximum vertex distance
+		float maxDist = 0.0f;
+		for (int i = 0; i < paliashdr->numverts; i++)
+		{
+			// MD3 vertices are stored as signed shorts, scaled by 1/64
+			float x = (float)verts[i].xyz[0] * (1.0f / 64.0f);
+			float y = (float)verts[i].xyz[1] * (1.0f / 64.0f);
+			float z = (float)verts[i].xyz[2] * (1.0f / 64.0f);
+
+			// Apply model scale (MD3 models typically use this scale)
+			x *= paliashdr->scale[0];
+			y *= paliashdr->scale[1];
+			z *= paliashdr->scale[2];
+
+			float dist = sqrt(x * x + y * y + z * z);
+			if (dist > maxDist)
+				maxDist = dist;
+		}
+		radius = maxDist;
+		break;
+	}
+
+	case PV_IQM:
+	{
+		// Calculate radius for IQM/MD5 models
+		const iqmvert_t* verts = (const iqmvert_t*)((byte*)paliashdr + paliashdr->vertexes);
+		qboolean isMD5 = true;
+
+		// Determine if this baked IQM vertex buffer originated from an MD5
+		for (int i = 0; i < paliashdr->numverts && isMD5; i++)
+		{
+			float weightSum = verts[i].weight[0] + verts[i].weight[1] + verts[i].weight[2] + verts[i].weight[3];
+			if (weightSum < 0.999f || weightSum > 1.001f)
+				isMD5 = false;
+			}
+
+		float maxDist = 0.0f;
+		if (lerpdata->bonestate)
+		{
+			// For animated models, transform vertices by bones
+			for (int i = 0; i < paliashdr->numverts; i++)
+			{
+				vec3_t transformedVert = { 0, 0, 0 };
+
+				// Transform vertex by weighted bones
+				for (int j = 0; j < 4; j++)
+				{
+					if (verts[i].weight[j] > 0.0f)
+					{
+						vec3_t pos;
+						Matrix3x4_RM_Transform4(lerpdata->bonestate[verts[i].idx[j]].mat,
+							verts[i].xyz,
+							pos);
+						VectorMA(transformedVert, verts[i].weight[j], pos, transformedVert);
+					}
+				}
+
+				// Standard IQM scaling
+				float scaledVert[3];
+				scaledVert[0] = transformedVert[0] * paliashdr->scale[0];
+				scaledVert[1] = transformedVert[1] * paliashdr->scale[1];
+				scaledVert[2] = transformedVert[2] * paliashdr->scale[2];
+
+				float dist = sqrt(scaledVert[0] * scaledVert[0] +
+					scaledVert[1] * scaledVert[1] +
+					scaledVert[2] * scaledVert[2]);
+				maxDist = q_max(maxDist, dist);
+			}
+			radius = maxDist;
+		}
+		else
+		{
+			// For static models (no bone state), calculate radius from raw vertices
+			for (int i = 0; i < paliashdr->numverts; i++)
+			{
+				float scaledVert[3];
+				// Apply scale (usually 1.0 for IQM/MD5 but consistent with animated path)
+				scaledVert[0] = verts[i].xyz[0] * paliashdr->scale[0];
+				scaledVert[1] = verts[i].xyz[1] * paliashdr->scale[1];
+				scaledVert[2] = verts[i].xyz[2] * paliashdr->scale[2];
+
+				float dist = sqrt(scaledVert[0] * scaledVert[0] +
+					scaledVert[1] * scaledVert[1] +
+					scaledVert[2] * scaledVert[2]);
+				maxDist = q_max(maxDist, dist);
+			}
+		radius = maxDist;
+		}
+		isMD5Model = isMD5;
+		break;
+	}
+
+	case PV_QUAKE1:  // Standard MDL format
+	default:
+	{
+		if (paliashdr->boundingradius > 0)
+		{
+			radius = paliashdr->boundingradius;
+		}
+		else
+		{
+			trivertx_t* verts = (trivertx_t*)((byte*)paliashdr + paliashdr->vertexes);
+			verts += frame->firstpose * paliashdr->numverts;
+
+			float maxDist = 0.0f;
+			for (int i = 0; i < paliashdr->numverts; i++)
+			{
+				float dx = verts[i].v[0] * paliashdr->scale[0] + paliashdr->scale_origin[0];
+				float dy = verts[i].v[1] * paliashdr->scale[1] + paliashdr->scale_origin[1];
+				float dz = verts[i].v[2] * paliashdr->scale[2] + paliashdr->scale_origin[2];
+				float dist = sqrt(dx * dx + dy * dy + dz * dz);
+				maxDist = q_max(maxDist, dist);
+			}
+			radius = maxDist;
+		}
+		break;
+	}
+	}
+
+	float modelScale = 50.0f / q_max(radius, 1.0f);
+	float finalScale = modelScale / 1.5;
+	if (isMD5Model)
+		finalScale *= 0.25f; // MD5 models render larger in this space; halve outline width to match others
+	float cvarValue = CLAMP(1.0f, r_outline.value, 5.0f);
+
+	return cvarValue * finalScale;
+}
+
+/*
+=============
+R_BeginAliasOutlineRendering -- woods #routline
+=============
+*/
+void R_BeginAliasOutlineRendering(aliasglsl_t* glsl)
+{
+	// Save the current OpenGL state that we are going to modify
+	glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT | GL_POLYGON_BIT);
+
+	glEnable(GL_STENCIL_TEST);
+
+	// Configure stencil to write 1s on the stencil buffer where the model is drawn
+	glStencilFunc(GL_ALWAYS, 1, 0xFF); // Set any stencil to 1
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Replace stencil with 1 where rendered
+	glStencilMask(0xFF); // Enable writing to the stencil buffer
+
+	// Enable depth testing and write to depth buffer
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+
+	// Set uniforms for the main model pass (no outline)
+	GL_Uniform1fFunc(glsl->outlineWidthLoc, 0.0f); // No outline expansion
+	GL_Uniform1iFunc(glsl->isOutlinePassLoc, 0);
+}
+
+/*
+=============
+R_IsOutlineBoundsFadeEnabled -- woods #routline
+
+Enable outline bounds fade only when in noclip-like modes.
+Includes CRMod7 observer fly (userinfo "observer" = "fly").
+=============
+*/
+static qboolean R_IsOutlineBoundsFadeEnabled(void)
+{
+	if (noclip_anglehack)
+		return true;
+
+	if (sv.active && sv_player &&
+		(sv_player->v.movetype == MOVETYPE_NOCLIP || sv_player->v.movetype == MOVETYPE_FLY))
+		return true;
+
+	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected) &&
+		cl.realviewentity >= 1 && cl.realviewentity <= cl.maxclients)
+	{
+		char buf[16], buf2[16];
+		const char* obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+		const char* star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf2, sizeof(buf2));
+		if (!strcmp(obs, "fly") || !strcmp(star_obs, "fly"))
+			return true;
+	}
+
+	return false;
+}
+
+/*
+=============
+R_GetEntityBoundsFadeFactor -- woods #routline
+
+Returns a fade factor (0.0 to 1.0) based on view proximity to entity bounds.
+- Outside expanded bounds: 1.0 (full opacity)
+- Entering expanded bounds: fades from 1.0 to 0.0
+- Reaches 0.0 at 50% of the way from expanded boundary to center
+=============
+*/
+static float R_GetEntityBoundsFadeFactor(const entity_t *e)
+{
+	vec3_t mins, maxs;
+	int i, nearest_axis;
+	float min_dist, dist_to_min, dist_to_max, nearest;
+	float half_size, fade_distance;
+	float expand = 24.0f; // Expand bounds outward so fade starts earlier
+
+	R_GetEntityBounds(e, mins, maxs);
+
+	// Expand bounds outward
+	for (i = 0; i < 3; i++)
+	{
+		mins[i] -= expand;
+		maxs[i] += expand;
+	}
+
+	// Check if view is outside expanded bounds on any axis
+	for (i = 0; i < 3; i++)
+	{
+		if (r_refdef.vieworg[i] < mins[i] || r_refdef.vieworg[i] > maxs[i])
+			return 1.0f; // Outside bounds, full opacity
+	}
+
+	// View is inside expanded bounds - find nearest face and its axis
+	min_dist = 999999.0f;
+	nearest_axis = 0;
+	for (i = 0; i < 3; i++)
+	{
+		dist_to_min = r_refdef.vieworg[i] - mins[i];
+		dist_to_max = maxs[i] - r_refdef.vieworg[i];
+		nearest = q_min(dist_to_min, dist_to_max);
+		if (nearest < min_dist)
+		{
+			min_dist = nearest;
+			nearest_axis = i;
+		}
+	}
+
+	// Calculate fade distance as 50% of the way to center on that axis
+	half_size = (maxs[nearest_axis] - mins[nearest_axis]) * 0.5f;
+	fade_distance = half_size * 0.5f; // Fade completes at 50% to center
+
+	if (fade_distance <= 0.0f)
+		return 0.0f;
+
+	// min_dist is how far inside we are from the nearest face
+	// At boundary (min_dist ~= 0): alpha = 1.0
+	// At fade_distance inside (50% to center): alpha = 0.0
+	return CLAMP(0.0f, 1.0f - (min_dist / fade_distance), 1.0f);
+}
+
+/*
+=============
+R_DrawAliasModelOutline -- woods #routline
+=============
+*/
+void R_DrawAliasModelOutline(aliasglsl_t* glsl, aliashdr_t* paliashdr, lerpdata_t* lerpdata, entity_t* e)
+{
+	if (!(r_outline.value > 0 &&
+		!(cl.viewent.model == e->model) &&
+		!(nameInList(r_nooutline_list.string, e->model->name))))
+		return;
+
+	if (!strcmp(e->model->name, "progs/eyes.mdl"))
+	{
+		qboolean allow_outline = false;
+
+		if (cls.demoplayback) 
+			allow_outline = true;
+		else if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
+		{
+			char buf[16], buf2[16];
+			const char* obs, * star_obs;
+
+			obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "observer", buf, sizeof(buf));
+			star_obs = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "*observer", buf2, sizeof(buf2));
+
+			if (cl.modtype == 1 || cl.modtype == 4) // mods with observer keys
+			{
+				if ((strcmp(obs, "eyecam") == 0 || strcmp(star_obs, "eyecam") == 0) ||
+					(strcmp(obs, "chase") == 0 || strcmp(star_obs, "chase") == 0) ||
+					(strcmp(obs, "fly") == 0 || strcmp(star_obs, "fly") == 0) ||
+					(strcmp(obs, "walk") == 0 || strcmp(star_obs, "walk") == 0))
+				{
+					allow_outline = true;
+				}
+			}
+			else if (strcmp(cl.observer, "n") != 0) // general observer flag for legacy mods/servers
+				allow_outline = true;
+		}
+
+		if (!allow_outline)
+			return;
+	}
+
+	float outlineWidth = R_CalculateAliasModelOutlineWidth(paliashdr, e, lerpdata);
+
+	if (outlineWidth <= 0.0f)
+		return;
+
+	// Fade out outline as view enters entity bounds (noclip/fly only)
+	float boundsFade = 1.0f;
+	if (R_IsOutlineBoundsFadeEnabled())
+	{
+		boundsFade = R_GetEntityBoundsFadeFactor(e);
+		if (boundsFade <= 0.0f)
+			return;
+	}
+
+	// Configure stencil to only draw where stencil is not set by the model
+	glStencilFunc(GL_NOTEQUAL, 1, 0xFF); // Pass test where stencil is not 1
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // Keep the stencil buffer unchanged
+	glStencilMask(0x00); // Disable writing to the stencil buffer
+
+	// Disable depth writing to prevent depth buffer modifications
+	glDepthMask(GL_FALSE);
+	glDepthFunc(GL_LEQUAL);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	// Expand the vertices along normals for the outline
+	GL_Uniform1iFunc(glsl->isOutlinePassLoc, 1);
+	GL_Uniform1fFunc(glsl->outlineWidthLoc, outlineWidth);
+	float outlineColor[4] = { 0.0f, 0.0f, 0.0f, entalpha }; // Outline color
+
+	if (!strcmp(e->model->name, "progs/flag.mdl") && e->skinnum == 0)
+	{
+		outlineColor[0] = 1.0f; // Change red component
+		outlineColor[3] = 0.2f; // Change alpha component
+	}
+	else if (!strcmp(e->model->name, "progs/flag.mdl") && e->skinnum == 1)
+	{
+		outlineColor[2] = 1.0f; // Change blue component
+		outlineColor[3] = 0.2f; // Change alpha component
+	}
+	else if (!strcmp(e->model->name, "progs/quaddama.mdl"))
+	{
+		outlineColor[2] = 1.0f; // Change blue component
+		outlineColor[3] = 0.2f; // Change alpha component
+	}
+	else if (!strcmp(e->model->name, "progs/invulner.mdl"))
+	{
+		outlineColor[0] = 1.0f; // Change red component
+		outlineColor[3] = 0.2f; // Change alpha component
+	}
+	else if (!strcmp(e->model->name, "progs/invisibl.mdl"))
+	{
+		outlineColor[0] = 191.0f / 255.0f; // Change red component
+		outlineColor[1] = 160.0f / 255.0f; // Change green component
+		outlineColor[2] = 2.0f / 255.0f; // Change blue component
+		outlineColor[3] = 0.2f; // Change alpha component
+	}
+
+	// Apply bounds proximity fade
+	outlineColor[3] *= boundsFade;
+
+	GL_Uniform4fvFunc(glsl->outlineColorLoc, 1, outlineColor);
+
+	// Cull front faces to render back-facing triangles
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_FRONT);
+
+	// Render the outline
+	glDrawElements(GL_TRIANGLES, paliashdr->numindexes, GL_UNSIGNED_SHORT,
+		e->model->meshindexesvboptr + paliashdr->eboofs);
+
+	// Reset face culling
+	glCullFace(GL_BACK);
+	glDisable(GL_CULL_FACE);
+
+	// Reset depth mask and stencil mask
+	glDepthMask(GL_TRUE);
+	glStencilMask(0xFF);
+	glDepthRange(0, 1);
+
+	glDisable(GL_BLEND);
+}
+
+/*
+=============
+R_DrawViewmodelShell -- woods #powershell
+=============
+*/
+void R_DrawViewmodelShell(aliasglsl_t* glsl, aliashdr_t* paliashdr, lerpdata_t* lerpdata, entity_t* e)
+{
+	if (!r_coloredpowerupglow.value
+		|| gl_powerupshells.value <= 0.0f
+		|| gl_powerupshells.value > 1.0f
+		|| e != &cl.viewent
+		|| !(cl.items & (IT_QUAD | IT_INVULNERABILITY))
+		|| chase_active.value)
+	{
+		return;
+	}
+
+	float modelRadius;
+
+	if (paliashdr->boundingradius > 0) 
+	{
+		modelRadius = paliashdr->boundingradius;
+	}
+	else 
+	{ // Calculate approximate radius from scale
+		modelRadius = (paliashdr->scale[0] + paliashdr->scale[1] + paliashdr->scale[2]) / 3.0f;
+	}
+
+	float baseScale = 14.0f;
+	float inverseScale = baseScale * pow(15.0f / q_max(modelRadius, 1.0f), 1.6f);
+	float shellScale = CLAMP(0.08f, inverseScale, 8.0f);
+
+	glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	glEnable(GL_STENCIL_TEST);
+	glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	glStencilMask(0x00);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+	// Disable depth writing but enable depth test
+	glDepthMask(GL_FALSE);
+	glDepthFunc(GL_LEQUAL);
+
+	float waveAmp = 0.0f;      // Set to 0 to disable wave animation
+	float waveFreq = 0.0f;     // Not used when waveAmp is 0
+
+	const float kmax = 5.0f;
+	float alpha_knob = CLAMP(0.0f, gl_powerupshells_alpha.value, 1.0f);
+	float k = alpha_knob * kmax;
+	float shellAlpha = CLAMP(0.0f, 0.1f * k, 1.0f);
+
+	float shellColor[4] = { 0.0f, 0.0f, 0.0f, shellAlpha };
+
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value)
+	{
+		plcolour_t dhvalue = CL_PLColours_Parse(cl_damagehuecolor.string);
+		byte* dhuecolor = CL_PLColours_ToRGB(&dhvalue);
+		
+		shellColor[0] = dhuecolor[0] / 255.0f;
+		shellColor[1] = dhuecolor[1] / 255.0f;
+		shellColor[2] = dhuecolor[2] / 255.0f;
+	}
+	else
+	{
+	if ((cl.items & IT_QUAD) && (cl.items & IT_INVULNERABILITY))
+	{
+		shellColor[0] = 1.0f;  // Red
+		shellColor[2] = 1.0f;  // Blue
+	}
+	else if (cl.items & IT_QUAD)
+		shellColor[2] = 1.0f;  // Blue
+	else if (cl.items & IT_INVULNERABILITY)
+		shellColor[0] = 1.0f;  // Red
+	}
+
+	GL_Uniform1iFunc(glsl->shellModeLoc, 2);
+	GL_Uniform1iFunc(glsl->isOutlinePassLoc, 2);
+	GL_Uniform1fFunc(glsl->outlineWidthLoc, shellScale);
+	GL_Uniform4fFunc(glsl->outlineColorLoc, shellColor[0], shellColor[1], shellColor[2], shellAlpha);
+	GL_Uniform1fFunc(glsl->shellTimeLoc, 0); // Set to 0 to disable time-based effects
+	GL_Uniform4fFunc(glsl->shellWaveParamsLoc, waveAmp, waveFreq, 0.0f, 0.0f);
+
+	// Draw the shell
+	glDrawElements(GL_TRIANGLES, paliashdr->numindexes, GL_UNSIGNED_SHORT,
+		e->model->meshindexesvboptr + paliashdr->eboofs);
+
+	glPopAttrib();
+
+	// Reset shader uniforms
+	GL_Uniform1iFunc(glsl->isOutlinePassLoc, 0);
+	GL_Uniform1iFunc(glsl->shellModeLoc, 0);
+}
+
+static void ApplyShellEffect(aliasglsl_t* glsl, float red, float green, float blue, float time, float alpha) // -- woods #powershell
+{
+	GL_Uniform1iFunc(glsl->useShellTexLoc, 1);
+	GL_SelectTexture(GL_TEXTURE3);
+	GL_Bind(shelltexture);
+	GL_Uniform1fFunc(glsl->clTimeLoc, time);
+	GL_Uniform3fFunc(glsl->shellColorLoc, red, green, blue);
+	GL_Uniform1fFunc(glsl->shellAlphaLoc, alpha);
+}
+
+static void R_ApplyPowerupShellEffect(aliasglsl_t* glsl, entity_t* e) // -- woods #powershell
+{
+	GL_Uniform1iFunc(glsl->useShellTexLoc, 0);
+
+	if (!r_coloredpowerupglow.value || gl_powerupshells.value <= 0.0f || e != &cl.viewent || chase_active.value)
+		return;
+
+	if (cl.time <= cl.faceanimtime && cl_damagehue.value)
+	{
+		if (e == &cl.viewent && !chase_active.value)
+		{
+			if (r_coloredpowerupglow.value && gl_powerupshells.value <= 1)
+			{
+				float base = CLAMP(0.0f, gl_powerupshells.value, 1.0f);
+				const float kmax = 5.0f;
+				float alpha_knob = CLAMP(0.0f, gl_powerupshells_alpha.value, 1.0f);
+				float k = alpha_knob * kmax;
+				float shellAlpha = 1.0f - powf(1.0f - base, k);
+				if (shellAlpha <= 0.0001f)
+					return;
+				plcolour_t dhvalue = CL_PLColours_Parse(cl_damagehuecolor.string);
+				byte* dhuecolor = CL_PLColours_ToRGB(&dhvalue);
+				
+				// apply darker damage hue color to the shell
+				float red = dhuecolor[0] / 255.0f * 0.7f;
+				float green = dhuecolor[1] / 255.0f * 0.7f;
+				float blue = dhuecolor[2] / 255.0f * 0.7f;
+				
+				ApplyShellEffect(glsl, red, green, blue, cl.time, shellAlpha);
+			}
+		}
+	}
+	else
+	{
+		if (e == &cl.viewent && !chase_active.value)
+		{
+			if (r_coloredpowerupglow.value && gl_powerupshells.value <= 1)
+			{
+				float base = CLAMP(0.0f, gl_powerupshells.value, 1.0f);
+				const float kmax = 5.0f;
+				float alpha_knob = CLAMP(0.0f, gl_powerupshells_alpha.value, 1.0f);
+				float k = alpha_knob * kmax;
+				float shellAlpha = 1.0f - powf(1.0f - base, k);  // saturating boost
+				if (shellAlpha <= 0.0001f)
+					return;
+
+				if ((cl.items & IT_QUAD) && (cl.items & IT_INVULNERABILITY))
+					ApplyShellEffect(glsl, 1.0f, 0.0f, 1.0f, cl.time, shellAlpha);
+				else if (cl.items & IT_QUAD)
+					ApplyShellEffect(glsl, 0.0f, 0.0f, 1.0f, cl.time, shellAlpha);
+				else if (cl.items & IT_INVULNERABILITY)
+					ApplyShellEffect(glsl, 1.0f, 0.0f, 0.0f, cl.time, shellAlpha);
+			}
+		}
+	}
+}
+
+/*
+=============
+R_EndAliasOutlineRendering -- woods #routline
+=============
+*/
+void R_EndAliasOutlineRendering(void)
+{
+	// Restore the previous OpenGL state
+	glDisable(GL_STENCIL_TEST);
+	glPopAttrib();
 }
 
 /*
@@ -562,8 +1292,19 @@ static void GL_DrawAliasFrame_GLSL (aliasglsl_t *glsl, aliashdr_t *paliashdr, le
 	GL_Uniform1iFunc (glsl->useAlphaTestLoc, (currententity->model->flags & MF_HOLEY) ? 1 : 0);
 	GL_Uniform4fvFunc(glsl->colorTintLoc, countof(tints), tints[0]);	//colourmapping and glowmod.
 
+	R_BeginAliasOutlineRendering(glsl); // woods #routline
+
+	R_ApplyPowerupShellEffect(glsl, e); // woods #powershell
+
 // draw
 	glDrawElements (GL_TRIANGLES, paliashdr->numindexes, GL_UNSIGNED_SHORT, currententity->model->meshindexesvboptr+paliashdr->eboofs);
+
+	if (e != &cl.viewent)
+		R_DrawAliasModelOutline(glsl, paliashdr, &lerpdata, e); // woods #routline
+	else if (cl.items & (IT_QUAD | IT_INVULNERABILITY))
+		R_DrawViewmodelShell(glsl, paliashdr, &lerpdata, e); // woods #powershell
+
+	R_EndAliasOutlineRendering(); // woods #routline
 
 // clean up
 	GL_DisableVertexAttribArrayFunc (texCoordsAttrIndex);
@@ -1089,6 +1830,11 @@ void R_SetupEntityTransform (entity_t *e, lerpdata_t *lerpdata)
 		VectorCopy (e->origin, lerpdata->origin);
 		VectorCopy (e->angles, lerpdata->angles);
 	}
+
+	if (e->model && CL_ApplyModelRotation(e, lerpdata->angles, host_frametime)) // woods #clmrotate
+	{
+		e->effects &= ~EF_ROTATE; // EF_ROTATE already cleared server-side, but if mapper forgot
+	}
 }
 
 /*
@@ -1144,36 +1890,62 @@ void R_SetupAliasLighting (entity_t	*e)
 			}
 		}
 		
+		// woods #dedat -- for models on _list:  1 = greyscale: keep brightness, no hue, 2 = white-full: force` neutral shading
+		// viewmodel handling: -1 = greyscale for all models except viewmodels, -2 = greyscale for viewmodels, white-full for all other models
+
+		if (r_model_light_desat.value && e->model)
+		{
+			int desat_val = (int)r_model_light_desat.value;
+			qboolean listed = nameInList(r_model_light_desat_list.string, e->model->name);
+
+			/*  +1 / +2 → only models in list
+			 *  -1 / -2 → list OR the view-model                              */
+			if ((desat_val > 0 && listed)
+				|| (desat_val < 0 && (listed || e == &cl.viewent)))
+			{
+				int effect_type = 0;
+
+				if (desat_val > 0)                       /* +1 | +2 */
+					effect_type = desat_val;
+				else if (desat_val == -1 && e != &cl.viewent)
+					effect_type = 1;                       /* world greyscale */
+				else if (desat_val == -2)
+					effect_type = (e == &cl.viewent) ? 1   /* view-model grey */
+					: 2;   /* others white   */
+
+				if (effect_type)
+		{
+					switch (effect_type)
+			{
+					case 1: {   /* greyscale: drop hue, keep intensity */
+						float intensity = (lightcolor[0] + lightcolor[1] + lightcolor[2]) * (1.0f / 3.0f);
+						lightcolor[0] = lightcolor[1] = lightcolor[2] = intensity;
+						break;
+			}
+					case 2:      /* white full-bright */
+						lightcolor[0] = lightcolor[1] = lightcolor[2] = 255.0f;
+						break;
+		}
+				}
+			}
+		}
+
 		// minimum light value on gun (24)
 		if (e->eflags & EFLAGS_VIEWMODEL)
 		{
 			add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-			if (add > 0.0f)
-			{
-				lightcolor[0] += add / 3.0f;
-				lightcolor[1] += add / 3.0f;
-				lightcolor[2] += add / 3.0f;
+				if (add > 0.0f)
+				{
+					lightcolor[0] += add / 3.0f;
+					lightcolor[1] += add / 3.0f;
+					lightcolor[2] += add / 3.0f;
+				}
 			}
-		}
 
 		// minimum light value on players (8)
 		if (e > cl.entities && e <= cl.entities + cl.maxclients)
-		{
+			{
 			add = 24.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-			if (add > 0.0f)
-			{
-				lightcolor[0] += add / 3.0f;
-				lightcolor[1] += add / 3.0f;
-				lightcolor[2] += add / 3.0f;
-			}
-		}
-
-		// woods added minlight for models on list to avoid colored lighting blinding #obmodelslist
-		if (gl_overbright_models.value == 2)
-		{
-			if (e->model && (nameInList(gl_overbright_models_list.string, e->model->name)))
-			{
-				add = 2500.0f * gl_overbright_models_alpha.value - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
 				if (add > 0.0f)
 				{
 					lightcolor[0] += add / 3.0f;
@@ -1182,22 +1954,6 @@ void R_SetupAliasLighting (entity_t	*e)
 				}
 			}
 		}
-
-		// woods added minlight for all models to avoid colored lighting blinding (but keep viewmodel lighting) #obmodelslist
-		if (gl_overbright_models.value == 3 && nameInList(gl_overbright_models_list.string, e->model->name))
-		{
-			if ((e->model) && (e != &cl.viewent))
-			{
-				add = 2000.0f * gl_overbright_models_alpha.value - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-				if (add > 0.0f)
-				{
-					lightcolor[0] += add / 3.0f;
-					lightcolor[1] += add / 3.0f;
-					lightcolor[2] += add / 3.0f;
-				}
-			}
-		}
-	}
 	
 	// begin woods for hue damage taken #damage
 
@@ -1213,40 +1969,85 @@ void R_SetupAliasLighting (entity_t	*e)
 
 	// end woods for damage taken
 
-	// begin woods add hue to gun model with powerups
+	// begin woods add hue to gun model with powerups, simple #powershell value of 1 to 2
 
 	if (!(cl.time <= cl.faceanimtime && cl_damagehue.value))
-	{ 
-		if ((cl.gametype == GAME_DEATHMATCH) && r_coloredpowerupglow.value)
+	{
+		if (r_coloredpowerupglow.value && gl_powerupshells.value)
 		{
-			if (cl.items & IT_QUAD)
-				if (e == &cl.viewent)
+			if (e == &cl.viewent && (cl.items & (IT_QUAD | IT_INVULNERABILITY)))
+			{
+			float alpha;
+				float t;
+
+			if (gl_powerupshells.value <= 1.0f)
+			{
+				if (shelltexture)
 				{
-					{
-						lightcolor[0] = 50;
-						lightcolor[1] = 50;
-						lightcolor[2] = 121;
-					}
+					// Original behavior for shell effect
+						alpha = 0.95f;
+				}
+				else
+				{
+						// Treat 0..1 similarly to 1..2 for non-shell
+						t = CLAMP(gl_powerupshells.value, 0.0f, 1.0f);
+					alpha = t * t * (3.0f - 2.0f * t);
+				}
+			}
+				else
+			{
+					// Map 1..2 -> 0..1 then ease
+					t = CLAMP((gl_powerupshells.value - 1.0f) / (2.0f - 1.0f), 0.0f, 1.0f);
+					alpha = t * t * (3.0f - 2.0f * t);
 				}
 
-			if (cl.items & IT_INVULNERABILITY)
-				if (e == &cl.viewent)
 				{
-					{
-						lightcolor[0] = 131;
-						lightcolor[1] = 73;
-						lightcolor[2] = 73;
-					}
+					const float kmax = 5.0f;
+					float alpha_knob = CLAMP(0.0f, gl_powerupshells_alpha.value, 1.0f);
+					float k = alpha_knob * kmax;
+					float a = CLAMP(alpha, 0.0f, 1.0f);
+					alpha = 1.0f - powf(1.0f - a, k);
+			}
+
+				// Pick a single tint to apply (no triple-blend)
+				vec3_t tint = { 0, 0, 0 };
+				if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
+				{
+					// both
+					tint[0] = 211.0f; tint[1] = 113.0f; tint[2] = 194.0f;
+				}
+				else if (cl.items & IT_QUAD)
+				{
+					// quad
+					tint[0] = 50.0f; tint[1] = 50.0f; tint[2] = 121.0f;
+				}
+				else
+				{
+					// invulnerability
+					tint[0] = 131.0f; tint[1] = 73.0f; tint[2] = 73.0f;
 				}
 
-			if ((cl.items & (IT_QUAD | IT_INVULNERABILITY)) == (IT_QUAD | IT_INVULNERABILITY))
-				if (e == &cl.viewent)
+				// Blend toward tint in RGB
+				lightcolor[0] = lightcolor[0] * (1.0f - alpha) + tint[0] * alpha;
+				lightcolor[1] = lightcolor[1] * (1.0f - alpha) + tint[1] * alpha;
+				lightcolor[2] = lightcolor[2] * (1.0f - alpha) + tint[2] * alpha;
+
+				// Saturation push around luma. Reuse k derived from alpha knob (k=alpha*5).
 				{
-					{
-						lightcolor[0] = 211;
-						lightcolor[1] = 113;
-						lightcolor[2] = 194;
-					}
+					const float kmax = 5.0f;
+					float alpha_knob = CLAMP(0.0f, gl_powerupshells_alpha.value, 1.0f);
+					float k = alpha_knob * kmax;
+					float Y = 0.299f * lightcolor[0] + 0.587f * lightcolor[1] + 0.114f * lightcolor[2];
+					float satmul = 1.0f + (k - 1.0f);
+
+					lightcolor[0] = Y + (lightcolor[0] - Y) * satmul;
+					lightcolor[1] = Y + (lightcolor[1] - Y) * satmul;
+					lightcolor[2] = Y + (lightcolor[2] - Y) * satmul;
+
+					lightcolor[0] = CLAMP(0.0f, lightcolor[0], 255.0f);
+					lightcolor[1] = CLAMP(0.0f, lightcolor[1], 255.0f);
+					lightcolor[2] = CLAMP(0.0f, lightcolor[2], 255.0f);
+				}
 				}
 		}
 	}
@@ -1376,8 +2177,13 @@ void R_DrawAliasModel (entity_t *e)
 
 	// end double eyes / woods
 
-	if (!strcmp(clmodel->name, "progs/bolt2.mdl"))   // woods for lighting alpha #lightalpha
-		currententity->alpha = ENTALPHA_ENCODE(gl_lightning_alpha.value); 
+	if (!strcmp(clmodel->name, "progs/bolt.mdl") ||
+		!strcmp(clmodel->name, "progs/bolt2.mdl") ||
+		!strcmp(clmodel->name, "progs/bolt3.mdl"))   // woods for lighting alpha #lightalpha
+	{
+		float lightning_alpha = R_LightningAlphaForModel(clmodel);
+		currententity->alpha = (lightning_alpha <= 0.0f) ? ENTALPHA_ZERO : ENTALPHA_ENCODE(lightning_alpha);
+	}
 	
 	//
 	// random stuff
@@ -1460,7 +2266,7 @@ void R_DrawAliasModel (entity_t *e)
 				if (tex.base && tex.base->source_format == SRC_INDEXED && !tex.upper && !tex.lower)
 				{
 					scoreboard_t* sb = &cl.scores[e->netstate.colormap - 1];
-					struct gltexture_s* t;
+					struct gltexture_s* t = NULL; // woods
 
 					// woods force colors #enemycolors
 
@@ -1473,7 +2279,7 @@ void R_DrawAliasModel (entity_t *e)
 					qboolean isSelf = sb->userinfo == cl.scores[cl.viewentity - 1].userinfo;
 
 
-					if ((isTeamColorSet || isEnemyColorSet) && !cls.demoplayback && !isSelf) // woods #enemycolors, do we run it?
+                if ((isTeamColorSet || isEnemyColorSet) && !cls.demoplayback && !isSelf && key_dest != key_menu) // woods #enemycolors, do we run it?
 					{
 						if (isTeamColorSet && !isEnemyColorSet) // team color active, enemy blank
 							t = isSamePants ? TexMgr_ColormapTexture(tex.base, team, team) : TexMgr_ColormapTexture(tex.base, sb->pants, sb->shirt);

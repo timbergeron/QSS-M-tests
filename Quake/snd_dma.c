@@ -109,12 +109,13 @@ cvar_t		snd_filterquality = {"snd_filterquality", SND_FILTERQUALITY_DEFAULT,
 								 CVAR_NONE};
 
 static	cvar_t	nosound = {"nosound", "0", CVAR_NONE};
-static	cvar_t	ambient_level = {"ambient_level", "0.3", CVAR_ARCHIVE};
+cvar_t	ambient_level = {"ambient_level", "0.3", CVAR_ARCHIVE}; // woods  - remove static
 static	cvar_t	ambient_fade = {"ambient_fade", "100", CVAR_NONE};
 static	cvar_t	snd_noextraupdate = {"snd_noextraupdate", "0", CVAR_NONE};
 static	cvar_t	snd_show = {"snd_show", "0", CVAR_NONE};
 static	cvar_t	_snd_mixahead = {"_snd_mixahead", "0.1", CVAR_ARCHIVE};
 
+extern char mute[2]; // woods #usermute #mute
 
 static void S_SoundInfo_f (void)
 {
@@ -137,6 +138,8 @@ static void S_SoundInfo_f (void)
 static void SND_Callback_sfxvolume (cvar_t *var)
 {
 	SND_InitScaletable ();
+	if (!strcmp(mute, "y")) // woods #usermute #mute
+		Sound_Toggle_Mute_f();
 }
 
 static void SND_Callback_snd_filterquality (cvar_t *var)
@@ -180,12 +183,28 @@ void S_Restart_f(void)
 {
 	sfx_t *s;
 	size_t i;
-	int oldspeed = shm->speed;
+	int oldspeed;
+
 	if (!snd_initialized)
 		return;
-	S_Shutdown();
-	S_Startup ();
-	S_CodecInit ();
+
+	oldspeed = shm ? shm->speed : 0;
+
+	if (sound_started)
+	{
+		sound_started = 0;
+		snd_blocked = 0;
+		SNDDMA_Shutdown();
+		shm = NULL;
+	}
+
+	S_Startup();
+
+	if (!sound_started || !shm)
+	{
+		Con_Printf("S_Restart_f: Failed to restart sound system\n");
+		return;
+	}
 
 	paintedtime = soundtime;
 	//we changed the sound time and probably the rates too...
@@ -199,7 +218,7 @@ void S_Restart_f(void)
 	s_rawend = 0;	//clear any music too...
 
 	//reload any sounds if their rates changed.
-	if (shm->speed != oldspeed)
+	if (oldspeed != 0 && shm->speed != oldspeed)
 	{
 		for (i = 0; i < num_sfx; i++)
 		{
@@ -208,6 +227,12 @@ void S_Restart_f(void)
 				Cache_Free(&s->cache, false);
 		}
 	}
+}
+
+void BGM_Volume_Callback_f (cvar_t* var) // woods #usermute #mute
+{
+	if (!strcmp(mute, "y"))
+		Sound_Toggle_Mute_f();
 }
 
 /*
@@ -230,6 +255,7 @@ void S_Init (void)
 	Cvar_RegisterVariable(&precache);
 	Cvar_RegisterVariable(&loadas8bit);
 	Cvar_RegisterVariable(&bgmvolume);
+	Cvar_SetCallback(&bgmvolume, &BGM_Volume_Callback_f); // woods #usermute #mute
 	Cvar_RegisterVariable(&ambient_level);
 	Cvar_RegisterVariable(&ambient_fade);
 	Cvar_RegisterVariable(&snd_noextraupdate);
@@ -253,7 +279,7 @@ void S_Init (void)
 	Cmd_AddCommand("stopsound", S_StopAllSoundsC);
 	Cmd_AddCommand("soundlist", S_SoundList);
 	Cmd_AddCommand("soundinfo", S_SoundInfo_f);
-//	Cmd_AddCommand("snd_restart", S_Restart_f);
+	Cmd_AddCommand("snd_restart", S_Restart_f);
 	Cmd_AddCommand("mute", Sound_Toggle_Mute_f); // woods #usermute
 
 	i = COM_CheckParm("-sndspeed");
@@ -518,7 +544,7 @@ void S_StartSound (int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float 
 	int			ch_idx; // woods (iw) #democontrols
 	int			skip; // woods (iw) #democontrols
 
-	if (abs(cls.demospeed) > 8) // woods (iw) #democontrols
+	if (fabsf(cls.demospeed) > 8) // woods (iw) #democontrols
 		return;
 
 	if (!sound_started)
@@ -608,7 +634,7 @@ void S_StopSound (int entnum, int entchannel)
 {
 	int	i;
 
-	for (i = 0; i < MAX_DYNAMIC_CHANNELS; i++)
+	for (i = NUM_AMBIENTS; i < NUM_AMBIENTS + MAX_DYNAMIC_CHANNELS; i++) // woods
 	{
 		if (snd_channels[i].entnum == entnum
 			&& snd_channels[i].entchannel == entchannel)
@@ -661,7 +687,8 @@ void S_ClearBuffer (void)
 	else
 		clear = 0;
 
-	memset(shm->buffer, clear, shm->samples * shm->samplebits / 8);
+	memset (shm->buffer, clear, shm->samples * shm->samplebits / 8);
+	memset (s_rawsamples, 0, sizeof (s_rawsamples));
 
 	SNDDMA_Submit ();
 }

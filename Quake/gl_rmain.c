@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "glquake.h"
+#include <math.h> // woods #beamspoly
 
 vec3_t		modelorg, r_entorigin;
 
@@ -52,6 +53,7 @@ extern byte* SV_FatPVS (vec3_t org, qmodel_t* worldmodel); // woods #iwshowbboxe
 extern qboolean SV_EdictInPVS (edict_t* test, byte* pvs); // woods #iwshowbboxes
 extern qboolean SV_BoxInPVS (vec3_t mins, vec3_t maxs, byte* pvs, mnode_t* node); // woods #iwshowbboxes
 extern char	skybox_name[1024]; // woods -- #fastsky2
+extern qboolean externalskyloaded; // woods #fastsky2
 
 //
 // screen size info
@@ -75,6 +77,7 @@ cvar_t	r_fullbright = {"r_fullbright","0",CVAR_NONE};
 cvar_t	r_lightmap = {"r_lightmap","0",CVAR_ARCHIVE};
 cvar_t	r_shadows = {"r_shadows","0",CVAR_ARCHIVE};
 cvar_t	r_shadows_groundcheck = {"r_shadows_groundcheck","1",CVAR_ARCHIVE}; // woods #shadow
+cvar_t	r_shadows_bmodels = {"r_shadows_bmodels","0",CVAR_ARCHIVE}; // woods #shadow
 cvar_t	r_wateralpha = {"r_wateralpha","1",CVAR_ARCHIVE};
 cvar_t	r_dynamic = {"r_dynamic","1",CVAR_ARCHIVE};
 cvar_t	r_novis = {"r_novis","0",CVAR_ARCHIVE};
@@ -92,6 +95,9 @@ cvar_t	gl_enemycolor = {"gl_enemycolor","",CVAR_ARCHIVE}; // woods #enemycolors
 cvar_t	gl_teamcolor = { "gl_teamcolor","",CVAR_ARCHIVE}; // woods #enemycolors
 cvar_t	gl_laserpoint = {"gl_laserpoint","0", CVAR_ARCHIVE }; // woods #laser
 cvar_t	gl_laserpoint_alpha = { "gl_laserpoint_alpha",".3", CVAR_ARCHIVE }; // woods #laser
+cvar_t	gl_powerupshells = {"gl_powerupshells","1",CVAR_ARCHIVE}; // woods #powershell
+cvar_t  gl_powerupshells_alpha = {"gl_powerupshells_alpha", "0.3"}; // woods #powershell
+cvar_t	gl_motion_blur = {"gl_motion_blur", "0", CVAR_ARCHIVE}; // woods #motionblur
 
 //johnfitz -- new cvars
 cvar_t	r_stereo = {"r_stereo","0",CVAR_NONE};
@@ -102,9 +108,10 @@ cvar_t	r_flatlightstyles = {"r_flatlightstyles", "0", CVAR_NONE};
 cvar_t	gl_fullbrights = {"gl_fullbrights", "1", CVAR_ARCHIVE};
 cvar_t	gl_farclip = {"gl_farclip", "16384", CVAR_ARCHIVE};
 cvar_t	gl_overbright = {"gl_overbright", "1", CVAR_ARCHIVE};
-cvar_t	gl_overbright_models = {"gl_overbright_models", "2", CVAR_ARCHIVE};
-cvar_t	gl_overbright_models_alpha = {"gl_overbright_models_alpha", "1", CVAR_ARCHIVE}; // woods #obmodelslist
-cvar_t	gl_overbright_models_list = {"gl_overbright_models_list", "progs/armor.mdl,progs/backpack.mdl,progs/bolt.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/end1.mdl,progs/end2.mdl,progs/end3.mdl,progs/end4.mdl,progs/eyes.mdl,progs/g_light.mdl,progs/g_nail.mdl,progs/g_nail2.mdl,progs/g_rock.mdl,progs/g_rock2.mdl,progs/g_shot.mdl,progs/grenade.mdl,progs/invisibl.mdl,progs/invulner.mdl,progs/missile.mdl,progs/player.mdl,progs/quaddama.mdl,progs/s_spike.mdl,progs/spike.mdl,progs/v_axe.mdl,progs/v_light.mdl,progs/v_nail.mdl,progs/v_nail2.mdl,progs/v_rock.mdl,progs/v_rock2.mdl,progs/v_shot.mdl,progs/v_shot2.mdl,progs/v_spike.mdl,progs/w_spike.mdl,progs/bit.mdl,progs/flag.mdl,progs/flag2.mdl,progs/flag3.mdl,progs/ctfmodel.mdl,progs/star.mdl,progs/v_star.mdl", CVAR_ARCHIVE}; // woods #obmodelslist
+cvar_t	gl_caustics = {"gl_caustics", ".5", CVAR_ARCHIVE}; // woods #caustics
+cvar_t	gl_overbright_models = {"gl_overbright_models", "1", CVAR_ARCHIVE};
+cvar_t	r_model_light_desat = {"r_model_light_desat", "-2", CVAR_ARCHIVE}; // woods #dedat
+cvar_t	r_model_light_desat_list = {"r_models_light_desat_list", "progs/armor.mdl,progs/backpack.mdl,progs/bolt.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/end1.mdl,progs/end2.mdl,progs/end3.mdl,progs/end4.mdl,progs/eyes.mdl,progs/g_light.mdl,progs/g_nail.mdl,progs/g_nail2.mdl,progs/g_rock.mdl,progs/g_rock2.mdl,progs/g_shot.mdl,progs/grenade.mdl,progs/invisibl.mdl,progs/invulner.mdl,progs/missile.mdl,progs/player.mdl,progs/quaddama.mdl,progs/s_spike.mdl,progs/spike.mdl,progs/w_spike.mdl,progs/bit.mdl,progs/flag.mdl,progs/flag2.mdl,progs/flag3.mdl,progs/ctfmodel.mdl,progs/star.mdl", CVAR_ARCHIVE}; // woods #dedat
 cvar_t	r_oldskyleaf = {"r_oldskyleaf", "0", CVAR_NONE};
 cvar_t	r_drawworld = {"r_drawworld", "1", CVAR_NONE};
 cvar_t	r_showtris = {"r_showtris", "0", CVAR_NONE};
@@ -115,6 +122,11 @@ cvar_t	r_lerpmodels = {"r_lerpmodels", "1", CVAR_ARCHIVE};
 cvar_t	r_lerpmove = {"r_lerpmove", "1", CVAR_ARCHIVE};
 cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs/braztall.mdl,progs/brazshrt.mdl,progs/longtrch.mdl,progs/flame_pyre.mdl,progs/v_saw.mdl,progs/v_xfist.mdl,progs/h2stuff/newfire.mdl", CVAR_ARCHIVE};
 cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,progs/bolt1.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/laser.mdl", CVAR_ARCHIVE};
+cvar_t	r_nooutline_list = {"r_nooutline_list", "progs/bolt1.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/bit.mdl, progs/star.mdl", CVAR_ARCHIVE}; // woods #routline
+cvar_t	r_outline = {"r_outline", "0", CVAR_ARCHIVE}; // woods #routline
+#ifdef MACBOOK_ARM_HACK // woods #collinear
+cvar_t	r_remove_collinear_vertices = {"r_remove_collinear_vertices", "0", CVAR_ARCHIVE};
+#endif
 
 extern cvar_t	r_vfog;
 //johnfitz
@@ -128,6 +140,7 @@ cvar_t	r_slimealpha = {"r_slimealpha","0",CVAR_ARCHIVE};
 cvar_t	trace_any = {"trace_any","0",CVAR_NONE}; // woods #tracers
 cvar_t	trace_any_contains = {"trace_any_contains","item_artifact_super_damage",CVAR_NONE}; // woods #tracers
 cvar_t	r_drawflame = {"r_drawflame","1",CVAR_ARCHIVE}; // woods #drawflame
+cvar_t	r_alphasort = {"r_alphasort", "1", CVAR_ARCHIVE}; // woods #alphasort
 
 float	map_wateralpha, map_lavaalpha, map_telealpha, map_slimealpha;
 float	map_fallbackalpha;
@@ -138,6 +151,7 @@ extern int ogflagprecache, swapflagprecache, swapflagprecache2, swapflagprecache
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
 
 cvar_t	r_scale = {"r_scale", "1", CVAR_ARCHIVE};
+cvar_t	r_ambient = {"r_ambient", "0", CVAR_ARCHIVE}; // woods #rambient
 
 void LaserSight(void);
 
@@ -147,6 +161,9 @@ void LaserSight(void);
 // GLSL GAMMA CORRECTION
 //
 //==============================================================================
+
+static gltexture_t *r_lightningbeam_texture = NULL; // woods #beamspoly
+static float r_lightningbeam_scroll = 0.0f; // woods #beamspoly
 
 static GLuint r_gamma_texture;
 static GLuint r_gamma_program;
@@ -296,6 +313,119 @@ void GLSLGamma_GammaCorrect (void)
 }
 
 /*
+=============
+R_RenderSceneBlur -- woods - sourced from Qrack #motionblur
+
+Applies motion blur effect by overlaying the previous frame
+=============
+*/
+static GLenum sceneblur_internal_format = GL_RGB8; // or GL_RGBA8 if you add alpha
+static GLuint sceneblur_texture = 0; // woods #motionblur
+static int sceneblur_texture_width = 0, sceneblur_texture_height = 0; // woods #motionblur
+
+void R_RenderSceneBlur(float alpha)
+{
+	if (alpha <= 0.0f) return;
+
+	alpha = CLAMP(0.0f, alpha, 0.95f);
+
+	int tgt_w, tgt_h;
+
+	if (gl_texture_NPOT) {
+		tgt_w = glwidth;
+		tgt_h = glheight;
+	}
+	else {
+		tgt_w = 1; while (tgt_w < glwidth)  tgt_w <<= 1;
+		tgt_h = 1; while (tgt_h < glheight) tgt_h <<= 1;
+	}
+
+	if (!sceneblur_texture)
+		glGenTextures(1, &sceneblur_texture);
+
+	GL_DisableMultitexture();
+	glBindTexture(GL_TEXTURE_2D, sceneblur_texture);
+
+	if (sceneblur_texture_width != tgt_w ||
+		sceneblur_texture_height != tgt_h)
+	{
+		// Optional shrink heuristic: if window shrank a lot, reallocate.
+		sceneblur_texture_width = tgt_w;
+		sceneblur_texture_height = tgt_h;
+		glTexImage2D(GL_TEXTURE_2D, 0, sceneblur_internal_format,
+			tgt_w, tgt_h, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	}
+
+	float s = (float)glwidth / sceneblur_texture_width;
+	float t = (float)glheight / sceneblur_texture_height;
+
+	// Save + modify minimal state
+	GLboolean depthWas = glIsEnabled(GL_DEPTH_TEST);
+	GLboolean cullWas = glIsEnabled(GL_CULL_FACE);
+	GLboolean alphaTestWas = glIsEnabled(GL_ALPHA_TEST);
+
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_ALPHA_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glColor4f(1.f, 1.f, 1.f, alpha);
+
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, glwidth, 0, glheight, -1, 1);
+
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0.f, 0.f); glVertex2f(0.f, 0.f);
+	glTexCoord2f(s, 0.f); glVertex2f((GLfloat)glwidth, 0.f);
+	glTexCoord2f(s, t);   glVertex2f((GLfloat)glwidth, (GLfloat)glheight);
+	glTexCoord2f(0.f, t);   glVertex2f(0.f, (GLfloat)glheight);
+	glEnd();
+
+	// Restore
+	glPopMatrix(); // modelview
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+
+	glDisable(GL_BLEND);
+	if (alphaTestWas) glEnable(GL_ALPHA_TEST);
+	if (cullWas)      glEnable(GL_CULL_FACE);
+	if (depthWas)     glEnable(GL_DEPTH_TEST);
+	glColor4f(1.f, 1.f, 1.f, 1.f);
+
+	// Update history texture
+	glBindTexture(GL_TEXTURE_2D, sceneblur_texture);
+	glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, glx, gly, glwidth, glheight);
+}
+
+
+/*
+=============
+R_MotionBlur_DeleteTexture
+=============
+*/
+void R_MotionBlur_DeleteTexture (void) // woods #motionblur
+{
+	if (sceneblur_texture)
+	{
+		glDeleteTextures (1, &sceneblur_texture);
+		sceneblur_texture = 0;
+		sceneblur_texture_width = 0;
+		sceneblur_texture_height = 0;
+	}
+}
+
+/*
 =================
 R_CullBox -- johnfitz -- replaced with new function from lordhavoc
 
@@ -324,12 +454,11 @@ qboolean R_CullBox (vec3_t emins, vec3_t emaxs)
 
 /*
 ===============
-R_CullModelForEntity -- johnfitz -- uses correct bounds based on rotation
+R_GetEntityBounds -- woods - factor out entity bounds from R_CullModelForEntity #alphasort
 ===============
 */
-qboolean R_CullModelForEntity (entity_t *e)
+void R_GetEntityBounds (const entity_t *e, vec3_t mins, vec3_t maxs)
 {
-	vec3_t mins, maxs;
 	vec_t scalefactor, *minbounds, *maxbounds;
 
 	if (e->angles[0] || e->angles[2]) //pitch or roll
@@ -351,14 +480,28 @@ qboolean R_CullModelForEntity (entity_t *e)
 	scalefactor = ENTSCALE_DECODE(e->netstate.scale);
 	if (scalefactor != 1.0f)
 	{
-		VectorMA (e->origin, scalefactor, minbounds, mins);
-		VectorMA (e->origin, scalefactor, maxbounds, maxs);
+		VectorScale(minbounds, scalefactor, mins);
+		VectorScale(maxbounds, scalefactor, maxs);
+		VectorAdd(e->origin, mins, mins);
+		VectorAdd(e->origin, maxs, maxs);
 	}
 	else
 	{
 		VectorAdd (e->origin, minbounds, mins);
 		VectorAdd (e->origin, maxbounds, maxs);
 	}
+}
+
+/*
+===============
+R_CullModelForEntity -- johnfitz -- uses correct bounds based on rotation -- woods #alphasort
+===============
+*/
+qboolean R_CullModelForEntity (entity_t *e)
+{
+	vec3_t mins, maxs;
+
+	R_GetEntityBounds (e, mins, maxs);
 
 	return R_CullBox (mins, maxs);
 }
@@ -598,6 +741,7 @@ void R_SetupView (void)
 	R_AnimateLight ();
 
 	Fog_SetupFrame (); //johnfitz
+	Skywind_SetupFrame();
 
 // build the transformation matrix for the given view angles
 	VectorCopy (r_refdef.vieworg, r_origin);
@@ -688,90 +832,295 @@ void R_SetupView (void)
 
 /*
 =============
-R_DrawEntitiesOnList
+R_ShouldDrawEntity -- woods #alphasort
+=============
+*/
+static qboolean R_ShouldDrawEntity(entity_t *ent, qboolean alphapass)
+{
+	qboolean is_translucent;
+
+	//spike -- this would be more efficient elsewhere, but its more correct here.
+	if (ent->eflags & EFLAGS_EXTERIORMODEL)
+		return false;
+	if (!ent->model || ent->model->needload)
+		return false;
+
+	if (!r_drawflame.value) // woods
+		if (!strcmp(ent->model->name, "progs/flame.mdl") || !strcmp(ent->model->name, "progs/flame2.mdl"))
+			return false;
+
+	// Determine if entity should be treated as translucent for sorting purposes -- woods #alphasort
+	// Original behavior: only alpha < 1 triggers alpha pass
+	is_translucent = (ENTALPHA_DECODE(ent->alpha) < 1);
+
+	// Extended checks only when r_alphasort is enabled
+	if (r_alphasort.value && !is_translucent)
+	{
+		// Check for additive blend mode
+		if (ent->effects & EF_ADDITIVE)
+			is_translucent = true;
+
+		// Check for alpha-textured sprites (TEXPREF_ALPHA flag on sprite texture)
+		if (!is_translucent && ent->model->type == mod_sprite)
+		{
+			mspriteframe_t *pframe = R_GetSpriteFrame(ent);
+			if (pframe && pframe->gltexture && (pframe->gltexture->flags & TEXPREF_ALPHA))
+				is_translucent = true;
+		}
+	}
+
+	// alpha/nonalpha split
+	if (alphapass)
+	{
+		// Process only translucent entities
+		if (!is_translucent)
+			return false;
+	}
+	else
+	{
+		// Process only opaque entities
+		if (is_translucent)
+			return false;
+	}
+
+	return true;
+}
+
+/*
+=============
+R_CheckFlagSwap -- woods #alphasort
+=============
+*/
+static void R_CheckFlagSwap(entity_t *ent)
+{
+	if (ent->model->type != mod_alias)
+		return;
+
+	if (swapflagprecache && map_ctf_flag_style == 2 && !strcmp(ent->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+	{
+		if (ent->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
+		{
+			ent->syncbase = 0;
+			ent->model->flags = MOD_NOLERP | MOD_NOSHADOW;
+			ent->model = cl.model_precache[swapflagprecache]; // roque
+		}
+	}
+	else if (swapflagprecache2 && map_ctf_flag_style == 3 && !strcmp(ent->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+	{
+		if (ent->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
+		{
+			ent->syncbase = 0;
+			ent->model->flags = MOD_NOLERP | MOD_NOSHADOW;
+			ent->model = cl.model_precache[swapflagprecache2]; // alt1 (flag2.mdl)
+		}
+	}
+	else if (swapflagprecache3 && map_ctf_flag_style == 4 && !strcmp(ent->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
+	{
+		if (ent->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
+		{
+			ent->syncbase = 0;
+			ent->model->flags = MOD_NOLERP | MOD_NOSHADOW;
+			ent->model = cl.model_precache[swapflagprecache3]; // alt2 (flag3.mdl)
+		}
+	}
+}
+
+/*
+=============
+R_DrawEntityModel -- woods #alphasort
+Helper function to render an entity based on its model type.
+Reduces code duplication between alpha and non-alpha rendering paths.
+=============
+*/
+static void R_DrawEntityModel(entity_t *ent)
+{
+	switch (ent->model->type)
+	{
+	case mod_alias:
+		R_CheckFlagSwap(ent);
+		R_DrawAliasModel(ent);
+		break;
+	case mod_brush:
+		R_DrawBrushModel(ent);
+		break;
+	case mod_sprite:
+		R_DrawSpriteModel(ent);
+		break;
+	case mod_ext_invalid:
+		break;
+	}
+}
+
+/*
+=============
+R_CalculateEntityDistance -- woods #alphasort
+Calculate distance from viewpoint to entity for depth sorting.
+Brush/alias models use nearest point on AABB for accurate large-model sorting.
+Sprites use origin for simplicity.
+=============
+*/
+static float R_CalculateEntityDistance(entity_t *ent)
+{
+	if (ent->model->type == mod_brush || ent->model->type == mod_alias)
+	{
+		// Use nearest point on AABB to view origin, projected onto view direction
+		// This gives accurate sorting for large models that cross the view plane
+		vec3_t mins, maxs;
+		float dist = 0.f;
+		int j;
+
+		R_GetEntityBounds(ent, mins, maxs);
+		for (j = 0; j < 3; j++)
+			dist += (CLAMP(mins[j], r_refdef.vieworg[j], maxs[j]) - r_refdef.vieworg[j]) * vpn[j];
+		return dist;
+	}
+	else
+	{
+		// Simple origin-based distance for sprites and other types
+		vec3_t delta;
+		VectorSubtract(ent->origin, r_refdef.vieworg, delta);
+		return DotProduct(delta, vpn);
+	}
+}
+
+/*
+=============
+CompareAlphaEntities -- woods #alphasort
+=============
+*/
+typedef struct
+{
+	entity_t *ent;
+	float dist;
+} sortable_entity_t;
+
+static int CompareAlphaEntities(const void* a, const void* b)
+{
+	const sortable_entity_t* entA = (const sortable_entity_t*)a;
+	const sortable_entity_t* entB = (const sortable_entity_t*)b;
+
+	if (entA->dist > entB->dist) return -1;
+	if (entA->dist < entB->dist) return 1;
+
+	// Stable tie-breaker: use entity pointer address to avoid flickering -- woods #alphasort
+	// Cast to uintptr_t to avoid UB when comparing pointers from different allocations
+	if ((uintptr_t)entA->ent > (uintptr_t)entB->ent) return -1;
+	if ((uintptr_t)entA->ent < (uintptr_t)entB->ent) return 1;
+	return 0;
+}
+
+/*
+=============
+R_DrawEntitiesOnList -- woods #alphasort
+Renders visible entities with optional depth sorting for alpha transparency.
+
+Performance notes:
+- Non-alpha pass: O(n) iteration
+- Alpha pass with sorting: O(n) collection + O(n log n) sort + O(n) render
+- Brush/alias use AABB distance, sprites use origin-based distance
+- Renders back-to-front for correct alpha blending
 =============
 */
 void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 {
 	int		i;
+	static sortable_entity_t sorted_ents[MAX_EDICTS];
+	int num_sorted = 0;
+	int count = cl_numvisedicts;
+
+	//johnfitz -- optimized zero-check
+	if (count == 0)
+		return;
 
 	if (!r_drawentities.value)
 		return;
 
 	//johnfitz -- sprites are not a special case
-	for (i=0 ; i<cl_numvisedicts ; i++)
+	
+	// Alpha pass with depth sorting enabled
+	if (alphapass && r_alphasort.value) // woods #alphasort
 	{
-		currententity = cl_visedicts[i];
+		// Static array, no allocation needed
+		if (count > MAX_EDICTS)
+			count = MAX_EDICTS; // Safety clamp
 
-		//johnfitz -- if alphapass is true, draw only alpha entites this time
-		//if alphapass is false, draw only nonalpha entities this time
-		if ((ENTALPHA_DECODE(currententity->alpha) < 1 && !alphapass) ||
-			(ENTALPHA_DECODE(currententity->alpha) == 1 && alphapass))
-			continue;
+		// Collect and calculate distances for all translucent entities
+		for (i = 0; i < count; i++)
+		{
+			currententity = cl_visedicts[i];
 
-		//johnfitz -- chasecam
-		if (currententity == &cl.entities[cl.viewentity])
-			currententity->angles[0] *= 0.3;
-		//johnfitz
-
-		//spike -- this would be more efficient elsewhere, but its more correct here.
-		if (currententity->eflags & EFLAGS_EXTERIORMODEL)
-			continue;
-		if (!currententity->model || currententity->model->needload)
-			continue;
-
-		if (!r_drawflame.value) // woods
-			if (!strcmp(currententity->model->name, "progs/flame.mdl") || !strcmp(currententity->model->name, "progs/flame2.mdl"))
+			if (!R_ShouldDrawEntity(currententity, true))
 				continue;
 
-		switch (currententity->model->type)
+			// Store entity and distance for sorting
+			sorted_ents[num_sorted].ent = currententity;
+			sorted_ents[num_sorted].dist = R_CalculateEntityDistance(currententity);
+			num_sorted++;
+		}
+
+		// Sort back-to-front (farthest first) for correct alpha blending
+		qsort(sorted_ents, num_sorted, sizeof(sortable_entity_t), CompareAlphaEntities);
+
+		// Render sorted entities
+		for (i = 0; i < num_sorted; i++)
 		{
-			case mod_alias:
+			currententity = sorted_ents[i].ent;
 
-				if (swapflagprecache && map_ctf_flag_style == 2 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
-				{
-					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
-					{
-						currententity->syncbase = 0;
-						currententity->model->flags = MOD_NOLERP | MOD_NOSHADOW;
-						currententity->model = cl.model_precache[swapflagprecache]; // roque
-			
-					}
-				}
+			//johnfitz -- chasecam
+			if (currententity == &cl.entities[cl.viewentity])
+				currententity->angles[0] *= 0.3;
+			//johnfitz
 
-				if (swapflagprecache2 && map_ctf_flag_style == 3 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
-				{
-					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
-					{
-						currententity->syncbase = 0;
-						currententity->model->flags = MOD_NOLERP | MOD_NOSHADOW;
-						currententity->model = cl.model_precache[swapflagprecache2]; // alt1 (flag2.mdl)
+			R_DrawEntityModel(currententity);
+		}
+	}
+	else if (!r_alphasort.value)
+	{
+		//johnfitz -- sprites are not a special case
+		for (i = 0; i < cl_numvisedicts; i++)
+		{
+			currententity = cl_visedicts[i];
 
-					}
-				}
+			//johnfitz -- if alphapass is true, draw only alpha entites this time
+			//if alphapass is false, draw only nonalpha entities this time
+			if ((ENTALPHA_DECODE(currententity->alpha) < 1 && !alphapass) ||
+				(ENTALPHA_DECODE(currententity->alpha) == 1 && alphapass))
+				continue;
 
-				if (swapflagprecache3 && map_ctf_flag_style == 4 && !strcmp(currententity->model->name, "progs/flag.mdl")) // is there an alternate flag prechaced and worldspawn, if so lets swap it #alternateflags
-				{
-					if (currententity->baseline.modelindex == ogflagprecache) // if the model is the flag, we're gonna swap it
-					{
-						currententity->syncbase = 0;
-						currententity->model->flags = MOD_NOLERP | MOD_NOSHADOW;
-						currententity->model = cl.model_precache[swapflagprecache3]; // alt2 (flag3.mdl)
+			//johnfitz -- chasecam
+			if (currententity == &cl.entities[cl.viewentity])
+				currententity->angles[0] *= 0.3;
+			//johnfitz
 
-					}
-				}
+			//spike -- this would be more efficient elsewhere, but its more correct here.
+			if (currententity->eflags & EFLAGS_EXTERIORMODEL)
+				continue;
+			if (!currententity->model || currententity->model->needload)
+				continue;
 
-				R_DrawAliasModel (currententity);
-				break;
-			case mod_brush:
-				R_DrawBrushModel (currententity);
-				break;
-			case mod_sprite:
-				R_DrawSpriteModel (currententity);
-				break;
-			case mod_ext_invalid:
-				//nothing. could draw a blob instead.
-				break;
+			if (!r_drawflame.value) // woods
+				if (!strcmp(currententity->model->name, "progs/flame.mdl") || !strcmp(currententity->model->name, "progs/flame2.mdl"))
+					continue;
+
+			R_DrawEntityModel(currententity);
+		}
+	}
+	else
+	{
+		// Non-alpha pass when alphasort is enabled
+		for (i = 0; i < cl_numvisedicts; i++)
+		{
+			currententity = cl_visedicts[i];
+
+			if (!R_ShouldDrawEntity(currententity, alphapass))
+				continue;
+
+			//johnfitz -- chasecam
+			if (currententity == &cl.entities[cl.viewentity])
+				currententity->angles[0] *= 0.3; //johnfitz -- damp pitch
+			//johnfitz
+
+			R_DrawEntityModel(currententity);
 		}
 	}
 }
@@ -1297,7 +1646,7 @@ loc0:
 	{
 		// Didn't hit anything so ...
 
-		int		i;
+		unsigned int		i;
 		surf = cl.worldmodel->surfaces + node->firstsurface;
 
 		// check for impact on this node
@@ -1555,10 +1904,19 @@ void R_DrawShadows (void)
 		if (!currententity->model) // woods
 			continue;
 
-		if (currententity->model->type != mod_alias)
-			continue;
+		switch (currententity->model->type) // woods #shadow
+		{
+		case mod_alias:
+			GL_DrawAliasShadow(currententity);
+			break;
 
-		GL_DrawAliasShadow (currententity);
+		case mod_brush:
+			GL_DrawBrushShadow(currententity);
+			break;
+
+		default:
+			continue;
+		}
 	}
 
 	if (gl_stencilbits)
@@ -1661,6 +2019,228 @@ void R_DrawTracers(void)
 	glDisable(GL_BLEND);
 }
 
+enum
+{
+	LIGHTNING_ALPHA_SLOT_BOLT2 = 0,
+	LIGHTNING_ALPHA_SLOT_BOLT1,
+	LIGHTNING_ALPHA_SLOT_BOLT3,
+	LIGHTNING_ALPHA_SLOT_COUNT
+};
+
+static float r_lightning_alphas[LIGHTNING_ALPHA_SLOT_COUNT] = { 1.0f, 1.0f, 1.0f };
+static char r_lightning_alpha_cached_string[128] = { 0 };
+
+static int R_LightningAlphaSlotForModel(const qmodel_t *model)
+{
+	if (!model || !model->name)
+		return LIGHTNING_ALPHA_SLOT_BOLT2;
+
+	if (!strcmp(model->name, "progs/bolt.mdl"))
+		return LIGHTNING_ALPHA_SLOT_BOLT1;
+	if (!strcmp(model->name, "progs/bolt3.mdl"))
+		return LIGHTNING_ALPHA_SLOT_BOLT3;
+
+	return LIGHTNING_ALPHA_SLOT_BOLT2;
+}
+
+static void R_UpdateLightningAlphas(void)
+{
+	const char *value = gl_lightning_alpha.string ? gl_lightning_alpha.string : "";
+
+	if (!strcmp(value, r_lightning_alpha_cached_string))
+		return;
+
+	Q_strncpy(r_lightning_alpha_cached_string, value, sizeof(r_lightning_alpha_cached_string) - 1);
+	r_lightning_alpha_cached_string[sizeof(r_lightning_alpha_cached_string) - 1] = '\0';
+
+	float parsed[LIGHTNING_ALPHA_SLOT_COUNT] = { 1.0f, 1.0f, 1.0f };
+	sscanf(r_lightning_alpha_cached_string, "%f %f %f",
+		&parsed[LIGHTNING_ALPHA_SLOT_BOLT2],
+		&parsed[LIGHTNING_ALPHA_SLOT_BOLT1],
+		&parsed[LIGHTNING_ALPHA_SLOT_BOLT3]);
+
+	for (int i = 0; i < LIGHTNING_ALPHA_SLOT_COUNT; ++i)
+		r_lightning_alphas[i] = CLAMP(0.0f, parsed[i], 1.0f);
+}
+
+float R_LightningAlphaForModel(const qmodel_t *model)
+{
+	R_UpdateLightningAlphas();
+	return r_lightning_alphas[R_LightningAlphaSlotForModel(model)];
+}
+
+/*
+=============
+R_LightningBeam_DeleteTexture // woods #beamspoly
+=============
+*/
+void R_LightningBeam_DeleteTexture (void)
+{
+	r_lightningbeam_texture = NULL;
+}
+
+static gltexture_t *R_LightningBeam_BuiltinTexture(void)
+{
+        if (r_lightningbeam_texture)
+                return r_lightningbeam_texture;
+
+        byte data[64 * 64 * 4];
+        for (int y = 0; y < 64; y++)
+        {
+                float vf = (float)y / 63.0f;
+                float distance = (vf - 0.5f) * 2.0f;
+                float falloff = expf(-distance * distance * 4.0f);
+
+                for (int x = 0; x < 64; x++)
+                {
+                        float uf = (float)x / 63.0f;
+                        float wave = 0.5f + 0.5f * sinf((uf * 6.2831853f) + cosf(vf * 9.4247779f));
+                        float intensity = CLAMP(0.0f, falloff * (0.6f + 0.4f * wave), 1.0f);
+
+			float brightness = CLAMP(0.0f, 0.5f + intensity * 0.5f, 1.0f);
+			float r = brightness;
+			float g = brightness;
+			float b = brightness;
+                        float a = intensity;
+
+                        int idx = (y * 64 + x) * 4;
+                        data[idx + 0] = (byte)(r * 255.0f);
+                        data[idx + 1] = (byte)(g * 255.0f);
+                        data[idx + 2] = (byte)(b * 255.0f);
+                        data[idx + 3] = (byte)(a * 255.0f);
+                }
+        }
+
+        r_lightningbeam_texture = TexMgr_LoadImage (NULL, "lightning_beam_builtin", 64, 64, SRC_RGBA, data, "", (src_offset_t)data, TEXPREF_PERSIST | TEXPREF_ALPHA | TEXPREF_LINEAR);
+        return r_lightningbeam_texture;
+}
+
+static void R_Beam_DrawQuad(const vec3_t start, const vec3_t end, const vec3_t offset, float sStart, float sEnd)
+{
+        float base = floorf(sStart);
+        float s0 = sStart - base;
+        float s1 = sEnd - base;
+        glBegin(GL_TRIANGLE_STRIP);
+        glTexCoord2f(s0, 0.0f);
+        glVertex3f(start[0] + offset[0], start[1] + offset[1], start[2] + offset[2]);
+        glTexCoord2f(s0, 1.0f);
+        glVertex3f(start[0] - offset[0], start[1] - offset[1], start[2] - offset[2]);
+        glTexCoord2f(s1, 0.0f);
+        glVertex3f(end[0] + offset[0], end[1] + offset[1], end[2] + offset[2]);
+        glTexCoord2f(s1, 1.0f);
+        glVertex3f(end[0] - offset[0], end[1] - offset[1], end[2] - offset[2]);
+        glEnd();
+}
+
+static void R_DrawLightningBeamsPolygons(void)
+{
+	if (cl_beams_polygons.value <= 0)
+		return;
+	if (!r_drawentities.value)
+		return;
+
+	gltexture_t *texture = R_LightningBeam_BuiltinTexture();
+	if (!texture)
+		return;
+
+	float thickness = cl_beams_polygons.value * 0.5f;
+
+	float repeat = 0.125f;
+
+	r_lightningbeam_scroll += host_frametime * 1.0f;
+	if (r_lightningbeam_scroll > 1000.0f || r_lightningbeam_scroll < -1000.0f)
+		r_lightningbeam_scroll = 0.0f;
+
+	float scroll = r_lightningbeam_scroll - floorf(r_lightningbeam_scroll);
+
+	GL_DisableMultitexture();
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	glDepthMask(GL_FALSE);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	GL_Bind(texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	float cached_alpha = -1.0f;
+
+	for (int i = 0; i < MAX_BEAMS; ++i)
+	{
+		beam_t *b = &cl_beams[i];
+		if (!b->model)
+			continue;
+		if (b->endtime < cl.time)
+			continue;
+		if (!b->lightning)
+			continue;
+
+		float alpha = R_LightningAlphaForModel(b->model);
+		if (alpha != cached_alpha)
+		{
+			glColor4f(1.0f, 1.0f, 1.0f, alpha);
+			cached_alpha = alpha;
+		}
+
+		vec3_t start, end, beamdir, up, right, offset;
+		CL_Beam_CalculatePositions(b, start, end);
+		VectorSubtract(end, start, beamdir);
+		float length = VectorNormalize(beamdir);
+		if (length <= 0.01f)
+			continue;
+
+		VectorSubtract(r_refdef.vieworg, start, up);
+		float proj = DotProduct(up, beamdir);
+		VectorMA(up, -proj, beamdir, up);
+		if (VectorNormalize(up) == 0)
+		{
+			if (fabsf(beamdir[2]) < 0.99f)
+			{
+				up[0] = 0;
+				up[1] = 0;
+				up[2] = 1;
+			}
+			else
+			{
+				up[0] = 1;
+				up[1] = 0;
+				up[2] = 0;
+			}
+			VectorMA(up, -DotProduct(up, beamdir), beamdir, up);
+			VectorNormalize(up);
+		}
+
+		CrossProduct(beamdir, up, right);
+		if (VectorNormalize(right) == 0)
+			continue;
+
+		CrossProduct(right, beamdir, up);
+		VectorNormalize(up);
+
+		float sStart = scroll;
+		float sEnd = scroll + repeat * length;
+
+		VectorScale(right, thickness, offset);
+		R_Beam_DrawQuad(start, end, offset, sStart, sEnd);
+
+		float diag = thickness * 0.70710678f;
+		VectorScale(right, diag, offset);
+		VectorMA(offset, diag, up, offset);
+		R_Beam_DrawQuad(start, end, offset, sStart + 0.33f, sEnd + 0.33f);
+
+		VectorScale(right, diag, offset);
+		VectorMA(offset, -diag, up, offset);
+		R_Beam_DrawQuad(start, end, offset, sStart + 0.66f, sEnd + 0.66f);
+	}
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_BLEND);
+	glEnable(GL_CULL_FACE);
+	glDepthMask(GL_TRUE);
+	glColor3f(1, 1, 1);
+}
+
 /*
 ================
 R_RenderScene
@@ -1689,16 +2269,36 @@ void R_RenderScene (void)
 
 	R_DrawWorld_Water (); //johnfitz -- drawn here since they might have transparency
 
-	R_DrawEntitiesOnList (true); //johnfitz -- true means this is the pass for alpha entities
-
-	R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
-
-	if (r_refdef.drawworld)
+	if (r_alphasort.value) // woods #alphasort
 	{
-		R_DrawParticles ();
+		R_DrawEntitiesOnList (true); //johnfitz -- true means this is the pass for alpha entities
+		R_DrawLightningBeamsPolygons();
+
+		R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
+
+		// Render particles after alpha entities for correct depth sorting -- woods #alphasort
+		if (r_refdef.drawworld)
+		{
+			R_DrawParticles ();
 #ifdef PSET_SCRIPT
-		PScript_DrawParticles();
+			PScript_DrawParticles();
 #endif
+		}
+	}
+	else
+	{
+		R_DrawEntitiesOnList (true); //johnfitz -- true means this is the pass for alpha entities
+		R_DrawLightningBeamsPolygons();
+
+		R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
+
+		if (r_refdef.drawworld)
+		{
+			R_DrawParticles ();
+#ifdef PSET_SCRIPT
+			PScript_DrawParticles();
+#endif
+		}
 	}
 
 	Fog_DisableGFog (); //johnfitz
@@ -1831,7 +2431,7 @@ static qboolean R_SkyroomWasVisible(void)
 	texture_t *t;
 	size_t i;
 	extern cvar_t r_fastsky;
-	if (!skyroom_enabled || (r_fastsky.value == 1) || (r_fastsky.value == 2 && !skybox_name[0])) // woods -- #fastsky2
+	if (!skyroom_enabled || r_fastsky.value == 1) // woods -- #fastsky2
 		return false;
 	for (i=0 ; i<model->numtextures ; i++)
 	{
@@ -1961,13 +2561,18 @@ void R_RenderView (void)
 	if (r_refdef.drawworld)
 	{
 		extern cvar_t r_fastsky;
-		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe || (r_fastsky.value == 1) || (r_fastsky.value == 2 && !skybox_name[0])) // woods -- #fastsky2
+		if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe || r_fastsky.value == 1) // woods -- #fastsky2
 			skyroom_visible = false;	//don't do skyrooms when the view is in the void, for framerate reasons while debugging.
 		else
 			skyroom_visible = RSceneCache_HasSky() || R_SkyroomWasVisible();
 		skyroom_drawn = false;
 	}
 	//skyroom end
+
+	if (gl_motion_blur.value > 0.0f) // woods #motionblur
+	{
+		R_RenderSceneBlur(gl_motion_blur.value);
+	}
 
 	R_ScaleView ();
 

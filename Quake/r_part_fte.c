@@ -913,63 +913,131 @@ void PScript_UpdateModelEffects(qmodel_t *mod)
 	}
 }
 
-static part_type_t *P_GetParticleType(const char *config, const char *name)
+static part_type_t *P_GetParticleType(const char *config, const char *name) // woods -- refactor #caustics
 {
-	int i;
-	part_type_t *ptype;
-	part_type_t *oldlist = part_type;
+	/* ---------- 1.  Parse namespace & legacy aliases ---------- */
 	char cfgbuf[MAX_QPATH];
+	const char* cfg = config;
 	char *dot = strchr(name, '.');
 	if (dot && (dot - name) < MAX_QPATH-1)
 	{
-		config = cfgbuf;
 		memcpy(cfgbuf, name, dot - name);
 		cfgbuf[dot - name] = 0;
+		cfg = cfgbuf;
 		name = dot+1;
 	}
 
-	for (i = 0; legacynames[i].oldn; i++)
+	for (size_t n = 0; legacynames[n].oldn; ++n)
+		if (!strcmp(name, legacynames[n].oldn))
 	{
-		if (!strcmp(name, legacynames[i].oldn))
-		{
-			name = legacynames[i].newn;
-			break;
+			name = legacynames[n].newn; break;
+		}
+
+	/* ---------- 2.  Look for an existing type ---------- */
+	for (size_t n = 0; n < numparticletypes; ++n)
+	{
+		part_type_t* pt = &part_type[n];
+		if (!q_strcasecmp(pt->name, name) &&
+			!q_strcasecmp(pt->config, cfg))
+			return pt;                       /* already present – no cache-dirty */
+	}
+
+	/* ---------- 3.  Grow the array ---------- */
+	part_type_t* old_base = part_type;
+	size_t       old_count = numparticletypes;
+	ptrdiff_t    run_list_offset = -1;
+	ptrdiff_t*   next_offsets = NULL;
+
+	/* Pre-calculate offsets before realloc invalidates old_base */
+	if (old_count > 0)
+	{
+		/* Offset for global run-list */
+		if (part_run_list >= old_base && part_run_list < old_base + old_count)
+			run_list_offset = part_run_list - old_base;
+
+		/* Allocate storage for nexttorun offsets */
+		next_offsets = malloc(sizeof(ptrdiff_t) * old_count);
+		if (!next_offsets)
+			Sys_Error("P_GetParticleType: out of memory (malloc for offsets failed)");
+
+		/* Offsets for nexttorun pointers */
+		for (size_t idx = 0; idx < old_count; ++idx) {
+			part_type_t* pt_fix = &old_base[idx]; /* Use old_base here! */
+			if (pt_fix->nexttorun >= old_base &&
+				pt_fix->nexttorun < old_base + old_count)
+				next_offsets[idx] = pt_fix->nexttorun - old_base;
+			else
+				next_offsets[idx] = -1; /* Mark as NULL or out-of-bounds */
 		}
 	}
-	for (i = 0; i < numparticletypes; i++)
+
+
+	part_type = Z_Realloc(part_type, sizeof(part_type_t) * (old_count + 1));
+	if (!part_type)
+		Sys_Error("P_GetParticleType: out of memory (realloc failed)");
+
+	part_type_t* pt_new = &part_type[numparticletypes++];   /* slot for new type */
+	memset(pt_new, 0, sizeof(*pt_new));
+	q_strlcpy(pt_new->name, name, sizeof(pt_new->name));
+	q_strlcpy(pt_new->config, cfg, sizeof(pt_new->config));
+	pt_new->assoc = P_INVALID;
+	pt_new->inwater = P_INVALID;
+	pt_new->cliptype = P_INVALID;
+	pt_new->emit = P_INVALID;
+	pt_new->loaded = 0;
+
+	/* ---------- 4.  Pointer fix-ups & slooks ---------- */
+	if (old_count > 0)
 	{
-		ptype = &part_type[i];
-		if (!q_strcasecmp(ptype->name, name))
-			if (!q_strcasecmp(ptype->config, config))	//must be an exact match.
-				return ptype;
-	}
-	part_type = Z_Realloc(part_type, sizeof(part_type_t)*(numparticletypes+1));
-	ptype = &part_type[numparticletypes++];
-	memset(ptype, 0, sizeof(*ptype));
-	q_strlcpy(ptype->name, name, sizeof(ptype->name));
-	q_strlcpy(ptype->config, config, sizeof(ptype->config));
-	ptype->assoc = P_INVALID;
-	ptype->inwater = P_INVALID;
-	ptype->cliptype = P_INVALID;
-	ptype->emit = P_INVALID;
+		/* 4a/4b. Fix pointers using offsets if the block moved */
+		if (old_base != part_type)
+		{
+			/* global run-list */
+			if (run_list_offset != -1)
+				part_run_list = part_type + run_list_offset;
+			/* else: part_run_list was NULL or outside, remains unchanged */
 
-	if (oldlist)
+			/* nexttorun pointers */
+			for (size_t idx = 0; idx < old_count; ++idx) {
+				if (next_offsets[idx] != -1)
+					part_type[idx].nexttorun = part_type + next_offsets[idx];
+				else
+					part_type[idx].nexttorun = NULL; /* Ensure NULL if it was */
+			}
+		}
+		/* else: block didn't move, pointers are still valid */
+
+		/* 4c. rebuild all slooks sharing (runs whether block moved or not) */
+		/* Note: loop goes up to new numparticletypes to include pt_new */
+		for (size_t n = 0; n < numparticletypes; ++n) {
+			plooks_t* share = NULL;
+			for (size_t j = 0; j < n; ++j)
+				if (!memcmp(&part_type[n].looks, &part_type[j].looks,
+					sizeof(plooks_t))) {
+					share = part_type[j].slooks;
+					break;
+				}
+			/* If shared, point to existing slooks, otherwise point to own looks */
+			part_type[n].slooks = share ? share : &part_type[n].looks;
+		}
+	}
+	else /* old_count == 0 */
 	{
-		if (part_run_list)
-			part_run_list = (part_type_t*)((char*)part_run_list - (char*)oldlist + (char*)part_type);
-
-		for (i = 0; i < numparticletypes; i++)
-			if (part_type[i].nexttorun)
-				part_type[i].nexttorun = (part_type_t*)((char*)part_type[i].nexttorun - (char*)oldlist + (char*)part_type);
+		pt_new->slooks = &pt_new->looks;   /* first allocation */
 	}
 
-	ptype->loaded = 0;
-	ptype->ramp = NULL;
-	ptype->particles = NULL;
-	ptype->beams = NULL;
+	/* Free the temporary offset storage */
+	if (next_offsets)
+		free(next_offsets);
 
-	r_plooksdirty = true;
-	return ptype;
+	/* ---------- 5.  Final init & housekeeping ---------- */
+	pt_new->particles = NULL;
+	pt_new->beams = NULL;
+	pt_new->ramp = NULL;
+	pt_new->nexttorun = NULL;
+
+	r_plooksdirty = true;                 /* array grew – cache must rebuild */
+	return pt_new;
 }
 
 //unconditionally allocates a particle object. this allows out-of-order allocations.
@@ -5470,9 +5538,11 @@ int PScript_EntParticleTrail(vec3_t oldorg, entity_t *ent, const char *name)
 	if (type < 0)
 		return 1;
 
-	if (!strcmp(ent->model->name, "progs/grenade.mdl")) // woods #r2g
-		if (cl.model_precache[grenadecache]->fromrl == 1)
+	if (ent->model && !strcmp(ent->model->name, "progs/grenade.mdl")) // woods #r2g
+	{
+		if (grenadecache >= 0 && grenadecache < MAX_MODELS && cl.model_precache[grenadecache] && cl.model_precache[grenadecache]->fromrl == 1) 
 			type = PScript_FindParticleType("TR_ROCKET");
+	}
 
 	AngleVectors(ent->angles, axis[0], axis[1], axis[2]);
 	return PScript_ParticleTrail(oldorg, ent->origin, type, timeinterval, ent-cl.entities, axis, &ent->trailstate);
@@ -6489,8 +6559,10 @@ static void R_AddTSparkParticle(scenetris_t *t, particle_t *p, plooks_t *type)
 		else if (type->stretch)
 			length *= type->stretch;	//velocity multiplier
 		else
-			Sys_Error("type->stretch should be 0.05\n");
-//			length *= 0.05;				//fallback
+		{
+			Con_DPrintf("Warning: PT_TEXTUREDSPARK particle missing stretch value, using fallback 0.05\n"); // woods
+			length *= 0.05;				//fallback
+		}
 
 		if (length < halfscale * type->minstretch)
 			length = halfscale * type->minstretch;

@@ -40,6 +40,14 @@ qpic_t		*pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 qpic_t		*pic_nul; //johnfitz -- for missing gfx, don't crash
 
 extern cvar_t gl_load24bit_hud; // woods #24bithud
+extern cvar_t scr_conback; // woods #conback
+extern cvar_t con_cursorcolor; // woods #cursorcolor
+
+#define CHAR_GOLD_ZERO  18
+#define CHAR_WHITE_ZERO 48
+#define CHAR_RED_ZERO   176
+
+extern gltexture_t* char_texture; // woods #goldtext
 
 //johnfitz -- new pics
 byte pic_ovr_data[8][8] =
@@ -268,9 +276,9 @@ qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags)
 		texnum = Scrap_AllocBlock (p->width + SCRAP_PADDING, p->height + SCRAP_PADDING, &x, &y); // woods iw
 		scrap_dirty = true;
 		k = 0;
-		for (i=0 ; i<p->height ; i++)
+		for (i=0 ; i<(int)p->height ; i++)
 		{
-			for (j=0 ; j<p->width ; j++, k++)
+			for (j=0 ; j<(int)p->width ; j++, k++)
 				scrap_texels[texnum][(y+i)*BLOCK_WIDTH + x + j] = p->data[k];
 		}
 		gl.gltexture = scrap_textures[texnum]; //johnfitz -- changed to an array
@@ -786,6 +794,821 @@ void Draw_StringRGBA (int x, int y, const char* str, plcolour_t c, float alpha)
 	glColor4f(1, 1, 1, 1);
 }
 
+static void Draw_BoostAccentRGB(int* r, int* g, int* b) // woods #goldtext
+{
+	int maxc = q_max(*r, q_max(*g, *b));
+	if (maxc <= 0) return;
+
+	// Tunables: tiny lift so darks don't stay muddy, and a gentle gain.
+	const float gain = 1.5f; // ~+12% brightness
+	const int   lift = 8;     // add a small floor
+
+	// Compute target brightness and derive a uniform scale factor.
+	int target = (int)(maxc * gain + 0.5f) + lift;
+	if (target > 255) target = 255;
+	if (target < maxc) target = maxc; // never dim
+
+	float f = (float)target / (float)maxc;
+	*r = q_min(255, (int)(*r * f + 0.5f));
+	*g = q_min(255, (int)(*g * f + 0.5f));
+	*b = q_min(255, (int)(*b * f + 0.5f));
+}
+
+static qboolean Draw_ComputeConcharsCharColor(plcolour_t* result, int char_index, qboolean boost) // woods #goldtext #cursorcolor
+{
+	gltexture_t* texture = char_texture;
+	byte* data = NULL;
+	byte* pixel_data = NULL;
+	size_t pixel_capacity = 0;
+	qboolean free_data = false;
+	qboolean release_hunk = false;
+	int hunk_mark = 0;
+	enum srcformat format;
+	int width, height;
+
+	if (!texture)
+		return false;
+
+	width = texture->source_width;
+	height = texture->source_height;
+	if (width <= 0 || height <= 0)
+		return false;
+
+	format = texture->source_format;
+
+	if (format == SRC_INDEXED)
+	{
+		if (!custom_conchars)
+			return false;
+
+		size_t expected_size = (size_t)width * height;
+		size_t bytes_read = 0;
+
+		if (!expected_size)
+			return false;
+
+		if (texture->source_file[0] && texture->source_offset)
+		{
+			FILE* f;
+
+			if (COM_FOpenFile(texture->source_file, &f, NULL) == -1 || !f)
+				return false;
+
+			data = (byte*)Q_malloc(expected_size + 8);
+			if (fseek(f, (long)texture->source_offset, SEEK_SET) != 0)
+			{
+				fclose(f);
+				free(data);
+				return false;
+			}
+
+			bytes_read = fread(data, 1, expected_size + 8, f);
+
+			fclose(f);
+
+			if (bytes_read < expected_size)
+			{
+				free(data);
+				return false;
+			}
+			free_data = true;
+		}
+		else if (!texture->source_file[0] && texture->source_offset)
+		{
+			data = (byte*)texture->source_offset;
+			bytes_read = expected_size;
+		}
+		else
+		{
+			return false;
+		}
+
+		pixel_data = data;
+		pixel_capacity = bytes_read ? bytes_read : expected_size;
+
+		if (pixel_capacity >= expected_size + 8)
+		{
+			unsigned int stored_w = 0, stored_h = 0;
+			memcpy(&stored_w, pixel_data, sizeof(stored_w));
+			memcpy(&stored_h, pixel_data + sizeof(stored_w), sizeof(stored_h));
+			stored_w = LittleLong(stored_w);
+			stored_h = LittleLong(stored_h);
+
+			if (stored_w == (unsigned int)width && stored_h == (unsigned int)height)
+			{
+				pixel_data += sizeof(stored_w) + sizeof(stored_h);
+				pixel_capacity -= sizeof(stored_w) + sizeof(stored_h);
+			}
+	}
+
+		if (pixel_capacity < expected_size)
+			goto cleanup;
+	}
+	else
+	{
+		int load_width = width;
+		int load_height = height;
+		enum srcformat loaded_format = format;
+		qboolean malloced = false;
+
+		hunk_mark = Hunk_LowMark();
+		release_hunk = true;
+		data = Image_LoadImage(texture->source_file, &load_width, &load_height, &loaded_format, &malloced);
+		if (!data)
+		{
+			Hunk_FreeToLowMark(hunk_mark);
+			return false;
+		}
+
+		width = load_width;
+		height = load_height;
+		format = loaded_format;
+
+		if (malloced)
+			free_data = true;
+
+		pixel_data = data;
+		pixel_capacity = (format == SRC_RGBA) ? ((size_t)width * height * 4u) : ((size_t)width * height);
+	}
+
+	if (!pixel_data)
+	{
+		if (release_hunk)
+			Hunk_FreeToLowMark(hunk_mark);
+		return false;
+	}
+
+	{
+		int cell_width = width / 16;
+		int cell_height = height / 16;
+		int x0, y0;
+
+		if (cell_width <= 0 || cell_height <= 0)
+			goto cleanup;
+
+		if (char_index < 0 || char_index >= 256)
+			goto cleanup;
+
+		x0 = (char_index & 15) * cell_width;
+		y0 = (char_index >> 4) * cell_height;
+
+		if (format == SRC_INDEXED)
+		{
+			unsigned int counts[256];
+			unsigned int sum_r[256];
+			unsigned int sum_g[256];
+			unsigned int sum_b[256];
+			unsigned int best_count = 0;
+			int best_sat = -1;
+			int best_r = 0, best_g = 0, best_b = 0;
+			int brightest_value = 0;
+
+			memset(counts, 0, sizeof(counts));
+			memset(sum_r, 0, sizeof(sum_r));
+			memset(sum_g, 0, sizeof(sum_g));
+			memset(sum_b, 0, sizeof(sum_b));
+
+				for (int py = 0; py < cell_height; ++py)
+				{
+					int y = y0 + py;
+					if (y >= height)
+						continue;
+
+				byte* row_ptr = pixel_data + y * width;
+
+					for (int px = 0; px < cell_width; ++px)
+					{
+						int x = x0 + px;
+						byte index;
+						byte* rgba;
+						int r, g, b;
+
+						if (x >= width)
+							continue;
+
+					index = row_ptr[x];
+						if (!index)
+							continue;
+
+						rgba = (byte*)&d_8to24table_conchars[index];
+						if (!rgba[3])
+							continue;
+
+						r = rgba[0];
+						g = rgba[1];
+						b = rgba[2];
+
+						if (r <= 16 && g <= 16 && b <= 16)
+							continue;
+
+						{
+							int value = q_max(r, q_max(g, b));
+
+							if (value > brightest_value)
+								brightest_value = value;
+						}
+
+						counts[index]++;
+						sum_r[index] += (unsigned int)r;
+						sum_g[index] += (unsigned int)g;
+						sum_b[index] += (unsigned int)b;
+					}
+				}
+
+			for (int i = 0; i < 256; ++i)
+			{
+				unsigned int count = counts[i];
+
+				if (!count)
+					continue;
+
+				int r = (int)((sum_r[i] + count / 2) / count);
+				int g = (int)((sum_g[i] + count / 2) / count);
+				int b = (int)((sum_b[i] + count / 2) / count);
+				int maxc = q_max(r, q_max(g, b));
+				int minc = q_min(r, q_min(g, b));
+				int sat = maxc - minc;
+
+				if (count > best_count || (count == best_count && sat > best_sat))
+				{
+					best_count = count;
+					best_sat = sat;
+					best_r = r;
+					best_g = g;
+					best_b = b;
+				}
+			}
+
+			if (best_count > 0)
+			{
+				if (best_sat < 8)
+					goto cleanup;
+
+				int best_max = q_max(best_r, q_max(best_g, best_b));
+
+				if (brightest_value > best_max && best_max > 0)
+				{
+					int scale = brightest_value;
+					int r = (best_r * scale + best_max / 2) / best_max;
+					int g = (best_g * scale + best_max / 2) / best_max;
+					int b = (best_b * scale + best_max / 2) / best_max;
+
+					if (r > 255)
+						r = 255;
+					if (g > 255)
+						g = 255;
+					if (b > 255)
+						b = 255;
+
+					best_r = r;
+					best_g = g;
+					best_b = b;
+				}
+
+				// Final gentle brightness boost (only for accent text, not cursor)
+				if (boost)
+					Draw_BoostAccentRGB(&best_r, &best_g, &best_b);
+
+				result->type = 2;
+				result->rgb[0] = (byte)best_r;
+				result->rgb[1] = (byte)best_g;
+				result->rgb[2] = (byte)best_b;
+				result->basic = 0;
+
+				if (free_data)
+					free(data);
+				if (release_hunk)
+					Hunk_FreeToLowMark(hunk_mark);
+				return true;
+			}
+		}
+		else if (format == SRC_RGBA)
+		{
+			enum { bucket_count = 16 * 16 * 16 };
+			unsigned int counts[bucket_count];
+			unsigned int sum_r[bucket_count];
+			unsigned int sum_g[bucket_count];
+			unsigned int sum_b[bucket_count];
+			unsigned int best_count = 0;
+			int best_sat = -1;
+			int best_r = 0, best_g = 0, best_b = 0;
+			int brightest_value = 0;
+
+			memset(counts, 0, sizeof(counts));
+			memset(sum_r, 0, sizeof(sum_r));
+			memset(sum_g, 0, sizeof(sum_g));
+			memset(sum_b, 0, sizeof(sum_b));
+
+				for (int py = 0; py < cell_height; ++py)
+				{
+					int y = y0 + py;
+					if (y >= height)
+						continue;
+
+					for (int px = 0; px < cell_width; ++px)
+					{
+						int x = x0 + px;
+						byte* rgba;
+						byte a;
+						int r, g, b;
+						int bucket;
+
+						if (x >= width)
+							continue;
+
+					rgba = pixel_data + ((y * width + x) << 2);
+						a = rgba[3];
+						if (!a)
+							continue;
+
+						r = rgba[0];
+						g = rgba[1];
+						b = rgba[2];
+
+						if (r <= 16 && g <= 16 && b <= 16)
+							continue;
+
+						{
+							int value = q_max(r, q_max(g, b));
+
+							if (value > brightest_value)
+								brightest_value = value;
+						}
+
+						bucket = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+						counts[bucket]++;
+						sum_r[bucket] += (unsigned int)r;
+						sum_g[bucket] += (unsigned int)g;
+						sum_b[bucket] += (unsigned int)b;
+					}
+				}
+
+			for (int i = 0; i < bucket_count; ++i)
+			{
+				unsigned int count = counts[i];
+
+				if (!count)
+					continue;
+
+				int r = (int)((sum_r[i] + count / 2) / count);
+				int g = (int)((sum_g[i] + count / 2) / count);
+				int b = (int)((sum_b[i] + count / 2) / count);
+				int maxc = q_max(r, q_max(g, b));
+				int minc = q_min(r, q_min(g, b));
+				int sat = maxc - minc;
+
+				if (count > best_count || (count == best_count && sat > best_sat))
+				{
+					best_count = count;
+					best_sat = sat;
+					best_r = r;
+					best_g = g;
+					best_b = b;
+				}
+			}
+
+			if (best_count > 0)
+			{
+				if (best_sat < 8)
+					goto cleanup;
+
+				int best_max = q_max(best_r, q_max(best_g, best_b));
+
+				if (brightest_value > best_max && best_max > 0)
+				{
+					int scale = brightest_value;
+					int r = (best_r * scale + best_max / 2) / best_max;
+					int g = (best_g * scale + best_max / 2) / best_max;
+					int b = (best_b * scale + best_max / 2) / best_max;
+
+					if (r > 255)
+						r = 255;
+					if (g > 255)
+						g = 255;
+					if (b > 255)
+						b = 255;
+
+					best_r = r;
+					best_g = g;
+					best_b = b;
+				}
+
+				// Final gentle brightness boost (only for accent text, not cursor)
+				if (boost)
+					Draw_BoostAccentRGB(&best_r, &best_g, &best_b);
+
+				result->type = 2;
+				result->rgb[0] = (byte)best_r;
+				result->rgb[1] = (byte)best_g;
+				result->rgb[2] = (byte)best_b;
+				result->basic = 0;
+
+				if (free_data)
+					free(data);
+				if (release_hunk)
+					Hunk_FreeToLowMark(hunk_mark);
+				return true;
+			}
+		}
+	}
+
+cleanup:
+	if (free_data && data)
+		free(data);
+	if (release_hunk)
+		Hunk_FreeToLowMark(hunk_mark);
+
+	return false;
+}
+
+/*
+================
+Draw_GetConcharsColorByIndex_Internal -- woods #cursorcolor #goldtext #nadecount
+Core function for sampling conchars colors with unified caching.
+  index: 0=white, 1=red, 2=gold
+  boost: true for HUD accent colors (brighter), false for cursor/timer
+================
+*/
+static plcolour_t Draw_GetConcharsColorByIndex_Internal(int index, qboolean boost)
+{
+	// Cache slots: 0-2 = non-boosted, 3-5 = boosted
+	static plcolour_t cached_colors[6];
+	static qboolean cached_valid[6] = { false, false, false, false, false, false };
+	static unsigned int cached_texnum = 0;
+	static unsigned short cached_crc = 0;
+	static unsigned int cached_width = 0;
+	static unsigned int cached_height = 0;
+	static char cached_source[MAX_QPATH];
+	static qboolean cache_initialized = false;
+
+	static const int char_indices[3] = { CHAR_WHITE_ZERO, CHAR_RED_ZERO, CHAR_GOLD_ZERO };
+	static const plcolour_t default_colors[3] = {
+		{ .type = 2, .rgb = { 0xFC, 0xFC, 0xFC }, .basic = 0 }, // white
+		{ .type = 2, .rgb = { 0xFC, 0x00, 0x00 }, .basic = 0 }, // red
+		{ .type = 2, .rgb = { 0xF6, 0xC2, 0x2C }, .basic = 0 }  // gold
+	};
+
+	if (index < 0 || index > 2)
+		index = 0;
+
+	int cache_index = boost ? (index + 3) : index;
+
+	gltexture_t* texture = char_texture;
+
+	if (!texture)
+	{
+		if (!cached_valid[cache_index])
+			cached_colors[cache_index] = default_colors[index];
+		return cached_colors[cache_index];
+	}
+	// Check if texture changed - invalidate all caches
+	if (!cache_initialized || cached_texnum != texture->texnum ||
+		cached_crc != texture->source_crc ||
+		cached_width != texture->source_width ||
+		cached_height != texture->source_height ||
+		strcmp(cached_source, texture->source_file))
+	{
+		for (int i = 0; i < 6; i++)
+			cached_valid[i] = false;
+		cached_texnum = texture->texnum;
+		cached_crc = texture->source_crc;
+		cached_width = texture->source_width;
+		cached_height = texture->source_height;
+		q_strlcpy(cached_source, texture->source_file, sizeof(cached_source));
+		cache_initialized = true;
+	}
+
+	// Compute color if not cached
+	if (!cached_valid[cache_index])
+	{
+		plcolour_t color;
+
+		if (!Draw_ComputeConcharsCharColor(&color, char_indices[index], boost))
+			color = default_colors[index];
+
+		cached_colors[cache_index] = color;
+		cached_valid[cache_index] = true;
+	}
+
+	return cached_colors[cache_index];
+}
+
+/*
+================
+Draw_GetConcharsAccentColor -- woods #goldtext
+Returns gold accent color with brightness boost for HUD elements
+================
+*/
+plcolour_t Draw_GetConcharsAccentColor(void)
+{
+	return Draw_GetConcharsColorByIndex_Internal(2, true); // gold with boost
+}
+
+/*
+================
+Draw_GetConcharsCursorColor -- woods #cursorcolor
+Returns cursor color based on con_cursorcolor cvar (0=white, 1=red, 2=gold)
+================
+*/
+plcolour_t Draw_GetConcharsCursorColor(void)
+{
+	int index = (int)con_cursorcolor.value;
+	if (index < 0 || index > 2)
+		index = 0;
+	return Draw_GetConcharsColorByIndex_Internal(index, false);
+}
+
+/*
+================
+Draw_GetConcharsCursorColorByIndex -- woods #nadecount
+Returns cursor color for a specific index (0=white, 1=red, 2=gold)
+================
+*/
+plcolour_t Draw_GetConcharsCursorColorByIndex(int index)
+{
+	return Draw_GetConcharsColorByIndex_Internal(index, false);
+}
+
+/*
+================
+Draw_StringAnimatedDots -- woods
+Draws "..." with animated opacity cycling through each dot -- woods
+================
+*/
+void Draw_StringAnimatedDots(int x, int y, const char* str)
+{
+	if (!str || strlen(str) != 3) return; // Only works for 3-character strings like "..."
+
+	static double last_time = 0;
+	static int current_dot = 0;
+	static double dot_timer = 0;
+
+	const double DOT_CYCLE_TIME = 0.7; // Time for each dot to be fully bright
+	const float MIN_ALPHA = 0.1f;
+	const float MAX_ALPHA = 1.0f;
+
+	// Update timing
+	if (realtime - last_time > DOT_CYCLE_TIME) {
+		current_dot = (current_dot + 1) % 3;
+		last_time = realtime;
+		dot_timer = 0;
+	}
+	dot_timer = realtime - last_time;
+
+	glEnable(GL_BLEND);
+	glDisable(GL_ALPHA_TEST);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	GL_Bind(char_texture);
+	glBegin(GL_QUADS);
+
+	// Draw each dot with appropriate alpha
+	for (int i = 0; i < 3; i++) {
+		float alpha;
+
+		if (i == current_dot) {
+			// Current dot: fade in to full brightness
+			float progress = dot_timer / DOT_CYCLE_TIME;
+			alpha = MIN_ALPHA + (MAX_ALPHA - MIN_ALPHA) * progress;
+		}
+		else if (i == (current_dot + 2) % 3) {
+			// Previous dot: fade out from full brightness
+			float progress = dot_timer / DOT_CYCLE_TIME;
+			alpha = MAX_ALPHA - (MAX_ALPHA - MIN_ALPHA) * progress;
+		}
+		else {
+			// Other dots: dim
+			alpha = MIN_ALPHA;
+		}
+
+		glColor4f(1.0f, 1.0f, 1.0f, alpha);
+
+		if (str[i] != 32) // don't waste verts on spaces
+			Draw_CharacterQuad(x + i * 8, y, str[i]);
+	}
+
+	glEnd();
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+	glColor4f(1, 1, 1, 1);
+}
+
+/*
+================
+Draw_StringGradientSweep -- woods
+Unmasked: white → palette(128) red with a bright core + warm tail.
+Masked  : baseline EXACT red; sweep LIGHTENS toward white (no base alpha boost).
+================
+*/
+void Draw_StringGradientSweep(int x, int y, const char* str, float speed, float span_px, float alpha, qboolean masked)
+{
+	if (!str || !*str) return;
+
+	const int   char_w = 8;
+	const int   len = (int)strlen(str);
+	if (!len) return;
+
+	const float total_px = (float)(len * char_w);
+	if (total_px <= 0.0f) return;
+
+	const float sweep_span = (span_px <= 0.0f) ? 1.0f : span_px;
+	const float cycle_w = total_px + sweep_span;
+	if (cycle_w <= 0.0f) return;
+
+	const float px_speed = q_max(0.0f, speed);
+	const float t = (px_speed > 0.0f) ? fmodf((float)realtime * px_speed, cycle_w) : 0.0f;
+
+	// palette[128] sample for “Quake red”
+	byte* red = (byte*)&d_8to24table[128];
+	const float red_r = red[0] / 255.0f;
+	const float red_g = red[1] / 255.0f;
+	const float red_b = red[2] / 255.0f;
+
+	const float draw_alpha = CLAMP(0.0f, alpha, 1.0f);
+
+	// Tunables (in-function “knobs”)
+	const float glow_strength_unmasked = 0.20f;   // extra pop at the center of the band (unmasked only)
+	const float alpha_boost_unmasked = 0.25f;   // alpha lift in the bright core (unmasked only)
+	const float tail_span_factor = 0.35f;   // tail length as fraction of sweep_span
+
+	const float masked_add_gain = 0.40f;   // how much additive lift the masked sweep gives
+	const float masked_tail_gain = 0.10f;   // subtle trailing lift for masked
+	const float tail_span = q_max(4.0f, sweep_span * tail_span_factor);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glDisable(GL_ALPHA_TEST);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	GL_Bind(char_texture);
+	glBegin(GL_QUADS);
+
+	float px = (float)x;
+	for (int i = 0; i < len; ++i)
+	{
+		unsigned char ch = (unsigned char)str[i];
+		if (ch != 32)
+		{
+			const float cx = (float)(i * char_w + char_w * 0.5f);
+
+			// position of sweep relative to this glyph center
+			float d = cx - t;
+			if (d < 0.0f) d += cycle_w;
+
+			// inside-band mix (0..1), using smoothstep for soft edges
+			float mix = 0.0f;
+			float highlight = 0.0f; // peaked at center of sweep
+			if (d >= 0.0f && d <= sweep_span)
+			{
+				float u = CLAMP(0.0f, d / sweep_span, 1.0f);
+				// smoothstep
+				mix = u * u * (3.0f - 2.0f * u);
+
+				float centered = 1.0f - fabsf(u - 0.5f) * 2.0f; // 0 at edges, 1 at center
+				if (centered > 0.0f)
+				{
+					centered *= centered;
+					highlight = centered; // 0..1, bell-like
+				}
+			}
+
+			// trailing tail (0..1), behind the sweep head
+			float tail = 0.0f;
+			if (tail_span > 0.0f)
+			{
+				float wrap = cycle_w - d;
+				if (wrap > 0.0f && wrap <= tail_span)
+				{
+					float u = 1.0f - (wrap / tail_span);
+					u = CLAMP(0.0f, u, 1.0f);
+					tail = u * u * (3.0f - 2.0f * u);
+				}
+			}
+
+			int glyph = masked ? ((int)ch + 128) & 255 : (int)ch;
+
+			if (!masked)
+			{
+				// UNMASKED (white font): white → red, plus bright core + warm tail; alpha can lift in core.
+				float r = (1.0f - mix) + mix * red_r; // lerp(white, red, mix)
+				float g = (1.0f - mix) + mix * red_g;
+				float b = (1.0f - mix) + mix * red_b;
+
+				if (highlight > 0.0f)
+				{
+					float glow = highlight * glow_strength_unmasked;
+					r = CLAMP(0.0f, r + glow, 1.0f);
+					g = CLAMP(0.0f, g + glow * 0.5f, 1.0f);
+					b = CLAMP(0.0f, b + glow * 0.5f, 1.0f);
+				}
+
+				if (tail > 0.0f)
+				{
+					float fade = tail * 0.15f;
+					r = CLAMP(0.0f, r + fade, 1.0f);
+					g = CLAMP(0.0f, g + fade * 0.35f, 1.0f);
+					b = CLAMP(0.0f, b + fade * 0.35f, 1.0f);
+				}
+
+				float final_alpha = draw_alpha;
+				if (highlight > 0.0f)
+					final_alpha = CLAMP(0.0f, draw_alpha * (1.0f + highlight * alpha_boost_unmasked), 1.0f);
+
+				glColor4f(r, g, b, final_alpha);
+				Draw_CharacterQuad((int)px, y, (char)glyph);
+			}
+			else
+			{
+				// MASKED (red font): baseline EXACT red (no brightening), sweep LIGHTENS via small additive pass.
+
+				// Base pass: keep the original red exactly (color=white under MODULATE).
+				glColor4f(1.0f, 1.0f, 1.0f, draw_alpha);
+				Draw_CharacterQuad((int)px, y, (char)glyph);
+
+				// Additive lift only where the sweep/tail passes.
+				float add_amt = 0.0f;
+				if (highlight > 0.0f)
+					add_amt += highlight * masked_add_gain;
+				if (tail > 0.0f)
+					add_amt += tail * masked_tail_gain;
+
+				if (add_amt > 0.0f)
+				{
+					// one tiny additive pass in white to lift brightness toward white
+					glEnd(); // close current batch to safely change blend func
+
+					glBlendFunc(GL_SRC_ALPHA, GL_ONE); // additive
+					glBegin(GL_QUADS);
+					glColor4f(1.0f, 1.0f, 1.0f, CLAMP(0.0f, add_amt * draw_alpha, 1.0f));
+					Draw_CharacterQuad((int)px, y, (char)glyph);
+					glEnd();
+
+					// restore normal blending and resume batching
+					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+					glBegin(GL_QUADS);
+				}
+			}
+		}
+		px += (float)char_w;
+	}
+
+	glEnd();
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+	glColor4f(1, 1, 1, 1);
+}
+
+
+/*
+=============
+Draw_ScaledPicAlpha -- woods #observerhud #eyemouse
+=============
+*/
+void Draw_ScaledPicAlpha (int x, int y, qpic_t* pic, float scale, float alpha)
+{
+	if (!pic)
+		return;
+
+	glpic_t* gl;
+
+	if (scrap_dirty)
+		Scrap_Upload();
+	gl = (glpic_t*)pic->data;
+
+	if ((uintptr_t)gl < 0x1000)
+		return;
+
+	float width = pic->width * scale;
+	float height = pic->height * scale;
+
+	glEnable(GL_BLEND);
+
+	glColor4f(1, 1, 1, alpha);
+
+	glDisable(GL_ALPHA_TEST);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	GL_Bind(gl->gltexture);
+	glBegin(GL_QUADS);
+	glTexCoord2f(gl->sl, gl->tl);
+	glVertex2f(x, y);
+	glTexCoord2f(gl->sh, gl->tl);
+	glVertex2f(x + width, y);
+	glTexCoord2f(gl->sh, gl->th);
+	glVertex2f(x + width, y + height);
+	glTexCoord2f(gl->sl, gl->th);
+	glVertex2f(x, y + height);
+	glEnd();
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable(GL_ALPHA_TEST);
+	glDisable(GL_BLEND);
+}
+
 /*
 =============
 Draw_Pic -- johnfitz -- modified
@@ -815,6 +1638,62 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	glTexCoord2f (gl->sl, gl->th);
 	glVertex2f (x, y+pic->height);
 	glEnd ();
+}
+
+/*
+=============
+Draw_PicRGBA -- woods #cursorcolor
+Draws a qpic with color modulation
+=============
+*/
+void Draw_PicRGBA (int x, int y, qpic_t *pic, plcolour_t c, float alpha)
+{
+	if (!pic) return;
+
+	glpic_t *gl;
+
+	if (scrap_dirty)
+		Scrap_Upload ();
+	gl = (glpic_t *)pic->data;
+
+	if ((uintptr_t)gl < 0x1000)
+		return;
+
+	glEnable (GL_BLEND);
+
+	float red, green, blue;
+	if (c.type == 2) {
+		red = c.rgb[0] / 255.0f;
+		green = c.rgb[1] / 255.0f;
+		blue = c.rgb[2] / 255.0f;
+	}
+	else {
+		byte* pal = (byte*)&d_8to24table[(c.basic << 4) + 8];
+		red = pal[0] / 255.0f;
+		green = pal[1] / 255.0f;
+		blue = pal[2] / 255.0f;
+	}
+
+	glDisable (GL_ALPHA_TEST);
+	glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	glColor4f (red, green, blue, alpha);
+
+	GL_Bind (gl->gltexture);
+	glBegin (GL_QUADS);
+	glTexCoord2f (gl->sl, gl->tl);
+	glVertex2f (x, y);
+	glTexCoord2f (gl->sh, gl->tl);
+	glVertex2f (x+pic->width, y);
+	glTexCoord2f (gl->sh, gl->th);
+	glVertex2f (x+pic->width, y+pic->height);
+	glTexCoord2f (gl->sl, gl->th);
+	glVertex2f (x, y+pic->height);
+	glEnd ();
+
+	glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+	glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glEnable (GL_ALPHA_TEST);
+	glDisable (GL_BLEND);
 }
 
 /*
@@ -984,39 +1863,152 @@ extern cvar_t scr_concolor; // woods #concolor
 
 /*
 ================
-Draw_ConsoleBackground -- johnfitz -- rewritten -- woods #concolor
+Draw_ConsoleBackground -- johnfitz -- rewritten -- woods #concolor #conback
 ================
 */
 void Draw_ConsoleBackground (void)
 {
-	qpic_t *pic;
+	static char      last_conback[MAX_QPATH] = "";
+	static qboolean  reported_missing = false;
+	static qboolean  reported_blocked = false; /* scr_conback ignored due to gl_load24bit 0 */
+
 	float alpha;
 	plcolour_t conback_color;
 	const char* conback_str = scr_concolor.string;
 	float r, g, b;
 	byte* rgb_temp;
-	byte rgb[3];
+	byte  rgb[3];
 
-	// Parse the scr_conback cvar
+	/* Parse the scr_concolor cvar. */
 	conback_color = CL_PLColours_Parse(conback_str);
 
-	// Determine if the default background image should be used
-	int use_default = (conback_color.type == 0 ||
+	/* Track scr_conback changes so we only warn once per new value. */
+	if (strcmp(last_conback, scr_conback.string) != 0) {
+		q_strlcpy(last_conback, scr_conback.string, sizeof(last_conback));
+		reported_missing = false;
+		reported_blocked = false;
+	}
+
+	/* Decide between image path vs solid fill. */
+	{
+		int use_default =
+			(conback_color.type == 0) ||
 		(conback_color.type == 2 &&
 			conback_color.rgb[0] == 0xFF &&
 			conback_color.rgb[1] == 0xFF &&
-			conback_color.rgb[2] == 0xFF));
+				conback_color.rgb[2] == 0xFF);
 
 	GL_SetCanvas (CANVAS_CONSOLE); // Ensure we're drawing on the console canvas
 
 	alpha = (con_forcedup) ? 1.0f : scr_conalpha.value;
+		if (alpha <= 0.0f)
+			return;
 
-	if (alpha <= 0.0f)
-		return; // Nothing to draw
+		if (use_default) {
+			qpic_t* pic = NULL;
 
-	if (use_default) // Use the default background image
-	{
-		pic = Draw_CachePic ("gfx/conback.lmp");
+			/* Decide whether the user override is allowed. */
+			qboolean allow_user_img = false;
+			if (scr_conback.string[0]) {
+				const char* ext = COM_FileGetExtension(scr_conback.string);
+				if (ext && !q_strcasecmp(ext, "lmp")) {
+					allow_user_img = true;        /* always allow .lmp */
+				}
+				else if (draw_load24bit) {      /* global hi‑res allowed? */
+					allow_user_img = true;
+				}
+				else if (!reported_blocked) {
+					Con_Printf("Console background ignored: gl_load24bit is 0 (only .lmp allowed).\n");
+					reported_blocked = true;
+				}
+			}
+
+			/* Try user-specified override first (if allowed & non-empty). */
+			if (allow_user_img) {
+				char path[MAX_QPATH];
+				char temp_path[MAX_QPATH];
+				char base_path[MAX_QPATH];   /* original user string */
+				char base_nopfx[MAX_QPATH];  /* ext stripped copy    */
+				static const char* ext_full[] = { ".png",".tga",".jpg",".jpeg",".dds",".pcx",".lmp" };
+				static const char* ext_lmp[] = { ".lmp" };
+				const char** extensions = draw_load24bit ? ext_full : ext_lmp;
+				int num_extensions = draw_load24bit
+					? (int)(sizeof(ext_full) / sizeof(ext_full[0]))
+					: 1;
+				int i;
+				qboolean found_file = false;
+
+				q_strlcpy(temp_path, scr_conback.string, sizeof(temp_path));
+				q_strlcpy(base_path, scr_conback.string, sizeof(base_path));
+				q_strlcpy(base_nopfx, scr_conback.string, sizeof(base_nopfx));
+
+				/* If user gave extension, try exactly that. */
+				if (COM_FileGetExtension(temp_path)) {
+					if (!Q_strncmp(temp_path, "gfx/", 4))
+						q_strlcpy(path, temp_path, sizeof(path));
+					else
+						q_snprintf(path, sizeof(path), "gfx/%s", temp_path);
+
+					if (COM_FileExists(path, NULL)) {
+						pic = Draw_TryCachePic(path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+						found_file = true;
+					}
+				}
+
+				/* No ext (or missing file)? Try allowed extensions. */
+				if (!pic) {
+					COM_StripExtension(base_nopfx, base_nopfx, sizeof(base_nopfx));
+					for (i = 0; i < num_extensions && !pic; i++) {
+						if (!Q_strncmp(base_nopfx, "gfx/", 4))
+							q_snprintf(path, sizeof(path), "%s%s", base_nopfx, extensions[i]);
+						else
+							q_snprintf(path, sizeof(path), "gfx/%s%s", base_nopfx, extensions[i]);
+
+						if (COM_FileExists(path, NULL)) {
+							pic = Draw_TryCachePic(path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+							found_file = true;
+							break;
+						}
+					}
+				}
+
+				/* Inform user once (only when we actually searched). */
+				if (!found_file && !reported_missing) {
+					char msg[1024];
+					size_t ofs = 0;
+
+					reported_missing = true; /* guard early */
+
+					ofs += q_snprintf(msg + ofs, sizeof(msg) - ofs,
+						"Console background file not found: %s (tried: ",
+						scr_conback.string);
+
+					if (COM_FileGetExtension(base_path)) {
+						if (!Q_strncmp(base_path, "gfx/", 4))
+							ofs += q_snprintf(msg + ofs, sizeof(msg) - ofs, "%s", base_path);
+						else
+							ofs += q_snprintf(msg + ofs, sizeof(msg) - ofs, "gfx/%s", base_path);
+					}
+					else {
+						for (i = 0; i < num_extensions; i++) {
+							if (i > 0)
+								ofs += q_snprintf(msg + ofs, sizeof(msg) - ofs, ", ");
+							if (!Q_strncmp(base_nopfx, "gfx/", 4))
+								ofs += q_snprintf(msg + ofs, sizeof(msg) - ofs, "%s%s", base_nopfx, extensions[i]);
+							else
+								ofs += q_snprintf(msg + ofs, sizeof(msg) - ofs, "gfx/%s%s", base_nopfx, extensions[i]);
+						}
+					}
+					q_snprintf(msg + ofs, sizeof(msg) - ofs, ")\n");
+					Con_Printf("%s", msg);
+				}
+			} /* allow_user_img */
+
+			/* Fallback: behave like scr_conback "" (use gfx/conback.lmp). */
+			if (!pic) {
+				pic = Draw_CachePic("gfx/conback.lmp");
+			}
+
 		pic->width = vid.conwidth;
 		pic->height = vid.conheight;
 
@@ -1087,6 +2079,7 @@ void Draw_ConsoleBackground (void)
 		glDisable(GL_BLEND);
 		glColor4f(1, 1, 1, 1); // Reset color
 	}
+}
 }
 
 /*
@@ -1420,7 +2413,7 @@ void GL_SetCanvas (canvastype newcanvas)
 	case CANVAS_TOPRIGHT4: // woods #hud_diff
 		s = ((float)glwidth / vid.conwidth); //use console scale
 		glOrtho(0, 320, 200, 0, -99999, 99999);
-		glViewport(glx + glwidth - 200 * s, (gly + glheight - 212 * s), 320 * s, 200 * s);
+		glViewport(glx + glwidth - 200 * s, (gly + glheight - 200 * s), 320 * s, 200 * s);
 		break;
 	default:
 		Sys_Error ("GL_SetCanvas: bad canvas type");

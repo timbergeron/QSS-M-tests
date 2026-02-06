@@ -42,6 +42,7 @@ static void Mod_Print (void);
 
 static cvar_t	external_ents = {"external_ents", "1", CVAR_ARCHIVE};
 static cvar_t	external_ents_dir = {"external_ents_dir", "", CVAR_ARCHIVE};
+static cvar_t   external_lits_dir = {"external_lits_dir", "", CVAR_ARCHIVE}; // woods #litdir
 cvar_t	gl_load24bit = {"gl_load24bit", "1", CVAR_ARCHIVE};
 static cvar_t	mod_ignorelmscale = {"mod_ignorelmscale", "0"};
 static cvar_t	mod_lightscale_broken = {"mod_lightscale_broken", "1"};	//match vanilla's brokenness bug with dlights and scaled textures. decoupled_lm bypasses this obviously buggy setting because zomgletmefixstuffffs
@@ -49,12 +50,13 @@ cvar_t	mod_lightgrid = {"mod_lightgrid", "1"};	//mostly for debugging, I dunno. 
 cvar_t	r_replacemodels = {"r_replacemodels", "", CVAR_ARCHIVE};
 static cvar_t	external_vis = {"external_vis", "1", CVAR_ARCHIVE};
 
-static cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
+cvar_t	gl_loadlitfiles = {"gl_loadlitfiles", "1", CVAR_ARCHIVE}; // woods #loadlits
 cvar_t gl_load24bit_skins = {"gl_load24bit_skins", "0", CVAR_ARCHIVE }; // woods #loadskins
 cvar_t gl_load24bit_hud = {"gl_load24bit_hud", "1", CVAR_ARCHIVE}; // woods #24bithud
 void Cache_Flush_f (cvar_t* var); // woods #loadskins
 
 cvar_t	scr_concolor = {"scr_concolor", "", CVAR_ARCHIVE}; // woods #concolor
+cvar_t	scr_conback = {"scr_conback", "", CVAR_ARCHIVE}; // woods #conback
 
 extern cvar_t	r_fastturb; // woods #fastturb
 
@@ -96,6 +98,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&external_vis);
 	Cvar_RegisterVariable (&external_ents);
 	Cvar_RegisterVariable (&external_ents_dir);
+	Cvar_RegisterVariable (&external_lits_dir); // woods #litdir
 	Cvar_RegisterVariable (&gl_load24bit);
 	Cvar_RegisterVariable (&r_replacemodels);
 	Cvar_RegisterVariable (&mod_ignorelmscale);
@@ -107,6 +110,7 @@ void Mod_Init (void)
 	Cvar_RegisterVariable (&mod_lightgrid);
 	Cvar_RegisterVariable (&scr_concolor); // woods #concolor
 	Cvar_SetCompletion (&scr_concolor, &Console_Color_Completion_f); // woods #iwtabcomplete
+	Cvar_RegisterVariable (&scr_conback); // woods #conback
 
 
 	Cmd_AddCommand ("mcache", Mod_Print);
@@ -382,18 +386,6 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 	byte	stackbuf[1024];		// avoid dirtying the cache heap
 	int	mod_type;
 
-	extern cvar_t r_particledesc; // woods use fte particles for bubbles
-
-	if (!strcmp(mod->name, "progs/s_bubble.spr") && !strcmp(r_particledesc.string, "qssm") && COM_FileExists("particles/qssm.cfg", NULL))
-
-	{
-		mod->type = mod_ext_invalid;
-		mod->flags = 0;
-		mod->needload = false;
-		Mod_SetExtraFlags(mod);
-		return mod;
-	}
-
 	if (!mod->needload)
 	{
 		if (mod->type == mod_alias)
@@ -613,7 +605,7 @@ static void *Q1BSPX_FindLump(char *lumpname, int *lumpsize)
 static void Q1BSPX_Setup(qmodel_t *mod, char *filebase, unsigned int filelen, lump_t *lumps, int numlumps)
 {
 	int i;
-	int offs = 0;
+	unsigned int offs = 0;
 	bspx_header_t *h;
 	qboolean misaligned = false;
 
@@ -699,7 +691,7 @@ static texture_t *Mod_LoadMipTex(miptex_t *mt, byte *lumpend, enum srcformat *fm
 	for (extdata+=4; extdata+8 < lumpend; extdata += sz)
 	{
 		sz = (extdata[0]<<0)|(extdata[1]<<8)|(extdata[2]<<16)|(extdata[3]<<24);
-		if (sz < 8 || sz > lumpend-extdata)	break;	//bad! bad! bad!
+		if (sz < 8 || sz >(size_t)(lumpend-extdata))	break;	//bad! bad! bad!
 		else if (sz <= 16)	continue;	//nope, no idea
 
 		*fmt = TexMgr_FormatForCode((char*)extdata+4);
@@ -838,7 +830,7 @@ static void Mod_LoadTextures (lump_t *l)
 		m->dataofs[i] = LittleLong(m->dataofs[i]);
 		if (m->dataofs[i] == -1)
 			continue;
-		if (m->dataofs[i] >= mipend)
+		if ((unsigned int)m->dataofs[i] >= mipend)
 			mipend = l->filelen;	//o.O something weird!
 		mt = (miptex_t *)((byte *)m + m->dataofs[i]);
 		mt->width = LittleLong (mt->width);
@@ -863,10 +855,26 @@ static void Mod_LoadTextures (lump_t *l)
 
 		mipend = m->dataofs[i];
 
-		if (!tx->name[0]) // woods
+		if (!tx->name[0]) // woods (aerowalk.bsp)
 		{
 			q_snprintf(tx->name, sizeof(tx->name), "unnamed%d", i);
 			Con_DPrintf ("unnamed texture in %s, renaming to %s\n", loadmodel->name, tx->name);
+		}
+
+		if (tx->name[0] && strchr(tx->name + 1, '*')) // woods (oldcrat.bsp)
+		{
+			char safename[sizeof(tx->name)];
+
+			q_strlcpy(safename, tx->name, sizeof(safename));
+
+			for (size_t k = 1; safename[k]; ++k)
+				if (safename[k] == '*')
+					safename[k] = '#';
+
+			Con_DPrintf("texture \"%s\" in %s renamed to \"%s\" to avoid wildcard\n",
+				tx->name, loadmodel->name, safename);
+
+			q_strlcpy(tx->name, safename, sizeof(tx->name));
 		}
 
 		//johnfitz -- lots of changes
@@ -1146,7 +1154,36 @@ static void Mod_LoadLighting (lump_t *l)
 	COM_StripExtension(litfilename, litfilename, sizeof(litfilename));
 	q_strlcat(litfilename, ".lit", sizeof(litfilename));
 	mark = Hunk_LowMark();
-	data = gl_loadlitfiles.value?(byte*) COM_LoadHunkFile (litfilename, &path_id):NULL; // woods #loadlits
+	data = NULL;
+
+	if (gl_loadlitfiles.value >= 1) // woods #loadlits #litdir
+	{
+		char altlitfilename[MAX_OSPATH];
+		qboolean try_external = false;
+
+		// Check if we should try external lits first
+		if (gl_loadlitfiles.value >= 2 && external_lits_dir.string[0])
+		{
+			q_snprintf(altlitfilename, sizeof(altlitfilename), "maps/%s/%s",
+				external_lits_dir.string, COM_SkipPath(litfilename));
+
+			if (gl_loadlitfiles.value == 2 ||
+				(gl_loadlitfiles.value == 3 && (rand() & 1)))
+			{
+				try_external = true;
+			}
+
+			if (try_external && COM_FileExists(altlitfilename, NULL))
+			{
+				Con_DPrintf2("trying to load %s\n", altlitfilename);
+				data = (byte*)COM_LoadHunkFile(altlitfilename, &path_id);
+			}
+		}
+
+		// Load standard .lit file if no external data loaded
+		if (!data)
+			data = (byte*)COM_LoadHunkFile(litfilename, &path_id);
+	}
 	if (data)
 	{
 		// use lit file only from the same gamedir as the map
@@ -1212,7 +1249,7 @@ static void Mod_LoadLighting (lump_t *l)
 		in = mod_base + l->fileofs;
 		out = loadmodel->lightdata;
 
-		for (i = 0;i < (l->filelen / 2) ;i++)
+		for (unsigned int i = 0;i < (l->filelen / 2) ;i++)
 		{
 			q64_b0 = *in++;
 			q64_b1 = *in++;
@@ -1224,27 +1261,34 @@ static void Mod_LoadLighting (lump_t *l)
 		return;
 	}
 
-	in = Q1BSPX_FindLump("LIGHTING_E5BGR9", &bspxsize);
-	if (in && (!l->filelen || (bspxsize && bspxsize == l->filelen*4)))
+	if (gl_loadlitfiles.value > 0) // woods #loadlits
 	{
-		loadmodel->lightdata = (byte *) Hunk_AllocName ( bspxsize, litfilename);
-		loadmodel->lightdatasamples = bspxsize/4;
-		memcpy(loadmodel->lightdata, in, bspxsize);
-		loadmodel->flags |= MOD_HDRLIGHTING;
-		Con_DPrintf("bspx hdr lighting loaded\n");
-		for (i = 0; i < loadmodel->lightdatasamples; i++)	//native endian...
-			((int*)loadmodel->lightdata)[i] = LittleLong(((int*)loadmodel->lightdata)[i]);
-		return;
+		in = Q1BSPX_FindLump("LIGHTING_E5BGR9", &bspxsize);
+		if (in && (!l->filelen || (bspxsize && bspxsize == l->filelen * 4)))
+		{
+			loadmodel->lightdata = (byte*)Hunk_AllocName(bspxsize, litfilename);
+			loadmodel->lightdatasamples = bspxsize / 4;
+			memcpy(loadmodel->lightdata, in, bspxsize);
+			loadmodel->flags |= MOD_HDRLIGHTING;
+			Con_DPrintf("bspx hdr lighting loaded\n");
+			for (i = 0; i < loadmodel->lightdatasamples; i++)    // native endian...
+				((int*)loadmodel->lightdata)[i] = LittleLong(((int*)loadmodel->lightdata)[i]);
+			return;
+		}
+		in = Q1BSPX_FindLump("RGBLIGHTING", &bspxsize);
+		if (in && (!l->filelen || (bspxsize && bspxsize == l->filelen * 3)))
+		{
+			loadmodel->lightdata = (byte*)Hunk_AllocName(bspxsize, litfilename);
+			loadmodel->lightdatasamples = bspxsize / 3;
+			memcpy(loadmodel->lightdata, in, bspxsize);
+			Con_DPrintf("bspx ldr lighting loaded\n");
+			return;
+		}
 	}
-	in = Q1BSPX_FindLump("RGBLIGHTING", &bspxsize);
-	if (in && (!l->filelen || (bspxsize && bspxsize == l->filelen*3)))
-	{
-		loadmodel->lightdata = (byte *) Hunk_AllocName ( bspxsize, litfilename);
-		loadmodel->lightdatasamples = bspxsize/3;
-		memcpy(loadmodel->lightdata, in, bspxsize);
-		Con_DPrintf("bspx ldr lighting loaded\n");
-		return;
+	else {
+		Con_DPrintf2("gl_loadlitfiles 0: ignoring BSPX colored lighting lumps\n");
 	}
+
 	if (l->filelen)
 	{
 		loadmodel->lightdata = (byte *) Hunk_AllocName ( l->filelen*3, litfilename);
@@ -1252,7 +1296,7 @@ static void Mod_LoadLighting (lump_t *l)
 		in = loadmodel->lightdata + l->filelen*2; // place the file at the end, so it will not be overwritten until the very last write
 		out = loadmodel->lightdata;
 		memcpy (in, mod_base + l->fileofs, l->filelen);
-		for (i = 0;i < l->filelen;i++)
+		for (unsigned int i = 0;i < l->filelen;i++)
 		{
 			d = *in++;
 			*out++ = d;
@@ -2110,8 +2154,12 @@ static void Mod_ProcessLeafs_S (dsleaf_t *in, int filelen)
 		for (j=0 ; j<4 ; j++)
 			out->ambient_sound_level[j] = in->ambient_level[j];
 
-		//johnfitz -- removed code to mark surfaces as SURF_UNDERWATER
+		if (out->contents == CONTENTS_WATER || out->contents == CONTENTS_SLIME || out->contents == CONTENTS_LAVA) // woods #caustics
+		{
+			for (j = 0; j < out->nummarksurfaces; j++)
+				out->firstmarksurface[j]->flags |= SURF_UNDERWATER;
 	}
+}
 }
 
 static void Mod_ProcessLeafs_L1 (dl1leaf_t *in, int filelen)
@@ -2153,7 +2201,11 @@ static void Mod_ProcessLeafs_L1 (dl1leaf_t *in, int filelen)
 		for (j=0 ; j<4 ; j++)
 			out->ambient_sound_level[j] = in->ambient_level[j];
 
-		//johnfitz -- removed code to mark surfaces as SURF_UNDERWATER
+		if (out->contents == CONTENTS_WATER || out->contents == CONTENTS_SLIME || out->contents == CONTENTS_LAVA) // woods #caustics
+		{
+			for (j = 0; j < out->nummarksurfaces; j++)
+				out->firstmarksurface[j]->flags |= SURF_UNDERWATER;
+		}
 	}
 }
 
@@ -2196,7 +2248,11 @@ static void Mod_ProcessLeafs_L2 (dl2leaf_t *in, int filelen)
 		for (j=0 ; j<4 ; j++)
 			out->ambient_sound_level[j] = in->ambient_level[j];
 
-		//johnfitz -- removed code to mark surfaces as SURF_UNDERWATER
+		if (out->contents == CONTENTS_WATER || out->contents == CONTENTS_SLIME || out->contents == CONTENTS_LAVA) // woods #caustics
+		{
+			for (j = 0; j < out->nummarksurfaces; j++)
+				out->firstmarksurface[j]->flags |= SURF_UNDERWATER;
+		}
 	}
 }
 
@@ -2829,7 +2885,8 @@ static byte *Mod_LoadVisibilityExternal(FILE* f)
 	byte*	visdata;
 
 	filelen = 0;
-	fread(&filelen, 1, 4, f);
+	if (fread(&filelen, 1, 4, f) != 4) // woods
+		return NULL;
 	filelen = LittleLong(filelen);
 	if (filelen <= 0) return NULL;
 	Con_DPrintf("...%d bytes visibility data\n", filelen);
@@ -2845,7 +2902,8 @@ static void Mod_LoadLeafsExternal(FILE* f)
 	void*	in;
 
 	filelen = 0;
-	fread(&filelen, 1, 4, f);
+	if (fread(&filelen, 1, 4, f) != 4) // woods
+		return;
 	filelen = LittleLong(filelen);
 	if (filelen <= 0) return;
 	Con_DPrintf("...%d bytes leaf data\n", filelen);
@@ -3079,8 +3137,8 @@ qboolean Mod_LoadMapDescription(char* desc, size_t maxchars, const char* map)
 		((int*)&header)[i] = LittleLong(((int*)&header)[i]);
 
 	entlump = &header.lumps[LUMP_ENTITIES];
-	if (entlump->filelen < 0 || entlump->filelen >= filesize ||
-		entlump->fileofs < 0 || entlump->fileofs + entlump->filelen > filesize)
+	if ((int)entlump->filelen < 0 || (int)entlump->filelen >= filesize ||
+		(int)entlump->fileofs < 0 || (int)entlump->fileofs + (int)entlump->filelen > filesize)
 	{
 		fclose(f);
 		return false;
@@ -3765,6 +3823,12 @@ void Mod_SetExtraFlags (qmodel_t *mod)
 		{
 			mod->flags |= MOD_FBRIGHTHACK;
 		}
+	}
+
+	if (mod->type == mod_brush) // woods #shadow
+	{
+		if (nameInList(r_noshadow_list.string, mod->name))
+			mod->flags |= MOD_NOSHADOW;
 	}
 
 #ifdef PSET_SCRIPT

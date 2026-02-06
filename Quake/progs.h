@@ -175,6 +175,7 @@ struct pr_extfuncs_s
 /*all vms*/
 #define QCEXTFUNCS_COMMON \
 	QCEXTFUNC(GameCommand,				"void(string cmdtext)")												/*obsoleted by m_consolecommand, included for dp compat.*/	\
+	QCEXTFUNC(URI_Get_Callback,			"void(float id, float ok, string content_type, string data)") 		/*woods #uri*/ \
 /*csqc+ssqc*/
 #define QCEXTFUNCS_GAME \
 	QCEXTFUNC(EndFrame,					"void()")				\
@@ -467,5 +468,20 @@ extern const builtin_t pr_csqcbuiltins[];
 extern const int pr_csqcnumbuiltins;
 extern const builtin_t pr_menubuiltins[];
 extern int const pr_menunumbuiltins;
+
+// woods #spinnymodel
+
+/* Pixel-aligned: rect args are screen pixels (relative to window).
+   Keeps preview magneted to 2D menu items regardless of scr_menuscale. */
+void DrawSpinningModelToMenuPixels(const char* modelname,
+	float pixel_x, float pixel_y,
+	float pixel_w, float pixel_h,
+	float afov,
+	float zbias,
+	float firstframe, float framecount,
+	float shootframe, float shootframes);
+
+void PR_SetMenuPreviewLegacyColors(int top, int bottom); // Set legacy shirt/pants colours (0..13) for menu preview. Pass -1 to disable.
+void PR_SetMenuPreviewRGBColors(int top_r, int top_g, int top_b, int bot_r, int bot_g, int bot_b); // Set legacy-independent RGB for preview (values -1 to disable)
 
 #endif	/* QUAKE_PROGS_H */

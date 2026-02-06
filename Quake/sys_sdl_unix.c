@@ -47,6 +47,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
+#include <termios.h> // woods #arrowkeys
+#include <unistd.h> // woods #arrowkeys
 
 qboolean		isDedicated;
 cvar_t		sys_throttle = {"sys_throttle", "0.02", CVAR_ARCHIVE};
@@ -469,52 +471,237 @@ double Sys_DoubleTime (void)
 	return SDL_GetTicks() / 1000.0;
 }
 
-const char *Sys_ConsoleInput (void)
+static void safe_write(int fd, const void* buf, size_t count) // woods #arrowkeys
 {
-	static char	con_text[256];
+	ssize_t result = write(fd, buf, count);
+	if (result == -1) {
+	}
+}
+
+static void Dedicated_RedrawInputLine(const char* text, int textlen, int cursor_pos, int previous_len)
+{
+	const char carriage = '\r';
+	const char space = ' ';
+
+	safe_write(1, &carriage, 1);
+	if (textlen > 0)
+		safe_write(1, text, (size_t)textlen);
+
+	if (previous_len > textlen)
+	{
+		int diff = previous_len - textlen;
+		for (int i = 0; i < diff; ++i)
+			safe_write(1, &space, 1);
+	}
+
+	safe_write(1, &carriage, 1);
+	if (cursor_pos > 0)
+		safe_write(1, text, (size_t)cursor_pos);
+}
+
+static void Sys_RewriteInputLine(const char* newline, char* con_text, size_t con_text_size, int* textlen, int* cursor_pos) // woods #serverhistory
+{
+	int oldlen = *textlen;
+	int oldpos = *cursor_pos;
+	size_t newlen;
+
+	for (int i = 0; i < oldpos; i++)
+		safe_write(1, "\b", 1);
+	for (int i = 0; i < oldlen; i++)
+		safe_write(1, " ", 1);
+	for (int i = 0; i < oldlen; i++)
+		safe_write(1, "\b", 1);
+
+	newlen = q_strlcpy(con_text, newline ? newline : "", con_text_size);
+	if (newlen)
+		safe_write(1, con_text, newlen);
+
+	*textlen = (int)newlen;
+	*cursor_pos = *textlen;
+}
+
+const char *Sys_ConsoleInput (void) // woods #arrowkeys #serverhistory
+{
+	static char	con_text[MAXCMDLINE];
 	static int	textlen;
+    static int cursor_pos;  // Track cursor position separately from text length
 	char		c;
 	fd_set		set;
 	struct timeval	timeout;
+    static struct termios orig_termios, raw_termios;
+    static qboolean term_setup = false;
 
-	FD_ZERO (&set);
+    // Set up terminal once
+    if (!term_setup)
+    {
+        if (tcgetattr(0, &orig_termios) != -1)
+        {
+            raw_termios = orig_termios;
+            raw_termios.c_lflag &= ~(ICANON | ECHO);  // Disable canonical mode and echo
+            raw_termios.c_cc[VMIN] = 1;
+            raw_termios.c_cc[VTIME] = 0;
+            tcsetattr(0, TCSANOW, &raw_termios);
+            term_setup = true;
+            cursor_pos = 0;
+        }
+    }
+
+    FD_ZERO (&set);
 	FD_SET (0, &set);	// stdin
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 0;
 
-	while (select (1, &set, NULL, NULL, &timeout))
-	{
-		read (0, &c, 1);
-		if (c == '\n' || c == '\r')
-		{
-			con_text[textlen] = '\0';
-			textlen = 0;
-			return con_text;
-		}
-		else if (c == 8)
-		{
-			if (textlen)
-			{
-				textlen--;
-				con_text[textlen] = '\0';
-			}
-			continue;
-		}
-		con_text[textlen] = c;
-		textlen++;
-		if (textlen < (int) sizeof(con_text))
-			con_text[textlen] = '\0';
-		else
-		{
-		// buffer is full
-			textlen = 0;
-			con_text[0] = '\0';
-			Sys_Printf("\nConsole input too long!\n");
-			break;
-		}
-	}
+    while (select (1, &set, NULL, NULL, &timeout))
+    {
+        ssize_t len = read(0, &c, 1);
+        if (len != 1)
+            continue;
 
-	return NULL;
+        // Handle escape sequences for arrow keys
+        if (c == 27) // ESC character
+        {
+            char seq[3] = {0};
+            struct timeval seq_timeout;
+            seq_timeout.tv_sec = 0;
+            seq_timeout.tv_usec = 10000;
+            
+            FD_ZERO(&set);
+            FD_SET(0, &set);
+            if (select(1, &set, NULL, NULL, &seq_timeout) > 0)
+            {
+                len = read(0, seq, 1);
+                if (len == 1 && seq[0] == '[')
+                {
+                    FD_ZERO(&set);
+                    FD_SET(0, &set);
+                    if (select(1, &set, NULL, NULL, &seq_timeout) > 0)
+                    {
+                        len = read(0, seq + 1, 1);
+                        if (len == 1)
+                        {
+                            switch (seq[1])
+                            {
+                                case 'D': // Left arrow
+                                    if (cursor_pos > 0)
+                                    {
+                                        cursor_pos--;
+										safe_write(1, "\b", 1);
+                                    }
+                                    continue;
+                                case 'C': // Right arrow
+                                    if (cursor_pos < textlen)
+                                    {
+										safe_write(1, &con_text[cursor_pos], 1);
+                                        cursor_pos++;
+                                    }
+                                    continue;
+                                case 'A': // Up arrow
+								{
+									char history_line[MAXCMDLINE];
+									if (History_GetPrevious(con_text, history_line, sizeof(history_line)))
+										Sys_RewriteInputLine(history_line, con_text, sizeof(con_text), &textlen, &cursor_pos);
+									continue;
+								}
+                                case 'B': // Down arrow
+								{
+									char history_line[MAXCMDLINE];
+									if (History_GetNext(con_text, history_line, sizeof(history_line)))
+										Sys_RewriteInputLine(history_line, con_text, sizeof(con_text), &textlen, &cursor_pos);
+									continue;
+								}
+                                    continue;
+                            }
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        if (c == 21) // Ctrl-U
+        {
+            Sys_RewriteInputLine(NULL, con_text, sizeof(con_text), &textlen, &cursor_pos);
+            Con_DedicatedResetTabState();
+            continue;
+        }
+
+        if (c == '\n' || c == '\r')
+        {
+			safe_write(1, "\n", 1);
+            con_text[textlen] = '\0';
+			History_StoreCommand(con_text);
+            textlen = 0;
+            cursor_pos = 0;
+            Con_DedicatedResetTabState();
+            return con_text;
+        }
+        else if (c == '\t')
+        {
+			con_text[textlen] = '\0'; // Ensure input is null terminated
+            int previous_len = textlen;
+            Con_DedicatedTabComplete(con_text, sizeof(con_text), &textlen, &cursor_pos);
+            Dedicated_RedrawInputLine(con_text, textlen, cursor_pos, previous_len);
+            continue;
+        }
+        else if (c == 8 || c == 127)    // backspace or delete
+        {
+            if (cursor_pos > 0)
+            {
+                // Move characters after cursor back by one position
+                memmove(&con_text[cursor_pos - 1], &con_text[cursor_pos], textlen - cursor_pos);
+                cursor_pos--;
+                textlen--;
+                
+                // Rewrite the line from cursor position
+				safe_write(1, "\b", 1);
+                if (cursor_pos < textlen)
+                {
+					safe_write(1, &con_text[cursor_pos], textlen - cursor_pos);
+					safe_write(1, " ", 1);  // Clear last character
+                    // Move cursor back to position
+                    for (int i = 0; i < textlen - cursor_pos + 1; i++)
+						safe_write(1, "\b", 1);
+                }
+                else
+                {
+					safe_write(1, " \b", 2);  // Clear last character
+                }
+                Con_DedicatedResetTabState();
+            }
+            continue;
+        }
+
+        if (textlen < sizeof(con_text)-1 && c >= 32 && c < 127)
+        {
+            // Insert character at cursor position
+            if (cursor_pos < textlen)
+            {
+                // Make room for new character
+                memmove(&con_text[cursor_pos + 1], &con_text[cursor_pos], textlen - cursor_pos);
+                con_text[cursor_pos] = c;
+                textlen++;
+                
+                // Write the new character and the rest of the line
+				safe_write(1, &con_text[cursor_pos], textlen - cursor_pos);
+                
+                // Move cursor back to just after inserted character
+                cursor_pos++;
+                for (int i = 0; i < textlen - cursor_pos; i++)
+					safe_write(1, "\b", 1);
+            }
+            else
+            {
+                // Append character at end of line
+                con_text[textlen] = c;
+				safe_write(1, &c, 1);
+                textlen++;
+                cursor_pos++;
+            }
+            Con_DedicatedResetTabState();
+        }
+    }
+
+    return NULL;
 }
 
 void Sys_Sleep (unsigned long msecs)

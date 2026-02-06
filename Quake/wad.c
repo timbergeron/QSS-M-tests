@@ -100,13 +100,13 @@ void W_LoadWadFile (void) //johnfitz -- filename is now hard-coded for honesty
 		infotableofs = LittleLong(header->infotableofs);
 	}
 	wad_lumps = (lumpinfo_t *)(wad_base + infotableofs);
-	if (infotableofs < 0 || infotableofs+wad_numlumps*sizeof(lumpinfo_t)>com_filesize)
+	if (infotableofs < 0 || infotableofs+wad_numlumps*sizeof(lumpinfo_t)>(unsigned)com_filesize)
 	{
 		Con_Printf ("Wad file %s header extends beyond end of file\n",filename);
 		wad_numlumps = 0;
 	}
 
-	for (i=0, lump_p = wad_lumps ; i<wad_numlumps ; i++,lump_p++)
+	for (i=0, lump_p = wad_lumps ; i<(int)wad_numlumps ; i++,lump_p++)
 	{
 		lump_p->filepos = LittleLong(lump_p->filepos);
 		lump_p->size = LittleLong(lump_p->size);
@@ -114,7 +114,7 @@ void W_LoadWadFile (void) //johnfitz -- filename is now hard-coded for honesty
 			lump_p->size = LittleLong(lump_p->disksize);
 		if (lump_p->filepos < 0 || lump_p->size < 0 || lump_p->filepos + lump_p->size > com_filesize)
 		{
-			if (lump_p->filepos > com_filesize || lump_p->size < 0)
+			if (lump_p->filepos > (unsigned)com_filesize || lump_p->size < 0)
 			{
 				Con_Printf ("Wad file %s lump \"%.16s\" begins %u bytes beyond end of wad\n",filename, lump_p->name, (unsigned)(lump_p->filepos - com_filesize));
 				lump_p->filepos = 0;
@@ -146,7 +146,7 @@ static lumpinfo_t	*W_GetLumpinfo (const char *name)
 
 	W_CleanupName (name, clean);
 
-	for (lump_p=wad_lumps, i=0 ; i<wad_numlumps ; i++,lump_p++)
+	for (lump_p=wad_lumps, i=0 ; i<(int)wad_numlumps ; i++,lump_p++)
 	{
 		if (!strcmp(clean, lump_p->name))
 			return lump_p;

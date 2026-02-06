@@ -32,13 +32,270 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
+#ifdef __APPLE__
+#include <IOKit/hid/IOHIDLib.h>
+#include <IOKit/hidsystem/event_status_driver.h>
+
+// HID Raw Mouse Input System
+static SDL_Thread *hid_thread = NULL;
+static SDL_mutex *hid_mouse_mutex = NULL;
+static SDL_mutex *hid_start_mutex = NULL;
+static SDL_cond *hid_start_cond = NULL;
+static IOHIDManagerRef hid_manager = NULL;
+static CFRunLoopRef hid_runloop = NULL;
+static int hid_mouse_x = 0;
+static int hid_mouse_y = 0;
+static qboolean hid_mouse_active = false;
+
+static void HID_InputCallback(void *unused, IOReturn result, void *sender, IOHIDValueRef value)
+{
+	if (!hid_mouse_active || !hid_mouse_mutex || !value) return;
+	
+	IOHIDElementRef elem = IOHIDValueGetElement(value);
+	if (!elem) return;
+	
+	uint32_t page = IOHIDElementGetUsagePage(elem);
+	uint32_t usage = IOHIDElementGetUsage(elem);
+	int32_t val = (int32_t)IOHIDValueGetIntegerValue(value);
+
+	if (page == kHIDPage_GenericDesktop) {
+		switch (usage) {
+			case kHIDUsage_GD_X:
+				if (SDL_LockMutex(hid_mouse_mutex) == 0) {
+					hid_mouse_x += val;
+					SDL_UnlockMutex(hid_mouse_mutex);
+				}
+				break;
+			case kHIDUsage_GD_Y:
+				if (SDL_LockMutex(hid_mouse_mutex) == 0) {
+					hid_mouse_y += val;
+					SDL_UnlockMutex(hid_mouse_mutex);
+				}
+				break;
+			default:
+				break;
+		}
+	}
+}
+
+static int HID_MouseThread(void *inarg)
+{
+	CFMutableDictionaryRef mice = NULL;
+	CFNumberRef pageRef = NULL;
+	CFNumberRef usageRef = NULL;
+	CFRunLoopRef runloop = NULL;
+	
+	if (!hid_start_mutex) {
+		return -1;
+	}
+	
+	SDL_LockMutex(hid_start_mutex);
+
+	hid_manager = IOHIDManagerCreate(kCFAllocatorSystemDefault, kIOHIDOptionsTypeNone);
+	if (!hid_manager) {
+		goto cleanup_and_signal;
+	}
+
+	// Create device matching dictionary for mice
+	mice = CFDictionaryCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (!mice) {
+		goto cleanup_and_signal;
+	}
+	
+	UInt32 page = kHIDPage_GenericDesktop;
+	UInt32 usage = kHIDUsage_GD_Mouse;
+	pageRef = CFNumberCreate(kCFAllocatorSystemDefault, kCFNumberIntType, &page);
+	usageRef = CFNumberCreate(kCFAllocatorSystemDefault, kCFNumberIntType, &usage);
+	
+	if (!pageRef || !usageRef) {
+		goto cleanup_and_signal;
+	}
+	
+	CFDictionarySetValue(mice, CFSTR(kIOHIDDeviceUsagePageKey), pageRef);
+	CFDictionarySetValue(mice, CFSTR(kIOHIDDeviceUsageKey), usageRef);
+	CFRelease(pageRef);
+	CFRelease(usageRef);
+	pageRef = NULL;
+	usageRef = NULL;
+
+	IOHIDManagerSetDeviceMatching(hid_manager, mice);
+	CFRelease(mice);
+	mice = NULL;
+	
+	IOHIDManagerRegisterInputValueCallback(hid_manager, HID_InputCallback, NULL);
+	
+	runloop = CFRunLoopGetCurrent();
+	if (!runloop) {
+		goto cleanup_and_signal;
+	}
+	
+	IOHIDManagerScheduleWithRunLoop(hid_manager, runloop, kCFRunLoopDefaultMode);
+
+	// This may fail if the process running does not have 'Input Monitoring' permissions granted.
+	IOReturn ret = IOHIDManagerOpen(hid_manager, kIOHIDOptionsTypeNone);
+	if (ret != kIOReturnSuccess) {
+		IOHIDManagerUnscheduleFromRunLoop(hid_manager, runloop, kCFRunLoopDefaultMode);
+		if (ret == kIOReturnNotPermitted) {
+			// Immediate signal for permission denial - no need to wait
+			goto cleanup_and_signal;
+		}
+		goto cleanup_and_signal;
+	}
+
+	hid_runloop = runloop;
+	
+	// Signal success and unlock
+	SDL_CondSignal(hid_start_cond);
+	SDL_UnlockMutex(hid_start_mutex);
+
+	CFRunLoopRun();
+
+	// Cleanup when run loop exits
+	IOHIDManagerClose(hid_manager, kIOHIDOptionsTypeNone);
+	IOHIDManagerUnscheduleFromRunLoop(hid_manager, runloop, kCFRunLoopDefaultMode);
+	CFRelease(hid_manager);
+	hid_manager = NULL;
+	hid_runloop = NULL;
+
+	return 0;
+
+cleanup_and_signal:
+	// Cleanup resources
+	if (pageRef) CFRelease(pageRef);
+	if (usageRef) CFRelease(usageRef);
+	if (mice) CFRelease(mice);
+	if (hid_manager) {
+		if (runloop) {
+			IOHIDManagerUnscheduleFromRunLoop(hid_manager, runloop, kCFRunLoopDefaultMode);
+		}
+		CFRelease(hid_manager);
+		hid_manager = NULL;
+	}
+	
+	hid_runloop = NULL;
+	
+	// Signal failure and unlock
+	SDL_CondSignal(hid_start_cond);
+	SDL_UnlockMutex(hid_start_mutex);
+	
+	return -1;
+}
+
+static qboolean HID_MouseInit(void)
+{
+	if (hid_mouse_active) return true;
+
+	hid_mouse_x = 0;
+	hid_mouse_y = 0;
+
+	hid_start_mutex = SDL_CreateMutex();
+	hid_start_cond = SDL_CreateCond();
+	hid_mouse_mutex = SDL_CreateMutex();
+
+	if (!hid_start_mutex || !hid_start_cond || !hid_mouse_mutex) {
+		Con_DPrintf("HID Mouse: Failed to create mutexes\n");
+		return false;
+	}
+
+	SDL_LockMutex(hid_start_mutex);
+	hid_thread = SDL_CreateThread(HID_MouseThread, "HID_MouseThread", NULL);
+	
+	if (!hid_thread) {
+		SDL_UnlockMutex(hid_start_mutex);
+		SDL_DestroyMutex(hid_start_mutex);
+		SDL_DestroyMutex(hid_mouse_mutex);
+		SDL_DestroyCond(hid_start_cond);
+		return false;
+	}
+
+	// Wait for HID thread to initialize with timeout (5 seconds)
+	Uint32 start_time = SDL_GetTicks();
+	int wait_result = 0;
+	while ((SDL_GetTicks() - start_time) < 5000) {
+		wait_result = SDL_CondWaitTimeout(hid_start_cond, hid_start_mutex, 1000);
+		if (wait_result == 0 && hid_runloop) break; // Success - thread is ready
+		if (wait_result == 0 && !hid_runloop) break; // Signal received but failed - exit immediately
+		if (wait_result == SDL_MUTEX_TIMEDOUT) continue; // Timeout, try again
+		break; // Error
+	}
+	
+	SDL_UnlockMutex(hid_start_mutex);
+
+	SDL_DestroyMutex(hid_start_mutex);
+	SDL_DestroyCond(hid_start_cond);
+	hid_start_mutex = NULL;
+	hid_start_cond = NULL;
+
+	if (wait_result != 0 || !hid_runloop) {
+		Con_DPrintf("HID Mouse: Failed to initialize - falling back to SDL mouse\n");
+		if (hid_thread) {
+			SDL_WaitThread(hid_thread, NULL);
+			hid_thread = NULL;
+		}
+		if (hid_mouse_mutex) {
+			SDL_DestroyMutex(hid_mouse_mutex);
+			hid_mouse_mutex = NULL;
+		}
+		return false;
+	}
+
+	hid_mouse_active = true;
+	return true;
+}
+
+static void HID_MouseShutdown(void)
+{
+	if (!hid_mouse_active) return;
+
+	hid_mouse_active = false;
+
+	if (hid_runloop) {
+		CFRunLoopStop(hid_runloop);
+		hid_runloop = NULL;
+	}
+
+	if (hid_thread) {
+		// Fast shutdown - wait for thread to ensure IOHIDManagerClose runs
+		// The CFRunLoopStop above will cause it to exit cleanly
+		SDL_WaitThread(hid_thread, NULL);   /* guarantees IOHIDManagerClose ran */
+		hid_thread = NULL;
+	}
+
+	if (hid_mouse_mutex) {
+		SDL_DestroyMutex(hid_mouse_mutex);
+		hid_mouse_mutex = NULL;
+	}
+
+	Con_DPrintf("HID Mouse: Raw mouse input shutdown\n");
+}
+
+static void HID_MouseGetMovement(int *m_x, int *m_y)
+{
+	if (!hid_mouse_active || !hid_mouse_mutex) {
+		*m_x = 0;
+		*m_y = 0;
+		return;
+	}
+
+	SDL_LockMutex(hid_mouse_mutex);
+	*m_x = hid_mouse_x;
+	*m_y = hid_mouse_y;
+	hid_mouse_x = 0;
+	hid_mouse_y = 0;
+	SDL_UnlockMutex(hid_mouse_mutex);
+}
+
+#endif // __APPLE__
+
 char	afk_name[16]; // woods #smartafk
 char	normalname[20]; // woods #smartafk
 char	normalname2[32]; // woods #smartafk
 
 extern	char mute[2]; // woods for mute to memory #usermute
 
-static qboolean windowhasfocus = true;	//just in case sdl fails to tell us...
+qboolean windowhasfocus = true;	//just in case sdl fails to tell us... // woods #pong -- remove static
+extern cvar_t cl_pong; // woods #pong
+extern void Pong_ToggleFreeze(void); // woods #pong
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through
 
@@ -53,6 +310,8 @@ void Host_Name_Backup_f(void); // woods #smartafk
 void Host_Name_Load_Backup_f(void); // woods #smartafk
 
 qboolean IsOneVsOneMatch (void); // woods #detectmatch
+void IN_ObsFragsClick (int mouse_x, int mouse_y); // woods #eyemouse
+extern cvar_t cl_bottomcolor; // woods
 
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
@@ -63,8 +322,136 @@ qboolean IsOneVsOneMatch (void); // woods #detectmatch
 #include <IOKit/IOTypes.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
-#include <IOKit/hidsystem/event_status_driver.h>
-#endif
+#include <dlfcn.h>
+#include <CoreGraphics/CoreGraphics.h>
+
+static double originalMouseSpeed = -1.0;
+
+static io_connect_t IN_GetIOHandle(void)
+{
+	io_connect_t iohandle = MACH_PORT_NULL;
+	io_service_t iohidsystem = MACH_PORT_NULL;
+	mach_port_t masterport;
+	kern_return_t status;
+
+	status = IOMasterPort(MACH_PORT_NULL, &masterport);
+	if (status != KERN_SUCCESS)
+		return 0;
+
+	iohidsystem = IORegistryEntryFromPath(masterport, kIOServicePlane ":/IOResources/IOHIDSystem");
+	if (!iohidsystem)
+		return 0;
+
+	status = IOServiceOpen(iohidsystem, mach_task_self(), kIOHIDParamConnectType, &iohandle);
+	IOObjectRelease(iohidsystem);
+
+	return iohandle;
+}
+
+static void SetMouseAccelCG(double accel)
+{
+	typedef void (*CGSetRefFn)(int, double);
+	static CGSetRefFn fn = NULL;
+	if (!fn)
+		fn = (CGSetRefFn)dlsym(RTLD_DEFAULT, "CGEventSourceSetAcceleration");
+	if (fn) {
+		/* source = -1 == combined "local" events */
+		fn(kCGEventSourceStateCombinedSessionState, accel);
+	}
+}
+
+static void IN_ReenableOSXMouseAccel_AtExit(void)
+{
+	printf("IN_ReenableOSXMouseAccel_AtExit called\n");
+	if (originalMouseSpeed != -1)
+	{
+		printf("atexit: originalMouseSpeed=%g\n", originalMouseSpeed);
+		io_connect_t mouseDev = IN_GetIOHandle();
+		if (mouseDev != 0)
+		{
+			double accel = (originalMouseSpeed == -1) ? 0.0 : originalMouseSpeed;
+			
+			if (IOHIDSetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), accel) != kIOReturnSuccess)
+			{
+				printf("RESTORE-FAIL %g\n", accel);
+				/* try the CG shim instead */
+				SetMouseAccelCG(accel);
+			}
+			else
+			{
+				printf("Restored accel %g (atexit)\n", accel);
+			}
+			IOServiceClose(mouseDev);
+		}
+		originalMouseSpeed = -1;
+	}
+	else
+	{
+		printf("atexit: originalMouseSpeed was already -1\n");
+	}
+}
+
+static void IN_ReenableOSXMouseAccel (void)
+{
+	Con_DPrintf("IN_ReenableOSXMouseAccel called\n");
+	io_connect_t mouseDev = IN_GetIOHandle();
+	if (mouseDev != 0)
+	{
+		/* NEW: Restore to default (0.0) if originalMouseSpeed is -1 (save failed) */
+		double accel = (originalMouseSpeed == -1) ? 0.0 : originalMouseSpeed;
+		
+		if (IOHIDSetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), accel) != kIOReturnSuccess)
+		{
+			Con_DPrintf("RESTORE-FAIL %g\n", accel);
+			/* try the CG shim instead */
+			SetMouseAccelCG(accel);
+		}
+		else
+		{
+			Con_DPrintf("Restored accel %g\n", accel);
+		}
+		IOServiceClose(mouseDev);
+	}
+	else
+	{
+		Con_DPrintf("WARNING: Could not re-enable mouse acceleration (failed at IO_GetIOHandle).\n");
+	}
+	/* keep the cached value in case we lose/regain focus again
+	   before quitting, but guard against runaway loops           */
+	static int restoreCount = 0;
+	if (++restoreCount > 2)        /* paranoia */
+		originalMouseSpeed = -1;
+}
+
+static void IN_ReenableOSXMouseAccelForFocus (void)
+{
+	Con_DPrintf("IN_ReenableOSXMouseAccelForFocus called\n");
+	io_connect_t mouseDev = IN_GetIOHandle();
+	if (mouseDev != 0)
+	{
+		/* NEW: Restore to default (0.0) if originalMouseSpeed is -1 (save failed) */
+		double accel = (originalMouseSpeed == -1) ? 0.0 : originalMouseSpeed;
+		
+		if (IOHIDSetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), accel) != kIOReturnSuccess)
+		{
+			Con_DPrintf("RESTORE-FAIL %g\n", accel);
+			/* try the CG shim instead */
+			SetMouseAccelCG(accel);
+		}
+		else
+		{
+			Con_DPrintf("Restored accel %g (for focus)\n", accel);
+		}
+		IOServiceClose(mouseDev);
+	}
+	else
+	{
+		Con_DPrintf("WARNING: Could not re-enable mouse acceleration (failed at IO_GetIOHandle).\n");
+	}
+	/* DON'T reset originalMouseSpeed here - we need it for subsequent focus events and final quit */
+}
+
+#endif /* MACOS_X_ACCELERATION_HACK */
 
 // SDL2 Game Controller cvars
 cvar_t	joy_deadzone_look = { "joy_deadzone_look", "0.175", CVAR_ARCHIVE };
@@ -102,6 +489,10 @@ static int buttonremap[] =
 
 /* total accumulated mouse movement since last frame */
 static int	total_dx, total_dy = 0;
+
+static Uint32 obs_cursor_last_move = 0; // ms timestamp of last motion / click -- woods #eyemouse
+static qboolean obs_cursor_hidden = false; // SDL_ShowCursor() state we forced -- woods #eyemouse
+#define OBS_CURSOR_IDLE_MS 2000 // 2 seconds -- woods #eyemouse
 
 #if 1
 static void IN_BeginIgnoringMouseEvents(void){}
@@ -157,71 +548,103 @@ static void IN_EndIgnoringMouseEvents(void)
 #endif
 
 #ifdef MACOS_X_ACCELERATION_HACK
-static cvar_t in_disablemacosxmouseaccel = {"in_disablemacosxmouseaccel", "1", CVAR_ARCHIVE};
-static double originalMouseSpeed = -1.0;
-
-static io_connect_t IN_GetIOHandle(void)
-{
-	io_connect_t iohandle = MACH_PORT_NULL;
-	io_service_t iohidsystem = MACH_PORT_NULL;
-	mach_port_t masterport;
-	kern_return_t status;
-
-	status = IOMasterPort(MACH_PORT_NULL, &masterport);
-	if (status != KERN_SUCCESS)
-		return 0;
-
-	iohidsystem = IORegistryEntryFromPath(masterport, kIOServicePlane ":/IOResources/IOHIDSystem");
-	if (!iohidsystem)
-		return 0;
-
-	status = IOServiceOpen(iohidsystem, mach_task_self(), kIOHIDParamConnectType, &iohandle);
-	IOObjectRelease(iohidsystem);
-
-	return iohandle;
-}
+cvar_t in_disablemacosxmouseaccel = {"in_disablemacosxmouseaccel", "2", CVAR_ARCHIVE}; // woods - remove static
 
 static void IN_DisableOSXMouseAccel (void)
 {
 	io_connect_t mouseDev = IN_GetIOHandle();
 	if (mouseDev != 0)
 	{
-		if (IOHIDGetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), &originalMouseSpeed) == kIOReturnSuccess)
-		{
+		kern_return_t kr = IOHIDGetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), &originalMouseSpeed);
+
+		/* Fallback: if we lack permission try CGEventSource */
+		if (kr != kIOReturnSuccess) {
+			double cgSpeed = 0.0;
+			// Load the private CGSGetMouseAcceleration function dynamically
+			typedef OSStatus (*CGSGetMouseAcceleration_t)(double *accel);
+			static CGSGetMouseAcceleration_t fn = NULL;
+			if (!fn)
+				fn = (CGSGetMouseAcceleration_t)dlsym(RTLD_DEFAULT, "CGSGetMouseAcceleration");
+
+			if (fn && fn(&cgSpeed) == kCGErrorSuccess) {
+				originalMouseSpeed = cgSpeed;
+				Con_DPrintf("Saved accel %g (via CGS fallback)\n", originalMouseSpeed);
+				kr = kIOReturnSuccess; // Treat as success for the rest of the function
+}
+			// Final fallback for macOS 15+ where CGS symbol is removed
+			else if (!fn) {
+				if (IOHIDGetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), &originalMouseSpeed) == kIOReturnSuccess) {
+					Con_DPrintf("Saved accel %g (via IOKit fallback)\n", originalMouseSpeed);
+					kr = kIOReturnSuccess;
+				}
+			}
+		} else {
+			Con_DPrintf("Saved accel %g\n", originalMouseSpeed);
+		}
+
+		if (kr == kIOReturnSuccess)
+{
 			if (IOHIDSetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), -1.0) != kIOReturnSuccess)
 			{
 				Cvar_Set("in_disablemacosxmouseaccel", "0");
-				Con_Printf("WARNING: Could not disable mouse acceleration (failed at IOHIDSetAccelerationWithKey).\n");
+				Con_DPrintf("WARNING: Could not disable mouse acceleration (failed at IOHIDSetAccelerationWithKey).\n");
+			}
+			else
+			{
+				Con_DPrintf("Disabled accel (set to -1.0)\n");
+				/* NEW: guarantee we clean up even on crashy exits */
+				static qboolean registered = false;
+				if (!registered) {
+					Con_DPrintf("Registering atexit handler\n");
+					atexit(IN_ReenableOSXMouseAccel_AtExit);
+					registered = true;
+		}
 			}
 		}
 		else
 		{
 			Cvar_Set("in_disablemacosxmouseaccel", "0");
-			Con_Printf("WARNING: Could not disable mouse acceleration (failed at IOHIDGetAccelerationWithKey).\n");
+			Con_DPrintf("WARNING: Could not disable mouse acceleration (failed at IOHIDGetAccelerationWithKey and CGS fallback).\n");
 		}
 		IOServiceClose(mouseDev);
 	}
 	else
 	{
 		Cvar_Set("in_disablemacosxmouseaccel", "0");
-		Con_Printf("WARNING: Could not disable mouse acceleration (failed at IO_GetIOHandle).\n");
+		Con_DPrintf("WARNING: Could not disable mouse acceleration (failed at IO_GetIOHandle).\n");
 	}
 }
 
-static void IN_ReenableOSXMouseAccel (void)
+static void IN_RefreshOriginalAccel(void)
 {
+	io_connect_t mouseDev = IN_GetIOHandle();
+	if (!mouseDev) return;
+	double accel;
+	if (IOHIDGetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), &accel) == kIOReturnSuccess)
+		originalMouseSpeed = accel;
+	IOServiceClose(mouseDev);
+}
+
+static void IN_DisableOSXMouseAccelOnly (void)
+{
+	Con_DPrintf("IN_DisableOSXMouseAccelOnly called\n");
 	io_connect_t mouseDev = IN_GetIOHandle();
 	if (mouseDev != 0)
 	{
-		if (IOHIDSetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), originalMouseSpeed) != kIOReturnSuccess)
-			Con_Printf("WARNING: Could not re-enable mouse acceleration (failed at IOHIDSetAccelerationWithKey).\n");
+		if (IOHIDSetAccelerationWithKey(mouseDev, CFSTR(kIOHIDMouseAccelerationType), -1.0) != kIOReturnSuccess)
+		{
+			Con_DPrintf("WARNING: Could not disable mouse acceleration (IOHIDSetAccelerationWithKey failed).\n");
+		}
+		else
+		{
+			Con_DPrintf("Re-disabled accel (set to -1.0)\n");
+		}
 		IOServiceClose(mouseDev);
 	}
 	else
 	{
-		Con_Printf("WARNING: Could not re-enable mouse acceleration (failed at IO_GetIOHandle).\n");
+		Con_DPrintf("WARNING: Could not disable mouse acceleration (failed at IO_GetIOHandle).\n");
 	}
-	originalMouseSpeed = -1;
 }
 #endif /* MACOS_X_ACCELERATION_HACK */
 
@@ -312,16 +735,36 @@ static void IN_Deactivate (qboolean free_cursor)
 }
 #endif
 
+extern qboolean	qeintermission; // woods #qeintermission
+extern qboolean crxintermission; // woods #crxintermission
+
+qboolean CL_IsActiveObserver (void) // woods #eyemouse
+{
+	return (cl.modtype == 1 && cl.eyecam && !qeintermission && !crxintermission && !cl.intermission);
+}
+
 static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 {
 	qboolean wantcursor;	//we're trying to get a cursor here...
 	qboolean freemouse;		//the OS should have a free cursor too...
 	qboolean needevents;	//whether we want to receive events still
 
+	qboolean pong_active = cl_pong.value && (cl.paused || cl.match_pause_time > 0) && key_dest == key_game; // woods #pong active?
 	qboolean gamecodecursor = (key_dest == key_game && cl.qcvm.cursorforced) || (key_dest == key_menu && cls.menu_qcvm.cursorforced);
-	wantcursor = (key_dest == key_menu&&!bind_grab) || gamecodecursor || !windowhasfocus; // woods no cursor needed in console
-	freemouse = wantcursor || gamecodecursor; // woods #mousemenu
-	needevents = (!wantcursor) || key_dest == key_game;
+	wantcursor = (key_dest == key_console)
+	          || ((key_dest == key_game && CL_IsActiveObserver() && !obs_cursor_hidden)
+	              || (key_dest == key_menu&&!bind_grab))
+	          || gamecodecursor || !windowhasfocus;
+	
+	if (pong_active) // woods #pong
+		wantcursor = false;
+	
+	freemouse = wantcursor || gamecodecursor || (key_dest == key_game && CL_IsActiveObserver()); // woods #mousemenu - keep free mouse mode even when cursor is hidden
+
+	if (pong_active) // woods #pong
+		freemouse = true;
+
+	needevents = (!wantcursor) || key_dest == key_game || key_dest == key_console; // woods #conselection
 
 	if (isDedicated)
 		return;
@@ -332,27 +775,48 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 #ifdef MACOS_X_ACCELERATION_HACK
 	if (needevents)
 	{	/* Save the status of mouse acceleration */
-		if (originalMouseSpeed == -1 && in_disablemacosxmouseaccel.value)
+		if (originalMouseSpeed == -1 && in_disablemacosxmouseaccel.value == 1)
 			IN_DisableOSXMouseAccel();
 	}
 	else if (originalMouseSpeed != -1)
 		IN_ReenableOSXMouseAccel();
+	
+	// Handle cvar change while focused
+	if (!needevents && originalMouseSpeed != -1 && !in_disablemacosxmouseaccel.value)
+		IN_ReenableOSXMouseAccel();
 #endif
 
 #if defined(USE_SDL2)
+	// freemouse controls grab/relative mode; wantcursor controls visibility.
+	if (freemouse)
+	{
+		if (SDL_GetRelativeMouseMode())
+		{
+			if (SDL_SetRelativeMouseMode(SDL_FALSE) != 0)
+				Con_Printf("WARNING: SDL_SetRelativeMouseMode(SDL_FALSE) failed.\n");
+		}
+	}
+	else
+	{
+		if (!SDL_GetRelativeMouseMode())
+		{
+			if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
+				Con_Printf("WARNING: SDL_SetRelativeMouseMode(SDL_TRUE) failed.\n");
+		}
+	}
+
 	if (wantcursor)
 	{
-		VID_UpdateCursor();
+		if (key_dest != key_console)
+		{
+			VID_UpdateCursor(); // menu/game cursor
+		}
 		SDL_ShowCursor(SDL_ENABLE);
 	}
 	else
 	{
 		SDL_ShowCursor(SDL_DISABLE);
 		VID_UpdateCursor();
-	}
-	if (SDL_SetRelativeMouseMode(freemouse?SDL_FALSE:SDL_TRUE) != 0)
-	{
-		Con_Printf("WARNING: SDL_SetRelativeMouseMode(%s) failed.\n", freemouse?"SDL_FALSE":"SDL_TRUE");
 	}
 #else
 	if (freemouse)
@@ -397,6 +861,87 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 void IN_UpdateGrabs(void)
 {
 	IN_UpdateGrabs_Internal(false);
+}
+
+// Console command to show mouse input status
+static void IN_MouseInfo_f(void)
+{
+	Con_Printf("Mouse Input Status:\n");
+	Con_Printf("  SDL Mouse Events: %s\n", no_mouse ? "Disabled" : "Enabled");
+	Con_Printf("  Window Focus: %s\n", windowhasfocus ? "Yes" : "No");
+	
+#if defined(USE_SDL2)
+	// SDL2 mouse state information=
+	const char* drv = SDL_GetCurrentVideoDriver();
+	const char* warp = SDL_GetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP);
+	Con_Printf("  SDL Video Driver: %s\n", drv ? drv : "(unknown)");
+
+	if (!strcmp(drv, "windows"))
+		Con_Printf("  Relative Mode Path: %s (Win RAWINPUT)\n",
+			(warp && warp[0] == '1') ? "Warp fallback - accelerated"
+			: "Raw");
+	else if (!strcmp(drv, "x11"))
+		Con_Printf("  Relative Mode Path: %s (X11)\n",
+			(warp && warp[0] == '1') ? "Warp fallback - accelerated"
+			: "XI2 raw");
+	else if (!strcmp(drv, "wayland"))
+		Con_Printf("  Relative Mode Path: Wayland zwp_relative_pointer (raw)\n");
+	else
+		Con_Printf("  Relative Mode Path: backend default (raw)\n");
+
+	Con_Printf("  Relative Mouse Mode: %s\n", SDL_GetRelativeMouseMode() ? "Enabled" : "Disabled");
+	Con_Printf("  Cursor Visibility: %s\n", SDL_ShowCursor(SDL_QUERY) ? "Visible" : "Hidden");
+	
+	// Mouse position information
+	int mx, my;
+	SDL_GetMouseState(&mx, &my);
+	Con_Printf("  Mouse Position: %d, %d\n", mx, my);
+	
+	// Mouse button state
+	Uint32 buttons = SDL_GetMouseState(NULL, NULL);
+	Con_Printf("  Mouse Buttons: L:%s M:%s R:%s\n", 
+		(buttons & SDL_BUTTON(SDL_BUTTON_LEFT)) ? "Down" : "Up",
+		(buttons & SDL_BUTTON(SDL_BUTTON_MIDDLE)) ? "Down" : "Up",
+		(buttons & SDL_BUTTON(SDL_BUTTON_RIGHT)) ? "Down" : "Up");
+#else
+	// SDL1 mouse state information
+	int grab_state = SDL_WM_GrabInput(SDL_GRAB_QUERY);
+	Con_Printf("  Mouse Grab: %s\n", 
+		(grab_state == SDL_GRAB_ON) ? "Enabled" : "Disabled");
+	Con_Printf("  Cursor Visibility: %s\n", SDL_ShowCursor(SDL_QUERY) ? "Visible" : "Hidden");
+#endif
+	
+	// Platform-specific information
+#ifdef __APPLE__
+	Con_Printf("  HID Raw Input: %s\n", hid_mouse_active ? "Active" : "Inactive");
+	Con_Printf("  Mouse Acceleration: %s\n", (in_disablemacosxmouseaccel.value == 1 && !hid_mouse_active) ? "Disabled" : "System Default");
+	
+	if (hid_mouse_active) {
+		Con_Printf("  Input Method: HID Direct (True Raw Input)\n");
+	} else if (in_disablemacosxmouseaccel.value == 1) {
+		Con_Printf("  Input Method: SDL with Acceleration Disabled\n");
+	} else {
+		Con_Printf("  Input Method: SDL with System Acceleration\n");
+	}
+#elif defined(_WIN32)
+	Con_Printf("  Input Method: SDL with System Settings\n");
+	Con_Printf("  Key Filter: %s\n", "Active"); // Windows key filtering is active
+#else
+	Con_Printf("  Input Method: SDL with System Settings\n");
+	Con_Printf("  Platform: Linux/Unix\n");
+#endif
+	
+	// Game-specific mouse state
+	Con_Printf("  Observer Cursor: %s\n", obs_cursor_hidden ? "Auto-hidden" : "Normal");
+	Con_Printf("  Text Input Mode: %s\n", textmode ? "Enabled" : "Disabled");
+	Con_Printf("  Bind Grab Mode: %s\n", bind_grab ? "Active" : "Inactive");
+	
+	// Mouse movement accumulation
+	Con_Printf("  Movement Delta: %d, %d\n", total_dx, total_dy);
+	
+	// Mouse button mapping
+	Con_Printf("  Button Mapping: L=Mouse1, R=Mouse3, M=Mouse2\n");
+	Con_Printf("  Extended Buttons: Mouse4, Mouse5 supported\n");
 }
 
 void IN_StartupJoystick (void)
@@ -487,6 +1032,9 @@ void IN_Init (void)
 		IN_BeginIgnoringMouseEvents();
 	}
 
+	obs_cursor_last_move = SDL_GetTicks(); // woods -- initialize observer cursor state #eyemouse
+	obs_cursor_hidden = false; // woods -- initialize observer cursor state #eyemouse
+
 #ifdef MACOS_X_ACCELERATION_HACK
 	Cvar_RegisterVariable(&in_disablemacosxmouseaccel);
 #endif
@@ -504,20 +1052,42 @@ void IN_Init (void)
 	Cvar_RegisterVariable(&joy_swapmovelook);
 	Cvar_RegisterVariable(&joy_enable);
 
+	Cmd_AddCommand("in_mouseinfo", IN_MouseInfo_f);
+
 	IN_UpdateGrabs();
 	IN_StartupJoystick();
 #if defined(_WIN32) // woods #disablecaps via ironwail
 	Sys_ActivateKeyFilter(true);
 #endif
+
+#ifdef __APPLE__
+	// HID Raw Mouse Input
+	if (in_disablemacosxmouseaccel.value == 2 && !no_mouse) {
+		if (HID_MouseInit()) {
+			Con_DPrintf("HID Raw Mouse: Enabled (use 'in_disablemacosxmouseaccel 1' to disable)\n");
+		} else {
+			Con_DPrintf("HID Raw Mouse: Failed to initialize - using SDL mouse\n");
+}
+	}
+#endif
 }
 
 void IN_Shutdown (void)
 {
+	Con_DPrintf("IN_Shutdown called\n");
 #if defined(_WIN32) // woods #disablecaps via ironwail
 	Sys_ActivateKeyFilter(false);
 #endif
 	IN_UpdateGrabs();
 	IN_ShutdownJoystick();
+#ifdef __APPLE__
+	HID_MouseShutdown();
+#endif
+#ifdef MACOS_X_ACCELERATION_HACK
+	Con_DPrintf("IN_Shutdown: calling IN_ReenableOSXMouseAccel\n");
+	if (originalMouseSpeed != -1)
+		IN_ReenableOSXMouseAccel();
+#endif
 }
 
 extern cvar_t cl_maxpitch; /* johnfitz -- variable pitch clamping */
@@ -531,7 +1101,13 @@ void IN_MouseMotion(int dx, int dy, int wx, int wy)
 		dx = dy = 0;	//don't change view angles etc while unfocused.
 	vid.cursorpos[0] = wx;
 	vid.cursorpos[1] = wy;
-	if (key_dest == key_menu && cls.menu_qcvm.extfuncs.Menu_InputEvent)
+
+	if (cl.paused || cl.match_pause_time > 0) // if the game is paused in any way (regular or match pause) #pong
+	{
+		Pong_MouseMove(wx, wy);
+	}
+
+	else if (key_dest == key_menu && cls.menu_qcvm.extfuncs.Menu_InputEvent)
 	{
 		PR_SwitchQCVM(&cls.menu_qcvm);
 		if (qcvm->cursorforced)
@@ -870,36 +1446,60 @@ void IN_JoyMove (usercmd_t *cmd)
 	if (lookEased.x != 0 || lookEased.y != 0)
 		V_StopPitchDrift();
 
-	/* johnfitz -- variable pitch clamping */
-	if (cl.viewangles[PITCH] > cl_maxpitch.value)
-		cl.viewangles[PITCH] = cl_maxpitch.value;
-	if (cl.viewangles[PITCH] < cl_minpitch.value)
-		cl.viewangles[PITCH] = cl_minpitch.value;
+	if (cl.fullpitch == 0) // woods #pqfullpitch -- force client to adapt when not allowed
+	{
+		if (cl.viewangles[PITCH] > 80)
+			cl.viewangles[PITCH] = 80;
+		if (cl.viewangles[PITCH] < -70)
+			cl.viewangles[PITCH] = -70;
+	}
+	else
+	{
+		/* johnfitz -- variable pitch clamping */
+		if (cl.viewangles[PITCH] > cl_maxpitch.value)
+			cl.viewangles[PITCH] = cl_maxpitch.value;
+		if (cl.viewangles[PITCH] < cl_minpitch.value)
+			cl.viewangles[PITCH] = cl_minpitch.value;
+	}
 #endif
 }
-
-#ifdef __APPLE__ // woods
-#define MOUSE_PLATFORM_SCALE 2.0f
-#else
-#define MOUSE_PLATFORM_SCALE 1.0f
-#endif
 
 void IN_MouseMove(usercmd_t *cmd)
 {
 	float	dmx, dmy;
 	float		sens; // woods #zoom (ironwail)
+	qboolean pong_active = cl_pong.value && (cl.paused || cl.match_pause_time); // woods #pong
+
+#ifdef __APPLE__
+	// Add HID raw mouse movement if available
+	if (hid_mouse_active) {
+		int hid_dx, hid_dy;
+		HID_MouseGetMovement(&hid_dx, &hid_dy);
+		total_dx += hid_dx;
+		total_dy += hid_dy;
+	}
+#endif
 
 	sens = tan(DEG2RAD(r_refdef.basefov) * 0.5f) / tan(DEG2RAD(scr_fov.value) * 0.5f); // woods #zoom (ironwail)
 	sens *= sensitivity.value; // woods #zoom (ironwail)
 
-	dmx = total_dx * sens * MOUSE_PLATFORM_SCALE; // woods #zoom (ironwail)
-	dmy = total_dy * sens * MOUSE_PLATFORM_SCALE; // woods #zoom (ironwail)
+	dmx = total_dx * sens; // woods #zoom (ironwail)
+	dmy = total_dy * sens; // woods #zoom (ironwail)
 
 	total_dx = 0;
 	total_dy = 0;
 
-	// do pause check after resetting total_d* so mouse movements during pause don't accumulate
-	if (cl.paused || key_dest != key_game)
+	if (pong_active) // woods #pong
+	{
+		int wx, wy;
+		SDL_GetMouseState(&wx, &wy); // Need to get current absolute position
+		Pong_MouseMove(wx, wy);
+	}
+
+	// do pause/pong check after resetting total_d* so mouse movements don't accumulate
+	// Return if Pong is active OR the game is paused OR input isn't for the game
+	// Also return if demo is playing or match is paused
+	if (pong_active || cl.paused || key_dest != key_game || cls.demoplayback || cl.match_pause_time > 0) // woods #pong
 		return;
 
 	if ( (in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1) ))
@@ -916,11 +1516,21 @@ void IN_MouseMove(usercmd_t *cmd)
 	if ( (in_mlook.state & 1) && !(in_strafe.state & 1))
 	{
 		cl.viewangles[PITCH] += m_pitch.value * dmy * cl.csqc_sensitivity;
-		/* johnfitz -- variable pitch clamping */
-		if (cl.viewangles[PITCH] > cl_maxpitch.value)
-			cl.viewangles[PITCH] = cl_maxpitch.value;
-		if (cl.viewangles[PITCH] < cl_minpitch.value)
-			cl.viewangles[PITCH] = cl_minpitch.value;
+		if (cl.fullpitch == 0) // woods #pqfullpitch -- force client to adapt when not allowed
+		{
+			if (cl.viewangles[PITCH] > 80)
+				cl.viewangles[PITCH] = 80;
+			if (cl.viewangles[PITCH] < -70)
+				cl.viewangles[PITCH] = -70;
+		}
+		else
+		{
+			/* johnfitz -- variable pitch clamping */
+			if (cl.viewangles[PITCH] > cl_maxpitch.value)
+				cl.viewangles[PITCH] = cl_maxpitch.value;
+			if (cl.viewangles[PITCH] < cl_minpitch.value)
+				cl.viewangles[PITCH] = cl_minpitch.value;
+		}
 	}
 	else
 	{
@@ -1196,6 +1806,78 @@ static void IN_DebugKeyEvent(SDL_Event *event)
 #endif
 }
 
+// woods #eyemouse
+
+#define LONG_PRESS_TIME 500 // 500ms = 0.5 seconds
+#define COOL_DOWN_TIME 300 // 300ms = 0.3 seconds
+static qboolean is_long_pressing = false;
+static Uint32 press_start_time = 0;
+static qboolean long_press_triggered = false; // Add this to prevent multiple triggers
+
+static void IN_HandleObserverMouseEvents (SDL_Event* event) // woods #eyemouse
+{
+	if (event->button.button == 1)  // Left click
+	{
+		if (event->button.state == SDL_PRESSED)
+		{
+			Uint32 current_time = SDL_GetTicks();
+
+			// Handle observer frags click
+			IN_ObsFragsClick(event->button.x, event->button.y);
+
+			// Update the cursor idle time on mouse click
+			obs_cursor_last_move = current_time;
+			if (obs_cursor_hidden) {
+				SDL_ShowCursor(SDL_ENABLE);
+				obs_cursor_hidden = false;
+				IN_UpdateGrabs(); // Refresh grabs to ensure cursor is visible
+			}
+
+			press_start_time = current_time;
+			is_long_pressing = true;
+			long_press_triggered = false;
+		}
+		else if (event->button.state == SDL_RELEASED)
+		{
+			if (is_long_pressing && long_press_triggered)
+			{
+				Cbuf_AddText("-showscores\n");
+			}
+			is_long_pressing = false;
+			long_press_triggered = false;
+		}
+	}
+	else if (event->button.button == 3)  // Right click
+	{
+		static Uint32 last_flyme_time = 0;
+		Uint32 current_time = SDL_GetTicks();
+
+		if (event->button.state == SDL_PRESSED)
+		{
+			// Update the cursor idle time on mouse click
+			obs_cursor_last_move = current_time;
+			if (obs_cursor_hidden) {
+				SDL_ShowCursor(SDL_ENABLE);
+				obs_cursor_hidden = false;
+				IN_UpdateGrabs(); // Refresh grabs to ensure cursor is visible
+			}
+
+			// Add cooldown to prevent accidental double-clicks (300ms)
+			if (current_time - last_flyme_time > COOL_DOWN_TIME)
+			{
+				// Execute flyme command on right-click
+				if (Cmd_AliasExists("flyme"))
+					Cbuf_AddText("flyme\n");
+				else
+					Cbuf_AddText("impulse 142\n");
+				Cbuf_AddText("wait;wait;setinfo observing off\n");
+
+				last_flyme_time = current_time;
+			}
+		}
+	}
+}
+
 void IN_SendKeyEvents (void)
 {
 	SDL_Event event;
@@ -1204,6 +1886,16 @@ void IN_SendKeyEvents (void)
 
 	char afktype[4];
 	sprintf(afktype, "%s", "AFK");
+
+	if (is_long_pressing && !long_press_triggered && cl.modtype == 1 && cl.eyecam) // woods #eyemouse
+	{
+		Uint32 current_time = SDL_GetTicks();
+		if (current_time - press_start_time >= LONG_PRESS_TIME)
+		{
+			long_press_triggered = true;  // Prevent multiple triggers
+			Cbuf_AddText("+showscores\n");
+		}
+	}
 
 	if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 	{
@@ -1236,6 +1928,27 @@ void IN_SendKeyEvents (void)
 				else
 					Sound_Toggle_Mute_Off_f();
 
+#ifdef MACOS_X_ACCELERATION_HACK
+				/* Re-disable acceleration when returning to game */
+				if (in_disablemacosxmouseaccel.value == 1)
+				{
+					Con_DPrintf("Focus gained: re-disabling mouse acceleration (originalMouseSpeed=%g)\n", originalMouseSpeed);
+					IN_RefreshOriginalAccel();
+					if (originalMouseSpeed != -1)
+					{
+						IN_DisableOSXMouseAccelOnly();
+					}
+					else
+					{
+						Con_DPrintf("Focus gained: Cannot disable - originalMouseSpeed is -1\n");
+					}
+				}
+				else
+				{
+					Con_DPrintf("Focus gained: in_disablemacosxmouseaccel is disabled\n");
+				}
+#endif
+
 				if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 				{
 					if (cl.modtype == 1 || cl.modtype == 4)
@@ -1251,7 +1964,7 @@ void IN_SendKeyEvents (void)
 				}
 
 				// be polite during matches (only) and let teammates know you have alt-tabbed
-				if (cl.notobserver && cl.matchinp && cl.teamcolor[0] && !IsOneVsOneMatch())
+				if (cl_bottomcolor.value != 0 && cl.notobserver && cl.matchinp && cl.teamcolor[0] && !IsOneVsOneMatch())
 					Cmd_ExecuteString("say_team \"back from alt-tab\"", src_command);
 			}
 
@@ -1264,6 +1977,19 @@ void IN_SendKeyEvents (void)
 				windowhasfocus=false;
 				BGM_Pause(); // woods #usermute - music
 				Sound_Toggle_Mute_On_f(); // woods #mute -- adapted from Fitzquake Mark V
+				
+#ifdef MACOS_X_ACCELERATION_HACK
+				/* NEW: Force restore on focus lost to avoid timing issues */
+				if (originalMouseSpeed != -1)
+				{
+					Con_DPrintf("Focus lost: calling IN_ReenableOSXMouseAccel (originalMouseSpeed=%g)\n", originalMouseSpeed);
+					IN_ReenableOSXMouseAccelForFocus();
+				}
+				else
+				{
+					Con_DPrintf("Focus lost: acceleration was not disabled (originalMouseSpeed=-1)\n");
+				}
+#endif
 				
 				if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected))
 				{
@@ -1285,7 +2011,7 @@ void IN_SendKeyEvents (void)
 				}
 
 				// be polite during matches (only) and let teammates know you have alt-tabbed
-				if (cl.notobserver && cl.matchinp && cl.teamcolor[0] && !IsOneVsOneMatch())
+				if (cl_bottomcolor.value != 0 && cl.notobserver && cl.matchinp && cl.teamcolor[0] && !IsOneVsOneMatch())
 					Cmd_ExecuteString("say_team alt-tabbed", src_command);
 			}
 
@@ -1350,12 +2076,36 @@ void IN_SendKeyEvents (void)
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			if (event.button.button < 1 ||
-			    event.button.button > sizeof(buttonremap) / sizeof(buttonremap[0]))
+				event.button.button > sizeof(buttonremap) / sizeof(buttonremap[0]))
 			{
 				Con_Printf ("Ignored event for mouse button %d\n",
-							event.button.button);
+					event.button.button);
 				break;
 			}
+
+			// Handle eyecam observer mode #eyemouse
+			if (key_dest == key_game && cl.modtype == 1 && cl.eyecam)
+			{
+				IN_HandleObserverMouseEvents(&event);
+
+				// Always send button release events
+				// even in eyecam mode to ensure buttons don't get stuck
+				if (event.button.state == SDL_RELEASED)
+				{
+					Key_Event(buttonremap[event.button.button - 1], false);
+				}
+				break;
+			}
+
+				if (event.button.state == SDL_PRESSED && // woods #pong
+					event.button.button == SDL_BUTTON_LEFT &&
+					cl_pong.value && (cl.paused || cl.match_pause_time) &&
+					key_dest == key_game)
+				 {
+				Pong_ToggleFreeze();
+				break;  /* consume the click */
+				}
+
 			if (key_dest == key_menu) // woods #mousemenu
 				M_Mousemove(event.button.x, event.button.y);
 			Key_Event(buttonremap[event.button.button - 1], event.button.state == SDL_PRESSED);
@@ -1378,8 +2128,23 @@ void IN_SendKeyEvents (void)
 
 		case SDL_MOUSEMOTION:
 			if (key_dest == key_menu) // woods #mousemenu
+			{
 				M_Mousemove(event.button.x, event.button.y);
-			IN_MouseMotion(event.motion.xrel, event.motion.yrel, event.motion.x, event.motion.y);
+			}
+			if (!(key_dest == key_game && cl.modtype == 1 && cl.eyecam)) // woods #eyemouse
+			{
+				IN_MouseMotion(event.motion.xrel, event.motion.yrel, event.motion.x, event.motion.y);
+			}
+			else if (key_dest == key_game && CL_IsActiveObserver()) // woods #eyemouse
+			{
+				// Update the cursor idle time on mouse movement in observer mode
+				obs_cursor_last_move = SDL_GetTicks();
+				if (obs_cursor_hidden) {
+					SDL_ShowCursor(SDL_ENABLE);
+					obs_cursor_hidden = false;
+					IN_UpdateGrabs(); // Refresh grabs to ensure cursor is visible
+				}
+			}
 			break;
 
 #if defined(USE_SDL2)
@@ -1433,6 +2198,12 @@ void IN_SendKeyEvents (void)
 			break;
 				
 		case SDL_QUIT:
+			Con_DPrintf("SDL_QUIT event received\n");
+#ifdef MACOS_X_ACCELERATION_HACK
+			Con_DPrintf("SDL_QUIT: calling IN_ReenableOSXMouseAccel\n");
+			if (originalMouseSpeed != -1)
+				IN_ReenableOSXMouseAccel();
+#endif
 			CL_Disconnect ();
 			Sys_Quit ();
 			break;
@@ -1441,4 +2212,40 @@ void IN_SendKeyEvents (void)
 			break;
 		}
 	}
+
+	if (key_dest == key_game && CL_IsActiveObserver()) // woods -- observer cursor auto-hide #eyemouse
+	{
+		Uint32 now = SDL_GetTicks();
+		if (!obs_cursor_hidden && now - obs_cursor_last_move >= OBS_CURSOR_IDLE_MS)
+		{
+			IN_UpdateGrabs(); // Refresh grabs to ensure the mouse stays in free-mode
+			SDL_ShowCursor(SDL_DISABLE);
+			obs_cursor_hidden = true;
+			
+			
+		}
+	}
+	else if (obs_cursor_hidden && (!CL_IsActiveObserver() || key_dest != key_game))
+	{
+		// If we leave observer mode while cursor is hidden, reset state
+		IN_UpdateGrabs();
+		SDL_ShowCursor(SDL_ENABLE);
+		obs_cursor_hidden = false;
+		
+	}
+
+	static qboolean was_in_eyecam = false; // woods #eyemouse
+	if (was_in_eyecam && !(cl.modtype == 1 && cl.eyecam))
+	{
+		// We just exited eyecam mode, make sure mouse buttons are released
+		if (is_long_pressing)
+		{
+			if (long_press_triggered)
+				Cbuf_AddText("-showscores\n");
+
+			is_long_pressing = false;
+			long_press_triggered = false;
+		}
+	}
+	was_in_eyecam = (cl.modtype == 1 && cl.eyecam);
 }

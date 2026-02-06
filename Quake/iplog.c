@@ -1,5 +1,3 @@
-
-
 //
 // iplog.c
 //
@@ -20,6 +18,203 @@ int iplog_next;
 int iplog_full;
 
 #define DEFAULT_IPLOGSIZE	0x10000
+#define MAX_REPETITION	128
+
+static qboolean migrated_old_files = false; // Track if migration has occurred
+
+/*
+====================
+IPLog_MigrateFiles
+====================
+*/
+static void IPLog_MigrateFiles(void)
+{
+	FILE *f_old, *f_new;
+	char old_dat_path[MAX_OSPATH];
+	char new_dat_path[MAX_OSPATH];
+	char old_txt_path[MAX_OSPATH];
+	char new_txt_path[MAX_OSPATH];
+	char backup_dir[MAX_OSPATH];
+	qboolean migrated_any = false;
+	
+	// Create paths
+	q_snprintf(old_dat_path, sizeof(old_dat_path), "%s/id1/iplog.dat", com_basedir);
+	q_snprintf(old_txt_path, sizeof(old_txt_path), "%s/id1/iplog.txt", com_basedir);
+	q_snprintf(backup_dir, sizeof(backup_dir), "%s/id1/backups", com_basedir);
+	q_snprintf(new_dat_path, sizeof(new_dat_path), "%s/id1/backups/iplog.dat", com_basedir);
+	q_snprintf(new_txt_path, sizeof(new_txt_path), "%s/id1/backups/iplog.txt", com_basedir);
+	
+	// Ensure backups directory exists
+	Sys_mkdir(backup_dir);
+	
+	// Migrate iplog.dat if it exists in old location and doesn't exist in new location
+	f_old = fopen(old_dat_path, "rb");
+	if (f_old)
+	{
+		fclose(f_old);
+		f_new = fopen(new_dat_path, "rb");
+		if (!f_new) // New location doesn't exist, safe to migrate
+		{
+			// Try atomic rename first
+			if (rename(old_dat_path, new_dat_path) == 0)
+			{
+				Con_Printf("Migrated iplog.dat to backups folder\n");
+				migrated_any = true;
+			}
+			else
+			{
+				// Fallback to copy if rename fails
+				f_old = fopen(old_dat_path, "rb");
+				f_new = fopen(new_dat_path, "wb");
+				
+				if (f_old && f_new)
+				{
+					// Copy file contents
+					char buffer[4096];
+					size_t bytes_read, bytes_written;
+					qboolean copy_failed = false;
+					
+					while ((bytes_read = fread(buffer, 1, sizeof(buffer), f_old)) > 0)
+					{
+						bytes_written = fwrite(buffer, 1, bytes_read, f_new);
+						if (bytes_written != bytes_read)
+						{
+							copy_failed = true;
+							break;
+						}
+					}
+					
+					if (ferror(f_old) || ferror(f_new))
+						copy_failed = true;
+					
+					fclose(f_old);
+					fclose(f_new);
+					
+					if (!copy_failed)
+					{
+						// Remove old file after successful copy
+						remove(old_dat_path);
+						Con_Printf("Migrated iplog.dat to backups folder\n");
+						migrated_any = true;
+					}
+					else
+					{
+						Con_Printf("WARNING: Failed to migrate iplog.dat\n");
+						remove(new_dat_path); // Clean up partial copy
+					}
+				}
+				else
+				{
+					if (f_old) fclose(f_old);
+					if (f_new) fclose(f_new);
+				}
+			}
+		}
+		else
+		{
+			fclose(f_new);
+		}
+	}
+	
+	// Migrate iplog.txt if it exists in old location and doesn't exist in new location
+	f_old = fopen(old_txt_path, "rb");
+	if (f_old)
+	{
+		fclose(f_old);
+		f_new = fopen(new_txt_path, "rb");
+		if (!f_new) // New location doesn't exist, safe to migrate
+		{
+			// Try atomic rename first
+			if (rename(old_txt_path, new_txt_path) == 0)
+			{
+				Con_Printf("Migrated iplog.txt to backups folder\n");
+				migrated_any = true;
+			}
+			else
+			{
+				// Fallback to copy if rename fails
+				f_old = fopen(old_txt_path, "rb");
+				f_new = fopen(new_txt_path, "wb");
+				
+				if (f_old && f_new)
+				{
+					// Copy file contents
+					char buffer[4096];
+					size_t bytes_read, bytes_written;
+					qboolean copy_failed = false;
+					
+					while ((bytes_read = fread(buffer, 1, sizeof(buffer), f_old)) > 0)
+					{
+						bytes_written = fwrite(buffer, 1, bytes_read, f_new);
+						if (bytes_written != bytes_read)
+						{
+							copy_failed = true;
+							break;
+						}
+					}
+					
+					if (ferror(f_old) || ferror(f_new))
+						copy_failed = true;
+					
+					fclose(f_old);
+					fclose(f_new);
+					
+					if (!copy_failed)
+					{
+						// Remove old file after successful copy
+						remove(old_txt_path);
+						Con_Printf("Migrated iplog.txt to backups folder\n");
+						migrated_any = true;
+					}
+					else
+					{
+						Con_Printf("WARNING: Failed to migrate iplog.txt\n");
+						remove(new_txt_path); // Clean up partial copy
+					}
+				}
+				else
+				{
+					if (f_old) fclose(f_old);
+					if (f_new) fclose(f_new);
+				}
+			}
+		}
+		else
+		{
+			fclose(f_new);
+		}
+	}
+	
+	// Set flag to indicate migration check has been completed
+	migrated_old_files = true;
+	
+	if (!migrated_any)
+		Con_DPrintf("IPLog migration check complete - no files to migrate\n");
+}
+
+/*
+====================
+IPLog_GetDataPath
+====================
+*/
+static const char* IPLog_GetDataPath(void)
+{
+	static char path[MAX_OSPATH];
+	q_snprintf(path, sizeof(path), "%s/id1/backups/iplog.dat", com_basedir);
+	return path;
+}
+
+/*
+====================
+IPLog_GetTxtPath
+====================
+*/
+static const char* IPLog_GetTxtPath(void)
+{
+	static char path[MAX_OSPATH];
+	q_snprintf(path, sizeof(path), "%s/id1/backups/iplog.txt", com_basedir);
+	return path;
+}
 
 /*
 ====================
@@ -31,6 +226,7 @@ void IPLog_Init (void)
 	//int p;
 	FILE *f;
 	iplog_t temp;
+	char backup_dir[MAX_OSPATH];
 
 	// Allocate space for the IP logs
 	iplog_size = 0;
@@ -44,15 +240,30 @@ void IPLog_Init (void)
 //	if (!iplog_size)
 		iplog_size = DEFAULT_IPLOGSIZE;
 
-	iplogs = (iplog_t *) Hunk_AllocName(iplog_size * sizeof(iplog_t), "iplog");
 	iplogs = (iplog_t *) Q_malloc (iplog_size * sizeof(iplog_t));
+	// Zero-fill the allocated memory to avoid random data in unused slots
+	memset(iplogs, 0, iplog_size * sizeof(*iplogs));
+	
 	iplog_next = 0;
 	iplog_head = NULL;
 	iplog_full = 0;
 
-	// Attempt to load log data from iplog.dat
+	// Ensure backups directory exists
+	q_snprintf(backup_dir, sizeof(backup_dir), "%s/id1/backups", com_basedir);
+	Sys_mkdir(backup_dir);
+	
+	// Migrate old files if they exist
+	IPLog_MigrateFiles();
+
+	// Attempt to load log data from iplog.dat (new location first, then old location for compatibility)
 //	Sys_GetLock();
-	f = fopen(va("%s/id1/iplog.dat",com_basedir), "r");
+	f = fopen(IPLog_GetDataPath(), "rb");
+	if (!f && !migrated_old_files)
+	{
+		// Fallback to old location if new location doesn't exist and migration hasn't been attempted
+		f = fopen(va("%s/id1/iplog.dat", com_basedir), "rb");
+	}
+	
 	if (f)
 	{
 		while(fread(&temp, 20, 1, f))
@@ -83,7 +294,7 @@ void IPLog_Import (void)
 		Con_Printf("Usage: ipmerge <filename>\n");
 		return;
 	}
-	f = fopen(va("%s", Cmd_Argv(1)), "r");
+	f = fopen(va("%s", Cmd_Argv(1)), "rb");
 	if (f)
 	{
 		while(fread(&temp, 20, 1, f))
@@ -105,14 +316,25 @@ void IPLog_WriteLog (void)
 	FILE *f;
 	int i;
 	iplog_t temp;
+	char backup_dir[MAX_OSPATH];
 
 	if (!iplog_size)
 		return;
 
+	// Ensure backups directory exists
+	q_snprintf(backup_dir, sizeof(backup_dir), "%s/id1/backups", com_basedir);
+	Sys_mkdir(backup_dir);
+
 //	Sys_GetLock();
 
-	// first merge
-	f = fopen(va("%s/id1/iplog.dat",com_basedir), "r");
+	// first merge - try new location first, then old location only if migration hasn't occurred
+	f = fopen(IPLog_GetDataPath(), "rb");
+	if (!f && !migrated_old_files)
+	{
+		// Fallback to old location for compatibility only if we haven't migrated yet
+		f = fopen(va("%s/id1/iplog.dat", com_basedir), "rb");
+	}
+	
 	if (f)
 	{
 		while(fread(&temp, 20, 1, f))
@@ -120,8 +342,8 @@ void IPLog_WriteLog (void)
 		fclose(f);
 	}
 
-	// then write
-	f = fopen(va("%s/id1/iplog.dat",com_basedir), "w");
+	// then write to new location
+	f = fopen(IPLog_GetDataPath(), "wb");
 	if (f)
 	{
 		if (iplog_full)
@@ -140,8 +362,6 @@ void IPLog_WriteLog (void)
 //	Sys_ReleaseLock();
 }
 
-#define MAX_REPITITION	64
-
 /*
 ====================
 IPLog_Add
@@ -155,7 +375,7 @@ void IPLog_Add (int addr, char *name)
 	char name2[16];
 	char *ch;
 	int cmatch;		// limit 128 entries per IP
-	iplog_t *match[MAX_REPITITION];
+	iplog_t *match[MAX_REPETITION];
 	int i;
 
 	if (!iplog_size)
@@ -184,10 +404,10 @@ void IPLog_Add (int addr, char *name)
 				return;
 			}
 			match[cmatch] = *ppnew;
-			if (++cmatch == MAX_REPITITION)
+			if (++cmatch == MAX_REPETITION)
 			{
 				// shift up the names and replace the last one
-				for (i = 0 ; i < MAX_REPITITION - 1 ; i++)
+				for (i = 0 ; i < MAX_REPETITION - 1 ; i++)
 					strcpy(match[i]->name, match[i+1]->name);
 				strcpy(match[i]->name, name2);
 				return;
@@ -314,6 +534,7 @@ IPLog_Dump
 void IPLog_Dump (void)
 {
 	FILE *f;
+	char backup_dir[MAX_OSPATH];
 
 	if (!iplog_size)
 	{
@@ -321,7 +542,11 @@ void IPLog_Dump (void)
 		return;
 	}
 
-	f = fopen(va("%s/id1/iplog.txt",com_basedir), "w");
+	// Ensure backups directory exists
+	q_snprintf(backup_dir, sizeof(backup_dir), "%s/id1/backups", com_basedir);
+	Sys_mkdir(backup_dir);
+
+	f = fopen(IPLog_GetTxtPath(), "w");
 	if (!f)
 	{
 		Con_Printf ("Couldn't write iplog.txt.\n");

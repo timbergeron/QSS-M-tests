@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t gl_fullbrights, r_drawflat, gl_overbright, r_oldwater; //johnfitz
 extern cvar_t r_brokenturbbias; // to replicate a QuakeSpasm bug.
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
+extern cvar_t r_ambient; // woods #rambient
 
 int		gl_lightmap_format;
 int		lightmap_bytes;
@@ -825,6 +826,90 @@ void GL_CreateSurfaceLightmap (qmodel_t *model, msurface_t *surf)
 	R_BuildLightMap (model, surf, base, LMBLOCK_WIDTH*lightmap_bytes, currententity, r_framecount, cl_dlights);
 }
 
+#ifdef MACBOOK_ARM_HACK // ezquake 22f39e2 by nano -- woods #collinear
+#define EPSILON 1e-6
+
+// Check if triangle has a ~zero area
+// https://en.wikipedia.org/wiki/Collinearity
+static qboolean R_ArePointsColinear(const float *v1, const float *v2, const float *v3)
+{
+	vec3_t d0, d1, cross;
+
+	VectorSubtract(v2, v1, d0);
+	VectorSubtract(v3, v2, d1);
+
+	// Prevent T-junctions by only removing vertices that are very close to their neighbors.
+	// If edges are long, we keep the vertex even if it's collinear.
+	if (DotProduct(d0, d0) > 1.0f || DotProduct(d1, d1) > 1.0f)
+		return false;
+
+	CrossProduct(d0, d1, cross);
+
+	if (DotProduct(cross, cross) >= EPSILON)
+		return false;
+
+	// Check texture coordinates (indices 3, 4)
+	d0[0] = v2[3] - v1[3];
+	d0[1] = v2[4] - v1[4];
+	d0[2] = 0;
+
+	d1[0] = v3[3] - v2[3];
+	d1[1] = v3[4] - v2[4];
+	d1[2] = 0;
+
+	CrossProduct(d0, d1, cross);
+
+	if (DotProduct(cross, cross) >= EPSILON)
+		return false;
+
+	// Check lightmap coordinates (indices 5, 6)
+	d0[0] = v2[5] - v1[5];
+	d0[1] = v2[6] - v1[6];
+	d0[2] = 0;
+
+	d1[0] = v3[5] - v2[5];
+	d1[1] = v3[6] - v2[6];
+	d1[2] = 0;
+
+	CrossProduct(d0, d1, cross);
+
+	if (DotProduct(cross, cross) >= EPSILON)
+		return false;
+
+	return true;
+}
+
+static void R_RemoveColinearVertices(glpoly_t* poly, float new_verts[][VERTEXSIZE])
+{
+	int i, v1_index, v2_index, v3_index, new_numverts = 0;
+	int numverts = poly->numverts;
+
+	v1_index = numverts - 1;
+	v2_index = 0;
+	v3_index = 1;
+
+	for (i = 0; i < numverts; i++) {
+		float* v1 = poly->verts[v1_index];
+		float* v2 = poly->verts[v2_index];
+		float* v3 = poly->verts[v3_index];
+
+		if (!R_ArePointsColinear(v1, v2, v3)) {
+			memcpy(new_verts[new_numverts], v2, sizeof(float) * VERTEXSIZE);
+			new_numverts++;
+		}
+
+		v1_index = v2_index;
+		v2_index = v3_index;
+		v3_index = (v3_index + 1) % numverts;
+	}
+
+	if (new_numverts > 0) {
+		memcpy(poly->verts, new_verts, new_numverts * sizeof(float) * VERTEXSIZE);
+		poly->numverts = new_numverts;
+	}
+}
+#endif
+
 /*
 ================
 BuildSurfaceDisplayList -- called at level load time
@@ -832,6 +917,9 @@ BuildSurfaceDisplayList -- called at level load time
 */
 static void BuildSurfaceDisplayList (msurface_t *fa)
 {
+#ifdef MACBOOK_ARM_HACK // woods #collinear
+	extern cvar_t r_remove_collinear_vertices;
+#endif
 	int			i, lindex, lnumverts;
 	medge_t		*pedges, *r_pedge;
 	float		*vec;
@@ -911,6 +999,20 @@ static void BuildSurfaceDisplayList (msurface_t *fa)
 
 	poly->numverts = lnumverts;
 
+#ifdef MACBOOK_ARM_HACK // woods #collinear
+	// Some GPUs misbehave if fed triangles of empty size.
+	if (r_remove_collinear_vertices.value) {
+		if (poly->numverts > 4) {
+			float (*new_verts)[VERTEXSIZE] = Q_malloc(poly->numverts * sizeof(float[VERTEXSIZE]));
+			R_RemoveColinearVertices(poly, new_verts);
+			free(new_verts);
+		}
+		else {
+			float new_verts[4][VERTEXSIZE];
+			R_RemoveColinearVertices(poly, new_verts);
+		}
+	}
+#endif
 	//oldwater is lame. subdivide it now.
 	if ((fa->flags & SURF_DRAWTURB) && !gl_glsl_water_able)
 		GL_SubdivideSurface (fa);
@@ -1284,6 +1386,20 @@ void R_BuildLightMap (qmodel_t *model, msurface_t *surf, byte *dest, int stride,
 	// clear to no light
 		memset (&blocklights[0], 0, size * 3 * sizeof (unsigned int)); //johnfitz -- lit support via lordhavoc
 
+		if (!(cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected && !cls.demoplayback)) // woods #rambient
+		{
+			unsigned ambient_light = ((unsigned)CLAMP(0.0f, r_ambient.value, 255.0f)) << 8;
+
+			if (ambient_light) {
+				bl = blocklights;
+				for (i = 0; i < size; ++i) {
+					*bl++ = ambient_light;
+					*bl++ = ambient_light;
+					*bl++ = ambient_light;
+				}
+			}
+		}
+
 	// add all the lightmaps
 		if (!surf->samples)
 			;	//unlit surfaces are black... FIXME: unless lit water (could be new-qbsp + old-light)...
@@ -1340,7 +1456,7 @@ void R_BuildLightMap (qmodel_t *model, msurface_t *surf, byte *dest, int stride,
 	else
 	{
 	// set to full bright if no light data
-		for (i=0 ; i<size ; i++)
+		for (i=0 ; i<size * 3; i++) // woods -- fix lightmap initialization for full bright surfaces
 			blocklights[i] = 0xffff;	//don't use memset, it oversaturates FAR too much with hdr...
 	}
 
@@ -1615,4 +1731,168 @@ void R_RebuildAllLightmaps (void)
 		lightmaps[i].rectchange.h = 0;
 		lightmaps[i].rectchange.w = 0;
 	}
+}
+
+extern vec3_t	lightcolor; // woods #shadow
+extern	vec3_t	lightspot; // woods #shadow
+extern qboolean GL_DrawAliasShadowCheck (entity_t* e); // woods #shadow
+
+#define SHADOW_SKEW_X -0.7 //skew along x axis. -0.7 to mimic glquake shadows -- woods #shadow
+#define SHADOW_SKEW_Y 0.2 //skew along y axis. 0 to mimic glquake shadows -- woods #shadow
+#define SHADOW_VSCALE 0 //0=completely flat -- woods #shadow
+#define SHADOW_HEIGHT 0.1 //how far above the floor to render the shadow -- woods #shadow
+
+#define SHADOW_COMPUTED (1 << 0) // woods #shadow
+#define SHADOW_VALID    (1 << 1) // woods #shadow
+
+void GL_DrawBrushShadow (entity_t* e) // woods #shadow
+{
+    qmodel_t* clmodel;
+    float     entalpha;
+    float     shade, lheight;
+    float     shadowmatrix[16] = {
+        1,              0,              0,              0,
+        0,              1,              0,              0,
+        SHADOW_SKEW_X,  SHADOW_SKEW_Y,  SHADOW_VSCALE,  0,
+        0,              0,              SHADOW_HEIGHT,   1
+    };
+
+	if (!r_shadows_bmodels.value)
+		return;
+
+	clmodel = e->model;
+
+	if (R_CullModelForEntity(e))
+	{
+		return;
+	}
+
+	if (e == &cl.viewent ||
+		(e->effects & EF_NOSHADOW) ||
+		(e->model->flags & MOD_NOSHADOW) ||
+		clmodel == cl.worldmodel ||
+		!clmodel->nummodelsurfaces) 
+	{
+		return;
+	}
+
+	entalpha = ENTALPHA_DECODE(e->alpha);
+
+	if (entalpha < 1) {
+		return;
+	}
+
+	if (r_shadows_groundcheck.value && e->model->type == mod_brush) {
+		if (!(e->shadow_state & SHADOW_COMPUTED))
+			GL_DrawAliasShadowCheck(e);
+
+		if (!(e->shadow_state & SHADOW_VALID))
+			return;
+	}
+
+    // Determine lighting at entity origin
+    R_LightPoint(e->origin);
+    shade = ((lightcolor[0] + lightcolor[1] + lightcolor[2]) / 3) / 128.0f;
+    lheight = e->origin[2] - lightspot[2];
+
+    clmodel = e->model;
+
+    glPushMatrix();
+
+    // Apply entity transformations
+    R_RotateForEntity(e->origin, e->angles, e->netstate.scale);
+
+    // Move down to floor, apply shadow projection, then move back
+    glTranslatef(0, 0, -lheight);
+    glMultMatrixf(shadowmatrix);
+    glTranslatef(0, 0, lheight);
+
+    // Set up rendering states for shadow
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+    glDisable(GL_CULL_FACE);
+    
+    // Enable polygon offset to prevent z-fighting
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1, -2);
+
+    // Draw fully black, but alpha scaled by shade and the r_shadows cvar
+    glColor4f(0, 0, 0, entalpha * shade * r_shadows.value);
+
+    // Draw the model geometry as a flat polygon silhouette
+    {
+        msurface_t* surf = &clmodel->surfaces[clmodel->firstmodelsurface];
+        int i;
+
+        for (i = 0; i < clmodel->nummodelsurfaces; i++, surf++)
+        {
+            glpoly_t* p = surf->polys;
+            float* v = p->verts[0];
+            int k;
+
+            glBegin(GL_POLYGON);
+            for (k = 0; k < p->numverts; k++, v += VERTEXSIZE)
+            {
+                glVertex3fv(v);
+            }
+            glEnd();
+        }
+    }
+
+    // Restore states
+    glEnable(GL_TEXTURE_2D);
+    glDisable(GL_BLEND);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_CULL_FACE);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+
+    glPopMatrix();
+}
+
+static float    r_ambient_prev = FLT_MAX; // woods #rambient
+static qboolean r_ambient_warned = false; // woods #rambient
+
+void R_Ambient_OnChange_f(cvar_t* var) // woods #rambient
+{
+	/* Block during live online deathmatch; explain once. */
+	if (!(cl.gametype == GAME_DEATHMATCH && cls.state == ca_connected && !cls.demoplayback))
+	{
+		if (var->value != 0.0f) {
+			if (!r_ambient_warned) {
+				Con_Printf("r_ambient is disabled during online deathmatch.\n");
+				r_ambient_warned = true;
+			}
+			/* Force back to 0 without spamming rebuilds. */
+			if (r_ambient_prev != 0.0f)
+				r_ambient_prev = 0.0f;
+			Cvar_SetValueQuick(var, 0.0f); /* may re-enter; we early-return */
+		}
+		return;
+	}
+	else
+	{
+		/* Outside DM: allow again; reset one-shot warning */
+		r_ambient_warned = false;
+	}
+
+	/* Clamp using CLAMP macro (0..255 expected by 8.8 ambient path). */
+	const float clamped = (float)CLAMP(0.0f, var->value, 255.0f);
+	if (clamped != var->value) {
+		Cvar_SetValueQuick(var, clamped);
+		return; /* let the re-invocation handle rebuild with clamped value */
+	}
+
+	/* Avoid redundant rebuilds. */
+	if (r_ambient_prev == clamped)
+		return;
+	r_ambient_prev = clamped;
+
+	/* If world isn’t ready yet (early init / between maps), skip. */
+	if (!cl.worldmodel)
+		return;
+
+	/* Rebuild all atlases so ambient is baked into lightmaps immediately. */
+	R_RebuildAllLightmaps();
+	Con_DPrintf("r_ambient changed to %.2f — rebuilt lightmaps.\n", clamped);
 }

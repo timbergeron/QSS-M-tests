@@ -67,6 +67,7 @@ int		unreliableMessagesReceived	= 0;
 
 cvar_t	net_messagetimeout = {"net_messagetimeout","300",CVAR_NONE};
 cvar_t	net_connecttimeout = {"net_connecttimeout","10",CVAR_NONE};	//this might be a little brief, but we don't have a way to protect against smurf attacks.
+cvar_t	net_connectattempts = {"net_connectattempts","3",CVAR_ARCHIVE}; // woods #connectretry
 cvar_t	hostname = {"hostname", "UNNAMED", CVAR_SERVERINFO};
 
 // these two macros are to make the code more readable
@@ -470,7 +471,7 @@ static void Slist_Send (void *unused)
 {
 	for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
 	{
-		if (slistScope!=SLIST_LOOP && IS_LOOP_DRIVER(net_driverlevel))
+		if (slistScope == SLIST_INTERNET && IS_LOOP_DRIVER(net_driverlevel)) // woods #localmpfix
 			continue;
 		if (net_drivers[net_driverlevel].initialized == false)
 			continue;
@@ -486,7 +487,7 @@ static void Slist_Poll (void *unused)
 {
 	for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
 	{
-		if (slistScope!=SLIST_LOOP && IS_LOOP_DRIVER(net_driverlevel))
+		if (slistScope == SLIST_INTERNET && IS_LOOP_DRIVER(net_driverlevel)) // woods #localmpfix
 			continue;
 		if (net_drivers[net_driverlevel].initialized == false)
 			continue;
@@ -704,40 +705,62 @@ int	NET_GetMessage (qsocket_t *sock)
 
 /*
 =================
-NET_GetServerMessage
+NET_GetServerMessages
 
-If there is a complete message, return it in net_message
-
-returns the qsocket that the message was meant to be for.
+If there is a complete message, return it in net_message via callback.
+Callback can be null if we're only getting messages to ensure lower level acks are processed.
 =================
 */
-qsocket_t *NET_GetServerMessage(void)
+static void NET_DiscardServerMessage(struct qsocket_s *sock){};
+void NET_GetServerMessages(void (*callback)(struct qsocket_s *sock))
 {
-	qsocket_t *s;
+	if (!callback)
+		callback = NET_DiscardServerMessage;
 	for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
 	{
 		if (!net_drivers[net_driverlevel].initialized)
 			continue;
-		s = net_drivers[net_driverlevel].QGetAnyMessage();
-		if (s)
-			return s;
+		net_drivers[net_driverlevel].QGetAnyMessages(callback);
 	}
-	return NULL;
 }
 
 /*
 Spike: This function is for the menus+status command
 Just queries each driver's public addresses (which often requires system-specific calls)
 */
-int NET_ListAddresses(qhostaddr_t *addresses, int maxaddresses)
+int NET_ListAddresses(qhostaddr_t *addresses, int maxaddresses) // woods
 {
 	int result = 0;
+
+	if (!addresses || maxaddresses <= 0)
+		return 0;
+
 	for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
 	{
+		int new_addresses;
+		void* query_func;
+
+		// Skip if driver not initialized
 		if (!net_drivers[net_driverlevel].initialized)
 			continue;
-		if (net_drivers[net_driverlevel].QueryAddresses)
-			result += net_drivers[net_driverlevel].QueryAddresses(addresses+result, maxaddresses-result);
+
+		// Skip if no query function (normal for some drivers like Loopback)
+		query_func = (void*)net_drivers[net_driverlevel].QueryAddresses;
+		if (!query_func || (uintptr_t)query_func < 0x10000)
+			continue;
+
+		new_addresses = net_drivers[net_driverlevel].QueryAddresses(
+			addresses + result,
+			maxaddresses - result
+		);
+
+		if (new_addresses < 0) {
+			Con_DPrintf("Warning: Failed to query addresses for driver %s\n",
+				net_drivers[net_driverlevel].name);
+			continue;
+		}
+
+		result += new_addresses;
 	}
 	return result;
 }
@@ -903,6 +926,8 @@ int NET_SendToAll (sizebuf_t *data, double blocktime)
 	while (count)
 	{
 		count = 0;
+		NET_GetServerMessages(NULL);	//process acks at least so we can send our reliable... FIXME: don't accept reliables.
+
 		for (i = 0, host_client = svs.clients; i < svs.maxclients; i++, host_client++)
 		{
 			if (! msg_init[i])
@@ -911,10 +936,6 @@ int NET_SendToAll (sizebuf_t *data, double blocktime)
 				{
 					msg_init[i] = true;
 					NET_SendMessage(host_client->netconnection, data);
-				}
-				else
-				{
-					NET_GetMessage (host_client->netconnection);
 				}
 				count++;
 				continue;
@@ -925,10 +946,6 @@ int NET_SendToAll (sizebuf_t *data, double blocktime)
 				if (NET_CanSendMessage (host_client->netconnection))
 				{
 					msg_sent[i] = true;
-				}
-				else
-				{
-					NET_GetMessage (host_client->netconnection);
 				}
 				count++;
 				continue;
@@ -1047,6 +1064,7 @@ void NET_Init (void)
 
 	Cvar_RegisterVariable (&net_messagetimeout);
 	Cvar_RegisterVariable (&net_connecttimeout);
+	Cvar_RegisterVariable (&net_connectattempts); // woods #connectretry
 	Cvar_RegisterVariable (&hostname);
 
 	Cmd_AddCommand ("slist", NET_Slist_f);

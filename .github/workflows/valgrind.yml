@@ -76,7 +76,7 @@ jobs:
       run: |
         set -eux
         chmod +x Misc/valgrind/run-valgrind.sh
-        ./Misc/valgrind/run-valgrind.sh
+        ./Misc/valgrind/run-valgrind.sh Misc/valgrind/valgrind.supp
 
     - name: Upload valgrind logs
       uses: actions/upload-artifact@v4

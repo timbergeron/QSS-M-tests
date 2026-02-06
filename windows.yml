@@ -1,0 +1,76 @@
+name: Windows CI (MinGW Linux Cross)
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+          platform: [w64, w32]
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo gem install apt-spy2
+        sudo apt-spy2 check
+
+        mirrors=$(apt-spy2 list | awk '{print $1}')
+        for mirror in $mirrors; do
+          echo "Trying mirror: $mirror"
+          sudo apt-spy2 select --mirror=$mirror --commit
+
+          # Run 'apt-get update' for the selected mirror
+          if sudo apt-get update; then
+            MINGW_GNUTLS_PKGS="$(apt-cache search gnutls | awk '/mingw-w64/ {print $1}' | tr '\n' ' ')"
+            MINGW_PKGCONF_PKGS="$(apt-cache search pkg-config-mingw-w64 | awk '{print $1}' | tr '\n' ' ')"
+            echo "Detected MinGW GNUTLS packages: ${MINGW_GNUTLS_PKGS:-<none>}"
+            echo "Detected MinGW pkg-config wrappers: ${MINGW_PKGCONF_PKGS:-<none>}"
+            # Try to install dependencies. If successful, break out of the loop.
+            if sudo apt-get install -y mingw-w64 pkg-config libgnutls28-dev libsdl2-dev libmad0-dev libopus-dev libvorbis-dev zlib1g-dev libvorbisfile3 libopusfile-dev libz-mingw-w64 libz-mingw-w64-dev libcurl4-openssl-dev zip ${MINGW_GNUTLS_PKGS} ${MINGW_PKGCONF_PKGS}; then
+              echo "Dependencies successfully installed using mirror: $mirror"
+              break
+            else
+              echo "Failed to install dependencies from mirror: $mirror. Trying next mirror."
+            fi
+          else
+            echo "Failed to update using mirror: $mirror. Trying next mirror."
+          fi
+        done
+      continue-on-error: false
+
+    - name: Verify MinGW GNUTLS toolchain
+      run: |
+        if [ "${{ matrix.platform }}" = "w64" ]; then
+          target="x86_64-w64-mingw32"
+        else
+          target="i686-w64-mingw32"
+        fi
+
+        if ! command -v "${target}-pkg-config" >/dev/null 2>&1; then
+          echo "Missing ${target}-pkg-config; cannot guarantee target GNUTLS support."
+          exit 1
+        fi
+
+        if ! "${target}-pkg-config" --exists gnutls; then
+          echo "Target GNUTLS package metadata not found for ${target}."
+          exit 1
+        fi
+        echo "Verified GNUTLS for ${target}"
+      
+    - name: Build
+      run: |
+        chmod 755 build-${{ matrix.platform }}.sh
+        sudo ./build-${{ matrix.platform }}.sh
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QSS-M ${{ matrix.platform }}
+        path: |
+          Quake/QSS-M-w*.zip

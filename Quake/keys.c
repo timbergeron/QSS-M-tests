@@ -32,12 +32,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 char		key_lines[CMDLINES][MAXCMDLINE];
 char		key_tabhint[MAXCMDLINE]; // woods #iwtabcomplete
 
-int		key_linepos;
+size_t	key_linepos = 0; // woods -- int to size_t
 int		key_insert = true;	//johnfitz -- insert key toggle (for editing)
 double		key_blinktime; //johnfitz -- fudge cursor blinking to make it easier to spot in certain cases
 
 int		edit_line = 0;
 int		history_line = 0;
+static qboolean history_initialized = false; // woods #serverhistory
+static char history_saved_current[MAXCMDLINE]; // woods #serverhistory
 
 keydest_t	key_dest;
 
@@ -818,7 +820,7 @@ void Key_Console (int key)
 				if (x != con_linewidth)
 					break;
 			}
-			con_backscroll = CLAMP(0, con_current-i%con_totallines-2, con_totallines-(glheight>>3)-1);
+			con_backscroll = CLAMP(0, con_current-i+1, con_totallines-(glheight>>3)-1); // woods
 		}
 		else	key_linepos = 1;
 		Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
@@ -846,6 +848,10 @@ void Key_Console (int key)
 		return;
 
 	case K_LEFTARROW:
+		if (keydown[K_SHIFT]) { // woods #conselection - extend selection left
+			Con_MoveSelection(-1, 0);
+			return;
+		}
 		if (key_linepos > 1) // woods (ironwail) support for ctrl+left/right per word
 		{
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
@@ -862,6 +868,10 @@ void Key_Console (int key)
 		return;
 
 	case K_RIGHTARROW:
+		if (keydown[K_SHIFT]) { // woods #conselection - extend selection right
+			Con_MoveSelection(1, 0);
+			return;
+		}
 		len = strlen(workline);
 		if ((int)len == key_linepos)
 		{
@@ -889,6 +899,10 @@ void Key_Console (int key)
 		return;
 
 	case K_UPARROW:
+		if (keydown[K_SHIFT]) { // woods #conselection - extend selection up
+			Con_MoveSelection(0, 1); // +1 because higher line numbers are older
+			return;
+		}
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods (qrack)
 		if (keydown[K_COMMAND])
 #else
@@ -922,6 +936,10 @@ void Key_Console (int key)
 		return;
 
 	case K_DOWNARROW:
+		if (keydown[K_SHIFT]) { // woods #conselection - extend selection down
+			Con_MoveSelection(0, -1); // -1 because lower line numbers are newer
+			return;
+		}
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods (qrack)
 		if (keydown[K_COMMAND])
 #else
@@ -995,6 +1013,15 @@ void Key_Console (int key)
 			Con_TabComplete (TABCOMPLETE_AUTOHINT); // woods #iwtabcomplete
 			return;
 		}
+		break;
+
+	case 'a': // woods #consolecursor
+	case 'A':
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC) // woods #conselection
+		if (keydown[K_COMMAND]) { Con_SelectAll(); return; }
+#else
+		if (keydown[K_CTRL])    { Con_SelectAll(); return; }
+#endif
 		break;
 
 	case 'c':
@@ -1548,6 +1575,12 @@ void History_Init (void)
 	int i, c;
 	FILE *hf;
 
+	if (history_initialized) // woods #serverhistory
+		return;
+
+	history_initialized = true; // woods #serverhistory
+	history_saved_current[0] = 0; // woods #serverhistory
+
 	for (i = 0; i < CMDLINES; i++)
 	{
 		key_lines[i][0] = ']';
@@ -1592,6 +1625,9 @@ void History_Shutdown (void)
 	int i;
 	FILE *hf;
 
+	if (!history_initialized) // woods #serverhistory
+		return;
+
 	hf = fopen(va("%s/%s", host_parms->userdir, HISTORY_FILE_NAME), "wt");
 	if (hf != NULL)
 	{
@@ -1608,12 +1644,98 @@ void History_Shutdown (void)
 		}
 		fclose(hf);
 	}
+
+	history_initialized = false; // woods #serverhistory
+	history_saved_current[0] = 0; // woods #serverhistory
 }
 
 void Print_History(void) // woods #shortcuts #history
 {
 	Cmd_ExecuteString("history -a\n", src_command);
 	return;
+}
+
+void History_StoreCommand (const char *line) // woods #serverhistory
+{
+	char *workline;
+
+	if (!history_initialized)
+		return;
+
+	if (!line)
+		line = "";
+
+	if (!line[0])
+	{
+		history_line = edit_line;
+		key_lines[edit_line][0] = ']';
+		key_lines[edit_line][1] = 0;
+		key_linepos = 1;
+		history_saved_current[0] = 0;
+		return;
+}
+
+	workline = key_lines[edit_line];
+	workline[0] = ']';
+	q_strlcpy (workline + 1, line, MAXCMDLINE - 1);
+
+	if (strcmp(workline, key_lines[(edit_line - 1) & (CMDLINES - 1)]))
+		edit_line = (edit_line + 1) & (CMDLINES - 1);
+
+	history_line = edit_line;
+	key_lines[edit_line][0] = ']';
+	key_lines[edit_line][1] = 0;
+	key_linepos = 1;
+	history_saved_current[0] = 0;
+}
+
+qboolean History_GetPrevious (const char *current, char *out, size_t out_size) // woods #serverhistory
+{
+	int history_line_last;
+
+	if (!history_initialized || !out || !out_size)
+		return false;
+
+	if (history_line == edit_line)
+		q_strlcpy (history_saved_current, current ? current : "", sizeof(history_saved_current));
+
+	history_line_last = history_line;
+	do
+	{
+		history_line = (history_line - 1) & (CMDLINES - 1);
+	} while (history_line != edit_line && !key_lines[history_line][1]);
+
+	if (history_line == edit_line)
+	{
+		history_line = history_line_last;
+		return false;
+	}
+
+	q_strlcpy (out, key_lines[history_line] + 1, out_size);
+	return true;
+}
+
+qboolean History_GetNext (const char *current, char *out, size_t out_size) // woods #serverhistory
+{
+	if (!history_initialized || !out || !out_size)
+		return false;
+
+	(void)current;
+
+	if (history_line == edit_line)
+		return false;
+
+	do
+	{
+		history_line = (history_line + 1) & (CMDLINES - 1);
+	} while (history_line != edit_line && !key_lines[history_line][1]);
+
+	if (history_line == edit_line)
+		q_strlcpy (out, history_saved_current, out_size);
+	else
+		q_strlcpy (out, key_lines[history_line] + 1, out_size);
+
+	return true;
 }
 
 /*
@@ -1824,6 +1946,16 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 	if (key < 0 || key >= MAX_KEYS)
 		return;
 
+    /* woods #conselection Swallow left+middle click ONLY while the console is active.
+       Do NOT swallow right-click (K_MOUSE2) so it can toggle the menu
+       from the console. Do NOT swallow wheel so it can be used in game. */
+    if (key_dest == key_console &&
+        (key == K_MOUSE1 || key == K_MOUSE3)) {
+        /* Do not update keydown[] here; console uses SDL_GetMouseState().
+           Returning early prevents weapon fires/uses/etc. */
+        return;
+    }
+
 	if (key == K_CTRL) // woods #saymodifier
 	{
 		if (down)
@@ -1946,8 +2078,6 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 			if (sfxvolume.value < 0.98) // Prevent going over 100%
 			{
 				Cmd_ExecuteString("inc volume .02\n", src_command);
-				if (!strcmp(mute, "y"))
-					Sound_Toggle_Mute_f();
 			}
 			else
 				sfxvolume.value = 1.0; // Set to exactly 100% if we would exceed it
@@ -1962,8 +2092,6 @@ void Key_EventWithKeycode (int key, qboolean down, int keycode)
 			if (sfxvolume.value > 0.02) // Prevent going below 0%
 			{
 				Cmd_ExecuteString("inc volume -.02\n", src_command);
-				if (!strcmp(mute, "y"))
-					Sound_Toggle_Mute_f();
 			}
 			else
 				sfxvolume.value = 0.0; // Set to exactly 0% if we would go below it

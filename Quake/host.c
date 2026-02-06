@@ -28,6 +28,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <setjmp.h>
 #include "time.h" // woods #cfgbackup
 
+void URI_Init(void); // woods #uri
+void URI_Shutdown(void); // woods #uri
+void URI_Frame(void); // woods #uri
+
 /*
 
 A server can allways be started, even if the system started out as a client
@@ -68,7 +72,7 @@ cvar_t	host_timescale = {"host_timescale", "0", CVAR_NONE}; //johnfitz
 cvar_t	max_edicts = {"max_edicts", "15000", CVAR_NONE}; //johnfitz //ericw -- changed from 2048 to 8192, removed CVAR_ARCHIVE
 cvar_t	cl_nocsqc = {"cl_nocsqc", "0", CVAR_NONE};	//spike -- blocks the loading of any csqc modules
 
-cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
+cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NOTIFY|CVAR_SERVERINFO}; // dedicated server -- woods
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
 
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
@@ -92,8 +96,6 @@ cvar_t devstats = {"devstats","0",CVAR_NONE}; //johnfitz -- track developer stat
 cvar_t	campaign = {"campaign","0",CVAR_NONE}; // for the 2021 rerelease
 cvar_t	horde = {"horde","0",CVAR_NONE}; // for the 2021 rerelease
 cvar_t	sv_cheats = {"sv_cheats","0",CVAR_NONE}; // for the 2021 rerelease
-
-cvar_t	cl_menuskip = { "cl_menuskip","0",CVAR_ARCHIVE}; // woods #menuskip
 
 devstats_t dev_stats, dev_peakstats;
 overflowtimes_t dev_overflows; //this stores the last time overflow messages were displayed, not the last time overflows occured
@@ -277,37 +279,139 @@ void	Host_FindMaxClients (void)
 		Cvar_SetQuick (&deathmatch, "0");
 }
 
-void Host_Version_f (void)
+// 1. System/Standard
+#include <zlib.h>
+#include <curl/curl.h>
+
+// 2. Audio codecs
+#ifdef USE_CODEC_FLAC
+#include <FLAC/format.h>
+#endif
+
+#ifdef USE_CODEC_MIKMOD
+#include <mikmod.h>
+#endif
+
+#ifdef USE_CODEC_OPUS
+#include <opus/opus_defines.h>
+#include <opus/opusfile.h>
+#endif
+
+#ifdef USE_CODEC_VORBIS
+#include <vorbis/codec.h>
+#endif
+
+#ifdef USE_CODEC_XMP
+#include <xmp.h>
+#endif
+
+#ifdef USE_CODEC_MP3
+#include <mad.h>
+#endif
+
+void Host_Version_f(void)
 {
 	SDL_version sdl_linked;
 	SDL_GetVersion(&sdl_linked);
 
-	Con_Printf ("\n");
-	Con_Printf ("Quake                    %1.2f\n", VERSION);
-	Con_Printf ("QuakeSpasm               " QUAKESPASM_VER_STRING "\n");
-	Con_Printf ("QuakeSpasm-Spiked        " QSS_VER "\n"); // woods
-	Con_Printf ("QSS-M                    " QSSM_VER_STRING "\n"); // woods
+	// Application Section
+	Con_Printf("\n^mApplication Information^m\n\n");
+	Con_Printf("%-24s %1.2f\n", "Quake", VERSION);
+	Con_Printf("%-24s %s\n", "QuakeSpasm", QUAKESPASM_VER_STRING);
+	Con_Printf("%-24s %s\n", "QuakeSpasm-Spiked", QSS_VER);
+	Con_Printf("%-24s %s\n", "QSS-M", QSSM_VER_STRING);
+
 #ifdef QSS_VERSION
-	Con_Printf ("QSS Git Description      " QS_STRINGIFY(QSS_VERSION) "\n");
+	Con_Printf("%-24s %s\n", "QSS Git Description", QS_STRINGIFY(QSS_VERSION));
 #endif
 #ifdef QSS_REVISION
-	Con_Printf ("QSS Git Revision         " QS_STRINGIFY(QSS_REVISION) "\n");
+	Con_Printf("%-24s %s\n", "QSS Git Revision", QS_STRINGIFY(QSS_REVISION));
 #endif
+
 #ifdef QSS_DATE
-	Con_Printf ("QuakeSpasm-Spiked Build  " QS_STRINGIFY(QSS_DATE) "\n");
+	Con_Printf("%-24s %s\n", "Build Date", QS_STRINGIFY(QSS_DATE));
 #else
-	Con_Printf ("Exe                      " __TIME__ " " __DATE__ "\n");
+	Con_Printf("%-24s %s %s\n", "Build Date", __TIME__, __DATE__);
 #endif
-	Con_Printf ("SDL                      " Q_SDL_COMPILED_VERSION_STRING " (compiled)\n"); // woods (iw)
-	Con_Printf ("                         %d.%d.%d (linked)\n", sdl_linked.major, sdl_linked.minor, sdl_linked.patch); // woods (iw)
-	Con_Printf ("OS                       %s %d-bit\n", SDL_GetPlatform(), (int)sizeof(void*) * 8); // woods (iw)
-	Con_Printf ("\n");
+
+	Con_Printf("%-24s %s %d-bit\n", "Platform", SDL_GetPlatform(), (int)sizeof(void*) * 8);
+
+	Con_Printf("\n^mLibrary Versions^m\n\n");
+
+	Con_Printf("%-24s %s (compiled)\n", "SDL", Q_SDL_COMPILED_VERSION_STRING);
+	Con_Printf("%-24s %d.%d.%d (linked)\n", "", sdl_linked.major, sdl_linked.minor, sdl_linked.patch);
+
+	// Core libraries
+	Con_Printf("%-24s %s\n", "zlib", zlibVersion());
+#ifdef LIBCURL_VERSION
+	Con_Printf("%-24s %s\n", "libcurl", LIBCURL_VERSION);
+#endif
+
+	// Audio codec libraries
+#ifdef USE_CODEC_FLAC
+	Con_Printf("%-24s %s\n", "libFLAC", FLAC__VERSION_STRING);
+#endif
+
+#ifdef USE_CODEC_OPUS
+	{
+		const char* opus_ver = opus_get_version_string();
+		const char* version = strstr(opus_ver, "libopus ");
+		Con_Printf("%-24s %s\n", "libopus", version ? version + 8 : opus_ver);
+#define LIBOPUSFILE_VERSION "0.10" // hard coded
+		Con_Printf("%-24s %s\n", "libopusfile", LIBOPUSFILE_VERSION);
+	}
+#endif
+
+#if defined(USE_CODEC_OPUS) || defined(USE_CODEC_VORBIS) // these use ogg
+#define LIBOGG_VERSION "1.3.3" // hard coded
+	Con_Printf("%-24s %s\n", "libogg", LIBOGG_VERSION);
+#endif
+
+#ifdef USE_CODEC_VORBIS
+	{
+		const char* vorbis_ver = vorbis_version_string();
+		const char* version = strstr(vorbis_ver, "libVorbis ");
+		if (version) {
+			Con_Printf("%-24s %s\n", "libvorbis", version + 10);
+			Con_Printf("%-24s %s\n", "libvorbisfile", version + 10);
+		}
+	}
+#endif
+
+#ifdef USE_CODEC_MIKMOD
+	Con_Printf("%-24s %ld.%ld.%ld\n", "libmikmod",
+		LIBMIKMOD_VERSION_MAJOR,
+		LIBMIKMOD_VERSION_MINOR,
+		LIBMIKMOD_REVISION);
+#endif
+
+#ifdef USE_CODEC_XMP
+	Con_Printf("%-24s %s\n", "libxmp", XMP_VERSION);
+#endif
+
+	// MP3 libraries
+#ifdef USE_CODEC_MP3
+	if (MAD_VERSION_MINOR) {
+		Con_Printf("%-24s %d.%d.%d%s\n", "libmad",
+			MAD_VERSION_MAJOR,
+			MAD_VERSION_MINOR,
+			MAD_VERSION_PATCH,
+			MAD_VERSION_EXTRA);
+	}
+	else {
+		Con_Printf("%-24s %s\n", "libmpg123", "1.22.4");
+	}
+#endif
+
+	Con_Printf("\n");
 }
 
 /* cvar callback functions : */
 void Host_Callback_Notify (cvar_t *var)
 {
-	if (sv.active)
+	extern qboolean speed_boost_active; // woods #fastnoclip
+	
+	if (sv.active && !speed_boost_active)
 		SV_BroadcastPrintf ("\"%s\" changed to \"%s\"\n", var->name, var->string);
 }
 
@@ -349,15 +453,108 @@ void Host_InitDeQuake (void)
 
 /*
 ===============
-Menu_Skip_f -- woods #menuskip
+Startup_Place -- woods #onload (inspired by ezquake)
+
+Customize the initial behavior of the game client based on user
+preferences stored in cl_onload
 ===============
 */
-void Menu_Skip_f(void)
+void Startup_Place (void)
 {
-	if (cl_menuskip.value)
-		Cbuf_AddText("toggleconsole\n");
-	if (cl_menuskip.value)
-		Cbuf_AddText("togglemenu\n");
+	extern cvar_t cl_onload;
+	extern cvar_t cl_demoreel;
+	const char* cmd = cl_onload.string;
+
+	// Early return for empty or default "menu" command
+	if (!cmd[0] || !q_strcasecmp(cmd, "menu"))
+		return;
+
+	// Define blocked commands that could cause loops or crashes
+	const char* blocked_cmds[] = {
+		"quit",
+		"startup",
+		NULL
+	};
+
+	// Check for blocked commands
+	for (int i = 0; blocked_cmds[i]; i++) {
+		if (!q_strcasecmp(cmd, blocked_cmds[i])) {
+			Con_DPrintf("cl_onload: command '%s' is not allowed\n", blocked_cmds[i]);
+			return;
+		}
+	}
+
+	// Define command mappings
+	struct {
+		const char* name;
+		const char* command;
+	} command_map[] = {
+		{"browser", "menu_slist"},
+		{"bookmarks", "menu_bookmarks"},
+		{"save", "menu_load"},
+		{"history", "menu_history"},
+		{NULL, NULL}
+	};
+
+	// Check for special commands first
+	if (!q_strcasecmp(cmd, "console")) {
+		key_dest = key_console;
+		return;
+	}
+	if (!q_strcasecmp(cmd, "demo")) {
+		key_dest = (cl_demoreel.value) ? key_game : key_menu;
+		return;
+	}
+
+	// Look up command in mapping table
+	for (int i = 0; command_map[i].name != NULL; i++) {
+		if (!q_strcasecmp(cmd, command_map[i].name)) {
+			Cbuf_AddText(va("%s\n", command_map[i].command));
+			return;
+		}
+	}
+
+	// Handle command with potential arguments
+	const char* space = strchr(cmd, ' ');
+	if (space) {
+		// We have a command with arguments
+		char command[128];
+		int cmdlen = space - cmd;
+
+		if (cmdlen < sizeof(command)) {
+			memcpy(command, cmd, cmdlen);
+			command[cmdlen] = '\0';
+
+			// Check if the first word is a valid command
+			if (Cmd_Exists(command)) {
+				Cbuf_AddText(va("%s\n", cmd));  // Use full command string with args
+				return;
+			}
+			key_dest = key_console;
+			Con_DPrintf("cl_onload command does not exist: %s\n", command);
+			return;
+		}
+	}
+
+	// Handle single word command
+	if (Cmd_Exists(cmd)) {
+		Cbuf_AddText(va("%s\n", cmd));
+		return;
+	}
+
+	// Command not found
+	key_dest = key_console;
+	Con_DPrintf("cl_onload command does not exist: %s\n", cmd);
+}
+
+/*
+===============
+Host_Startup_f -- woods #onload
+===============
+*/
+void Host_Startup_f (void)
+{
+	Startup_Place ();
 }
 
 /*
@@ -369,7 +566,7 @@ void Host_InitLocal (void)
 {
 	Cmd_AddCommand ("version", Host_Version_f);
 	Cmd_AddCommand ("svnextmap", SV_Next_Map_f); // woods #maprotation
-	Cmd_AddCommand ("menuskip", Menu_Skip_f); // woods #menuskip
+	Cmd_AddCommand ("startup", Host_Startup_f); // woods #onload
 
 	Host_InitCommands ();
 
@@ -386,6 +583,7 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&devstats); //johnfitz
 
 	Cvar_RegisterVariable (&sys_ticrate);
+	Cvar_SetCallback (&sys_ticrate, Host_Callback_Notify); // woods
 	Cvar_RegisterVariable (&sys_throttle);
 	Cvar_RegisterVariable (&serverprofile);
 
@@ -406,8 +604,6 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&campaign);
 	Cvar_RegisterVariable (&horde);
 	Cvar_RegisterVariable (&sv_cheats);
-
-	Cvar_RegisterVariable (&cl_menuskip); // woods #menuskip
 
 	Cvar_RegisterVariable (&pausable);
 
@@ -605,6 +801,12 @@ void Host_BackupConfiguration(void)
 
 		Config_PrintPreamble(f);
 
+		if (cfg_save_aliases.value) // woods #serveralias
+		{
+			Config_PrintHeading(f, "A L I A S E S");
+			Alias_WriteAliases(f);
+		}
+
 		Config_PrintHeading(f, "K E Y   B I N D I N G S"); // woods #configprint
 		Key_WriteBindings(f);
 		Config_PrintHeading(f, "V A R I A B L E S"); // woods #configprint
@@ -799,7 +1001,7 @@ void Host_ShutdownServer(qboolean crash)
 	do
 	{
 		count = 0;
-		NET_GetServerMessage();	//read packets to make sure we're receiving their acks. we're going to drop them all so we don't actually care to read the data, just the acks so we can flush our outgoing properly.
+		NET_GetServerMessages(NULL);	//read packets to make sure we're receiving their acks. we're going to drop them all so we don't actually care to read the data, just the acks so we can flush our outgoing properly.
 		for (i=0, host_client = svs.clients ; i<svs.maxclients ; i++, host_client++)
 		{
 			if (host_client->active && host_client->message.cursize && host_client->netconnection)
@@ -955,6 +1157,9 @@ void Host_ServerFrame (void)
 // run the world state
 	pr_global_struct->frametime = host_frametime;
 
+	if (sv.active) // woods #svtimer
+		SV_ProcessTimerExecution();
+
 // set the time and clear the general datagram
 	SV_ClearDatagram ();
 
@@ -1063,18 +1268,39 @@ static void UpdateWindowTitle(void)
 		}
 
 		if ((cl.gametype == GAME_DEATHMATCH) && (cls.state == ca_connected) && !cls.demoplayback) // woods added connected server
-			q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, ln, current.map);
-		else if (cls.demoplayback) // woods added demofile
-			q_snprintf(title, sizeof(title), "%s (%s)  |  %s  -  " ENGINE_NAME_AND_VER, ln, current.map, demoplaying);
-		else
-			q_snprintf(title, sizeof(title),
-				"%s (%s)  |  skill %d  |  %d/%d kills  |  %d/%d secrets  -  " ENGINE_NAME_AND_VER,
-				ln, current.map,
-				current.stats.skill,
-				current.stats.monsters, current.stats.total_monsters,
-				current.stats.secrets, current.stats.total_secrets
-			);
-		VID_SetWindowTitle(title);
+{
+    if (ln[0] != '\0' && Q_strcmp(ln, current.map) != 0)
+        q_snprintf(title, sizeof(title), "%s  |  %s (%s)  -  " ENGINE_NAME_AND_VER, lastmphost, ln, current.map);
+    else
+        q_snprintf(title, sizeof(title), "%s  |  %s  -  " ENGINE_NAME_AND_VER, lastmphost, current.map);
+}
+else if (cls.demoplayback) // woods added demofile
+{
+    if (ln[0] != '\0' && Q_strcmp(ln, current.map) != 0)
+        q_snprintf(title, sizeof(title), "%s (%s)  |  %s  -  " ENGINE_NAME_AND_VER, ln, current.map, demoplaying);
+    else
+        q_snprintf(title, sizeof(title), "%s  |  %s  -  " ENGINE_NAME_AND_VER, current.map, demoplaying);
+}
+else
+{
+    if (ln[0] != '\0')
+        q_snprintf(title, sizeof(title),
+            "%s (%s)  |  skill %d  |  %d/%d kills  |  %d/%d secrets  -  " ENGINE_NAME_AND_VER,
+            ln, current.map,
+            current.stats.skill,
+            current.stats.monsters, current.stats.total_monsters,
+            current.stats.secrets, current.stats.total_secrets
+        );
+    else
+        q_snprintf(title, sizeof(title),
+            "%s  |  skill %d  |  %d/%d kills  |  %d/%d secrets  -  " ENGINE_NAME_AND_VER,
+            current.map,
+            current.stats.skill,
+            current.stats.monsters, current.stats.total_monsters,
+            current.stats.secrets, current.stats.total_secrets
+        );
+}
+VID_SetWindowTitle(title);
 	}
 	else
 	{
@@ -1258,6 +1484,7 @@ void _Host_Frame (double time)
 	Cbuf_Execute ();
 
 	NET_Poll();
+	URI_Frame(); // woods #uri
 
 	if (cl.sendprespawn)
 	{
@@ -1402,6 +1629,8 @@ void Host_Init (void)
 {
 	extern void LOC_PQ_Init (void);    // rook / woods #pqteam (added PQ to name)
 
+	srand((unsigned)time(NULL)); // woods -- initialization to for randomization
+
 	if (standard_quake)
 		minimum_memory = MINIMUM_MEMORY;
 	else	minimum_memory = MINIMUM_MEMORY_LEVELPAK;
@@ -1429,10 +1658,15 @@ void Host_Init (void)
 		Key_Init ();
 		Con_Init ();
 	}
+	else // woods #serverhistory
+	{
+		History_Init();
+	}
 	PR_Init ();
 	Mod_Init ();
 	NET_Init ();
 	SV_Init ();
+	URI_Init(); // woods #uri
 
 	LOC_PQ_Init (); // rook / woods #pqteam (added PQ to name)
 	if (cls.state != ca_dedicated)
@@ -1478,6 +1712,12 @@ void Host_Init (void)
 		CL_Init ();
 		M_Init(); // woods move this up for tab complete system #iwtabcomplete
 	}
+	else // woods -- initialize lists for dedicated server argument completion
+	{
+		ExtraMaps_Init();
+		Modlist_Init();
+		ExecList_Init();
+	}
 
 	LOC_Init (); // for 2021 rerelease support.
 
@@ -1506,8 +1746,8 @@ void Host_Init (void)
 	// johnfitz -- in case the vid mode was locked during vid_init, we can unlock it now.
 		// note: two leading newlines because the command buffer swallows one of them.
 		Cbuf_AddText ("\n\nvid_unlock\n");
-		Cbuf_AddText("menuskip\n"); // woods #menuskip
 		Cbuf_AddText("namebk\n"); // woods #smartafk lets run a backup name check for AFK leftovers (crash/force quit)
+		Cbuf_AddText("startup\n"); // woods #onload
 	}
 
 	if (cls.state == ca_dedicated)
@@ -1547,7 +1787,11 @@ void Host_Shutdown(void)
 // keep Con_Printf from trying to update the screen
 	scr_disabled_for_loading = true;
 
+	SV_CleanupTimer(); // woods #svtimer
+
 	Host_WriteConfiguration ();
+
+	URI_Shutdown(); // woods #uri -- shutdown async URI subsystem early to stop worker before network teardown
 
 	Host_BackupConfiguration (); // woods #cfgbackup
 
@@ -1564,6 +1808,10 @@ void Host_Shutdown(void)
 		S_Shutdown ();
 		IN_Shutdown ();
 		VID_Shutdown();
+	}
+	else // woods #serverhistory
+	{
+		History_Shutdown();
 	}
 
 	LOG_Close ();

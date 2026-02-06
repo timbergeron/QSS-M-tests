@@ -561,7 +561,7 @@ qboolean Mod_GetShaderNameForSurface(const char *skinfile, const char *surfacena
 					while (skinfile > linestart && (skinfile[-1] == '\r' || skinfile[-1] == ' ' || skinfile[-1] == '\t'))
 						skinfile--;
 
-					if (skinfile-linestart >= texturenamesize)
+					if ((size_t)(skinfile - linestart) >= texturenamesize)
 						return false;	//too long.
 					memcpy(texturename, linestart, skinfile-linestart);
 					texturename[skinfile-linestart] = 0;
@@ -731,20 +731,24 @@ void Mod_LoadMD3Model (qmodel_t *mod, void *buffer)
 						q_strlcat(texturename, pinshader->name, sizeof(texturename));
 					}
 				}
-				if (j < numskinfiles)
+				if ((unsigned int)j < numskinfiles)
 					Mod_GetShaderNameForSurface(skinfile[j], pinsurface->name, texturename, sizeof(texturename));	//swap it out for the skinned texture..
 				//and make sure there's no extensions. these get ignored in q3, which is kinda annoying, but this is an md3 and standards are standards (and it makes luma easier).
 				ext = (char*)COM_FileGetExtension(texturename);
 				if (*ext)
 					*--ext = 0;
-				//luma has an extra postfix.
 				q_snprintf(uppername, sizeof(uppername), "%s_shirt", texturename);
 				q_snprintf(lowername, sizeof(lowername), "%s_pants", texturename);
-				q_snprintf(fullbrightname, sizeof(fullbrightname), "%s_luma", texturename);
 				osurf->textures[j][0].base = TexMgr_LoadImage(mod, texturename, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, texturename, 0, TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_NOBRIGHT|TEXPREF_MIPMAP);
 				osurf->textures[j][0].lower = TexMgr_LoadImage(mod, lowername, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, lowername, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_MIPMAP);
 				osurf->textures[j][0].upper = TexMgr_LoadImage(mod, uppername, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, uppername, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_MIPMAP);
+				q_snprintf(fullbrightname, sizeof(fullbrightname), "%s_glow", texturename); // woods
 				osurf->textures[j][0].luma = TexMgr_LoadImage(mod, fullbrightname, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, fullbrightname, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_FULLBRIGHT|TEXPREF_MIPMAP);
+				if (!osurf->textures[j][0].luma) // woods
+				{
+					q_snprintf(fullbrightname, sizeof(fullbrightname), "%s_luma", texturename);
+					osurf->textures[j][0].luma = TexMgr_LoadImage(mod, fullbrightname, osurf->skinwidth, osurf->skinheight, SRC_EXTERNAL, NULL, fullbrightname, 0, TEXPREF_ALLOWMISSING|TEXPREF_PAD|TEXPREF_ALPHA|TEXPREF_FULLBRIGHT|TEXPREF_MIPMAP);
+				}
 				osurf->textures[j][3] = osurf->textures[j][2] = osurf->textures[j][1] = osurf->textures[j][0];
 			}
 			if (osurf->numskins)
@@ -1119,7 +1123,7 @@ static const void *IQM_FindExtension(const char *buffer, size_t buffersize, cons
 	const char *strings = buffer + h->ofs_text;
 	const struct iqmextension *ext;
 	int i;
-	for (i = 0, ext = (const struct iqmextension*)(buffer + h->ofs_extensions); i < h->num_extensions; i++, ext = (const struct iqmextension*)(buffer + ext->ofs_extensions))
+	for (i = 0, ext = (const struct iqmextension*)(buffer + h->ofs_extensions); (unsigned int)i < h->num_extensions; i++, ext = (const struct iqmextension*)(buffer + ext->ofs_extensions))
 	{
 		if ((const char*)ext > buffer+buffersize || ext->name > h->num_text || ext->ofs_data+ext->num_data>buffersize)
 			break;
@@ -1145,7 +1149,7 @@ static void Mod_LoadIQMSkin (qmodel_t *mod, const struct iqmheader	*pinheader, a
 
 		for (j = 0; j < meshidx; j++)
 			skin += ((const unsigned int*)(iqmext+1))[j];
-		for (j = 0; j < osurf->numskins && j < MAX_SKINS; j++, skin++)
+		for (j = 0; j < (unsigned int)osurf->numskins && j < (unsigned int)MAX_SKINS; j++, skin++)
 		{
 			if (!skin->countframes)
 				break;	//doesn't make sense.
@@ -1549,7 +1553,7 @@ struct md5weightinfo_s
 	vec4_t pos;
 };
 
-static void Matrix3x4_RM_Transform4(const float *matrix, const float *vector, float *product)
+void Matrix3x4_RM_Transform4(const float *matrix, const float *vector, float *product) // woods -- remove static #routline
 {
 	product[0] = matrix[0]*vector[0] + matrix[1]*vector[1] + matrix[2]*vector[2] + matrix[3]*vector[3];
 	product[1] = matrix[4]*vector[0] + matrix[5]*vector[1] + matrix[6]*vector[2] + matrix[7]*vector[3];
@@ -2023,7 +2027,7 @@ void Mod_LoadMD5MeshModel (qmodel_t *mod, const void *buffer)
 		while (MD5CHECK("vert"))
 		{
 			size_t idx = MD5UINT();
-			if (idx >= surf->numverts)
+			if (idx >= (size_t)surf->numverts)
 				Sys_Error ("vertex index out of bounds");
 			MD5EXPECT("(");
 			poutvert[idx].st[0] = MD5FLOAT();
@@ -2040,13 +2044,13 @@ void Mod_LoadMD5MeshModel (qmodel_t *mod, const void *buffer)
 		while (MD5CHECK("tri"))
 		{
 			size_t idx = MD5UINT();
-			if (idx >= surf->numtris)
+			if (idx >= (size_t)surf->numtris)
 				Sys_Error ("triangle index out of bounds");
 			idx *= 3;
 			for (j = 0; j < 3; j++)
 			{
 				size_t t = MD5UINT();
-				if (t > surf->numverts)
+				if (t > (size_t)surf->numverts)
 					Sys_Error ("vertex index out of bounds");
 				poutindexes[idx+j] = t;
 			}
