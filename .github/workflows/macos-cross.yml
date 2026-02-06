@@ -1,0 +1,126 @@
+name: macOS CI (Cross-Compile Windows)
+
+on: [push, pull_request]
+
+jobs:
+  build-windows:
+    name: Windows ${{ matrix.platform }} (from macOS)
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: w64
+            arch: x86_64
+            makefile: Makefile.w64
+          - platform: w32
+            arch: i686
+            makefile: Makefile.w32
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install MinGW Cross-Compiler
+      run: |
+        brew install mingw-w64
+
+    - name: Generate QSS-M Revision Info
+      run: |
+        echo "Git URL:      https://github.com/timbergeron/QSS-M.git" > QSS-M-Revision.txt
+        echo "Git Revision: $(git rev-parse HEAD)" >> QSS-M-Revision.txt
+        echo "Git Date:     $(git log -1 --date=short --format=%cd)" >> QSS-M-Revision.txt
+        echo "Compile Date: $(date)" >> QSS-M-Revision.txt
+        export SOURCE_DATE_EPOCH=$(git log -1 --date=short --format=%ct)
+
+    - name: Build Windows Binary
+      run: |
+        cd Quake || exit 1
+        
+        echo "=== Debugging file structure ==="
+        ls -F ../Windows/zlib/ || echo "Windows/zlib not found"
+        echo "=============================="
+        
+        # Prepare local include directory
+        mkdir -p local_include
+        
+        # Check for existing zlib headers, otherwise download them
+        if [ -f "../Windows/zlib/include/zlib.h" ]; then
+          echo "Found zlib headers in repo."
+          cp ../Windows/zlib/include/*.h local_include/
+        else
+          echo "zlib headers NOT found in repo. Downloading..."
+          curl -sL -o local_include/zlib.h https://raw.githubusercontent.com/madler/zlib/master/zlib.h
+          curl -sL -o local_include/zconf.h https://raw.githubusercontent.com/madler/zlib/master/zconf.h
+          # zconf.h usually needs configuration, but for MinGW cross-compile stock might work or need tweaks.
+          # Better source: MSYS2's zconf might be safer, but let's try standard first or standard repo fallback.
+        fi
+        
+        ls -l local_include/
+        
+        # Add local include path
+        export QSS_CFLAGS="-DQSS_REVISION=$(git rev-parse HEAD) -Ilocal_include"
+        export QSS_LDFLAGS="-Wl,--allow-multiple-definition"
+        
+        # Set cross-compiler variables based on platform
+        if [ "${{ matrix.platform }}" = "w64" ]; then
+          TARGET=x86_64-w64-mingw32
+          ZLIB_PLATFORM="x64"
+        else
+          TARGET=i686-w64-mingw32
+          ZLIB_PLATFORM="x86"
+        fi
+        
+        # Linker trick: Makefile looks for libz.a.
+        # We copy our zlib DLL (or import lib) to 'libz.a' in the current dir so the linker finds it.
+        cp "../Windows/zlib/${ZLIB_PLATFORM}/zlib1.dll" libz.a
+        
+        # Pass cross-compiler tools directly to make (Makefile defaults CC=gcc otherwise)
+        make -f ${{ matrix.makefile }} USE_SDL2=1 \
+          CC=${TARGET}-gcc \
+          AR=${TARGET}-ar \
+          RANLIB=${TARGET}-ranlib \
+          WINDRES=${TARGET}-windres \
+          STRIP=${TARGET}-strip \
+          -j$(sysctl -n hw.ncpu)
+        mv quakespasm.exe QSS-M-${{ matrix.platform }}.exe
+
+    - name: Package Windows Binary
+      run: |
+        cd Quake
+        if [ "${{ matrix.platform }}" = "w64" ]; then
+          zip -9j QSS-M-${{ matrix.platform }}.zip \
+            ../Windows/codecs/x64/*.dll \
+            ../Windows/curl/lib/x64/libcurl.dll \
+            ../Windows/zlib/x64/zlib1.dll \
+            ../LICENSE.txt \
+            ../Quakespasm.html \
+            quakespasm.pak \
+            qssm.pak \
+            ../Quakespasm.txt \
+            ../Quakespasm-Spiked.txt \
+            ../Quakespasm-Music.txt \
+            ../Windows/SDL2/lib64/SDL2.dll \
+            ../QSS-M-Revision.txt \
+            QSS-M-${{ matrix.platform }}.exe
+        else
+          zip -9j QSS-M-${{ matrix.platform }}.zip \
+            ../Windows/codecs/x86/*.dll \
+            ../Windows/curl/lib/x86/libcurl.dll \
+            ../Windows/zlib/x86/zlib1.dll \
+            ../LICENSE.txt \
+            ../Quakespasm.html \
+            quakespasm.pak \
+            qssm.pak \
+            ../Quakespasm.txt \
+            ../Quakespasm-Spiked.txt \
+            ../Quakespasm-Music.txt \
+            ../Windows/SDL2/lib/SDL2.dll \
+            ../QSS-M-Revision.txt \
+            QSS-M-${{ matrix.platform }}.exe
+        fi
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: QSS-M-${{ matrix.platform }}-macos-cross
+        path: Quake/QSS-M-${{ matrix.platform }}.zip
