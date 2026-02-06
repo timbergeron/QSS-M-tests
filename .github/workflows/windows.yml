@@ -90,8 +90,10 @@ jobs:
         set -euxo pipefail
         if [ "${{ matrix.platform }}" = "w64" ]; then
           target="x86_64-w64-mingw32"
+          mkfile="Quake/Makefile.w64"
         else
           target="i686-w64-mingw32"
+          mkfile="Quake/Makefile.w32"
         fi
 
         force_dynamic=0
@@ -103,6 +105,9 @@ jobs:
           echo "No target gnutls.pc found for ${target}; forcing dynamic-loader mode"
           force_dynamic=1
         fi
+
+        echo "Inspecting GNUTLS fallback variables in ${mkfile}:"
+        grep -nE "GNUTLS_HOST_CFLAGS|GNUTLS_HOST_INC_FALLBACK|FORCE_GNUTLS_DYNAMIC" "${mkfile}" || true
 
         echo "TARGET_TRIPLET=$target" >> "$GITHUB_ENV"
         echo "FORCE_GNUTLS_DYNAMIC=$force_dynamic" >> "$GITHUB_ENV"
@@ -122,6 +127,10 @@ jobs:
         fi
         if ! grep -q -- "-DUSE_GNUTLS" build-${{ matrix.platform }}.log; then
           echo "No -DUSE_GNUTLS in compile flags"
+          exit 1
+        fi
+        if grep -Eq -- '-I/usr/include([[:space:]]|$)' build-${{ matrix.platform }}.log; then
+          echo "Detected unsafe host include path '-I/usr/include' in compile flags"
           exit 1
         fi
 
