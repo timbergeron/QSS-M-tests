@@ -193,13 +193,15 @@ jobs:
           "-property:QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
           "-property:QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
           "-property:QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
-          "-property:QSS_GNUTLS_EXTRA_LIBS=$env:QSS_GNUTLS_EXTRA_LIBS"
           "-property:PostBuildEventUseInBuild=false"
           "-maxcpucount"
           "-verbosity:normal"
           "-fileLogger"
           "-fileLoggerParameters:LogFile=$logFile;Verbosity=diagnostic"
         )
+        # QSS_GNUTLS_EXTRA_LIBS is provided via environment variable to avoid
+        # MSBuild parsing semicolon-separated values as multiple /p switches.
+        Write-Host "Using QSS_GNUTLS_EXTRA_LIBS from environment"
         & $msbuild Windows\VisualStudio\quakespasm-sdl2.vcxproj $options
         if (-not $?) {
           Write-Host "MSBuild failed. Dumping likely error lines from $logFile"
