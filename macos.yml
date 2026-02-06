@@ -2,6 +2,7 @@ name: macOS CI (Xcode)
 
 on:
   push
+  pull_request
 
 jobs:
   build:
@@ -14,12 +15,22 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install Homebrew dependencies
-      if: runner.os == 'macOS'
       run: |
+          eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"
           brew install autoconf automake libtool pkg-config autoconf-archive
 
-    - name: macOS
-      if: runner.os == 'macOS'
+    - name: Log GNUTLS visibility
+      run: |
+          eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"
+          echo "pkg-config path: $(command -v pkg-config || true)"
+          if pkg-config --exists gnutls; then
+            echo "gnutls found: $(pkg-config --modversion gnutls)"
+            pkg-config --cflags --libs gnutls
+          else
+            echo "gnutls not found via pkg-config (expected if using vcpkg-provided static libs)."
+          fi
+
+    - name: Build
       run: |
           eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"
           cd MacOSX
@@ -27,7 +38,6 @@ jobs:
 
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
-      if: runner.os == 'macOS'
       with:
         name: QSS-M
         path: |
