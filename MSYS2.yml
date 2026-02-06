@@ -61,13 +61,19 @@ jobs:
         # Ensure stale dependency/object files from other environments never leak in
         make -f Makefile.w64 clean >/dev/null 2>&1 || true
         make -f Makefile.w32 clean >/dev/null 2>&1 || true
+        rm -f -- ./*.d ./*.o ./*.res
         find . -maxdepth 1 -type f \( -name '*.d' -o -name '*.o' -o -name '*.res' \) -delete
 
+        # Force MSYS2's native pkg-config (prefixed wrappers can be misconfigured)
+        export PKG_CONFIG=pkg-config
+
         # Fail-fast if GNUTLS cannot be resolved in this MSYS2 environment
-        if ! pkg-config --exists gnutls; then
+        if ! "$PKG_CONFIG" --exists gnutls; then
           echo "ERROR: pkg-config cannot find gnutls in ${MSYSTEM}."
-          echo "pkg-config path: $(command -v pkg-config || true)"
-          pkg-config --variable pc_path pkg-config || true
+          echo "pkg-config path: $(command -v "$PKG_CONFIG" || true)"
+          "$PKG_CONFIG" --variable pc_path pkg-config || true
+          "$PKG_CONFIG" --cflags gnutls || true
+          "$PKG_CONFIG" --libs gnutls || true
           pacman -Q | grep -Ei "mingw-w64-.*(gnutls|pkgconf)" || true
           exit 1
         fi

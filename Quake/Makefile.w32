@@ -59,6 +59,14 @@ else
 PKG_CONFIG ?= pkg-config
 endif
 GNUTLS_PKG_OK := $(shell command -v $(PKG_CONFIG) >/dev/null 2>&1 && $(PKG_CONFIG) --exists gnutls 2>/dev/null && echo yes)
+ifeq ($(GNUTLS_PKG_OK),)
+ifneq ($(PKG_CONFIG),pkg-config)
+ifeq ($(shell command -v pkg-config >/dev/null 2>&1 && pkg-config --exists gnutls 2>/dev/null && echo yes),yes)
+PKG_CONFIG := pkg-config
+GNUTLS_PKG_OK := yes
+endif
+endif
+endif
 
 STRIP = strip
 
@@ -347,4 +355,5 @@ debug:
 clean:
 	$(RM) *.o *.d *.res $(DEFAULT_TARGET)
 
-sinclude $(OBJS:.o=.d)
+DEPFILES := $(foreach o,$(OBJS),$(if $(wildcard $(o)),$(o:.o=.d)))
+-include $(DEPFILES)
