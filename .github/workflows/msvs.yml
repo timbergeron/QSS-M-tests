@@ -44,7 +44,7 @@ jobs:
         if (-not $gnutlsPort) { throw "vcpkg install failed for all GNUTLS port candidates on $triplet" }
         & "$vcpkgRoot\vcpkg.exe" list
         $libdir = "$vcpkgRoot\installed\$triplet\lib"
-        Write-Host "GNUTLS-related libs in $libdir:"
+        Write-Host "GNUTLS-related libs in ${libdir}:"
         Get-ChildItem $libdir -Filter "*gnutls*.lib" -ErrorAction SilentlyContinue
         Get-ChildItem $libdir -Filter "*nettle*.lib" -ErrorAction SilentlyContinue
         Get-ChildItem $libdir -Filter "*hogweed*.lib" -ErrorAction SilentlyContinue
