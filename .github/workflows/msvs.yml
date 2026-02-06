@@ -1,0 +1,185 @@
+name: Windows CI MSVS
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Windows / ${{ matrix.platform }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, Win32]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install GNUTLS via vcpkg
+      shell: pwsh
+      env:
+        MATRIX_PLATFORM: ${{ matrix.platform }}
+      run: |
+        $ErrorActionPreference = "Stop"
+        $triplet = if ($env:MATRIX_PLATFORM -eq "x64") { "x64-windows" } else { "x86-windows" }
+        $vcpkgRoot = Join-Path $env:RUNNER_TEMP "vcpkg"
+        Write-Host "Runner OS: $([System.Environment]::OSVersion.VersionString)"
+        Write-Host "Triplet: $triplet"
+        Write-Host "vcpkg root: $vcpkgRoot"
+        git clone --depth 1 https://github.com/microsoft/vcpkg $vcpkgRoot
+        & "$vcpkgRoot\bootstrap-vcpkg.bat" -disableMetrics
+        & "$vcpkgRoot\vcpkg.exe" install "gnutls:$triplet"
+        if (-not $?) { throw "vcpkg install gnutls failed for $triplet" }
+        & "$vcpkgRoot\vcpkg.exe" list
+        if (-not (Test-Path "$vcpkgRoot\installed\$triplet\include\gnutls\gnutls.h")) {
+          throw "gnutls header missing at $vcpkgRoot\installed\$triplet\include\gnutls\gnutls.h"
+        }
+        if (-not (Test-Path "$vcpkgRoot\installed\$triplet\lib\gnutls.lib")) {
+          throw "gnutls import library missing at $vcpkgRoot\installed\$triplet\lib\gnutls.lib"
+        }
+        if (-not (Test-Path "$vcpkgRoot\installed\$triplet\bin")) {
+          throw "gnutls runtime directory missing at $vcpkgRoot\installed\$triplet\bin"
+        }
+        Write-Host "GNUTLS include/lib/bin verified for $triplet"
+        "QSS_USE_GNUTLS=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "QSS_GNUTLS_INCLUDE=$vcpkgRoot\installed\$triplet\include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "QSS_GNUTLS_LIBDIR=$vcpkgRoot\installed\$triplet\lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "QSS_GNUTLS_BINDIR=$vcpkgRoot\installed\$triplet\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "QSS_GNUTLS_TRIPLET=$triplet" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+    - name: Debug GNUTLS Environment
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Continue"
+        Write-Host "QSS_USE_GNUTLS=$env:QSS_USE_GNUTLS"
+        Write-Host "QSS_GNUTLS_TRIPLET=$env:QSS_GNUTLS_TRIPLET"
+        Write-Host "QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
+        Write-Host "QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
+        Write-Host "QSS_GNUTLS_BINDIR=$env:QSS_GNUTLS_BINDIR"
+        Get-ChildItem "$env:QSS_GNUTLS_INCLUDE\gnutls" -ErrorAction SilentlyContinue | Select-Object -First 20
+        Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "gnutls*.lib" -ErrorAction SilentlyContinue
+        Get-ChildItem "$env:QSS_GNUTLS_BINDIR" -Filter "gnutls*.dll" -ErrorAction SilentlyContinue
+
+    - name: Set environment variables
+      shell: pwsh
+      env:
+        MATRIX_PLATFORM: ${{ matrix.platform }}
+      run: |
+        $gitrev = (git describe --always)
+        $gitbranch = (git branch --show-current)
+        if ($gitbranch -eq "master" -or $gitbranch -eq "main") {
+          $ver_suffix = "-$gitrev"
+        } else {
+          $ver_suffix = "-$gitbranch-$gitrev"
+        }
+        $platform = $env:MATRIX_PLATFORM
+        if ($platform -eq "x64") {
+          $platform_alt = "win64"
+          $platform_short = "x64"
+          $exe_name = "QSS-M-w64.exe"
+        } else {
+          $platform_alt = "win32"
+          $platform_short = "x86"
+          $exe_name = "QSS-M-w32.exe"
+        }
+        $build_artifact = "QSS-M$ver_suffix-$platform_alt"
+        "VER_SUFFIX=$ver_suffix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "BUILD_ARTIFACT=$build_artifact" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "BUILD_DIR=$build_artifact" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PLATFORM_ALT=$platform_alt" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "PLATFORM_SHORT=$platform_short" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "EXE_NAME=$exe_name" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Host "Computed BUILD_ARTIFACT=$build_artifact"
+        Write-Host "Computed EXE_NAME=$exe_name"
+
+    - name: Build
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $msbuild = (& "$vswhere" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1)
+        if (-not $msbuild) { throw "MSBuild not found via vswhere" }
+        Write-Host "MSBuild: $msbuild"
+        Write-Host "QSS_USE_GNUTLS=$env:QSS_USE_GNUTLS"
+        Write-Host "QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
+        Write-Host "QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
+        $logFile = "msbuild-${{ matrix.platform }}.log"
+        $options = @(
+          "-property:Configuration=Release"
+          "-property:Platform=${{ matrix.platform }}"
+          "-property:QSS_USE_GNUTLS=$env:QSS_USE_GNUTLS"
+          "-property:QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
+          "-property:QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
+          "-maxcpucount"
+          "-verbosity:normal"
+          "-fileLogger"
+          "-fileLoggerParameters:LogFile=$logFile;Verbosity=diagnostic"
+        )
+        & $msbuild Windows\VisualStudio\quakespasm.sln $options
+        if (-not $?) { throw "Build failed" }
+        if (-not (Test-Path $logFile)) { throw "Missing MSBuild log file: $logFile" }
+        if (-not (Select-String -Path $logFile -Pattern "USE_GNUTLS" -Quiet)) {
+          throw "USE_GNUTLS was not found in MSBuild diagnostic log"
+        }
+        Write-Host "Detected USE_GNUTLS in $logFile"
+
+    - name: Debug Built Binary
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Continue"
+        $compiledir = "Windows\VisualStudio\Build-quakespasm-sdl2\$($env:PLATFORM_SHORT)\Release"
+        Write-Host "Compiled directory: $compiledir"
+        Get-ChildItem $compiledir -ErrorAction SilentlyContinue
+        $exe = Get-ChildItem "$compiledir\*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($exe) {
+          Write-Host "Built EXE: $($exe.FullName)"
+          $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
+          if ($dumpbin) {
+            & $dumpbin.Path /dependents $exe.FullName | Tee-Object -FilePath "dumpbin-${{ matrix.platform }}.txt"
+          } else {
+            Write-Host "dumpbin.exe not found in PATH"
+          }
+        } else {
+          Write-Host "No EXE found in $compiledir"
+        }
+
+    - name: Prepare archive
+      shell: pwsh
+      run: |
+        $compiledir = "Windows\VisualStudio\Build-quakespasm-sdl2\$($env:PLATFORM_SHORT)\Release"
+        $zipdir = "artifact\$($env:BUILD_ARTIFACT)"
+        mkdir $zipdir -Force
+
+        # Output variables for debugging
+        Write-Host "Compiled directory: $compiledir"
+        Write-Host "Zip directory: $zipdir"
+        Write-Host "Executable name: $env:EXE_NAME"
+
+        # Move and rename the executable
+        $exeFile = Get-ChildItem "$compiledir\*.exe" | Select-Object -First 1
+        if ($exeFile) {
+          $targetExePath = Join-Path $zipdir $env:EXE_NAME
+          if (Test-Path $targetExePath) {
+            Remove-Item $targetExePath
+          }
+          Move-Item $exeFile.FullName $targetExePath
+        } else {
+          Write-Error "Executable file not found in $compiledir"
+        }
+
+        # Copy remaining files
+        Copy-Item "$compiledir\*.dll" $zipdir
+        if ($env:QSS_GNUTLS_BINDIR -and (Test-Path $env:QSS_GNUTLS_BINDIR)) {
+          Copy-Item "$($env:QSS_GNUTLS_BINDIR)\*.dll" $zipdir -ErrorAction SilentlyContinue
+        }
+        Copy-Item "Quake\qssm.pak" $zipdir
+        Copy-Item "Quakespasm.html" $zipdir
+        Copy-Item "Quakespasm.txt" $zipdir
+        Copy-Item "Quakespasm-Music.txt" $zipdir
+        Copy-Item "LICENSE.txt" $zipdir
+        Write-Host "Archive staging contents:"
+        Get-ChildItem $zipdir
+
+    - name: Upload archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.BUILD_ARTIFACT }}
+        path: artifact/*

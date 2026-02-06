@@ -195,6 +195,16 @@ copy "$(SolutionDir)\..\SDL\lib64\*.dll" "$(TargetDir)"</Command>
 copy "$(SolutionDir)\..\SDL\lib64\*.dll" "$(TargetDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(QSS_USE_GNUTLS)'=='1'">
+    <ClCompile>
+      <PreprocessorDefinitions>USE_GNUTLS;GNUTLS_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(QSS_GNUTLS_INCLUDE);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(QSS_GNUTLS_LIBDIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>gnutls.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Quake\bgmusic.c" />
     <ClCompile Include="..\..\Quake\cd_sdl.c" />
