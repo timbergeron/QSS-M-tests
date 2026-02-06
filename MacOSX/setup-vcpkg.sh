@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+echo "=== setup-vcpkg.sh starting ==="
+echo "PWD: $(pwd)"
+echo "PATH: $PATH"
+echo "USER: $(whoami)"
+echo "UID: $(id -u)"
+
 if [ "$(id -u)" -eq 0 ]; then
     echo "Do not run this script with sudo."
     echo "It creates root-owned files and can hide Homebrew tools from PATH."
@@ -8,18 +14,27 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
+echo ""
+echo "=== Checking required commands ==="
 required_cmds=(git lipo autoconf automake pkg-config)
 missing=()
 for cmd in "${required_cmds[@]}"; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
+    if command -v "$cmd" >/dev/null 2>&1; then
+        echo "  $cmd: OK ($(command -v $cmd))"
+    else
+        echo "  $cmd: NOT FOUND"
         missing+=("$cmd")
     fi
 done
 
 # vcpkg autotools ports often expect "libtoolize". Homebrew installs
 # GNU libtool as "glibtoolize" on macOS to avoid clashing with Apple libtool.
+echo ""
+echo "=== Checking libtoolize ==="
 if ! command -v libtoolize >/dev/null 2>&1; then
+    echo "  libtoolize not found, checking for glibtoolize..."
     if command -v glibtoolize >/dev/null 2>&1; then
+        echo "  glibtoolize found at $(command -v glibtoolize), creating shim..."
         shim_dir="$(pwd)/.tool-shims"
         mkdir -p "$shim_dir"
         cat > "$shim_dir/libtoolize" <<'EOF'
@@ -28,16 +43,25 @@ exec glibtoolize "$@"
 EOF
         chmod +x "$shim_dir/libtoolize"
         export PATH="$shim_dir:$PATH"
+        echo "  Shim created at $shim_dir/libtoolize"
+        echo "  PATH updated: $PATH"
     else
+        echo "  glibtoolize also NOT FOUND"
         missing+=("libtool/libtoolize")
     fi
+else
+    echo "  libtoolize: OK ($(command -v libtoolize))"
 fi
 
 if [ "${#missing[@]}" -gt 0 ]; then
+    echo ""
     echo "Missing required tools: ${missing[*]}"
     echo "Install with: brew install autoconf automake libtool pkg-config autoconf-archive"
     exit 1
 fi
+
+echo ""
+echo "=== All required tools found ==="
 
 # vcpkg ports such as libidn2 require autoconf-archive macros.
 if command -v brew >/dev/null 2>&1; then
