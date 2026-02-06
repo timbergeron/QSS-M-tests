@@ -203,6 +203,7 @@ copy "$(SolutionDir)\..\SDL\lib64\*.dll" "$(TargetDir)"</Command>
     <Link>
       <AdditionalLibraryDirectories>$(QSS_GNUTLS_LIBDIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies Condition="'$(QSS_GNUTLS_IMPORT_LIB)'!=''">$(QSS_GNUTLS_IMPORT_LIB);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(QSS_GNUTLS_EXTRA_LIBS)'!=''">$(QSS_GNUTLS_EXTRA_LIBS);%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="'$(QSS_GNUTLS_IMPORT_LIB)'==''">gnutls.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

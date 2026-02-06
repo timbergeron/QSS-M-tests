@@ -79,6 +79,31 @@ jobs:
         if (-not $importLibName) {
           throw "gnutls import library missing at $libdir"
         }
+        $extraLibCandidates = @(
+          "nettle.lib","libnettle.lib",
+          "hogweed.lib","libhogweed.lib",
+          "gmp.lib","libgmp.lib",
+          "idn2.lib","libidn2.lib",
+          "unistring.lib","libunistring.lib",
+          "tasn1.lib","libtasn1.lib",
+          "iconv.lib","libiconv.lib",
+          "intl.lib","libintl.lib",
+          "p11-kit.lib","libp11-kit.lib",
+          "ffi.lib","libffi.lib"
+        )
+        $extraLibs = New-Object System.Collections.Generic.List[string]
+        foreach ($lib in $extraLibCandidates) {
+          if ((Test-Path "$libdir\$lib") -and -not $extraLibs.Contains($lib)) {
+            [void]$extraLibs.Add($lib)
+          }
+        }
+        foreach ($sysLib in @("Ws2_32.lib","Crypt32.lib","Bcrypt.lib","Advapi32.lib","User32.lib")) {
+          if (-not $extraLibs.Contains($sysLib)) {
+            [void]$extraLibs.Add($sysLib)
+          }
+        }
+        $extraLibString = ($extraLibs -join ";")
+        Write-Host "Detected GNUTLS extra libs: $extraLibString"
         if (-not (Test-Path "$vcpkgRoot\installed\$triplet\bin")) {
           throw "gnutls runtime directory missing at $vcpkgRoot\installed\$triplet\bin"
         }
@@ -88,6 +113,7 @@ jobs:
         "QSS_GNUTLS_LIBDIR=$vcpkgRoot\installed\$triplet\lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_BINDIR=$vcpkgRoot\installed\$triplet\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_IMPORT_LIB=$importLibName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "QSS_GNUTLS_EXTRA_LIBS=$extraLibString" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_PORT=$gnutlsPort" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "QSS_GNUTLS_TRIPLET=$triplet" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -102,6 +128,7 @@ jobs:
         Write-Host "QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
         Write-Host "QSS_GNUTLS_BINDIR=$env:QSS_GNUTLS_BINDIR"
         Write-Host "QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
+        Write-Host "QSS_GNUTLS_EXTRA_LIBS=$env:QSS_GNUTLS_EXTRA_LIBS"
         Get-ChildItem "$env:QSS_GNUTLS_INCLUDE\gnutls" -ErrorAction SilentlyContinue | Select-Object -First 20
         Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "gnutls*.lib" -ErrorAction SilentlyContinue
         Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "libgnutls*.lib" -ErrorAction SilentlyContinue
@@ -157,6 +184,7 @@ jobs:
         Write-Host "QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
         Write-Host "QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
         Write-Host "QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
+        Write-Host "QSS_GNUTLS_EXTRA_LIBS=$env:QSS_GNUTLS_EXTRA_LIBS"
         $logFile = "msbuild-${{ matrix.platform }}.log"
         $options = @(
           "-property:Configuration=Release"
@@ -165,13 +193,29 @@ jobs:
           "-property:QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
           "-property:QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
           "-property:QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
+          "-property:QSS_GNUTLS_EXTRA_LIBS=$env:QSS_GNUTLS_EXTRA_LIBS"
+          "-property:PostBuildEventUseInBuild=false"
           "-maxcpucount"
           "-verbosity:normal"
           "-fileLogger"
           "-fileLoggerParameters:LogFile=$logFile;Verbosity=diagnostic"
         )
-        & $msbuild Windows\VisualStudio\quakespasm.sln $options
-        if (-not $?) { throw "Build failed" }
+        & $msbuild Windows\VisualStudio\quakespasm-sdl2.vcxproj $options
+        if (-not $?) {
+          Write-Host "MSBuild failed. Dumping likely error lines from $logFile"
+          if (Test-Path $logFile) {
+            Write-Host "===== Error Matches ====="
+            Select-String -Path $logFile -Pattern "(: error | error [A-Z]{1,4}[0-9]{3,6}:|fatal error|LNK[0-9]{4}|MSB[0-9]{4})" -CaseSensitive:$false |
+              Select-Object -Last 200 |
+              ForEach-Object { $_.Line } |
+              Out-Host
+            Write-Host "===== Tail (last 300 lines) ====="
+            Get-Content $logFile -Tail 300 | Out-Host
+          } else {
+            Write-Host "MSBuild log file not found: $logFile"
+          }
+          throw "Build failed"
+        }
         if (-not (Test-Path $logFile)) { throw "Missing MSBuild log file: $logFile" }
         if (-not (Select-String -Path $logFile -Pattern "USE_GNUTLS" -Quiet)) {
           throw "USE_GNUTLS was not found in MSBuild diagnostic log"
@@ -240,3 +284,12 @@ jobs:
       with:
         name: ${{ env.BUILD_ARTIFACT }}
         path: artifact/*
+
+    - name: Upload MSBuild Logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: msbuild-logs-${{ matrix.platform }}
+        path: |
+          msbuild-*.log
+          dumpbin-*.txt
