@@ -320,10 +320,10 @@ jobs:
         path: |
           Quake/QSS-M-w*.zip
           Quake/build-${{ matrix.platform }}.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/build-gmp.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/build-nettle.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/build-libtasn1.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/configure-gnutls.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/configure-gnutls-fallback.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/build-gnutls.log
-          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == w64 && x86_64-w64-mingw32 || i686-w64-mingw32 }}/build-gnutls-j1.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/build-gmp.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/build-nettle.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/build-libtasn1.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/configure-gnutls.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/configure-gnutls-fallback.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/build-gnutls.log
+          ${{ runner.temp }}/qss-cross-gnutls/${{ matrix.platform == 'w64' && 'x86_64-w64-mingw32' || 'i686-w64-mingw32' }}/build-gnutls-j1.log
