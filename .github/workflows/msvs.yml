@@ -31,14 +31,15 @@ jobs:
         $gnutlsPort = $null
         $portCandidates = @("libgnutls", "gnutls")
         foreach ($port in $portCandidates) {
-          Write-Host "Attempting vcpkg install $port`:$triplet"
-          & "$vcpkgRoot\vcpkg.exe" install "$port:$triplet"
+          $pkgSpec = "${port}:$triplet"
+          Write-Host "Attempting vcpkg install $pkgSpec"
+          & "$vcpkgRoot\vcpkg.exe" install $pkgSpec
           if ($LASTEXITCODE -eq 0) {
             $gnutlsPort = $port
             Write-Host "Installed GNUTLS port: $gnutlsPort"
             break
           }
-          Write-Host "Install failed for $port`:$triplet (exit $LASTEXITCODE)"
+          Write-Host "Install failed for $pkgSpec (exit $LASTEXITCODE)"
         }
         if (-not $gnutlsPort) { throw "vcpkg install failed for all GNUTLS port candidates on $triplet" }
         & "$vcpkgRoot\vcpkg.exe" list
