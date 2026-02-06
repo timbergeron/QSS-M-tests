@@ -222,7 +222,8 @@ copy "$(SolutionDir)..\zlib\$(PlatformShortName)\*.dll" "$(TargetDir)"</Command>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(QSS_GNUTLS_LIBDIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>gnutls.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(QSS_GNUTLS_IMPORT_LIB)'!=''">$(QSS_GNUTLS_IMPORT_LIB);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(QSS_GNUTLS_IMPORT_LIB)'==''">gnutls.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
