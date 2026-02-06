@@ -109,4 +109,4 @@ lipo -create ./vcpkg/installed/x64-osx-1013/lib/libgmp.a ./vcpkg/installed/arm64
 lipo -create ./vcpkg/installed/x64-osx-1013/lib/libidn2.a ./vcpkg/installed/arm64-osx-11/lib/libidn2.a -output ./libs_universal/libidn2.a
 lipo -create ./vcpkg/installed/x64-osx-1013/lib/libunistring.a ./vcpkg/installed/arm64-osx-11/lib/libunistring.a -output ./libs_universal/libunistring.a
 lipo -create ./vcpkg/installed/x64-osx-1013/lib/libtasn1.a ./vcpkg/installed/arm64-osx-11/lib/libtasn1.a -output ./libs_universal/libtasn1.a
-lipo -create ./vcpkg/installed/x64-osx-1013/lib/libiconv.a ./vcpkg/installed/arm64-osx-11/lib/libiconv.a -output ./libs_universal/libiconv.a
+# libiconv is provided by macOS natively; vcpkg emits an empty package, so no .a to lipo
