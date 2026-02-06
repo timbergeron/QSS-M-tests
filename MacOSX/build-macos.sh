@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 ./setup-vcpkg.sh
 
@@ -13,5 +14,5 @@ EOF
 
 # zip the files in `build/Release` to create the final archive for distribution
 cd build/Release
-rm QSS-M_MacOS.zip
+rm -f QSS-M_MacOS.zip
 zip --symlinks --recurse-paths QSS-M_MacOS.zip *

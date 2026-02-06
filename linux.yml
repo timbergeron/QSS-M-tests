@@ -41,7 +41,7 @@ jobs:
     - name: Build
       run: |
         chmod 755 build-linux.sh
-        sudo ./build-linux.sh
+        ./build-linux.sh
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4

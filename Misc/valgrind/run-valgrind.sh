@@ -6,16 +6,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 artifacts_dir="$repo_root/artifacts"
 binary="$repo_root/Quake/quakespasm-valgrind"
-supp_file_default="$script_dir/valgrind.supp"
-if [ $# -gt 0 ]; then
-  if [ ! -f "$1" ]; then
-    echo "Suppression file not found: $1" >&2
-    exit 1
-  fi
-  supp_file="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
-else
-  supp_file="$supp_file_default"
-fi
+supp_file="$script_dir/valgrind.supp"
 autoexec_dir="$repo_root/Quake/id1"
 autoexec_path="$autoexec_dir/autoexec.cfg"
 autoexec_backup=""
