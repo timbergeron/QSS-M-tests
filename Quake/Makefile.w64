@@ -209,7 +209,7 @@ ifeq ($(FORCE_GNUTLS_DYNAMIC),1)
 CFLAGS+= -DUSE_GNUTLS $(GNUTLS_HOST_CFLAGS) $(GNUTLS_HOST_INC_FALLBACK)
 $(warning forcing USE_GNUTLS dynamic-loader mode without pkg-config link flags)
 else ifeq ($(GNUTLS_PKG_OK),yes)
-CFLAGS+= -DUSE_GNUTLS -DGNUTLS_STATIC -DGNUTLS_INTERNAL_BUILD $(shell $(PKG_CONFIG) --cflags gnutls)
+CFLAGS+= -DUSE_GNUTLS -DGNUTLS_STATIC $(shell $(PKG_CONFIG) --cflags gnutls)
 COMMON_LIBS+= $(shell $(PKG_CONFIG) --libs gnutls)
 else
 $(warning gnutls not found via $(PKG_CONFIG); building without USE_GNUTLS. Install mingw gnutls dev packages or set PKG_CONFIG/PKG_CONFIG_LIBDIR)
