@@ -13,133 +13,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install GNUTLS via vcpkg
-      shell: pwsh
-      env:
-        MATRIX_PLATFORM: ${{ matrix.platform }}
-      run: |
-        $ErrorActionPreference = "Stop"
-        $triplet = if ($env:MATRIX_PLATFORM -eq "x64") { "x64-windows" } else { "x86-windows" }
-        $vcpkgRoot = Join-Path $env:RUNNER_TEMP "vcpkg"
-        Write-Host "Runner OS: $([System.Environment]::OSVersion.VersionString)"
-        Write-Host "Triplet: $triplet"
-        Write-Host "vcpkg root: $vcpkgRoot"
-        git clone --depth 1 https://github.com/microsoft/vcpkg $vcpkgRoot
-        & "$vcpkgRoot\bootstrap-vcpkg.bat" -disableMetrics
-        Write-Host "vcpkg search output for gnutls:"
-        & "$vcpkgRoot\vcpkg.exe" search gnutls
-        Write-Host "vcpkg search output for shiftmedia:"
-        & "$vcpkgRoot\vcpkg.exe" search shiftmedia
-        $gnutlsPort = $null
-        # Native MSVC triplets (x64-windows/x86-windows) need the shiftmedia port.
-        $portCandidates = @("shiftmedia-libgnutls", "libgnutls", "gnutls")
-        foreach ($port in $portCandidates) {
-          $pkgSpec = "${port}:$triplet"
-          Write-Host "Attempting vcpkg install $pkgSpec"
-          & "$vcpkgRoot\vcpkg.exe" install $pkgSpec
-          if ($LASTEXITCODE -eq 0) {
-            $gnutlsPort = $port
-            Write-Host "Installed GNUTLS port: $gnutlsPort"
-            break
-          }
-          Write-Host "Install failed for $pkgSpec (exit $LASTEXITCODE)"
-        }
-        if (-not $gnutlsPort) { throw "vcpkg install failed for all GNUTLS port candidates on $triplet" }
-        & "$vcpkgRoot\vcpkg.exe" list
-        $includeRoot = "$vcpkgRoot\installed\$triplet\include"
-        $libdir = "$vcpkgRoot\installed\$triplet\lib"
-        Write-Host "GNUTLS-related libs in ${libdir}:"
-        Get-ChildItem $libdir -Filter "*gnutls*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem $libdir -Filter "*nettle*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem $libdir -Filter "*hogweed*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem $libdir -Filter "*gmp*.lib" -ErrorAction SilentlyContinue
-
-        # Discover header root dynamically to handle different port layouts.
-        $gnutlsHeader = Get-ChildItem $includeRoot -Recurse -Filter "gnutls.h" -ErrorAction SilentlyContinue |
-          Where-Object { $_.FullName -match "[\\/]gnutls[\\/]gnutls\.h$" } |
-          Select-Object -First 1
-        if (-not $gnutlsHeader) {
-          throw "gnutls header missing under $includeRoot"
-        }
-        $includeDir = ($gnutlsHeader.FullName -replace "[\\/]gnutls[\\/]gnutls\.h$", "")
-        Write-Host "Detected gnutls header: $($gnutlsHeader.FullName)"
-        Write-Host "Detected include dir: $includeDir"
-
-        $importLibName = $null
-        foreach ($candidate in @("gnutls.lib", "libgnutls.lib", "shiftmedia-libgnutls.lib")) {
-          if (Test-Path "$libdir\$candidate") {
-            $importLibName = $candidate
-            break
-          }
-        }
-        if (-not $importLibName) {
-          $detectedLib = Get-ChildItem $libdir -Filter "*gnutls*.lib" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($detectedLib) { $importLibName = $detectedLib.Name }
-        }
-        if (-not $importLibName) {
-          throw "gnutls import library missing at $libdir"
-        }
-        $extraLibCandidates = @(
-          "nettle.lib","libnettle.lib",
-          "hogweed.lib","libhogweed.lib",
-          "gmp.lib","libgmp.lib",
-          "idn2.lib","libidn2.lib",
-          "unistring.lib","libunistring.lib",
-          "tasn1.lib","libtasn1.lib",
-          "iconv.lib","libiconv.lib",
-          "intl.lib","libintl.lib",
-          "p11-kit.lib","libp11-kit.lib",
-          "ffi.lib","libffi.lib"
-        )
-        $extraLibs = New-Object System.Collections.Generic.List[string]
-        foreach ($lib in $extraLibCandidates) {
-          if ((Test-Path "$libdir\$lib") -and -not $extraLibs.Contains($lib)) {
-            [void]$extraLibs.Add($lib)
-          }
-        }
-        foreach ($sysLib in @("Ws2_32.lib","Crypt32.lib","Bcrypt.lib","Advapi32.lib","User32.lib")) {
-          if (-not $extraLibs.Contains($sysLib)) {
-            [void]$extraLibs.Add($sysLib)
-          }
-        }
-        $extraLibString = ($extraLibs -join ";")
-        Write-Host "Detected GNUTLS extra libs: $extraLibString"
-        if (-not (Test-Path "$vcpkgRoot\installed\$triplet\bin")) {
-          throw "gnutls runtime directory missing at $vcpkgRoot\installed\$triplet\bin"
-        }
-        Write-Host "GNUTLS include/lib/bin verified for $triplet (import lib: $importLibName)"
-        "QSS_USE_GNUTLS=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_INCLUDE=$includeDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_LIBDIR=$vcpkgRoot\installed\$triplet\lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_BINDIR=$vcpkgRoot\installed\$triplet\bin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_IMPORT_LIB=$importLibName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_EXTRA_LIBS=$extraLibString" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_PORT=$gnutlsPort" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        "QSS_GNUTLS_TRIPLET=$triplet" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: Debug GNUTLS Environment
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = "Continue"
-        Write-Host "QSS_USE_GNUTLS=$env:QSS_USE_GNUTLS"
-        Write-Host "QSS_GNUTLS_PORT=$env:QSS_GNUTLS_PORT"
-        Write-Host "QSS_GNUTLS_TRIPLET=$env:QSS_GNUTLS_TRIPLET"
-        Write-Host "QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
-        Write-Host "QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
-        Write-Host "QSS_GNUTLS_BINDIR=$env:QSS_GNUTLS_BINDIR"
-        Write-Host "QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
-        Write-Host "QSS_GNUTLS_EXTRA_LIBS=$env:QSS_GNUTLS_EXTRA_LIBS"
-        Get-ChildItem "$env:QSS_GNUTLS_INCLUDE\gnutls" -ErrorAction SilentlyContinue | Select-Object -First 20
-        Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "gnutls*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "libgnutls*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "*nettle*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "*hogweed*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_LIBDIR" -Filter "*gmp*.lib" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_BINDIR" -Filter "gnutls*.dll" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_BINDIR" -Filter "*nettle*.dll" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_BINDIR" -Filter "*hogweed*.dll" -ErrorAction SilentlyContinue
-        Get-ChildItem "$env:QSS_GNUTLS_BINDIR" -Filter "*gmp*.dll" -ErrorAction SilentlyContinue
-
     - name: Set environment variables
       shell: pwsh
       env:
@@ -180,28 +53,16 @@ jobs:
         $msbuild = (& "$vswhere" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1)
         if (-not $msbuild) { throw "MSBuild not found via vswhere" }
         Write-Host "MSBuild: $msbuild"
-        Write-Host "QSS_USE_GNUTLS=$env:QSS_USE_GNUTLS"
-        Write-Host "QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
-        Write-Host "QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
-        Write-Host "QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
-        Write-Host "QSS_GNUTLS_EXTRA_LIBS=$env:QSS_GNUTLS_EXTRA_LIBS"
         $logFile = "msbuild-${{ matrix.platform }}.log"
         $options = @(
           "-property:Configuration=Release"
           "-property:Platform=${{ matrix.platform }}"
-          "-property:QSS_USE_GNUTLS=$env:QSS_USE_GNUTLS"
-          "-property:QSS_GNUTLS_INCLUDE=$env:QSS_GNUTLS_INCLUDE"
-          "-property:QSS_GNUTLS_LIBDIR=$env:QSS_GNUTLS_LIBDIR"
-          "-property:QSS_GNUTLS_IMPORT_LIB=$env:QSS_GNUTLS_IMPORT_LIB"
           "-property:PostBuildEventUseInBuild=false"
           "-maxcpucount"
           "-verbosity:normal"
           "-fileLogger"
           "-fileLoggerParameters:LogFile=$logFile;Verbosity=diagnostic"
         )
-        # QSS_GNUTLS_EXTRA_LIBS is provided via environment variable to avoid
-        # MSBuild parsing semicolon-separated values as multiple /p switches.
-        Write-Host "Using QSS_GNUTLS_EXTRA_LIBS from environment"
         & $msbuild Windows\VisualStudio\quakespasm-sdl2.vcxproj $options
         if (-not $?) {
           Write-Host "MSBuild failed. Dumping likely error lines from $logFile"
@@ -218,11 +79,6 @@ jobs:
           }
           throw "Build failed"
         }
-        if (-not (Test-Path $logFile)) { throw "Missing MSBuild log file: $logFile" }
-        if (-not (Select-String -Path $logFile -Pattern "USE_GNUTLS" -Quiet)) {
-          throw "USE_GNUTLS was not found in MSBuild diagnostic log"
-        }
-        Write-Host "Detected USE_GNUTLS in $logFile"
 
     - name: Debug Built Binary
       shell: pwsh
@@ -270,9 +126,6 @@ jobs:
 
         # Copy remaining files
         Copy-Item "$compiledir\*.dll" $zipdir
-        if ($env:QSS_GNUTLS_BINDIR -and (Test-Path $env:QSS_GNUTLS_BINDIR)) {
-          Copy-Item "$($env:QSS_GNUTLS_BINDIR)\*.dll" $zipdir -ErrorAction SilentlyContinue
-        }
         Copy-Item "Quake\qssm.pak" $zipdir
         Copy-Item "Quakespasm.html" $zipdir
         Copy-Item "Quakespasm.txt" $zipdir
