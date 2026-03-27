@@ -1,0 +1,388 @@
+# `advancedemo` Command — Frame, Percentage, or Time Seeking
+
+## Syntax
+
+### Absolute (seek to position)
+
+```
+advancedemo 500          seek to frame 500
+advancedemo 50%          seek to 50% of demo
+advancedemo 1:30         seek to 1 minute 30 seconds elapsed
+advancedemo 1:00:30      seek to 1 hour 0 minutes 30 seconds elapsed
+advancedemo 90s          seek to 90 seconds elapsed
+```
+
+### Relative (seek from current position)
+
+```
+advancedemo +1000        advance 1000 frames
+advancedemo -1000        go back 1000 frames
+advancedemo +5%          advance 5 percentage points
+advancedemo -5%          go back 5 percentage points
+advancedemo +10s         advance 10 seconds
+advancedemo -10s         go back 10 seconds
+advancedemo +1:30        advance 1 minute 30 seconds
+advancedemo -0:30        go back 30 seconds
+```
+
+### Format detection
+
+1. `+` or `-` prefix → relative mode (stripped before format detection)
+2. `%` suffix → percentage
+3. `s` suffix → time in seconds
+4. Contains `:` → time in M:SS or H:MM:SS
+5. Otherwise → frame number
+
+Time requires colon or `s` suffix to distinguish from frames (`advancedemo 90` = frame 90, `advancedemo 90s` = 90 seconds).
+
+## Files to Modify
+
+1. **`Quake/cl_demo.c`** — New state vars, helpers, command function, seeking logic changes
+2. **`Quake/cl_main.c`** — Register command in `CL_Init()`
+3. **`Quake/client.h`** — Declare `CL_AdvanceDemo_f(void)`
+
+## Implementation Steps
+
+### Step 1: Add state variables (`cl_demo.c`, after line 219)
+
+```c
+static qboolean is_frame_seeking = false;
+static int demo_frame_seek_target = 0;
+static float demo_start_server_time = 0.f;
+```
+
+`demo_start_server_time` converts elapsed time (user-facing) to absolute server time (`cl.mtime[0]`).
+
+### Step 2: Reset frame-seeking state in `CL_ResetDemoSeekState()` (`cl_demo.c:232`)
+
+Add after line 238:
+```c
+is_frame_seeking = false;
+demo_frame_seek_target = 0;
+```
+
+NOT resetting `demo_start_server_time` — it's a reference point, not seeking state. Recaptured naturally during rewind.
+
+### Step 3: Capture `demo_start_server_time` in `CL_NextDemoFrame()` (`cl_demo.c:488`)
+
+Insert at line 489, before existing frame-push code:
+```c
+if (VEC_SIZE(demo_rewind.frames) == 0)
+    demo_start_server_time = cl.mtime[0];
+```
+
+**Timing:** At VEC_PUSH time, `CL_NextDemoFrame()` runs BEFORE current frame's message is parsed (call flow: `CL_GetDemoMessage` → `CL_NextDemoFrame` at line 975 → message read at lines 980-1000 → returns → `CL_ParseServerMessage` runs → `svc_time` updates `cl.mtime[0]`). So `cl.mtime[0]` is the previous frame's time. When `VEC_SIZE == 0` (first frame after signon), this is the last signon frame's time — ~50ms offset, negligible for user-facing time seeking.
+
+**Self-correcting on rewind:** Frames clear during signon replay (line 483). When forward playback resumes, `VEC_SIZE == 0` fires again and recaptures fresh value.
+
+### Step 4: Add `demo_seek_from_start` support to `is_time_seeking` block (`cl_demo.c:323-342`)
+
+Replace with:
+```c
+if (is_time_seeking)
+{
+    if (demo_seek_from_start)
+    {
+        cls.demospeed = -1e9f;
+        if (cls.basedemospeed)
+            cls.demospeed *= cls.basedemospeed;
+        if (demo_rewind.backstop || cls.demo_offset_current <= demo_seek_start)
+            demo_seek_from_start = false;
+        return;
+    }
+
+    const float remaining = demo_time_seek_target - cl.mtime[0];
+
+    if (fabsf(remaining) <= seek_time_threshold ||
+        (demo_rewind.backstop && remaining < 0.f))
+    {
+        cls.demospeed = normal_speed;
+        CL_ResetDemoSeekState();
+        return;
+    }
+
+    cls.demospeed = (remaining > 0.f) ? seeking_speed : -seeking_speed;
+    if (cls.basedemospeed)
+        cls.demospeed *= cls.basedemospeed;
+
+    if (cls.demospeed > 0.f)
+        demo_rewind.backstop = false;
+    return;
+}
+```
+
+Adds `demo_seek_from_start` sub-block at top, mirroring `is_seeking` pattern (lines 346-354). J/L keys never set `demo_seek_from_start` so their behavior is unchanged. `advancedemo` backward time seeks get -1e9f rewind instead of slow -256x frame-by-frame.
+
+### Step 5: Add frame-seeking block after `is_time_seeking`, before `is_seeking`
+
+```c
+if (is_frame_seeking)
+{
+    if (demo_seek_from_start)
+    {
+        cls.demospeed = -1e9f;
+        if (cls.basedemospeed)
+            cls.demospeed *= cls.basedemospeed;
+        if (demo_rewind.backstop || cls.demo_offset_current <= demo_seek_start)
+            demo_seek_from_start = false;
+        return;
+    }
+
+    if (CL_GetDemoFrameCount() >= demo_frame_seek_target)
+    {
+        cls.demospeed = normal_speed;
+        CL_ResetDemoSeekState();
+        return;
+    }
+
+    cls.demospeed = seeking_speed;
+    demo_rewind.backstop = false;
+    return;
+}
+```
+
+Rewind-then-forward flow: rewind at -1e9f → backstop → signon replay clears frames → forward accumulates frames 1,2,3... → count >= target → done.
+
+### Step 6: Add `CL_ParseTimeString()` helper (before `CL_AdvanceDemo_f`)
+
+```c
+static float CL_ParseTimeString(const char *str)
+{
+    int parts[3], num_parts = 0;
+    const char *p = str;
+
+    while (*p && num_parts < 3)
+    {
+        if (*p == ':')
+        {
+            p++;
+            continue;
+        }
+        parts[num_parts++] = atoi(p);
+        while (*p && *p != ':')
+            p++;
+    }
+
+    if (num_parts == 2)
+        return parts[0] * 60.f + parts[1];
+    else if (num_parts == 3)
+        return parts[0] * 3600.f + parts[1] * 60.f + parts[2];
+    else
+        return -1.f;
+}
+```
+
+### Step 7: Add command function (`cl_demo.c`, near ~line 1590)
+
+```c
+void CL_AdvanceDemo_f(void)
+{
+    const char *arg, *value;
+    int len, value_len;
+    qboolean is_relative;
+    float sign;
+
+    if (cmd_source != src_command)
+        return;
+
+    if (!cls.demoplayback)
+    {
+        Con_Printf("advancedemo: not playing a demo\n");
+        return;
+    }
+
+    if (Cmd_Argc() != 2)
+    {
+        Con_Printf("advancedemo <frame | percent%% | M:SS | Ns> : seek (prefix +/- for relative)\n");
+        return;
+    }
+
+    arg = Cmd_Argv(1);
+    len = strlen(arg);
+
+    if (len == 0)
+        return;
+
+    is_relative = (arg[0] == '+' || arg[0] == '-');
+    sign = (arg[0] == '-') ? -1.f : 1.f;
+    value = is_relative ? arg + 1 : arg;
+    value_len = is_relative ? len - 1 : len;
+
+    if (value_len == 0)
+    {
+        Con_Printf("advancedemo: missing value after +/-\n");
+        return;
+    }
+
+    CL_ResetDemoSeekState();
+
+    if (value_len > 1 && value[value_len - 1] == '%')
+    {
+        // ---- PERCENTAGE SEEKING ----
+        float pct = atof(value);
+        int demo_seek_start, demo_seek_end;
+
+        if (is_relative)
+        {
+            float current_pct = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length * 100.f;
+            pct = current_pct + sign * pct;
+        }
+
+        if (pct < 0.0f) pct = 0.0f;
+        if (pct > 100.0f) pct = 100.0f;
+
+        demo_seek_start = (cls.demofilestart > 0) ? (int)cls.demofilestart : cls.demo_offset_start;
+        demo_seek_end = cls.demo_offset_start + cls.demo_file_length;
+
+        demo_target_offset = cls.demo_offset_start + (int)((pct / 100.0f) * (float)(cls.demo_file_length));
+        if (demo_target_offset < demo_seek_start)
+            demo_target_offset = demo_seek_start;
+        else if (demo_target_offset > demo_seek_end)
+            demo_target_offset = demo_seek_end;
+
+        demo_seek_from_start = (cls.demo_offset_current > demo_target_offset);
+        is_seeking = true;
+        if (demo_seek_from_start)
+            CL_ClearDemoFrags();
+    }
+    else if (value_len > 1 && value[value_len - 1] == 's')
+    {
+        // ---- TIME SEEKING (seconds suffix) ----
+        float seconds = atof(value);
+        float absolute_time;
+
+        if (seconds < 0.f)
+        {
+            Con_Printf("advancedemo: invalid time value\n");
+            return;
+        }
+
+        if (is_relative)
+            absolute_time = cl.mtime[0] + sign * seconds;
+        else
+            absolute_time = demo_start_server_time + seconds;
+
+        demo_time_seek_target = absolute_time;
+        is_time_seeking = true;
+        if (absolute_time < cl.mtime[0])
+        {
+            demo_seek_from_start = true;
+            CL_ClearDemoFrags();
+        }
+    }
+    else if (strchr(value, ':'))
+    {
+        // ---- TIME SEEKING (M:SS or H:MM:SS) ----
+        float seconds = CL_ParseTimeString(value);
+        float absolute_time;
+
+        if (seconds < 0.f)
+        {
+            Con_Printf("advancedemo: invalid time format (use M:SS or H:MM:SS)\n");
+            return;
+        }
+
+        if (is_relative)
+            absolute_time = cl.mtime[0] + sign * seconds;
+        else
+            absolute_time = demo_start_server_time + seconds;
+
+        demo_time_seek_target = absolute_time;
+        is_time_seeking = true;
+        if (absolute_time < cl.mtime[0])
+        {
+            demo_seek_from_start = true;
+            CL_ClearDemoFrags();
+        }
+    }
+    else
+    {
+        // ---- FRAME SEEKING ----
+        int amount = atoi(value);
+        int target;
+
+        if (is_relative)
+        {
+            target = CL_GetDemoFrameCount() + (int)(sign * amount);
+            if (target < 1)
+                target = 1;
+        }
+        else
+        {
+            target = amount;
+            if (target < 1)
+            {
+                Con_Printf("advancedemo: frame must be >= 1\n");
+                return;
+            }
+        }
+
+        demo_frame_seek_target = target;
+        is_frame_seeking = true;
+
+        if (target < CL_GetDemoFrameCount())
+        {
+            demo_seek_from_start = true;
+            CL_ClearDemoFrags();
+        }
+    }
+}
+```
+
+**Parsing details:**
+- `+`/`-` prefix is stripped before format detection; `sign` tracks direction
+- `atof("5%")` → 5.0, `atof("10s")` → 10.0 — stops at non-numeric suffix, works correctly
+- Relative percentage computes current % from `cls.demo_offset_current` (same formula as sbar.c HUD)
+- Relative time adds delta to `cl.mtime[0]` directly (no `demo_start_server_time` needed)
+- Relative frames adds delta to `CL_GetDemoFrameCount()`, clamps to minimum 1
+- Out-of-range percentage clamped (not errored) — `+50%` at 80% just goes to 100%
+- Out-of-range relative frames clamped to 1 — `-999999` just goes to start
+
+### Step 8: Declare in `client.h` (after line 591)
+
+```c
+void CL_AdvanceDemo_f(void);
+```
+
+### Step 9: Register in `CL_Init()` (`cl_main.c`, after line 4244)
+
+```c
+Cmd_AddCommand ("advancedemo", CL_AdvanceDemo_f);
+```
+
+## Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Rewind-to-start for all backward seeks | All three types use `-1e9f` via `demo_seek_from_start`. Frame-by-frame at -256x too slow for large jumps (30min demo = ~36k frames to pop). |
+| Time requires colon or `s` suffix | `advancedemo 90` = frame 90, `advancedemo 90s` = 90 seconds, `advancedemo 1:30` = time. Unambiguous. |
+| `demo_start_server_time` at first frame push | ~50ms offset negligible. Self-corrects on rewind. No reset needed. |
+| Modify `is_time_seeking` block for `demo_seek_from_start` | Minimal change. J/L unaffected (never set the flag). Avoids duplicating rewind logic. |
+| Three separate flags | Each has different completion criteria (byte offset vs server time vs frame count). |
+| Clamp relative out-of-range | `-999999` frames goes to frame 1, `+50%` at 80% goes to 100%. More forgiving than erroring. |
+| Relative time uses `cl.mtime[0]` directly | No need for `demo_start_server_time` — just add delta to current server time. Same approach as J/L keys. |
+
+## Seeking System Architecture (reference)
+
+- `CL_UpdateDemoSpeed()` (line 280): called every frame, block order:
+  1. J/L key handler (306) — calls `CL_ResetDemoSeekState()`, sets `is_time_seeking`
+  2. `is_time_seeking` block (323) — time-based forward/backward (now with `demo_seek_from_start` support)
+  3. **NEW: `is_frame_seeking` block** — frame-based forward/backward
+  4. `is_seeking` block (344) — byte-offset forward (with rewind-to-start phase)
+  5. 1-9 key handler (374) — sets `is_seeking` + `demo_target_offset`
+  6. Arrow/HOME/END handlers (401+)
+- All seeking blocks `return` early — mutually exclusive per frame
+- `CL_ResetDemoSeekState()` clears all seeking flags/targets
+- `demo_seek_from_start` is shared across seeking types for the rewind phase
+- `demo_rewind.backstop` = true when rewound to first frame (no more to pop)
+
+## Test Cases
+
+**Absolute frame:** `advancedemo 500` (forward), `advancedemo 200` at 500+ (backward), `advancedemo 1` (start), `advancedemo 999999` (EOF)
+**Absolute percentage:** `advancedemo 50%`, `advancedemo 33%`, `advancedemo 0%`, `advancedemo 100%`
+**Absolute time:** `advancedemo 1:30`, `advancedemo 0:10`, `advancedemo 1:00:00`, `advancedemo 90s`, `advancedemo 0:30` at 2:00 (backward)
+**Relative frame:** `advancedemo +1000`, `advancedemo -1000`, `advancedemo -999999` (clamps to frame 1)
+**Relative percentage:** `advancedemo +5%`, `advancedemo -5%`, `advancedemo +50%` at 80% (clamps to 100%)
+**Relative time:** `advancedemo +10s`, `advancedemo -10s`, `advancedemo +1:30`, `advancedemo -0:30`
+**Errors:** no args (usage), not playing demo, `advancedemo abc` (frame < 1), `advancedemo :` (invalid time), `advancedemo +` (missing value)
+**Interaction:** J/L cancels any seek, 1-9 blocked during seek (blocks return early), chained `advancedemo` cancels prior seek

@@ -84,6 +84,7 @@ char mute[2]; // woods for mute to memory #usermute
 qboolean pausedprint; // woods #qssmhints
 qboolean timerstarted; // woods #qssmhints
 
+double		scr_volume_display_time = 0; // woods
 float		scr_con_current;
 float		scr_conlines;		// lines of console to display
 
@@ -100,8 +101,11 @@ extern qboolean netquakeio; // woods
 
 void TexturePointer_Draw(void); // woods #texturepointer
 
+extern cvar_t r_lerpmove; //johnfitz
+
 extern qpic_t* sb_nums[2][11]; // woods #varmatchclock
 extern qpic_t* sb_colon; // woods #varmatchclock
+extern qpic_t* sb_faces[7][2]; // woods #headhunters
 
 extern cvar_t scr_scoreboard_teamsort; // woods #teamscoreboard
 void Sbar_SortFrags_TeamOrder(qboolean sort_ascending); // woods #teamscoreboard
@@ -1566,10 +1570,14 @@ SCR_DrawMatchClock    woods (Adapted from Sbar_DrawFrags from r00k) draw match c
 // Track current minute-digit count (1-3) for the numeric match clock (modes 1/2)
 // Baseline alignment assumes 3 digits; other HUD elements can offset relative to this
 static int scr_matchclock_minute_digits = 3;
+static int scr_matchclock_narrow_digits = 0; // count of '1' digits in minutes (visually narrower in sb_nums)
+static qboolean SCR_GetRoundHudString(char *num, size_t num_size);
 
 void SCR_DrawMatchClock(void)
 {
 	char			num[22] = "empty";
+	char			round_num[22];
+	qboolean		show_round_hud;
 	int				teamscores, minutes, seconds;
 	int				match_time, tl;
 
@@ -1577,6 +1585,7 @@ void SCR_DrawMatchClock(void)
 	minutes = match_time / 60;
 	seconds = match_time - 60 * minutes;
 	teamscores = cl.teamgame;
+	show_round_hud = SCR_GetRoundHudString(round_num, sizeof(round_num));
 
 	if (scr_viewsize.value >= 130)
 		return;
@@ -1585,7 +1594,10 @@ void SCR_DrawMatchClock(void)
 
 	if ((teamscores) && !(cl.minutes != 255)) // display 0.00 for pre match mode in DM
 	{
-		sprintf(num, "%3d:%02d", 0, 0);
+		if (show_round_hud)
+			q_strlcpy(num, round_num, sizeof(num));
+		else
+			sprintf(num, "%3d:%02d", 0, 0);
 		Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
 	}
 
@@ -1616,7 +1628,7 @@ void SCR_DrawMatchClock(void)
 				const char* mode;
 				mode = Info_GetKey(cl.serverinfo, "mode", buf2, sizeof(buf2));
 
-				if (!q_strcasecmp(mode, "clanarena") || !q_strcasecmp(mode, "wipeout"))
+				if (!q_strcasecmp(mode, "ca") || !q_strcasecmp(mode, "clanarena") || !q_strcasecmp(mode, "wipeout"))
 					tl = 0;
 
 			}
@@ -1647,28 +1659,46 @@ void SCR_DrawMatchClock(void)
 		if (cl.seconds >= 128) // DM CRMOD 6.6 countdown, second count inaccurate in countdown, fix it
 			sprintf(num, " 0:%02d", cl.seconds - 128);
 
+		if (show_round_hud)
+			q_strlcpy(num, round_num, sizeof(num));
+
 		// now lets draw the clocks
 
 		// Always update scr_matchclock_minute_digits based on the current clock string
 		// so other HUD elements (like differentials) can align even when the clock
 		// itself is hidden or drawn in a different mode.
+		if (!show_round_hud)
 		{
 			char* p_clock = num;
 			int minutes_for_digits = 0;
+			int narrow_count = 0;
 
 			while (*p_clock == ' ')
 				p_clock++;
 
 			if (*p_clock >= '0' && *p_clock <= '9')
 			{
+				if (*p_clock == '1') narrow_count++;
 				minutes_for_digits = (*p_clock++ - '0');
 				if (*p_clock >= '0' && *p_clock <= '9')
+				{
+					if (*p_clock == '1') narrow_count++;
 					minutes_for_digits = minutes_for_digits * 10 + (*p_clock++ - '0');
+				}
 				if (*p_clock >= '0' && *p_clock <= '9')
+				{
+					if (*p_clock == '1') narrow_count++;
 					minutes_for_digits = minutes_for_digits * 10 + (*p_clock++ - '0');
+				}
 			}
 
 			scr_matchclock_minute_digits = (minutes_for_digits >= 100) ? 3 : ((minutes_for_digits >= 10) ? 2 : 1);
+			scr_matchclock_narrow_digits = narrow_count;
+		}
+		else
+		{
+			scr_matchclock_minute_digits = 3;
+			scr_matchclock_narrow_digits = 0;
 		}
 
 		if (!strcmp(num, "empty"))
@@ -1679,7 +1709,7 @@ void SCR_DrawMatchClock(void)
 
 		if (scr_match_hud.value)
 		{
-			if ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
+			if (!show_round_hud && ((((minutes <= 0) && (seconds < 15) && (seconds > 0)) && teamscores) || cl.seconds >= 128)) // color last 15 seconds to draw attention cl.seconds >= 128 is for CRMOD
 				M_Print(((314 - (strlen(num) << 3)) + 1), 195 - 8, num); // M_Print is colored text
 			else
 				Draw_String(((314 - (strlen(num) << 3)) + 1), 195 - 8, num);
@@ -1720,7 +1750,7 @@ void SCR_DrawMatchClock(void)
 				const char* mode;
 				mode = Info_GetKey(cl.serverinfo, "mode", buf3, sizeof(buf3));
 
-				if (!q_strcasecmp(mode, "clanarena") || !q_strcasecmp(mode, "wipeout"))
+				if (!q_strcasecmp(mode, "ca") || !q_strcasecmp(mode, "clanarena") || !q_strcasecmp(mode, "wipeout"))
 					return;
 				
 				if (scr_matchclock_int == 1 || scr_matchclock_int == 2)
@@ -1969,6 +1999,89 @@ static void SCR_DrawPositiveDiffString(int x, int y, const char* str) // woods #
         }
 }
 
+static qboolean SCR_GetMatchHudInfoKey(const char *key, char *value, size_t value_size)
+{
+	const char *info_val;
+	char key_buf[32];
+
+	if (!value_size)
+		return false;
+
+	value[0] = '\0';
+
+	if (cl.realviewentity >= 1 &&
+		cl.realviewentity <= cl.maxclients &&
+		cl.scores[cl.realviewentity - 1].userinfo[0])
+	{
+		info_val = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, key, key_buf, sizeof(key_buf));
+		if (info_val && info_val[0])
+		{
+			q_strlcpy(value, info_val, value_size);
+			return true;
+		}
+	}
+
+	info_val = Info_GetKey(cl.serverinfo, key, key_buf, sizeof(key_buf));
+	if (info_val && info_val[0])
+	{
+		q_strlcpy(value, info_val, value_size);
+		return true;
+	}
+
+	return false;
+}
+
+static qboolean SCR_ShouldDrawRoundHud(void)
+{
+	char mode_buf[16];
+	const char *mode;
+
+	if (cl.modetype == 4 || cl.modetype == 6)
+		return true;
+
+	mode = Info_GetKey(cl.serverinfo, "mode", mode_buf, sizeof(mode_buf));
+	if (!mode || !mode[0])
+		return false;
+
+	return !q_strcasecmp(mode, "ca") ||
+		!q_strcasecmp(mode, "clanarena") ||
+		!q_strcasecmp(mode, "wipeout");
+}
+
+static qboolean SCR_GetRoundHudString(char *num, size_t num_size)
+{
+	char round_buf[16];
+	char total_buf[16];
+	int round;
+	int roundtotal;
+
+	if (!num_size)
+		return false;
+
+	num[0] = '\0';
+
+	if (!SCR_ShouldDrawRoundHud())
+		return false;
+
+	if (!SCR_GetMatchHudInfoKey("round", round_buf, sizeof(round_buf)))
+		return false;
+
+	if (!SCR_GetMatchHudInfoKey("roundtotal", total_buf, sizeof(total_buf)))
+		return false;
+
+	round = atoi(round_buf);
+	roundtotal = atoi(total_buf);
+
+	if (round < 0 || roundtotal <= 0)
+		return false;
+
+	if (!cl.matchinp)
+		round = 0;
+
+	q_snprintf(num, num_size, "%d / %d", round, roundtotal);
+	return true;
+}
+
 static void SCR_DrawFFADifferential(void) // woods
 {
 	int player_index;
@@ -2051,7 +2164,7 @@ static void SCR_DrawFFADifferential(void) // woods
 		GL_SetCanvas(CANVAS_TOPRIGHT4);
 		q_snprintf(diff_str, sizeof(diff_str), "+%d", player_score - second_highest);
 		{
-			int digit_adjust_px = (scr_matchclock_minute_digits - 1) * 24; // missing digits
+			int digit_adjust_px = (scr_matchclock_minute_digits - 1) * 11 - scr_matchclock_narrow_digits * 2;
 			SCR_DrawPositiveDiffString(120 - (strlen(diff_str) << 3) - digit_adjust_px, 11, diff_str);
 		}
 		return;
@@ -2061,7 +2174,7 @@ static void SCR_DrawFFADifferential(void) // woods
 	GL_SetCanvas(CANVAS_TOPRIGHT4);
 	q_snprintf(diff_str, sizeof(diff_str), "%d", player_score - highest_score);
 	{
-		int digit_adjust_px = (scr_matchclock_minute_digits - 1) * 24; // missing digits
+		int digit_adjust_px = (scr_matchclock_minute_digits - 1) * 11 - scr_matchclock_narrow_digits * 2;
 		M_Print(120 - (strlen(diff_str) << 3) - digit_adjust_px, 11, diff_str);
 	}
 }
@@ -2202,6 +2315,64 @@ void SCR_DrawMatchScores(void)
 		if (!q_strcasecmp(uiplaymode, "ffa") || !q_strcasecmp(siplaymode, "ffa"))
 		{
 			SCR_DrawFFADifferential();
+		}
+	}
+
+	// woods #headhunters -- draw head count below clock
+	if (cl.modetype == 8 && scr_match_hud.value && cl.gametype == GAME_DEATHMATCH)
+	{
+		char heads_buf[16], hval_buf[16];
+		const char *heads_str, *hval_str;
+		char num[12], hval[12];
+		int heads, headvalue, nlen, hlen;
+
+		heads_str = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "heads", heads_buf, sizeof(heads_buf));
+		heads = atoi(heads_str);
+
+		hval_str = Info_GetKey(cl.scores[cl.realviewentity - 1].userinfo, "headvalue", hval_buf, sizeof(hval_buf));
+		headvalue = atoi(hval_str);
+
+		sprintf(num, "%d", heads);
+		nlen = strlen(num);
+
+		sprintf(hval, "+%d", headvalue);
+		hlen = strlen(hval);
+
+		// layout: [face] count +headvalue
+		// face+count on TOPRIGHT3 (2x), +headvalue on TOPRIGHT4 (1x = half size)
+		// reserve space for +hval at half-equivalent width (each 1x char = 4 T3 units)
+		{
+			int num_w = nlen * 8;
+			int hval_equiv = (heads > 0) ? hlen * 4 : 0; /* T3-equivalent width */
+			int face_w = 12; /* 24 * 0.5 scale */
+			int gap = 3;
+			int gap2 = 1;
+			int total_w = face_w + gap + num_w + ((heads > 0) ? gap2 + hval_equiv : 0);
+			int base_x = 44 - total_w;
+			int nx = base_x + face_w + gap;
+			int count_end = nx + num_w;
+
+			GL_SetCanvas(CANVAS_TOPRIGHT3);
+			Draw_ScaledPicAlpha(base_x, 1, sb_faces[0][1], 0.5f, 1.0f);
+			Draw_String(nx, 3, num);
+
+			// draw +headvalue at half size, only when heads > 0
+			if (heads > 0)
+			{
+				plcolour_t accent = Draw_GetConcharsAccentColor();
+				int hx = 104 + 2 * (count_end + gap2);
+				int hy = 34; /* vertically centered with count text */
+				int i;
+
+				GL_SetCanvas(CANVAS_TOPRIGHT4);
+				for (i = 0; hval[i]; i++)
+				{
+					if (hval[i] >= '0' && hval[i] <= '9')
+						Draw_Character(hx + i * 8, hy, hval[i] - 30);
+					else
+						Draw_CharacterRGBA(hx + i * 8, hy, hval[i], accent, 1.0f);
+				}
+			}
 		}
 	}
 
@@ -4244,11 +4415,59 @@ qboolean TP_IsPlayerVisible(vec3_t origin)
 	return TP_IsItemVisible(&visitem);
 }
 
+static qboolean SCR_IsOutsideMapView(void)
+{
+	vec3_t end, impact;
+
+	/*
+	 * If a very long trace from the camera reaches the end point without
+	 * hitting solid world geometry, treat it as a void/outside-map view.
+	 */
+	VectorMA(r_origin, 65536.0f, vpn, end);
+	TraceLine(r_origin, end, 0, impact);
+
+	return VecLength2(impact, end) <= 1.0f;
+}
+
+static void SCR_GetAutoIDOrigin(const entity_t *state, vec3_t out)
+{
+	if (r_lerpmove.value && state != &cl.viewent && (state->lerpflags & LERP_MOVESTEP))
+	{
+		float blend;
+		vec3_t d;
+		float s = (cls.demoplayback && cls.demospeed < 0.f) ? -1.f : 1.f;
+
+		if (state->lerpflags & LERP_FINISH)
+		{
+			float denom = state->lerpfinish - state->movelerpstart;
+			blend = (denom > 0.0f) ? CLAMP(0.0f, (float)(cl.time - state->movelerpstart) / denom, 1.0f) : 1.0f;
+		}
+		else
+		{
+			blend = CLAMP(0.0f, (float)(cl.time - state->movelerpstart) / 0.1f * s, 1.0f);
+		}
+
+		VectorSubtract(state->currentorigin, state->previousorigin, d);
+		out[0] = state->previousorigin[0] + d[0] * blend;
+		out[1] = state->previousorigin[1] + d[1] * blend;
+		out[2] = state->previousorigin[2] + d[2] * blend;
+	}
+	else
+	{
+		VectorCopy(state->origin, out);
+	}
+}
+
+static int SCR_FloorToInt(float x)
+{
+	return (int)floorf(x);
+}
+
 void SCR_SetupAutoID(void)
 {
 	int		i, view[4];
 	float		model[16], project[16], winz;
-	vec3_t origin;
+	vec3_t origin, base_origin;
 	entity_t* state;
 	autoid_player_t* id;
 
@@ -4265,6 +4484,8 @@ void SCR_SetupAutoID(void)
 
 	char buf4[15];
 	const char* star_obs;
+
+	qboolean skip_vis = false; // skip LOS only for fly observers looking into map void/outside
 
 	//if (r_refdef.viewangles[ROLL] == 80) // dead, could rotate text?
 
@@ -4296,10 +4517,13 @@ void SCR_SetupAutoID(void)
 				) {
 				return;
 			}
+
+			// Only skip LOS in fly mode when the view is in map void/outside area.
+			if (!strcmp(obs, "fly") || !strcmp(star_obs, "fly"))
+				skip_vis = SCR_IsOutsideMapView();
 		}
-		else
-			if (!strcmp(cl.observer, "n")) // general observer flag for legacy mods/servers
-				return;
+		else if (!strcmp(cl.observer, "n")) // general observer flag for legacy mods/servers
+			return;
 	}
 
 	glGetFloatv(GL_MODELVIEW_MATRIX, model);
@@ -4313,21 +4537,19 @@ void SCR_SetupAutoID(void)
 		if (state->model == NULL)
 			continue;
 
-		if (VectorCompare(cl.entities[cl.viewentity].origin, state->origin))
-			continue;  // Skip our own entity
-
-		if (VectorCompare(cl.entities[cl.realviewentity].origin, state->origin))
-			continue;  // Skip our own entity (eyecam)
+		if ((1 + i) == cl.viewentity || (1 + i) == cl.realviewentity)
+			continue;  // Skip our own entity / eyecam target
 
 		if ((!strcmp(state->model->name, "progs/player.mdl") && ISDEAD(state->frame)) || !strcmp(state->model->name, "progs/h_player.mdl"))
 			continue;
 
-		VectorCopy(state->origin, origin);
+		SCR_GetAutoIDOrigin(state, base_origin);
+		VectorCopy(base_origin, origin);
 		origin[2] += 28;
 		if (R_CullSphere(origin, 0))
 			continue;
 
-		if (!TP_IsPlayerVisible(state->origin))
+		if (!skip_vis && !TP_IsPlayerVisible(base_origin))
 			continue;
 
 		id = &autoids[autoid_count];
@@ -4340,7 +4562,9 @@ void SCR_SetupAutoID(void)
 
 void SCR_DrawAutoID(void)
 {
-	int	i, x, y;
+	int	i;
+	int xi, yi;
+	float x, y, xfrac, yfrac;
 	char formatted_name[16]; // 15 chars + null terminator
 	int name_length;
 	int y_offset = 12;
@@ -4389,18 +4613,33 @@ void SCR_DrawAutoID(void)
 
 		name_length = strlen(formatted_name);
 
-		if (!strcmp(formatted_name, observing))
-			continue;
+			/*
+			 * Only suppress the tracked player's label while in eyecam.
+			 * In fly/chase modes, "observing" can still be set and should not hide names.
+			 */
+			if (cl.eyecam && !strcmp(formatted_name, observing))
+				continue;
 
-		Draw_FillPlayer(x - 4 * name_length - 1, y - 1, (name_length * 8) + 2, 11, CL_PLColours_Parse("0x000000"), decimal_part);
+		xi = SCR_FloorToInt(x);
+		yi = SCR_FloorToInt(y);
+		xfrac = x - (float)xi;
+		yfrac = y - (float)yi;
 
-		Draw_String(x - 4 * name_length, y, formatted_name);
+		glPushMatrix();
+		glTranslatef(xfrac, yfrac, 0.0f);
+
+		Draw_FillPlayer(xi - 4 * name_length - 1, yi - 1, (name_length * 8) + 2, 11, CL_PLColours_Parse("0x000000"), decimal_part);
+		Draw_String(xi - 4 * name_length, yi, formatted_name);
+
+		glPopMatrix();
 	}
 }
 
 void SCR_DrawStatusIndicators (void)
 {
-	int i, x, y;
+	int i;
+	int xi, yi;
+	float x, y, xfrac, yfrac;
 	const int y_offset = 12;
 
 	if (cls.state != ca_connected || cl.intermission || qeintermission || crxintermission)
@@ -4452,6 +4691,14 @@ void SCR_DrawStatusIndicators (void)
 		if (r_refdef.viewangles[ROLL] == 80) { x += 26; y -= y_offset; }
 		if (scr_autoid.value > 0)             y -= y_offset;   /* above shown name */
 
+		xi = SCR_FloorToInt(x);
+		yi = SCR_FloorToInt(y);
+		xfrac = x - (float)xi;
+		yfrac = y - (float)yi;
+
+		glPushMatrix();
+		glTranslatef(xfrac, yfrac, 0.0f);
+
 		if (is_afk) {
 			/* Draw red "AFK" using 128 mask */
 			char afk_text[4];
@@ -4459,12 +4706,14 @@ void SCR_DrawStatusIndicators (void)
 			afk_text[1] = 'F' | 128;  // Red F
 			afk_text[2] = 'K' | 128;  // Red K
 			afk_text[3] = '\0';
-			Draw_String(x - 12, y, afk_text);
+			Draw_String(xi - 12, yi, afk_text);
 		}
 		else {
 			/* Animated typing dots */
-			Draw_StringAnimatedDots(x - 12, y, "...");
+			Draw_StringAnimatedDots(xi - 12, yi, "...");
 		}
+
+		glPopMatrix();
 	}
 }
 
@@ -5667,6 +5916,82 @@ void SCR_TileClear (void)
 	}
 }
 
+#define SLIDER_RANGE 10
+
+static void SCR_DrawVolumeSlider (void)
+{
+	int x, y;
+	int i;
+	int lines;
+	int min_y, max_y;
+	int text_x;
+	int text_chars;
+	int panel_x, panel_y, panel_w, panel_h;
+	float range;
+	float value;
+	char buffer[6];
+	static qboolean panel_color_initialized = false;
+	static plcolour_t panel_color;
+
+	if (!panel_color_initialized)
+	{
+		panel_color = CL_PLColours_Parse("0x000000");
+		panel_color_initialized = true;
+	}
+
+	GL_SetCanvas (CANVAS_CONSOLE);
+	glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
+
+	/* anchor in top-left console space so it tracks scr_conscale */
+	x = 20;
+	y = vid.conheight + 8;
+	panel_h = 16;
+
+	/* keep the widget below the console if there is room */
+	lines = vid.conheight - (int)(scr_con_current * vid.conheight / glheight);
+	if (scr_con_current > 0)
+	{
+		min_y = vid.conheight + 4;
+		max_y = vid.conheight + lines - (panel_h - 4);
+		if (max_y < min_y)
+		{
+			GL_SetCanvas (CANVAS_DEFAULT);
+			return;
+		}
+		y = q_min (y, max_y);
+	}
+
+	range = CLAMP(0.0f, sfxvolume.value, 1.0f);
+	value = 100.0f * range;
+
+	q_snprintf(buffer, sizeof(buffer), "%.0f%%", value);
+	text_x = x + (SLIDER_RANGE + 2) * 8;
+	text_chars = (int)strlen(buffer);
+
+	panel_x = x - 14;
+	panel_y = y - 4;
+	panel_w = (text_x + text_chars * 8 + 6) - panel_x;
+
+	/* rounded translucent plate behind the volume indicator */
+	Draw_Fill_Plus_Radius(panel_x, panel_y, panel_w, panel_h, panel_color, 0.45f, true, DRAW_CORNERS_ALL, 5.0f);
+
+	Draw_Character(x - 8, y, 128);
+	for (i = 0; i < SLIDER_RANGE; i++)
+		Draw_Character(x + i * 8, y, 129);
+	Draw_Character(x + i * 8, y, 130);
+	Draw_Character(x + (int)((SLIDER_RANGE - 1) * range) * 8, y, 131);
+
+	if (range <= 0.0f)
+	{
+		for (i = 0; buffer[i]; i++)
+			buffer[i] += 128;
+	}
+
+	Draw_String(text_x, y, buffer);
+
+	GL_SetCanvas (CANVAS_DEFAULT);
+}
+
 /*
 ==================
 SCR_UpdateScreen
@@ -5832,6 +6157,8 @@ void SCR_UpdateScreen (void)
 		TexturePointer_Draw (); // woods #texturepointer
 		SCR_DrawScopeOverlay (); // woods #scope
 		SCR_DrawConsole ();
+		if (realtime < scr_volume_display_time)
+			SCR_DrawVolumeSlider ();
 		M_Draw ();
 	}
 

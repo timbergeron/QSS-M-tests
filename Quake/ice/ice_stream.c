@@ -398,6 +398,7 @@ typedef struct {
 	qboolean allowtls;		//as server, will upgrade to tls if sent a packet that looks more tlsey than httpey
 #endif
 	qboolean serverwaiting;	//we're waiting for the client's request
+	qboolean isserver;		//permanent: true if we accepted the connection (server role, must not mask)
 	const char *protocol;	//protocol we're asking for.
 	int conpending;			//waiting for the proper handshake response, don't send past this to avoid issues on errors. we do accept new data to be sent though, while its still handshaking.
 	unsigned int mask;		//xor masking, to make it harder to exploit buggy shit that's parsing streams (like magic packets or w/e).
@@ -455,10 +456,12 @@ static void WS_Append (websocket_t *f, unsigned packettype, const unsigned char 
 		unsigned char b[4];
 		int i;
 	} mask;
-	unsigned short ctrl = 0x8000 | (packettype<<8);
+	unsigned short ctrl = 0x8000 | (packettype<<8);	// FIN + opcode
 	uint64_t paylen = 0;
 	unsigned int payoffs = f->pendingsize;
 //	int i;
+	if (!f->isserver)
+		ctrl |= 0x0080;	// MASK bit: only set when acting as client (RFC 6455)
 	if (!f->stream)
 		return;	//can't do anything anyway...
 	switch((ctrl>>8) & 0xf)
@@ -586,6 +589,8 @@ static qboolean WS_Close (struct icestream_s *file)
 	}
 	free(f->pending);
 	f->pending = NULL;
+	free((void *)f->protocol);
+	f->protocol = NULL;
 	free(f);
 	return success;
 }
@@ -741,17 +746,18 @@ static int WS_ReadBytes (struct icestream_s *file, void *buffer, int bytestoread
 				if (le == e)
 					break;	//failed.
 				//track interesting lines as we parse.
-				if (!strncmp(l, "Upgrade:", 8))
+			//use case-insensitive compares per HTTP spec (reverse proxies may lowercase headers)
+				if (!q_strncasecmp(l, "Upgrade:", 8))
 					upg = l+8;
-				else if (!strncmp(l, "Connection:", 11))
+				else if (!q_strncasecmp(l, "Connection:", 11))
 					con = l+11;
-				else if (!strncmp(l, "Sec-WebSocket-Accept:", 21))
+				else if (!q_strncasecmp(l, "Sec-WebSocket-Accept:", 21))
 					accept = l+21;
-				else if (!strncmp(l, "Sec-WebSocket-Key:", 18))
+				else if (!q_strncasecmp(l, "Sec-WebSocket-Key:", 18))
 					key = l+18;
-				else if (!strncmp(l, "Sec-WebSocket-Protocol:", 23))
+				else if (!q_strncasecmp(l, "Sec-WebSocket-Protocol:", 23))
 					prot = l+23;
-				else if (!strncmp(l, "Host:", 5))
+				else if (!q_strncasecmp(l, "Host:", 5))
 					host = l+5;
 				if (le[0] == '\n' && le[1] == '\r' && le[2] == '\n')
 				{
@@ -829,6 +835,20 @@ static int WS_ReadBytes (struct icestream_s *file, void *buffer, int bytestoread
 					{
 						f->serverwaiting = false;
 						f->pendingofs = 0;
+
+						//handle health check pings — respond with HTTP 200, don't upgrade
+						if (!strncmp(f->readbuffer, "GET /;/ping ", 12))
+						{
+							f->pendingsize = q_snprintf(f->pending, f->pendingmax,
+								"HTTP/1.1 200 OK\r\n"
+								"Content-Length: 0\r\n"
+								"Connection: close\r\n"
+								"\r\n");
+							WS_Flush(f);
+							f->err = VFS_ERROR_UNSPECIFIED;	//close after flush
+							break;
+						}
+
 						if (f->err)
 						{
 #if 1
@@ -888,26 +908,22 @@ static int WS_ReadBytes (struct icestream_s *file, void *buffer, int bytestoread
 								"\r\n", acceptkey, prot?prot:f->protocol);
 
 #ifdef NETQUAKE_IO_HACK
-								if (!strcmp(prot?prot:f->protocol, NETQUAKE_IO_HACK))
-								{
-									icebuf_t m = {bytestoread, 0, buffer};
-
-									ICE_WriteLong(&m, BigLong((1u<<31) | (5+7+7)));
-									ICE_WriteByte(&m, 1);
-
-									ICE_WriteByte(&m, 'Q');ICE_WriteByte(&m, 'U');ICE_WriteByte(&m, 'A');ICE_WriteByte(&m, 'K');ICE_WriteByte(&m, 'E');ICE_WriteByte(&m, 0);
-									ICE_WriteByte(&m, 3);
-
-									ICE_WriteByte(&m, 1); /*'mod'*/
-									ICE_WriteByte(&m, 0); /*'mod' version*/
-									ICE_WriteByte(&m, 0); /*flags*/
-									ICE_WriteLong(&m, 0); /*password*/
-
-									f->netquakeiohack = true;
-									WS_Flush(f);	//flush any pending writes, so the client knows it can start sending everything else.
-									return m.cursize;
-								}
+								//netquake.io now speaks raw nq netchannel over websockets,
+								//so we no longer need the old hack (fake CCREQ + frame translation).
+								//just accept 'quake' subprotocol and pass raw packets through.
 #endif
+						}
+
+						//log the request line and subprotocol for debugging
+						{
+							char reqline[128];
+							const char *rl = f->readbuffer;
+							const char *rle = rl;
+							while (*rle && *rle != '\r' && *rle != '\n' && (rle - rl) < (int)sizeof(reqline)-1)
+								rle++;
+							memcpy(reqline, rl, rle - rl);
+							reqline[rle - rl] = 0;
+							Con_DPrintf("WebSocket accepted: %s (proto: %s)\n", reqline, prot ? prot : f->protocol);
 						}
 
 						WS_Flush(f);	//flush any pending writes, so the client knows it can start sending everything else.
@@ -1139,7 +1155,7 @@ static icestream_t *Websocket_WrapStream(icestream_t *stream, const char *host, 
 	websocket_t *newf;
 	char *hello;
 	qbyte key[16];
-	char b64key[(16*4)/3+3];
+	char b64key[(16*4)/3+4];	// +4 for base64 padding + null terminator
 	if (!stream)
 		return NULL;
 	Sys_RandomBytes(key, sizeof(key));
@@ -1160,7 +1176,7 @@ static icestream_t *Websocket_WrapStream(icestream_t *stream, const char *host, 
 #ifdef NETQUAKE_IO_HACK
 					strcmp(proto, WEBSOCKET_SUBPROTOCOL)?"":NETQUAKE_IO_HACK", ",
 #endif
-					proto, key);
+					proto, b64key);
 
 	newf = calloc(1, sizeof(*newf) + strlen(host));
 	Sys_RandomBytes((void*)&newf->mask, sizeof(newf->mask));
@@ -1169,7 +1185,7 @@ static icestream_t *Websocket_WrapStream(icestream_t *stream, const char *host, 
 	newf->funcs.ReadBytes = WS_ReadBytes;
 	newf->funcs.WriteBytes = WS_WriteBytes;
 
-	newf->protocol = proto;
+	newf->protocol = strdup(proto);
 	newf->serverwaiting = false;
 
 	//send the hello, the weird way.
@@ -1198,8 +1214,9 @@ static icestream_t *Websocket_AcceptStream(icestream_t *stream, const char *host
 	newf->pending = malloc(newf->pendingmax);
 	newf->pendingsize = 0;
 	newf->conpending = 1;
-	newf->protocol = proto;
+	newf->protocol = strdup(proto);
 	newf->serverwaiting = true;
+	newf->isserver = true;
 #ifdef HAVE_TLS
 	newf->allowtls = true;
 #endif

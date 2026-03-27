@@ -1,0 +1,391 @@
+# identifyhw — Hardware Fingerprint Player Identification
+
+## Context
+
+The existing `identify` command uses IP-based logging (`iplog`) to track player names, but VPNs and proxies make IPs unreliable. `identifyhw` creates a parallel system that fingerprints players by their hardware (CPU cores + RAM + GPU) collected from `f_system` chat responses. Hardware doesn't change when someone switches VPNs.
+
+Everything lives in the existing `iplog.c`/`iplog.h` files — no new source files, no build system changes.
+
+## Design
+
+### Fingerprint
+
+Stable fields from f_system responses hashed to a 32-bit int via FNV-1a:
+- **CPU cores** — parsed from `"N l-cores"` (all platforms)
+- **RAM** — parsed from `"Ngb ram"` (all platforms)
+- **GPU** — parsed from `"Video: ..."` (all platforms)
+
+Excluded (too volatile): resolution, DPI, audio device, OS version.
+
+### Collection Flow
+
+1. Someone types `say f_system` — all compatible clients respond with hardware info as chat messages
+2. Our client detects the f_system request (existing code at `cl_parse.c:3257`)
+3. **New**: open an 8-second collection window, watch incoming say messages for response patterns
+4. Parse player name from chat prefix (`\001<name>: <data>`) and match payload patterns
+5. When both fields collected for a player → hash fingerprint → `HWLog_Add(hash, name)`
+6. Store hash in `cl.scores[slot].hwfp` for live lookup
+
+### Chat message format (confirmed from `Host_Say` at host_cmd.c:4919)
+
+```
+\001PlayerName: payload text\n
+```
+- Byte 0 is literal `\001` (value 1)
+- Player name ends at first `": "` sequence
+- Payload is everything after `": "` up to `"\n"`
+
+### Storage
+
+Second BST in `iplog.c` using the same `iplog_t` struct — same 20-byte record (4-byte int hash stored in `addr` field + 16-byte name), same circular buffer pattern, persisted to `id1/backups/hwlog.dat`.
+
+---
+
+## Implementation Steps
+
+### Step 1: Add hwlog globals and file path helpers to `iplog.c`
+
+**After existing globals (line 22), add:**
+
+```c
+// woods #hwlog - hardware fingerprint logging
+static iplog_t *hwlogs;
+static iplog_t *hwlog_head;
+static int hwlog_next;
+static int hwlog_full;
+int hwlog_size;
+```
+
+**After `IPLog_GetTxtPath` (line 290), add two new path helpers:**
+
+```c
+static const char* HWLog_GetDataPath(void)
+{
+    static char path[MAX_OSPATH];
+    q_snprintf(path, sizeof(path), "%s/id1/backups/hwlog.dat", com_basedir);
+    return path;
+}
+
+static const char* HWLog_GetTxtPath(void)
+{
+    static char path[MAX_OSPATH];
+    q_snprintf(path, sizeof(path), "%s/id1/backups/hwlog.txt", com_basedir);
+    return path;
+}
+```
+
+### Step 2: Add HWLog functions to `iplog.c`
+
+**At the end of `iplog.c` (after line 693), add all HWLog functions:**
+
+#### `HWLog_HashFingerprint` (new — FNV-1a hash)
+```c
+int HWLog_HashFingerprint(int cores, int ram, const char *gpu)
+{
+    unsigned int hash = 2166136261u;
+    hash ^= (unsigned int)cores;
+    hash *= 16777619u;
+    hash ^= (unsigned int)ram;
+    hash *= 16777619u;
+    for (const char *p = gpu; *p; p++)
+    {
+        unsigned char c = (unsigned char)*p;
+        if (c >= 'A' && c <= 'Z') c += 32;
+        hash ^= c;
+        hash *= 16777619u;
+    }
+    return (int)hash;
+}
+```
+
+#### `HWLog_Init` (modeled on `IPLog_Init` at line 297)
+- Allocate `hwlogs` array (`DEFAULT_IPLOGSIZE` entries)
+- Zero-fill, set `hwlog_next=0`, `hwlog_head=NULL`, `hwlog_full=0`
+- No migration needed (new system)
+- Load `hwlog.dat` from `HWLog_GetDataPath()` — same fread loop as IPLog_Init but calling `HWLog_Add(temp.addr, temp.name)`
+
+#### `HWLog_WriteLog` (modeled on `IPLog_WriteLog` at line 387)
+- Same merge-then-write pattern as `IPLog_WriteLog`
+- Uses `HWLog_GetDataPath()`, `hwlogs`, `hwlog_head`, `hwlog_next`, `hwlog_full`, `hwlog_size`
+- Calls `HWLog_Add` for merge, writes `hwlogs[]` to file
+
+#### `HWLog_Add(int hash, char *name)` (modeled on `IPLog_Add` at line 443)
+- Identical logic to `IPLog_Add` but uses `hwlogs`, `hwlog_head`, `hwlog_next`, `hwlog_full`, `hwlog_size`
+- Calls `HWLog_Delete` instead of `IPLog_Delete` when buffer wraps
+
+#### `HWLog_Delete(iplog_t *node)` (modeled on `IPLog_Delete` at line 513)
+- Same as `IPLog_Delete` but references `hwlog_head` instead of `iplog_head`
+- Can call existing `IPLog_Merge` directly (it's pure — no globals, takes parameters only)
+
+#### `HWLog_Identify(int hash)` (modeled on `IPLog_Identify` at line 554)
+- Same BST traversal but uses `hwlog_head`
+
+#### `HWLog_DumpTree(iplog_t *root, FILE *f)` (different from IPLog version)
+- Same traversal but prints hash as `0x%08x` instead of IP octets
+- Uses `IPLog_CopyPrintableName` (static, same file — accessible directly)
+
+#### `HWLog_Dump` (modeled on `IPLog_Dump` at line 668)
+- Uses `HWLog_GetTxtPath()`, calls `HWLog_DumpTree(hwlog_head, f)`
+
+#### `HWLog_Import` (modeled on `IPLog_Import` at line 354)
+- Usage: `hwmerge <filename>`
+- Same fread loop but calls `HWLog_Add`
+
+#### `HWLog_PrintNames` (modeled on `IPLog_PrintNames` at line 599)
+- Reuses existing static helpers directly (same compilation unit):
+  - `IPLog_CountTree(hwlog_head)`
+  - `IPLog_CollectNames(hwlog_head, names, &i)`
+  - `IPLog_CompareNames` (for qsort)
+- Header text: `"HW log names:\n"` instead of `"IP log names:\n"`
+
+### Step 3: Add declarations to `iplog.h`
+
+**After existing declarations (before line 29), add:**
+
+```c
+// woods #hwlog - hardware fingerprint logging
+extern int hwlog_size;
+
+void HWLog_Init (void);
+void HWLog_WriteLog (void);
+void HWLog_Add (int hash, char *name);
+void HWLog_Identify (int hash);
+void HWLog_Dump (void);
+void HWLog_Import (void);
+void HWLog_PrintNames (void);
+int  HWLog_HashFingerprint (int cores, int ram, const char *gpu);
+```
+
+Note: `HWLog_Delete`, `HWLog_Merge` (reuses `IPLog_Merge`), `HWLog_DumpTree` are static — no declarations needed.
+
+### Step 4: Add `hwfp` to `scoreboard_t` in `client.h`
+
+**After `int addr;` (line 59), add:**
+```c
+int     hwfp;           // woods #hwlog - hardware fingerprint hash
+```
+
+### Step 5: Add `hwcollect` state to `client_state_t` in `client.h`
+
+**Before closing brace of `client_state_t` (line 444, before `} client_state_t;`), add:**
+
+```c
+// woods #hwlog - hardware fingerprint collection state
+#define HWCOLLECT_MAX_PLAYERS 32
+struct
+{
+    float   deadline;       // realtime when window closes (0 = inactive)
+    int     count;          // number of players being tracked
+    struct {
+        char    name[16];       // player name from chat prefix
+        int     cores;          // parsed from "N l-cores"
+        int     ram;            // parsed from "Ngb ram"
+        char    gpu[64];        // parsed from "Video: ..."
+        int     fields_seen;    // bitmask: 0x1=cores+ram, 0x2=gpu
+    } players[HWCOLLECT_MAX_PLAYERS];
+} hwcollect;
+```
+
+### Step 6: Collection logic in `cl_parse.c`
+
+#### 6a. Trigger collection window
+
+**At `cl_parse.c:3511`, after `cl.printqsys = realtime + 20;`, add:**
+```c
+// woods #hwlog - start collecting hardware fingerprints
+cl.hwcollect.deadline = realtime + 8.0;
+cl.hwcollect.count = 0;
+```
+
+This is inside the `if (realtime > cl.printqsys)` block where the local client responds to f_system — meaning all other clients are also about to respond.
+
+#### 6b. New static function `CL_HWCollect_ParseChat`
+
+**Add above `CL_ParseSpecialPrints` (before line 3037), or at the end of the special prints function.**
+
+```c
+static void CL_HWCollect_ParseChat(const char *printtext)
+```
+
+**Called from**: `CL_ParseSpecialPrints`, just before `return false;` at line 3515:
+```c
+CL_HWCollect_ParseChat(printtext);   // woods #hwlog
+
+return false;
+```
+
+This ensures every chat message is checked during the collection window, regardless of whether other special print handling matched.
+
+**Logic** (step by step):
+
+1. **Guard**: `if (cl.hwcollect.deadline == 0 || realtime > cl.hwcollect.deadline) return;`
+2. **Chat check**: `if (*printtext != 1) return;` (must be a say message — byte value 1)
+3. **Extract player name**: scan from `printtext + 1` to find first `": "`. Copy bytes between them into `char chatname[16]`, truncate at 15 chars + null.
+4. **Extract payload**: pointer to the byte after `": "`.
+5. **Skip self**: compare `chatname` against local player name. Use `cl_name.string` (extern cvar in client.h:450). Need to handle the fact that `cl_name.string` is the raw name but chat names may have Quake high-bit chars. Use `dequake` on both before comparing, or compare raw bytes (both are in Quake encoding). Safest: compare dequaked versions.
+6. **Find/create player slot**: search `cl.hwcollect.players[0..count-1]` for matching `name`. If not found and `count < HWCOLLECT_MAX_PLAYERS`, create new slot at `[count++]` with `fields_seen = 0`.
+7. **Pattern match payload**:
+   - If `strstr(payload, " l-cores, ")` AND `strstr(payload, "gb ram")`:
+     - Parse cores: scan backwards from `" l-cores"` to find the integer (e.g., in `"macOS Sequoia (2024), 10 l-cores, 16gb ram"`, extract `10`)
+     - Parse RAM: find `"gb ram"`, scan backwards to find the integer (extract `16`)
+     - Store in player slot, `fields_seen |= 0x1`
+   - Else if `!strncmp(payload, "Video: ", 7)`:
+     - Copy `payload + 7` into `player->gpu[64]`, strip trailing `\n`
+     - `fields_seen |= 0x2`
+   - Else: ignore (model name, CPU brand, resolution, audio lines)
+8. **Check if complete**: if `player->fields_seen == 0x3`:
+   - `int hash = HWLog_HashFingerprint(player->cores, player->ram, player->gpu);`
+   - `HWLog_Add(hash, chatname);`
+   - Find matching scoreboard slot: loop `cl.scores[0..cl.maxclients-1]`, compare names, set `cl.scores[j].hwfp = hash;`
+   - Mark player as done: `player->fields_seen |= 0x4` (prevents re-processing)
+
+**Parsing detail for cores/RAM**: The payload format is like:
+```
+macOS Sequoia (2024), 10 l-cores, 16gb ram
+```
+- Find `" l-cores"` with strstr → walk backwards collecting digits → that's cores
+- Find `"gb ram"` with strstr → walk backwards collecting digits → that's RAM
+- Use `atoi()` on the extracted digit string
+
+### Step 7: `identifyhw` command in `host_cmd.c`
+
+**Add `Host_IdentifyHW_f` near `Host_Identify_f` (after line 6709).**
+
+Modeled on `Host_Identify_f` (lines 6621-6709) but simpler — no IP parsing, no timer-based auto-identify:
+
+```c
+void Host_IdentifyHW_f(void)
+{
+    int i;
+    char name[16];
+
+    if (!hwlog_size)
+    {
+        Con_Printf("HW logging not available\n");
+        return;
+    }
+
+    if (Cmd_Argc() < 2)
+    {
+        Con_Printf("usage: identifyhw <player number or name>\n");
+        return;
+    }
+
+    // Try as slot number first
+    i = Q_atoi(Cmd_Argv(1)) - 1;
+    if (i == -1)
+    {
+        // Search by name — use sv.active path or client scoreboard path
+        // Same pattern as Host_Identify_f lines 6656-6673
+        if (sv.active)
+        {
+            for (i = 0; i < svs.maxclients; i++)
+            {
+                if (svs.clients[i].active && unfun_match(Cmd_Argv(1), svs.clients[i].name))
+                    break;
+            }
+        }
+        else
+        {
+            for (i = 0; i < cl.maxclients; i++)
+            {
+                if (unfun_match(Cmd_Argv(1), cl.scores[i].name))
+                    break;
+            }
+        }
+    }
+
+    // Always use client scoreboard for hwfp (hardware fingerprint is client-side data)
+    if (i < 0 || i >= cl.maxclients || !cl.scores[i].name[0])
+    {
+        Con_Printf("No such player\n");
+        return;
+    }
+    if (!cl.scores[i].hwfp)
+    {
+        Con_Printf("No hardware fingerprint for %.15s\n", cl.scores[i].name);
+        Con_Printf("Use 'say f_system' to collect hardware info\n");
+        return;
+    }
+    strncpy(name, cl.scores[i].name, 15);
+    name[15] = 0;
+    Con_Printf("known hw aliases for %s (fp: %08x):\n", name, cl.scores[i].hwfp);
+    HWLog_Identify(cl.scores[i].hwfp);
+}
+```
+
+**Register commands in `Host_InitCommands()` (after line 7166):**
+```c
+Cmd_AddCommand("identifyhw", Host_IdentifyHW_f);  // woods #hwlog
+Cmd_AddCommand("hwnames", HWLog_PrintNames);       // woods #hwlog
+Cmd_AddCommand("hwdump", HWLog_Dump);              // woods #hwlog
+Cmd_AddCommand("hwmerge", HWLog_Import);           // woods #hwlog
+```
+
+**Also need forward declaration** near top of host_cmd.c (near line 61 where `unfun_match` is declared):
+```c
+void Host_IdentifyHW_f(void);
+```
+
+### Step 8: Init/shutdown calls in `host.c`
+
+**After `IPLog_Init()` (line 1678), add:**
+```c
+HWLog_Init();       // woods #hwlog
+```
+
+**After `IPLog_WriteLog()` (line 1803), add:**
+```c
+HWLog_WriteLog();   // woods #hwlog
+```
+
+Both are inside the same code paths as the iplog calls (client-only init, shutdown cleanup).
+
+---
+
+## Key Files Summary
+
+| File | Lines | Change |
+|------|-------|--------|
+| `Quake/iplog.c` | after L22, after L290, after L693 | hwlog globals, path helpers, all HWLog_* functions |
+| `Quake/iplog.h` | before L29 | HWLog_* declarations |
+| `Quake/client.h` | after L59, before L444 | `hwfp` in scoreboard_t, `hwcollect` in client_state_t |
+| `Quake/cl_parse.c` | after L3511, before L3515 | Collection trigger + `CL_HWCollect_ParseChat` |
+| `Quake/host_cmd.c` | after L6709, after L7166 | `Host_IdentifyHW_f` + command registrations |
+| `Quake/host.c` | after L1678, after L1803 | Init/shutdown calls |
+
+## Functions reused from iplog (no duplication needed)
+
+These are `static` in `iplog.c` — hwlog functions in the same file call them directly:
+- `IPLog_CountTree(hwlog_head)` — for `HWLog_PrintNames`
+- `IPLog_CollectNames(hwlog_head, names, &i)` — for `HWLog_PrintNames`
+- `IPLog_CompareNames` — for `HWLog_PrintNames` qsort
+- `IPLog_CopyPrintableName` — for `HWLog_DumpTree`
+- `IPLog_CopyRawName` — for `HWLog_PrintNames` (via CollectNames)
+- `IPLog_Merge` — for `HWLog_Delete` (pure function, no globals)
+
+## Edge Cases
+
+- **Non-QSS-M clients**: won't respond to f_system — no fingerprint collected, falls back to regular `identify`
+- **Interleaved responses**: each say line has player name prefix, so interleaving works fine
+- **Self-responses**: skipped via `cl_name.string` comparison (dequaked)
+- **Names with `: ` in them**: known Quake chat limitation — name extraction may be wrong for these players
+- **Hash collisions**: ~1/4B chance per pair, acceptable for casual identification
+- **Level changes**: `client_state_t` zeroed by `CL_ClearState` — auto-cancels any in-progress collection and clears `hwfp` values (they'll be re-collected next f_system)
+- **Multiple f_system requests**: each resets the collection window (`deadline` and `count` overwritten)
+
+## Verification
+
+1. Build: `cd MacOSX && xcodebuild -project QuakeSpasm.xcodeproj -scheme QSS-M -configuration Debug build`
+2. Launch with listen server, connect a second client
+3. Type `say f_system` — verify responses appear in chat as before (no regression)
+4. Run `identifyhw 1` or `identifyhw <name>` — should show the name and fingerprint hash
+5. Disconnect second client, reconnect with different name, repeat `say f_system`
+6. Run `identifyhw <name>` — should now show both names for that hardware
+7. Quit and restart engine — verify `id1/backups/hwlog.dat` exists and persists
+8. Run `hwnames` — should list all collected names
+9. Run `hwdump` — verify `id1/backups/hwlog.txt` with hex hashes
+
+## Future Enhancement: Auto-trigger on connect
+
+Could auto-send f_system query to new players via stuffcmd so fingerprints are collected without manual `say f_system`. Deferred to a follow-up.

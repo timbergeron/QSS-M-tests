@@ -1,0 +1,239 @@
+# Improving Scene Cache Performance on Open-PVS Maps
+
+> Phase 1 removes unnecessary scenecache invalidation; Phase 1.5 adds
+> instrumentation and an optional non-FatPVS cached mode; Phase 2 uses
+> both to determine whether remaining cost is FatPVS, overdraw, or draw calls.
+
+## Context
+
+Maps like `metron.bsp` have extremely open PVS (66% of the map visible from
+worst-case positions, ~5,263 of 7,168 world faces).  The `r_scenecache` system
+is designed to handle these "abusive maps" by pre-computing index buffers on a
+worker thread -- but two things work against it:
+
+1. **Cache thrashing** -- the rebuild decision compares *all* 1024 lightstyle
+   values, including animated styles no surface references.  This forces
+   constant rebuilds on maps that only use constant lighting (style 0).
+
+2. **Cached-path overdraw** -- `r_world.c:136` sets
+   `nearwaterportal = r_scenecache.value!=0`, always choosing `SV_FatPVS`.
+   The cached path skips the normal per-leaf / per-surface frustum-cull
+   traversal used by `R_MarkSurfaces()`, so on open-PVS maps it can end up
+   submitting substantially more geometry than the fallback path.
+
+metron.bsp specifically: uses only lightstyle 0 on world surfaces, has
+avg ~2,095 visible faces per leaf (worst ~4,700), and a 5.8 MB texture lump
+with many 512x512 textures.  Phase 1 is a direct match for this map.
+
+---
+
+## Phase 1 -- Stop unnecessary cache rebuilds
+
+### Problem
+
+`RSceneCache_Queue()` at `r_world.c:2031`:
+
+```c
+if (memcmp(old_lightstylevalue, d_lightstylevalue, sizeof(old_lightstylevalue)))
+    //FIXME: only check lightstyles that are actually used!
+```
+
+`R_AnimateLight()` (`gl_rlight.c:65`) updates all 1024 `d_lightstylevalue`
+entries every frame.  Standard QuakeC sets animated patterns on styles 1-11
+(flicker, pulse, etc.) -- these change value every ~0.1 s.  The full-array
+`memcmp` sees those changes and invalidates the cache, even on a map where no
+surface references styles 1-11.
+
+Each rebuild cycle costs:
+- Worker thread: iterate ~1,200 leaves, ~5,000+ surfaces, lightmap recalc
+- Main thread: re-upload ~180 KB EBO in `RSceneCache_Finish`
+
+### Changes
+
+**File:** `Quake/r_world.c`
+
+#### 1a. Add `RSceneCache_UsedLightstylesChanged()` helper
+
+Insert before `RSceneCache_HasActiveDlights()` (line 1670).
+
+The function:
+- Maintains a static compact array of lightstyle indices actually referenced by
+  surfaces in `cl.worldmodel` (re-scanned on worldmodel change)
+- Compares only those entries between old and new value arrays
+
+```c
+static qboolean RSceneCache_UsedLightstylesChanged(const int *old_vals, const int *new_vals)
+{
+    static unsigned short used[MAX_LIGHTSTYLES];
+    static int            num_used;
+    static qmodel_t      *tracked_model;
+
+    if (tracked_model != cl.worldmodel)
+    {
+        byte seen[(MAX_LIGHTSTYLES + 7) / 8];
+        int i, j;
+        msurface_t *surf;
+
+        memset(seen, 0, sizeof(seen));
+        num_used = 0;
+        tracked_model = cl.worldmodel;
+
+        for (i = 0, surf = cl.worldmodel->surfaces;
+             i < cl.worldmodel->numsurfaces; i++, surf++)
+        {
+            for (j = 0; j < MAXLIGHTMAPS && surf->styles[j] != INVALID_LIGHTSTYLE; j++)
+            {
+                unsigned short s = surf->styles[j];
+                if (!(seen[s >> 3] & (1u << (s & 7))))
+                {
+                    seen[s >> 3] |= (1u << (s & 7));
+                    used[num_used++] = s;
+                }
+            }
+        }
+    }
+
+    {
+        int i;
+        for (i = 0; i < num_used; i++)
+            if (old_vals[used[i]] != new_vals[used[i]])
+                return true;
+    }
+    return false;
+}
+```
+
+Key types/constants (already in scope):
+- `MAX_LIGHTSTYLES` = 1024 (`quakedef.h:120`)
+- `MAXLIGHTMAPS` = 16 (`bspfile.h:259`)
+- `INVALID_LIGHTSTYLE` = 0xffffu (`bspfile.h:260`)
+- `msurface_t::styles` = `unsigned short[MAXLIGHTMAPS]` (`gl_model.h:163`)
+
+#### 1b. Replace the `memcmp` call
+
+At line 2031, replace:
+```c
+if (memcmp(old_lightstylevalue, d_lightstylevalue, sizeof(old_lightstylevalue)))	//FIXME: ...
+```
+with:
+```c
+if (RSceneCache_UsedLightstylesChanged(old_lightstylevalue, d_lightstylevalue))
+```
+
+### Expected result
+
+- **metron.bsp (style 0 only):** cache should stop rebuilding due to
+  irrelevant lightstyle animation while the view remains otherwise stable.
+  Other invalidation causes (PVS change, dynamic lights) still trigger
+  rebuilds as before.
+- **Maps with animated styles (e1m1, etc.):** cache rebuilds only when a
+  *used* style ticks to a new value -- same as today but without noise from
+  unused styles.
+- **Zero risk:** surfaces that DO use animated styles still trigger rebuilds
+  exactly as before.
+
+Note: Phase 1 alone may not produce large FPS gains on metron-class maps,
+because the cached path still pushes `SV_FatPVS` and bypasses the normal
+cull-heavy traversal.  The goal is to remove cache thrash so subsequent
+profiling reflects the true steady-state cost.
+
+---
+
+## Phase 1.5 -- Instrumentation + optional non-FatPVS cached mode
+
+### 1.5a. Debug counters
+
+**File:** `Quake/r_world.c`
+
+Add lightweight counters visible via `r_speeds` or `scr_diag` (whichever is
+more natural in the existing reporting path):
+
+- **scenecache rebuilds/sec** -- count of times a new cache is queued in
+  `RSceneCache_Queue` (the `if (!best || (!cache && !building))` path)
+- **cached tris submitted** -- total indices / 3 from `RSceneCache_Draw`
+- **cached draw calls** -- count of `glDrawElements` calls in `RSceneCache_Draw`
+  (the `rs_brushpasses++` counter at line 2500 already tracks this)
+- **FatPVS active** -- whether the current frame used FatPVS or leaf PVS
+
+These are low-cost (just increment counters that are already in the hot path)
+and let Phase 2 profiling be done with numbers instead of guesses.
+
+### 1.5b. `r_scenecache_pvs` cvar
+
+**File:** `Quake/r_world.c`
+
+Add a cvar to control PVS mode when scenecache is active:
+
+```c
+cvar_t r_scenecache_pvs = {"r_scenecache_pvs", "1"};
+// 1 = FatPVS (current default, avoids leaf-boundary popping)
+// 0 = Mod_LeafPVS (tighter visibility, may pop near leaf edges)
+```
+
+Modify `R_MarkSurfaces()` at line 136:
+
+Currently:
+```c
+nearwaterportal = r_scenecache.value!=0;
+```
+
+Change to:
+```c
+nearwaterportal = (r_scenecache.value!=0 && r_scenecache_pvs.value!=0);
+```
+
+This preserves the existing FatPVS default but allows A/B testing on maps
+like metron where the tighter PVS may substantially reduce the visible set.
+The current code forces FatPVS intentionally to avoid instability around
+water/portal visibility, so the default stays at 1.
+
+Register in the existing cvar registration block (near `r_scenecache`).
+
+---
+
+## Phase 2 -- Profile and decide
+
+After Phase 1 + 1.5, load metron.bsp and run:
+
+| Test | What it tells us |
+|---|---|
+| Stand still, `r_speeds 1` | Baseline poly count + draw calls with stable cache |
+| Spin in place, note FPS | GPU cost from full-hemisphere submission |
+| `r_scenecache_pvs 0` then repeat | How much FatPVS adds on this open map |
+| `r_scenecache 0` then repeat | Whether the frustum-culled fallback wins |
+| `gl_caustics 0` | Caustics shader cost |
+| `r_drawflat 1` (scenecache off) | Texture/lightmap state-change cost |
+
+Decision matrix from results:
+
+- **FatPVS is the main cost** (pvs 0 is substantially faster) → consider
+  making `r_scenecache_pvs 0` the default, or auto-detect open maps
+- **GPU-bound from overdraw** (spinning is much slower than still) → need
+  frustum culling in the cached draw path (spatial partitioning)
+- **Draw-call bound** (r_drawflat helps a lot) → need lightmap texture arrays
+  (`r_world.c:2132` FIXME) or MultiDrawIndirect (`r_world.c:1798` FIXME)
+- **Scenecache off wins** → consider auto-fallback heuristic for maps whose
+  cached visible set exceeds a threshold
+- **Acceptable FPS** → ship Phase 1 + 1.5, no further work needed
+
+---
+
+## Files modified
+
+- `Quake/r_world.c` -- new helper function, one-line memcmp replacement,
+  debug counters, new cvar + registration, one-line nearwaterportal tweak
+
+## Verification
+
+1. Build: `cd MacOSX && xcodebuild -project QuakeSpasm.xcodeproj -scheme QSS-M -configuration Debug build`
+2. Load metron.bsp, stand still with scenecache on -- periodic hitching should
+   disappear even if raw brushpoly count stays high (this distinguishes "thrash
+   fixed" from "map still GPU-expensive")
+3. Load e1m1 -- verify flickering lights still animate correctly
+4. Toggle `r_scenecache 0` / `r_scenecache 1` -- compare behavior
+5. `r_speeds 1` -- brushpolys count unchanged (we only changed rebuild
+   frequency, not what gets drawn)
+6. `r_scenecache_pvs 0` on metron -- compare FPS and check for visible
+   popping artifacts near leaf boundaries
+7. Use debug counters to run the Phase 2 profiling table and determine next
+   steps

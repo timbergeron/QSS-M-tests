@@ -585,6 +585,7 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&sys_ticrate);
 	Cvar_SetCallback (&sys_ticrate, Host_Callback_Notify); // woods
 	Cvar_RegisterVariable (&sys_throttle);
+	Cvar_RegisterVariable (&sys_dedmouse_capture);
 	Cvar_RegisterVariable (&serverprofile);
 
 	Cvar_RegisterVariable (&fraglimit);
@@ -940,6 +941,9 @@ void SV_DropClient (qboolean crash)
 // free the client (the body stays around)
 	host_client->active = false;
 	host_client->name[0] = 0;
+	host_client->desired_name[0] = 0; // woods #dupnames - clear preferred name
+	if (sv.active)
+		SV_ReapplyPreferredNames(host_client); // woods #dupnames - let others reclaim names
 	host_client->old_frags = -999999;
 	net_activeconnections--;
 
@@ -1141,6 +1145,7 @@ void Host_GetConsoleCommands (void)
 		if (!cmd)
 			break;
 		Cbuf_AddText (cmd);
+		Cbuf_AddText ("\n");
 	}
 }
 
@@ -1482,8 +1487,10 @@ void _Host_Frame (double time)
 
 // process console commands
 	Cbuf_Execute ();
+	CL_ConnectFrame();
 
 	NET_Poll();
+	NET_PortPingProbe_Frame();
 	URI_Frame(); // woods #uri
 
 	if (cl.sendprespawn)
@@ -1796,6 +1803,8 @@ void Host_Shutdown(void)
 	Host_BackupConfiguration (); // woods #cfgbackup
 
 	IPLog_WriteLog ();	// JPG 1.05 - ip loggging  // woods #iplog
+
+	COM_RemoveDownloadTempFiles();
 
 	NET_Shutdown ();
 

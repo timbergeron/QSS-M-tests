@@ -168,7 +168,7 @@
 	#define GNUTLS_FUNCPTR(n,ret,arglist,callargs) static ret (**q##n)arglist;
 #else
 	#define GNUTLS_FUNC(n,ret,args) static ret (*q##n)args = n;
-	#define GNUTLS_FUNCPTR(n,ret,arglist,callargs) static ret q##n arglist {return n(callargs);};
+	#define GNUTLS_FUNCPTR(n,ret,arglist,callargs) static ret q##n arglist {n(callargs);};
 #endif
 
 #ifdef HAVE_DTLS
@@ -207,7 +207,9 @@ static qboolean Init_GNUTLS(void)
 		{NULL, NULL}
 	};
 	
-#ifdef GNUTLS_SONUM
+#if defined(_WIN32)
+	gnutls.hmod = Sys_LoadLibrary("libgnutls-30.dll", functable);
+#elif defined(GNUTLS_SONUM)
 	#ifdef __CYGWIN__
 		gnutls.hmod = Sys_LoadLibrary("cyggnutls"GNUTLS_SOPREFIX"-"STRINGIFY(GNUTLS_SONUM)".dll", functable);
 	#else

@@ -68,13 +68,15 @@ void M_Menu_Main_f (void);
 		void M_Menu_Keys_f (void);
 		void M_Menu_Mouse_f (void);
 		void M_Menu_Video_f (void);
-		void M_Menu_Graphics_f (void);
-		void M_Menu_Sound_f (void);
-		void M_Menu_Game_f (void);
+	void M_Menu_Graphics_f (void);
+	void M_Menu_Sound_f (void);
+	void M_Menu_Game_f (void);
+		void M_Menu_PlayerXray_f (void);
 		void M_Menu_HUD_f (void);
 			void M_Menu_Crosshair_f (void);
 		void M_Menu_Console_f (void);
 		void M_Menu_Startup_f (void);
+		void M_Menu_DemoOptions_f (void);
 		void M_Menu_PakLoading_f (void);
 		void M_Menu_ColorPicker_f (void);
 		void M_Menu_Extras_f (void);
@@ -105,11 +107,13 @@ void M_Main_Draw (void);
 		void M_Keys_Draw (void);
 		void M_Mouse_Draw (void);
 		void M_Video_Draw (void);
-		void M_Graphics_Draw (void);
-		void M_Sound_Draw (void);
-		void M_Game_Draw (void);
-		void M_HUD_Draw (void);
+	void M_Graphics_Draw (void);
+	void M_Sound_Draw (void);
+	void M_Game_Draw (void);
+		void M_PlayerXray_Draw (void);
+	void M_HUD_Draw (void);
 		void M_Startup_Draw (void);
+		void M_DemoOptions_Draw (void);
 		void M_PakLoading_Draw (void);
 		void M_ColorPicker_Draw (void);
 		void M_Extras_Draw (void);
@@ -141,11 +145,13 @@ void M_Main_Key (int key);
 		void M_Keys_Key (int key);
 		void M_Mouse_Key (int key);
 		void M_Video_Key (int key);
-		void M_Graphics_Key (int key);
-		void M_Sound_Key (int key);
-		void M_Game_Key (int key);
-		void M_HUD_Key (int key);
+	void M_Graphics_Key (int key);
+	void M_Sound_Key (int key);
+	void M_Game_Key (int key);
+		void M_PlayerXray_Key (int key);
+	void M_HUD_Key (int key);
 		void M_Startup_Key (int key);
+		void M_DemoOptions_Key (int key);
 		void M_PakLoading_Key (int key);
 		void M_ColorPicker_Key (int key);
 		void M_Extras_Key (int key);
@@ -183,10 +189,12 @@ void M_Main_Key (int key);
 		void M_Graphics_Mousemove (int cx, int cy);
 		void M_Sound_Mousemove (int cx, int cy);
 		void M_Game_Mousemove (int cx, int cy);
+		void M_PlayerXray_Mousemove (int cx, int cy);
 		void M_HUD_Mousemove (int cx, int cy);
 			void M_Crosshair_Mousemove (int cx, int cy);
 		void M_Console_Mousemove (int cx, int cy);
 		void M_Startup_Mousemove (int cx, int cy);
+		void M_DemoOptions_Mousemove (int cx, int cy);
 		void M_PakLoading_Mousemove (int cx, int cy);
 		void M_ColorPicker_Mousemove(int cx, int cy);
 		void M_Extras_Mousemove(int cx, int cy);
@@ -212,6 +220,7 @@ char		m_return_reason [32];
 
 void M_ConfigureNetSubsystem(void);
 void M_SetSkillMenuMap(const char* name); // woods #skillmenu (iw)
+static void M_GameOptions_ClearTypedLevel(void);
 
 void FileList_Subtract(const char* name, filelist_item_t** list); // woods #historymenu
 
@@ -955,6 +964,549 @@ void M_List_CheckIntegrity(const menulist_t* list)
 	SDL_assert(list->scroll >= 0);
 	SDL_assert(list->scroll < list->numitems);
 	SDL_assert(list->viewsize > 0);
+}
+
+static menu_textfield_t	*textfield_drag_field = NULL;
+static int				textfield_drag_text_x = 0;
+static qboolean		textfield_mouse_dragging = false;
+static double			textfield_mouseclick_time = 0.0;
+static int				textfield_mouseclicks = 0; /* 1: char, 2: word, >=3: whole field */
+static menu_textfield_t	*textfield_click_field = NULL;
+static int				textfield_click_pos = -1;
+static const double		TEXTFIELD_DOUBLECLICK_TIME = 0.5;
+extern qpic_t *pic_ins;
+
+static qboolean M_TextField_HasShortcutModifier(void)
+{
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+	return keydown[K_COMMAND] || keydown[K_CTRL];
+#else
+	return keydown[K_CTRL];
+#endif
+}
+
+static qboolean M_TextField_HasWordMoveModifier(void)
+{
+#if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
+	return keydown[K_COMMAND];
+#else
+	return keydown[K_CTRL];
+#endif
+}
+
+static qboolean M_TextField_HasWordDeleteModifier(void)
+{
+	return keydown[K_CTRL];
+}
+
+void M_TextField_ClampCursor(menu_textfield_t *tf)
+{
+	int len = (int)strlen(tf->text);
+
+	if (tf->cursor < 0)
+		tf->cursor = 0;
+	if (tf->cursor > len)
+		tf->cursor = len;
+	if (tf->cursor > tf->max_len)
+		tf->cursor = tf->max_len;
+	if (tf->sel_start > len)
+		tf->sel_start = len;
+	if (tf->sel_start > tf->max_len)
+		tf->sel_start = tf->max_len;
+}
+
+void M_TextField_Init(menu_textfield_t *tf, char *buffer, int max_len, qboolean digits_only)
+{
+	tf->text = buffer;
+	tf->max_len = max_len;
+	tf->cursor = (int)strlen(buffer);
+	tf->sel_start = -1;
+	tf->digits_only = digits_only;
+	M_TextField_ClampCursor(tf);
+}
+
+void M_TextField_ClearSelection(menu_textfield_t *tf)
+{
+	tf->sel_start = -1;
+}
+
+static qboolean M_TextField_GetSelection(const menu_textfield_t *tf, int *out_start, int *out_end)
+{
+	if (tf->sel_start < 0)
+		return false;
+	if (tf->sel_start <= tf->cursor)
+	{
+		*out_start = tf->sel_start;
+		*out_end = tf->cursor;
+	}
+	else
+	{
+		*out_start = tf->cursor;
+		*out_end = tf->sel_start;
+	}
+	return *out_start != *out_end;
+}
+
+static int M_TextField_IntSign(int value)
+{
+	return (value < 0) ? -1 : ((value > 0) ? 1 : 0);
+}
+
+static int M_TextField_TestWordBoundary(int pos, const char *text, int len)
+{
+	if (pos <= 0)
+		return 1;
+	if (pos >= len)
+		return -1;
+	return q_isspace((unsigned char)text[pos - 1]) - q_isspace((unsigned char)text[pos]);
+}
+
+static void M_TextField_ApplyMouseSelection(menu_textfield_t *tf)
+{
+	int len = (int)strlen(tf->text);
+	int anchor;
+	int caret;
+	int begin;
+	int end;
+
+	anchor = CLAMP(0, tf->sel_start, len);
+	caret = CLAMP(0, tf->cursor, len);
+
+	if (textfield_mouseclicks <= 1)
+	{
+		tf->sel_start = anchor;
+		tf->cursor = caret;
+		return;
+	}
+
+	if (textfield_mouseclicks >= 3)
+	{
+		tf->sel_start = 0;
+		tf->cursor = len;
+		return;
+	}
+
+	/* Double-click mode: expand to whole-word boundaries like the console. */
+	{
+		int boundary = M_TextField_IntSign(M_TextField_TestWordBoundary(anchor, tf->text, len));
+		int dir = M_TextField_IntSign(caret - anchor);
+		if (boundary && boundary != dir)
+			anchor += boundary;
+	}
+
+	begin = q_min(anchor, caret);
+	end = q_max(anchor, caret);
+
+	while (!M_TextField_TestWordBoundary(begin, tf->text, len))
+		--begin;
+	while (!M_TextField_TestWordBoundary(end, tf->text, len))
+		++end;
+
+	if (anchor <= caret)
+	{
+		tf->sel_start = begin;
+		tf->cursor = end;
+	}
+	else
+	{
+		tf->sel_start = end;
+		tf->cursor = begin;
+	}
+}
+
+static int M_TextField_FindWordBoundary(const menu_textfield_t *tf, int dir)
+{
+	const char *text = tf->text;
+	int len = (int)strlen(text);
+	int pos = tf->cursor;
+
+	if (dir < 0)
+	{
+		while (pos > 0 && q_isspace(text[pos - 1]))
+			--pos;
+		while (pos > 0 && !q_isspace(text[pos - 1]))
+			--pos;
+	}
+	else
+	{
+		while (pos < len && q_isspace(text[pos]))
+			++pos;
+		while (pos < len && !q_isspace(text[pos]))
+			++pos;
+	}
+
+	return pos;
+}
+
+static void M_TextField_MoveCursor(menu_textfield_t *tf, int cursor, qboolean extend_selection)
+{
+	if (cursor < 0)
+		cursor = 0;
+	if (cursor > tf->max_len)
+		cursor = tf->max_len;
+
+	if (extend_selection)
+	{
+		if (tf->sel_start < 0)
+			tf->sel_start = tf->cursor;
+	}
+	else
+	{
+		tf->sel_start = -1;
+	}
+
+	tf->cursor = cursor;
+	M_TextField_ClampCursor(tf);
+}
+
+static qboolean M_TextField_DeleteRange(menu_textfield_t *tf, int start, int end)
+{
+	int len = (int)strlen(tf->text);
+
+	start = CLAMP(0, start, len);
+	end = CLAMP(0, end, len);
+	if (start >= end)
+		return false;
+
+	memmove(tf->text + start, tf->text + end, (size_t)(len - end + 1));
+	tf->cursor = start;
+	tf->sel_start = -1;
+	return true;
+}
+
+static qboolean M_TextField_DeleteSelection(menu_textfield_t *tf)
+{
+	int sel_begin, sel_end;
+
+	if (!M_TextField_GetSelection(tf, &sel_begin, &sel_end))
+		return false;
+
+	return M_TextField_DeleteRange(tf, sel_begin, sel_end);
+}
+
+static qboolean M_TextField_Insert(menu_textfield_t *tf, const char *src)
+{
+	int cur_len;
+	int space;
+
+	if (!src || !*src)
+		return false;
+
+	if (tf->sel_start >= 0)
+		M_TextField_DeleteSelection(tf);
+
+	cur_len = (int)strlen(tf->text);
+	space = tf->max_len - cur_len;
+	if (space <= 0)
+		return false;
+
+	if (tf->digits_only)
+	{
+		int i;
+		int inserted = 0;
+		for (i = 0; src[i] && space > 0; ++i)
+		{
+			if (src[i] >= '0' && src[i] <= '9')
+			{
+				memmove(tf->text + tf->cursor + 1, tf->text + tf->cursor, (size_t)(cur_len - tf->cursor + 1));
+				tf->text[tf->cursor] = src[i];
+				++tf->cursor;
+				++cur_len;
+				--space;
+				++inserted;
+			}
+		}
+		tf->sel_start = -1;
+		return inserted > 0;
+	}
+	else
+	{
+		int i;
+		int inserted = 0;
+		for (i = 0; src[i] && space > 0; ++i)
+		{
+			unsigned char c = (unsigned char)src[i];
+			if (c < 32 || c > 126)
+				continue;
+
+			memmove(tf->text + tf->cursor + 1, tf->text + tf->cursor, (size_t)(cur_len - tf->cursor + 1));
+			tf->text[tf->cursor] = (char)c;
+			++tf->cursor;
+			++cur_len;
+			--space;
+			++inserted;
+		}
+		tf->sel_start = -1;
+		return inserted > 0;
+	}
+}
+
+static void M_TextField_PlayCopySound(void)
+{
+	const char* sound_file = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
+	S_LocalSound(sound_file);
+}
+
+static qboolean M_TextField_CopySelection(menu_textfield_t *tf)
+{
+	int sel_begin, sel_end;
+	int copy_len;
+	char *copy;
+
+	if (!M_TextField_GetSelection(tf, &sel_begin, &sel_end))
+		return false;
+
+	copy_len = sel_end - sel_begin;
+	copy = (char *)SDL_malloc((size_t)copy_len + 1);
+	if (!copy)
+		return false;
+
+	memcpy(copy, tf->text + sel_begin, (size_t)copy_len);
+	copy[copy_len] = 0;
+	SDL_SetClipboardText(copy);
+	SDL_free(copy);
+
+	M_TextField_PlayCopySound();
+	return true;
+}
+
+qboolean M_TextField_Key(menu_textfield_t *tf, int key)
+{
+	int len = (int)strlen(tf->text);
+	int target;
+
+	switch (key)
+	{
+	case K_LEFTARROW:
+	case K_KP_LEFTARROW:
+		target = tf->cursor;
+		if (M_TextField_HasWordMoveModifier())
+			target = M_TextField_FindWordBoundary(tf, -1);
+		else if (target > 0)
+			--target;
+		M_TextField_MoveCursor(tf, target, keydown[K_SHIFT]);
+		return true;
+
+	case K_RIGHTARROW:
+	case K_KP_RIGHTARROW:
+		target = tf->cursor;
+		if (M_TextField_HasWordMoveModifier())
+			target = M_TextField_FindWordBoundary(tf, +1);
+		else if (target < len)
+			++target;
+		M_TextField_MoveCursor(tf, target, keydown[K_SHIFT]);
+		return true;
+
+	case K_HOME:
+		M_TextField_MoveCursor(tf, 0, keydown[K_SHIFT]);
+		return true;
+
+	case K_END:
+		M_TextField_MoveCursor(tf, len, keydown[K_SHIFT]);
+		return true;
+
+	case K_BACKSPACE:
+		if (M_TextField_DeleteSelection(tf))
+			return true;
+		if (M_TextField_HasWordDeleteModifier())
+			return M_TextField_DeleteRange(tf, M_TextField_FindWordBoundary(tf, -1), tf->cursor);
+		return M_TextField_DeleteRange(tf, tf->cursor - 1, tf->cursor);
+
+	case K_DEL:
+		if (M_TextField_DeleteSelection(tf))
+			return true;
+		if (M_TextField_HasWordDeleteModifier())
+			return M_TextField_DeleteRange(tf, tf->cursor, M_TextField_FindWordBoundary(tf, +1));
+		return M_TextField_DeleteRange(tf, tf->cursor, tf->cursor + 1);
+
+	case 'a':
+	case 'A':
+		if (M_TextField_HasShortcutModifier())
+		{
+			tf->sel_start = 0;
+			tf->cursor = len;
+			return true;
+		}
+		break;
+
+	case 'c':
+	case 'C':
+		if (M_TextField_HasShortcutModifier())
+			return M_TextField_CopySelection(tf);
+		break;
+
+	case 'x':
+	case 'X':
+		if (M_TextField_HasShortcutModifier())
+		{
+			if (!M_TextField_CopySelection(tf))
+				return false;
+			M_TextField_DeleteSelection(tf);
+			return true;
+		}
+		break;
+
+	case 'v':
+	case 'V':
+		if (M_TextField_HasShortcutModifier())
+		{
+			char *clipboard = SDL_GetClipboardText();
+			if (clipboard)
+			{
+				M_TextField_Insert(tf, clipboard);
+				SDL_free(clipboard);
+			}
+			return true;
+		}
+		break;
+
+	case 'u':
+	case 'U':
+		if (M_TextField_HasShortcutModifier())
+		{
+			tf->text[0] = 0;
+			tf->cursor = 0;
+			tf->sel_start = -1;
+			return true;
+		}
+		break;
+	}
+
+	return false;
+}
+
+qboolean M_TextField_Char(menu_textfield_t *tf, int key)
+{
+	char text[2];
+	char c;
+
+	if (key < 32 || key > 126)
+		return false;
+
+	c = (char)key;
+	if (tf->digits_only && (c < '0' || c > '9'))
+		return false;
+
+	text[0] = c;
+	text[1] = 0;
+	return M_TextField_Insert(tf, text);
+}
+
+static int M_TextField_MouseToCursor(menu_textfield_t *tf, int mouse_x, int text_x)
+{
+	int len = (int)strlen(tf->text);
+	int pos;
+
+	if (mouse_x < text_x)
+		return 0;
+
+	pos = (mouse_x - text_x + 4) / 8;
+	if (pos < 0)
+		pos = 0;
+	if (pos > len)
+		pos = len;
+	if (pos > tf->max_len)
+		pos = tf->max_len;
+	return pos;
+}
+
+void M_TextField_DrawHighlight(menu_textfield_t *tf, int x, int y)
+{
+	int sel_begin, sel_end;
+
+	if (M_TextField_GetSelection(tf, &sel_begin, &sel_end))
+		Draw_Fill(x + sel_begin * 8, y, (sel_end - sel_begin) * 8, 8, 170, 0.4f);
+}
+
+void M_TextField_DrawCursor(menu_textfield_t *tf, int x, int y)
+{
+	if (((int)(realtime * 4) & 1))
+		return;
+
+	if (pic_ins)
+		Draw_PicRGBA(x + 8 * tf->cursor, y, pic_ins, Draw_GetConcharsCursorColorByIndex(0), 1.0f);
+	else
+		M_DrawCharacter(x + 8 * tf->cursor, y, 10 + ((int)(realtime * 4) & 1));
+}
+
+void M_TextField_MouseClick(menu_textfield_t *tf, int mouse_x, int text_x)
+{
+	int cursor = M_TextField_MouseToCursor(tf, mouse_x, text_x);
+
+	if (keydown[K_SHIFT])
+	{
+		textfield_mouseclicks = 1;
+	}
+	else
+	{
+		if (textfield_click_field != tf ||
+			textfield_click_pos != cursor ||
+			(realtime - textfield_mouseclick_time) >= TEXTFIELD_DOUBLECLICK_TIME)
+		{
+			textfield_mouseclicks = 1;
+		}
+		else
+		{
+			++textfield_mouseclicks;
+		}
+
+		textfield_click_field = tf;
+		textfield_click_pos = cursor;
+		textfield_mouseclick_time = realtime;
+	}
+
+	if (keydown[K_SHIFT])
+	{
+		if (tf->sel_start < 0)
+			tf->sel_start = tf->cursor;
+	}
+	else
+	{
+		/* Anchor selection for drag; click-without-drag gets cleared on release. */
+		tf->sel_start = cursor;
+	}
+
+	tf->cursor = cursor;
+	M_TextField_ApplyMouseSelection(tf);
+	textfield_drag_field = tf;
+	textfield_drag_text_x = text_x;
+	textfield_mouse_dragging = true;
+}
+
+void M_TextField_MouseDrag(int mouse_x)
+{
+	if (textfield_mouse_dragging && textfield_drag_field)
+	{
+		int cursor = M_TextField_MouseToCursor(textfield_drag_field, mouse_x, textfield_drag_text_x);
+		textfield_drag_field->cursor = cursor;
+		M_TextField_ApplyMouseSelection(textfield_drag_field);
+	}
+}
+
+void M_TextField_CheckMouseRelease(void)
+{
+	if (textfield_mouse_dragging && !keydown[K_MOUSE1])
+	{
+		if (textfield_drag_field && textfield_drag_field->sel_start == textfield_drag_field->cursor)
+			textfield_drag_field->sel_start = -1;
+		textfield_drag_field = NULL;
+		textfield_mouse_dragging = false;
+	}
+}
+
+static qboolean M_TextField_MouseInRow(int mouse_y, int row_y)
+{
+	return (mouse_y >= row_y - 4 && mouse_y <= row_y + 12);
+}
+
+qboolean M_TextField_IsDraggingField(const menu_textfield_t *tf)
+{
+	return textfield_mouse_dragging && textfield_drag_field == tf;
+}
+
+qboolean M_TextField_IsDraggingAny(void)
+{
+	return textfield_mouse_dragging;
 }
 
 void M_List_AutoScroll(menulist_t* list)
@@ -2330,6 +2882,7 @@ void M_Maps_Key(int key)
 				// Set the map and return to game options
 				M_SetSkillMenuMap(mapsmenu.items[mapsmenu.filtered_indices[mapsmenu.list.cursor]].name);
 				maps_from_gameoptions = false;
+				M_GameOptions_ClearTypedLevel();
 				M_Menu_GameOptions_f();
 			}
 			else
@@ -2563,7 +3116,9 @@ Multiplayer Menu
 
 int	m_multiplayer_cursor;
 #define	MULTIPLAYER_BASE_ITEMS	3
-#define	MAX_PINNED_BOOKMARKS	3
+#define	MAX_PINNED_BOOKMARKS	5
+#define	MULTIPLAYER_PINNED_OFFSET_Y	6
+#define	MULTIPLAYER_PINNED_SPACING	10
 extern cvar_t scr_shownet; // woods
 
 #define	BOOKMARK_ALIAS_LENGTH	BOOKMARK_DATA_LENGTH
@@ -2583,9 +3138,10 @@ static int M_Bookmarks_CountPinned(void)
 	int count = 0;
 	for (filelist_item_t* item = bookmarkslist; item; item = item->next)
 	{
+		char alias[BOOKMARK_ALIAS_LENGTH];
 		qboolean pinned = false;
-		BookmarkData_Parse(item->data, NULL, 0, &pinned);
-		if (pinned)
+		BookmarkData_Parse(item->data, alias, sizeof(alias), &pinned);
+		if (pinned && alias[0])
 			count++;
 	}
 	return count;
@@ -2627,12 +3183,15 @@ static int M_Bookmarks_GetPinned(pinnedbookmark_t* out, int max_pins)
 static int M_MultiPlayer_TotalItems(void)
 {
 	int total = MULTIPLAYER_BASE_ITEMS;
-	int pinned = M_Bookmarks_CountPinned();
+	pinnedbookmark_t pinned[MAX_PINNED_BOOKMARKS];
+	int pinned_count = M_Bookmarks_GetPinned(pinned, MAX_PINNED_BOOKMARKS);
 
-	if (pinned > MAX_PINNED_BOOKMARKS)
-		pinned = MAX_PINNED_BOOKMARKS;
+	return total + pinned_count;
+}
 
-	return total + pinned;
+static int M_MultiPlayer_FirstPinnedY(void)
+{
+	return 32 + MULTIPLAYER_BASE_ITEMS * 20 + MULTIPLAYER_PINNED_OFFSET_Y;
 }
 
 void M_Menu_MultiPlayer_f (void)
@@ -2647,9 +3206,6 @@ extern char	lastmphost[NET_NAMELEN]; // woods - connected server address
 
 void M_MultiPlayer_Draw (void)
 {
-	#define PINNED_OFFSET_Y     6   // Extra gap after Setup before first pin
-	#define PINNED_SPACING      10  // Vertical spacing between pins
-	
 	int		f, i; // woods
 	qpic_t	*p;
 	pinnedbookmark_t pinned[MAX_PINNED_BOOKMARKS];
@@ -2680,7 +3236,7 @@ void M_MultiPlayer_Draw (void)
 	for (i = 0; i < pinned_count && i < MAX_PINNED_BOOKMARKS; ++i)
 	{
 		int row = MULTIPLAYER_BASE_ITEMS + i;
-		int y = 32 + MULTIPLAYER_BASE_ITEMS * 20 + PINNED_OFFSET_Y + i * PINNED_SPACING;
+		int y = M_MultiPlayer_FirstPinnedY() + i * MULTIPLAYER_PINNED_SPACING;
 		qboolean selected = (m_multiplayer_cursor == row);
 
 		// Show arrow at 0  when selected (pointing right), 90  when not (pointing down)
@@ -2691,7 +3247,7 @@ void M_MultiPlayer_Draw (void)
         // Draw "currently connected to" below pinned bookmarks
         if (cl.maxclients > 1 && cls.state == ca_connected && !cls.demoplayback)
         {
-                int conn_y = 32 + MULTIPLAYER_BASE_ITEMS * 20 + PINNED_OFFSET_Y + pinned_count * PINNED_SPACING + PINNED_OFFSET_Y;
+                int conn_y = M_MultiPlayer_FirstPinnedY() + pinned_count * MULTIPLAYER_PINNED_SPACING + MULTIPLAYER_PINNED_OFFSET_Y;
                 int box_width = strlen(lastmphost);
                 if (box_width < 24)
                         box_width = 24;
@@ -2783,22 +3339,36 @@ void M_MultiPlayer_Key (int key)
 				int count = M_Bookmarks_GetPinned(pinned, MAX_PINNED_BOOKMARKS);
 				if (index < count)
 				{
-					m_return_state = m_state;
-					m_return_onerror = true;
-					key_dest = key_game;
-					m_state = m_none;
-					IN_UpdateGrabs();
-					Cbuf_AddText(va("connect \"%s\"\n", pinned[index].name));
+						m_return_state = m_state;
+						m_return_onerror = true;
+						key_dest = key_game;
+						m_state = m_none;
+						IN_UpdateGrabs();
+						CL_MarkNextConnectFromMenu();
+						Cbuf_AddText(va("connect \"%s\"\n", pinned[index].name));
+					}
 				}
-			}
-			break;
+				break;
 		}
 	}
 }
 
 void M_MultiPlayer_Mousemove(int cx, int cy) // woods #mousemenu
 {
-	M_UpdateCursor(cy, 32, 20, M_MultiPlayer_TotalItems(), &m_multiplayer_cursor);
+	pinnedbookmark_t pinned[MAX_PINNED_BOOKMARKS];
+	int pinned_count = M_Bookmarks_GetPinned(pinned, MAX_PINNED_BOOKMARKS);
+	int first_pinned_y = M_MultiPlayer_FirstPinnedY();
+
+	(void)cx;
+
+	if (pinned_count > 0 && cy >= first_pinned_y)
+	{
+		M_UpdateCursor(cy, first_pinned_y, MULTIPLAYER_PINNED_SPACING, pinned_count, &m_multiplayer_cursor);
+		m_multiplayer_cursor += MULTIPLAYER_BASE_ITEMS;
+		return;
+	}
+
+	M_UpdateCursor(cy, 32, 20, MULTIPLAYER_BASE_ITEMS, &m_multiplayer_cursor);
 }
 
 /*
@@ -2817,8 +3387,12 @@ char	namemaker_name[16]; // woods #namemaker
 qboolean namemaker_shortcut = false; // woods #namemaker
 qboolean from_namemaker = false; // woods #namemaker
 
+static menu_textfield_t namemaker_name_field;
+static qboolean namemaker_edit_active = false;
 static char	setup_hostname[16];
 static char	setup_myname[16];
+static menu_textfield_t setup_hostname_field;
+static menu_textfield_t setup_myname_field;
 static plcolour_t	setup_oldtop;
 static plcolour_t	setup_oldbottom;
 static plcolour_t	setup_top;
@@ -2914,6 +3488,21 @@ void M_AdjustColour(plcolour_t *tr, int dir)
 	}
 }
 
+static menu_textfield_t *M_Setup_GetFieldForCursor(void)
+{
+	if (setup_cursor == 0)
+		return &setup_hostname_field;
+	if (setup_cursor == 1)
+		return &setup_myname_field;
+	return NULL;
+}
+
+static void M_Setup_ClearTextSelections(void)
+{
+	M_TextField_ClearSelection(&setup_hostname_field);
+	M_TextField_ClearSelection(&setup_myname_field);
+}
+
 #define	NUM_SETUP_CMDS	7 // woods 5 to 6 #namemaker
 void M_Menu_Setup_f (void)
 {
@@ -2927,6 +3516,8 @@ void M_Menu_Setup_f (void)
 	Q_strcpy(setup_hostname, hostname.string);
 	setup_top = setup_oldtop = CL_PLColours_Parse(cl_topcolor.string);
 	setup_bottom = setup_oldbottom = CL_PLColours_Parse(cl_bottomcolor.string);
+	M_TextField_Init(&setup_hostname_field, setup_hostname, 15, false);
+	M_TextField_Init(&setup_myname_field, setup_myname, 15, false);
 
 	IN_UpdateGrabs();
 }
@@ -3000,6 +3591,8 @@ void M_Setup_Draw (void)
 {
 	qpic_t	*p;
 
+	M_TextField_CheckMouseRelease();
+
 	if (cls.state == ca_connected)
 	{
 		char buf[15];
@@ -3027,10 +3620,12 @@ void M_Setup_Draw (void)
 
 	M_Print (64, 40, "Hostname");
 	M_DrawTextBox (160, 32, 16, 1);
+	M_TextField_DrawHighlight(&setup_hostname_field, 168, 40);
 	M_Print (168, 40, setup_hostname);
 
 	M_Print (64, 56, "Your name");
 	M_DrawTextBox (160, 48, 16, 1);
+	M_TextField_DrawHighlight(&setup_myname_field, 168, 56);
 	M_PrintWhite (168, 56, setup_myname); // woods change to white #namemaker
 
 	M_Print(64, 72, "Name Maker"); // woods #namemaker
@@ -3105,16 +3700,20 @@ void M_Setup_Draw (void)
 	M_DrawCharacter (56, setup_cursor_table [setup_cursor], 12+((int)(realtime*4)&1));
 
 	if (setup_cursor == 0)
-		M_DrawCharacter (168 + 8*strlen(setup_hostname), setup_cursor_table [setup_cursor], 10+((int)(realtime*4)&1));
+		M_TextField_DrawCursor(&setup_hostname_field, 168, setup_cursor_table[setup_cursor]);
 
 	if (setup_cursor == 1)
-		M_DrawCharacter (168 + 8*strlen(setup_myname), setup_cursor_table [setup_cursor], 10+((int)(realtime*4)&1));
+		M_TextField_DrawCursor(&setup_myname_field, 168, setup_cursor_table[setup_cursor]);
 }
 
 char lastColorSelected[10]; // woods
 
 void M_Setup_Key (int k)
 {
+	menu_textfield_t *active_field = M_Setup_GetFieldForCursor();
+	if (active_field && M_TextField_Key(active_field, k))
+		return;
+
 	switch (k)
 	{
 	case K_ESCAPE:
@@ -3136,6 +3735,7 @@ void M_Setup_Key (int k)
 
 	case K_UPARROW:
 		S_LocalSound ("misc/menu1.wav");
+		M_Setup_ClearTextSelections();
 		setup_cursor--;
 		if (setup_cursor < 0)
 			setup_cursor = NUM_SETUP_CMDS-1;
@@ -3143,6 +3743,7 @@ void M_Setup_Key (int k)
 
 	case K_DOWNARROW:
 		S_LocalSound ("misc/menu1.wav");
+		M_Setup_ClearTextSelections();
 		setup_cursor++;
 		if (setup_cursor >= NUM_SETUP_CMDS)
 			setup_cursor = 0;
@@ -3210,6 +3811,20 @@ forward:
 	case K_KP_ENTER:
 	case K_ABUTTON:
 	case K_MOUSE1: // woods #mousemenu
+		if (k == K_MOUSE1 && setup_cursor == 0)
+		{
+			if (M_TextField_MouseInRow(m_mousey, setup_cursor_table[0]))
+				M_TextField_MouseClick(&setup_hostname_field, m_mousex, 168);
+			return;
+		}
+
+		if (k == K_MOUSE1 && setup_cursor == 1)
+		{
+			if (M_TextField_MouseInRow(m_mousey, setup_cursor_table[1]))
+				M_TextField_MouseClick(&setup_myname_field, m_mousex, 168);
+			return;
+		}
+
 		if (setup_cursor == 0 || setup_cursor == 1)
 			return;
 
@@ -3283,66 +3898,18 @@ forward:
 			Cbuf_AddText("chase_active 0\n");
 		}
 
-		M_Menu_MultiPlayer_f ();
-		break;
-
-	case K_BACKSPACE:
-		if (setup_cursor == 0)
-		{
-			if (strlen(setup_hostname))
-			{
-				if (keydown[K_CTRL])
-				{
-					listsearch_t temp = { 0 };
-					temp.len = strlen(setup_hostname);
-					Q_strcpy(temp.text, setup_hostname);
-					M_DeletePrevWord(&temp);
-					Q_strcpy(setup_hostname, temp.text);
-		}
-				else
-					setup_hostname[strlen(setup_hostname) - 1] = 0;
-			}
-		}
-
-		if (setup_cursor == 1)
-		{
-			if (strlen(setup_myname))
-			{
-				if (keydown[K_CTRL])
-				{
-					listsearch_t temp = { 0 };
-					temp.len = strlen(setup_myname);
-					Q_strcpy(temp.text, setup_myname);
-					M_DeletePrevWord(&temp);
-					Q_strcpy(setup_myname, temp.text);
-		}
-				else
-					setup_myname[strlen(setup_myname) - 1] = 0;
-			}
-		}
-		break;
-
-	case 'u':
-	case 'U':
-		if (keydown[K_CTRL])
-		{
-			if (setup_cursor == 0)
-				setup_hostname[0] = 0;
-			else if (setup_cursor == 1)
-				setup_myname[0] = 0;
-		}
-		break;
+			M_Menu_MultiPlayer_f ();
+			break;
 
 	case 'c': // woods, copy color
 	case 'C':
-		if (keydown[K_CTRL])
+		if (M_TextField_HasShortcutModifier())
 		{
 			if (lastColorSelected[0] != '\0')
 				SDL_SetClipboardText (lastColorSelected);
 			else
 				SDL_SetClipboardText (CL_PLColours_ToString (setup_bottom));
-			const char* soundFile = COM_FileExists("sound/qssm/copy.wav", NULL) ? "qssm/copy.wav" : "player/tornoff2.wav";
-			S_LocalSound(soundFile); // woods add sound to screenshot
+			M_TextField_PlayCopySound();
 		}
 		break;
 	}
@@ -3351,27 +3918,9 @@ forward:
 
 void M_Setup_Char (int k)
 {
-	int l;
-
-	switch (setup_cursor)
-	{
-	case 0:
-		l = strlen(setup_hostname);
-		if (l < 15)
-		{
-			setup_hostname[l+1] = 0;
-			setup_hostname[l] = k;
-		}
-		break;
-	case 1:
-		l = strlen(setup_myname);
-		if (l < 15)
-		{
-			setup_myname[l+1] = 0;
-			setup_myname[l] = k;
-		}
-		break;
-	}
+	menu_textfield_t *active_field = M_Setup_GetFieldForCursor();
+	if (active_field)
+		M_TextField_Char(active_field, k);
 }
 
 
@@ -3382,7 +3931,19 @@ qboolean M_Setup_TextEntry (void)
 
 void M_Setup_Mousemove(int cx, int cy) // woods #mousemenu
 {
+	int old_cursor;
+
+	if (textfield_mouse_dragging &&
+		(textfield_drag_field == &setup_hostname_field || textfield_drag_field == &setup_myname_field))
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
+
+	old_cursor = setup_cursor;
 	M_UpdateCursorWithTable(cy, setup_cursor_table, NUM_SETUP_CMDS, &setup_cursor);
+	if (setup_cursor != old_cursor)
+		M_Setup_ClearTextSelections();
 }
 
 /*
@@ -3404,6 +3965,8 @@ void M_Menu_NameMaker_f (void)
 	m_state = m_namemaker;
 	m_entersound = true;
 	q_strlcpy(namemaker_name, setup_myname, sizeof(namemaker_name));
+	M_TextField_Init(&namemaker_name_field, namemaker_name, 15, false);
+	namemaker_edit_active = false;
 }
 
 void M_Shortcut_NameMaker_f (void)
@@ -3420,9 +3983,14 @@ void M_NameMaker_Draw (void)
 {
 	int	x, y;
 
+	M_TextField_CheckMouseRelease();
+
 	M_Print(48, 16, "Your name");
 	M_DrawTextBox(120, 8, 16, 1);
+	M_TextField_DrawHighlight(&namemaker_name_field, 128, 16);
 	M_PrintWhite(128, 16, namemaker_name);
+	if (namemaker_edit_active)
+		M_TextField_DrawCursor(&namemaker_name_field, 128, 16);
 
 	for (y = 0; y < NAMEMAKER_TABLE_SIZE; y++)
 		for (x = 0; x < NAMEMAKER_TABLE_SIZE; x++)
@@ -3444,6 +4012,9 @@ void M_NameMaker_Draw (void)
 void M_NameMaker_Key (int k)
 {
 	int	l;
+
+	if (namemaker_edit_active && M_TextField_Key(&namemaker_name_field, k))
+		return;
 
 	switch (k)
 	{
@@ -3531,9 +4102,6 @@ void M_NameMaker_Key (int k)
 		break;
 
 	case K_BACKSPACE:
-		if ((l = strlen(namemaker_name)))
-			namemaker_name[l - 1] = 0;
-
 		if (keydown[K_CTRL])
 		{
 			listsearch_t temp;
@@ -3542,6 +4110,12 @@ void M_NameMaker_Key (int k)
 			M_DeletePrevWord(&temp);
 			Q_strcpy(namemaker_name, temp.text);
 		}
+		else if ((l = strlen(namemaker_name)))
+		{
+			namemaker_name[l - 1] = 0;
+		}
+		M_TextField_ClampCursor(&namemaker_name_field);
+		M_TextField_ClearSelection(&namemaker_name_field);
 		break;
 
 	case 'u':
@@ -3549,6 +4123,8 @@ void M_NameMaker_Key (int k)
 		if (keydown[K_CTRL])
 		{
 			namemaker_name[0] = 0;
+			M_TextField_ClampCursor(&namemaker_name_field);
+			M_TextField_ClearSelection(&namemaker_name_field);
 		}
 		break;
 
@@ -3559,13 +4135,33 @@ void M_NameMaker_Key (int k)
 	case K_KP_ENTER:
 	case K_ABUTTON:
 	case K_MOUSE1: // woods #mousemenu
+		if (k == K_MOUSE1 &&
+			m_mousex >= 120 && m_mousex <= 120 + 18 * 8 &&
+			M_TextField_MouseInRow(m_mousey, 16))
+		{
+			M_TextField_MouseClick(&namemaker_name_field, m_mousex, 128);
+			namemaker_edit_active = true;
+			return;
+		}
+
+		namemaker_edit_active = false;
 		if (namemaker_cursor_y < NAMEMAKER_TABLE_SIZE)
 		{
+			unsigned char grid_ch = (unsigned char)(NAMEMAKER_TABLE_SIZE * namemaker_cursor_y + namemaker_cursor_x);
+			M_TextField_ClampCursor(&namemaker_name_field);
+			if (namemaker_name_field.sel_start >= 0 && namemaker_name_field.sel_start != namemaker_name_field.cursor)
+				M_TextField_DeleteSelection(&namemaker_name_field);
+
 			l = strlen(namemaker_name);
 			if (l < 15)
 			{
-				namemaker_name[l] = NAMEMAKER_TABLE_SIZE * namemaker_cursor_y + namemaker_cursor_x;
-				namemaker_name[l + 1] = 0;
+				memmove(namemaker_name + namemaker_name_field.cursor + 1,
+				        namemaker_name + namemaker_name_field.cursor,
+				        l - namemaker_name_field.cursor + 1);
+				namemaker_name[namemaker_name_field.cursor] = grid_ch;
+				namemaker_name_field.cursor++;
+				M_TextField_ClampCursor(&namemaker_name_field);
+				M_TextField_ClearSelection(&namemaker_name_field);
 			}
 		}
 		else if (namemaker_cursor_y == NAMEMAKER_TABLE_SIZE)
@@ -3581,13 +4177,7 @@ void M_NameMaker_Key (int k)
 			break;
 
 		Key_Extra (&k);
-
-		l = strlen(namemaker_name);
-		if (l < 15)
-		{
-			namemaker_name[l] = k;
-			namemaker_name[l + 1] = 0;
-		}
+		M_TextField_Char(&namemaker_name_field, k);
 		break;
 	}
 }
@@ -3601,6 +4191,12 @@ void M_NameMaker_Mousemove(int cx, int cy) // woods #mousemenu
 	int num_rows = NAMEMAKER_TOTAL_ROWS;
 	int max_columns;
 	int temp_cursor_x, temp_cursor_y;
+
+	if (textfield_mouse_dragging && textfield_drag_field == &namemaker_name_field)
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
 
 	temp_cursor_x = (cx - 8 - x_origin + x_spacing / 2) / x_spacing; // Calculate tentative cursor positions
 	temp_cursor_y = (cy - 8 - y_origin + y_spacing / 2) / y_spacing;
@@ -3767,6 +4363,7 @@ enum
 	OPT_HUD,
 	OPT_CONSOLEM,    // Moved up, before OPT_EXTRAS
 	OPT_STARTUP,
+	OPT_DEMOOPTIONS,
 	OPT_EXTRAS,
 	OPT_SPACE,       // Spacer
 	OPT_MENUSCALE,
@@ -3976,6 +4573,9 @@ void M_Options_Draw (void)
 		case OPT_STARTUP:
 			text = "               Startup   ...";
 			break;
+		case OPT_DEMOOPTIONS:
+			text = "                 Demos   ...";
+			break;
 		case OPT_EXTRAS:
 			text = "                  Misc   ...";
 			break;
@@ -4054,6 +4654,8 @@ static const char* M_Options_GetItemText(int index)
 		return "               Console   ...";
 	case OPT_STARTUP:
 		return "               Startup   ...";
+	case OPT_DEMOOPTIONS:
+		return "                 Demos   ...";
 	case OPT_EXTRAS:
 		return "                  Misc   ...";
 	case OPT_MENUSCALE:
@@ -4176,6 +4778,9 @@ void M_Options_Key (int k)
 			break;
 		case OPT_STARTUP:
 			M_Menu_Startup_f();
+			break;
+		case OPT_DEMOOPTIONS:
+			M_Menu_DemoOptions_f();
 			break;
 		case OPT_EXTRAS:
 			M_Menu_Extras_f();
@@ -4861,6 +5466,7 @@ Mouse Menu
 */
 
 extern cvar_t cl_minpitch, cl_maxpitch;
+extern cvar_t scr_customcursor;
 
 #ifdef __APPLE__
 #define MACOS_X_ACCELERATION_HACK
@@ -4876,6 +5482,7 @@ static enum mouse_e
 	MOUSE_INVERT,
 	MOUSE_ALWAYSMLOOK,
 	MOUSE_PITCHMODE,
+	MOUSE_CUSTOMCURSOR,
 #ifdef MACOS_X_ACCELERATION_HACK
 	MOUSE_ACCELERATION,
 #endif
@@ -4923,6 +5530,10 @@ static const char* M_Mouse_GetItemText(int index)
 		return "Invert Mouse";
 	case MOUSE_ALWAYSMLOOK:
 		return "Mouse Look";
+	case MOUSE_PITCHMODE:
+		return "Pitch Mode";
+	case MOUSE_CUSTOMCURSOR:
+		return "Custom Cursor";
 #ifdef MACOS_X_ACCELERATION_HACK
 	case MOUSE_ACCELERATION:
 		return "Acceleration";
@@ -4979,6 +5590,9 @@ static void M_Mouse_AdjustSliders(int dir)
 		else
 			M_Mouse_SetPitchMode(false); // Switch to Quakespasm
 		break;
+	case MOUSE_CUSTOMCURSOR:
+		Cvar_SetValue("scr_customcursor", !scr_customcursor.value);
+		break;
 #ifdef MACOS_X_ACCELERATION_HACK
 	case MOUSE_ACCELERATION:
 		Cvar_SetValue("in_disablemacosxmouseaccel", !in_disablemacosxmouseaccel.value);
@@ -5033,6 +5647,10 @@ void M_Mouse_Draw(void)
 			else
 				value = "traditional ";
 			M_Print(178, y, value);
+			break;
+		case MOUSE_CUSTOMCURSOR:
+			text = "   Custom Cursor";
+			M_DrawCheckbox(178, y, scr_customcursor.value);
 			break;
 #ifdef MACOS_X_ACCELERATION_HACK
 		case MOUSE_ACCELERATION:
@@ -6592,8 +7210,8 @@ Game Menu
 */
 
 extern cvar_t cl_rollangle, scr_fov, gl_cshiftpercent, cl_bob, v_kicktime, v_kickroll, v_kickpitch, r_drawviewmodel,
-cl_damagehue, w_switch, b_switch, cl_say, cl_r2g, cl_truelightning, cl_deadbodyfilter, con_mm1mute,
-gl_max_size, gl_load24bit;
+cl_damagehue, w_switch, b_switch, cl_say, cl_r2g, cl_truelightning, cl_beams_polygons, cl_deadbodyfilter, con_mm1mute,
+gl_max_size, gl_load24bit, r_player_xray;
 
 enum
 {
@@ -6616,11 +7234,13 @@ static enum game_e
 	GAME_CONSOLECHAT,    // Added
 	GAME_SWAPROCKETS,    // Added
 	GAME_TRUELIGHTNING,  // Added
+	GAME_STRAIGHTSHAFT,
 	GAME_DEADBODYFILTER, // Added
 	GAME_MM1MUTE,        // Added
 	GAME_VIEWMODEL,      // Added
 	GAME_TEAMCOLOR,  // Added
 	GAME_ENEMYCOLOR, // Added
+	GAME_PLAYERXRAY,
 	GAME_TEXTURELESS,
 	GAME_COUNT
 } game_cursor;
@@ -6642,6 +7262,522 @@ static qboolean team_rgb_active;
 static qboolean enemy_rgb_active;
 static char last_team_color[10];
 static char last_enemy_color[10];
+
+enum
+{
+	PLAYERXRAY_MENU_OFF = 0,
+	PLAYERXRAY_MENU_BOTH,
+	PLAYERXRAY_MENU_ENEMY,
+	PLAYERXRAY_MENU_TEAM
+};
+
+enum
+{
+	PLAYERXRAY_TARGET_BOTH = 0,
+	PLAYERXRAY_TARGET_ENEMY,
+	PLAYERXRAY_TARGET_TEAM
+};
+
+enum
+{
+	PLAYERXRAY_COLOR_SPLIT = 0,
+	PLAYERXRAY_COLOR_MATCH
+};
+
+typedef struct
+{
+	float alpha;
+	float distance;
+	int target_mode;
+	int color_mode;
+	int max_match_size;
+	plcolour_t enemy_color;
+	plcolour_t team_color;
+} playerxray_settings_t;
+
+static enum playerxray_e
+{
+	PLAYERXRAY_TARGETS,
+	PLAYERXRAY_ALPHA,
+	PLAYERXRAY_DISTANCE,
+	PLAYERXRAY_COLORMODE,
+	PLAYERXRAY_ENEMYCOLOR,
+	PLAYERXRAY_TEAMCOLOR,
+	PLAYERXRAY_MATCHSIZE,
+	PLAYERXRAY_COUNT
+} playerxray_cursor;
+
+#define PLAYERXRAY_ITEMS (PLAYERXRAY_COUNT)
+
+static qboolean playerxray_slider_grab;
+static qboolean playerxray_enemy_rgb_active;
+static qboolean playerxray_team_rgb_active;
+
+static plcolour_t M_PlayerXray_ColorFromRGB(byte r, byte g, byte b)
+{
+	plcolour_t color;
+
+	color.type = 2;
+	color.basic = 0;
+	color.rgb[0] = r;
+	color.rgb[1] = g;
+	color.rgb[2] = b;
+	return color;
+}
+
+static void M_PlayerXray_DefaultColor(qboolean isTeam, plcolour_t *out)
+{
+	const char *source = isTeam ? gl_teamcolor.string : gl_enemycolor.string;
+
+	if (source && source[0])
+	{
+		*out = CL_PLColours_Parse(source);
+		return;
+	}
+
+	*out = isTeam
+		? M_PlayerXray_ColorFromRGB(0x00, 0xB7, 0xFF)
+		: M_PlayerXray_ColorFromRGB(0xFF, 0x00, 0x00);
+}
+
+static qboolean M_PlayerXray_ParseHexColorToken(const char *token, plcolour_t *out)
+{
+	unsigned int rgb;
+
+	if (q_strncasecmp(token, "0x", 2))
+		return false;
+	if (sscanf(token + 2, "%x", &rgb) != 1)
+		return false;
+
+	*out = M_PlayerXray_ColorFromRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+	return true;
+}
+
+static qboolean M_PlayerXray_ParseNamedColorToken(const char *token, const char *key, plcolour_t *out)
+{
+	const char *eq = strchr(token, '=');
+	size_t keylen;
+
+	if (!eq || !eq[1])
+		return false;
+
+	keylen = (size_t)(eq - token);
+	if (strlen(key) != keylen || q_strncasecmp(token, key, keylen))
+		return false;
+
+	return M_PlayerXray_ParseHexColorToken(eq + 1, out);
+}
+
+static int M_PlayerXray_ParseTargetToken(const char *token)
+{
+	const char *value = token;
+	const char *eq = strchr(token, '=');
+	size_t keylen;
+
+	if (eq && eq[1])
+	{
+		keylen = (size_t)(eq - token);
+		if (!((keylen == 6 && !q_strncasecmp(token, "target", keylen)) ||
+			(keylen == 7 && !q_strncasecmp(token, "targets", keylen))))
+			return -1;
+		value = eq + 1;
+	}
+
+	if (!q_strcasecmp(value, "both") ||
+		!q_strcasecmp(value, "all") ||
+		!q_strcasecmp(value, "players"))
+		return PLAYERXRAY_TARGET_BOTH;
+
+	if (!q_strcasecmp(value, "enemy") ||
+		!q_strcasecmp(value, "enemies"))
+		return PLAYERXRAY_TARGET_ENEMY;
+
+	if (!q_strcasecmp(value, "team") ||
+		!q_strcasecmp(value, "teammates") ||
+		!q_strcasecmp(value, "ally") ||
+		!q_strcasecmp(value, "allies"))
+		return PLAYERXRAY_TARGET_TEAM;
+
+	return -1;
+}
+
+static int M_PlayerXray_ParseColorModeToken(const char *token)
+{
+	const char *value = token;
+	const char *eq = strchr(token, '=');
+	size_t keylen;
+
+	if (eq && eq[1])
+	{
+		keylen = (size_t)(eq - token);
+		if (!((keylen == 5 && !q_strncasecmp(token, "color", keylen)) ||
+			(keylen == 6 && !q_strncasecmp(token, "colors", keylen)) ||
+			(keylen == 9 && !q_strncasecmp(token, "colormode", keylen))))
+			return -1;
+		value = eq + 1;
+	}
+
+	if (!q_strcasecmp(value, "pcolor") ||
+		!q_strcasecmp(value, "pcolors") ||
+		!q_strcasecmp(value, "player") ||
+		!q_strcasecmp(value, "playercolor") ||
+		!q_strcasecmp(value, "playercolors"))
+		return PLAYERXRAY_COLOR_MATCH;
+
+	return -1;
+}
+
+static int M_PlayerXray_ParseMatchSizeToken(const char *token)
+{
+	const char *value = token;
+	const char *eq = strchr(token, '=');
+	size_t keylen;
+	qboolean keyed = false;
+	char *endptr;
+	long parsed;
+
+	if (eq && eq[1])
+	{
+		keylen = (size_t)(eq - token);
+		if (!(keylen == 8 && !q_strncasecmp(token, "gametype", keylen)))
+			return -1;
+		value = eq + 1;
+		keyed = true;
+	}
+
+	if (!q_strcasecmp(value, "1v1") || !q_strcasecmp(value, "1on1"))
+		return 1;
+	if (!q_strcasecmp(value, "2v2") || !q_strcasecmp(value, "2on2"))
+		return 2;
+	if (!q_strcasecmp(value, "3v3") || !q_strcasecmp(value, "3on3"))
+		return 3;
+	if (!q_strcasecmp(value, "4v4") || !q_strcasecmp(value, "4on4"))
+		return 4;
+	if (!q_strcasecmp(value, "5v5") || !q_strcasecmp(value, "5on5"))
+		return 5;
+
+	if (!keyed)
+		return -1;
+
+	parsed = strtol(value, &endptr, 10);
+	if (endptr == value || *endptr != '\0' || parsed < 1 || parsed > 5)
+		return -1;
+
+	return (int)parsed;
+}
+
+static void M_PlayerXray_GetSettings(playerxray_settings_t *settings)
+{
+	const char *text = r_player_xray.string;
+	qboolean saw_enemy_color = false;
+	qboolean saw_team_color = false;
+	qboolean saw_base_color = false;
+	qboolean saw_alpha = false;
+	qboolean saw_distance = false;
+	char token[64];
+	int consumed = 0;
+
+	memset(settings, 0, sizeof(*settings));
+	settings->alpha = 1.0f;
+	settings->target_mode = PLAYERXRAY_TARGET_BOTH;
+	settings->color_mode = PLAYERXRAY_COLOR_SPLIT;
+	M_PlayerXray_DefaultColor(false, &settings->enemy_color);
+	M_PlayerXray_DefaultColor(true, &settings->team_color);
+
+	if (!text || !text[0])
+		return;
+
+	while (sscanf(text, " %63s%n", token, &consumed) == 1)
+	{
+		int parsed_mode;
+		char *endptr;
+		float value;
+		plcolour_t parsed_color;
+
+		text += consumed;
+
+		if (M_PlayerXray_ParseNamedColorToken(token, "enemycolor", &settings->enemy_color))
+		{
+			saw_enemy_color = true;
+			continue;
+		}
+		if (M_PlayerXray_ParseNamedColorToken(token, "teamcolor", &settings->team_color))
+		{
+			saw_team_color = true;
+			continue;
+		}
+
+		parsed_mode = M_PlayerXray_ParseTargetToken(token);
+		if (parsed_mode >= 0)
+		{
+			settings->target_mode = parsed_mode;
+			continue;
+		}
+
+		parsed_mode = M_PlayerXray_ParseColorModeToken(token);
+		if (parsed_mode >= 0)
+		{
+			settings->color_mode = parsed_mode;
+			continue;
+		}
+
+		parsed_mode = M_PlayerXray_ParseMatchSizeToken(token);
+		if (parsed_mode >= 0)
+		{
+			settings->max_match_size = parsed_mode;
+			continue;
+		}
+
+		if (M_PlayerXray_ParseHexColorToken(token, &parsed_color))
+		{
+			saw_base_color = true;
+			if (!saw_enemy_color)
+				settings->enemy_color = parsed_color;
+			if (!saw_team_color)
+				settings->team_color = parsed_color;
+			continue;
+		}
+
+		value = (float)strtod(token, &endptr);
+		if (endptr == token || *endptr != '\0')
+			continue;
+
+		if (!saw_alpha && value >= 0.0f && value <= 1.0f)
+		{
+			settings->alpha = value;
+			saw_alpha = true;
+		}
+		else
+		{
+			settings->distance = q_max(0.0f, value);
+			saw_distance = true;
+		}
+	}
+
+	settings->alpha = CLAMP(0.0f, settings->alpha, 1.0f);
+
+	if (!saw_distance && (saw_base_color || (saw_alpha && settings->alpha > 0.0f)))
+		settings->distance = 4096.0f;
+
+	if (settings->distance <= 0.0f && settings->alpha <= 0.0f)
+		settings->alpha = 1.0f;
+}
+
+static void M_PlayerXray_ColorToHex(const plcolour_t *color, char *buffer, size_t buffer_size)
+{
+	plcolour_t temp = *color;
+	byte *rgb = CL_PLColours_ToRGB(&temp);
+
+	if (!rgb)
+	{
+		q_strlcpy(buffer, "0xFF0000", buffer_size);
+		return;
+	}
+
+	q_snprintf(buffer, buffer_size, "0x%02X%02X%02X", rgb[0], rgb[1], rgb[2]);
+}
+
+static int M_PlayerXray_ColorToBasicIndex(const plcolour_t *color)
+{
+	plcolour_t temp = *color;
+	byte *rgb = CL_PLColours_ToRGB(&temp);
+	int i;
+
+	if (!rgb)
+		return -1;
+
+	for (i = 0; i <= 13; ++i)
+	{
+		byte *pal = (byte *)&d_8to24table[(i << 4) + 8];
+		if (pal[0] == rgb[0] && pal[1] == rgb[1] && pal[2] == rgb[2])
+			return i;
+	}
+
+	return -1;
+}
+
+static const char *M_PlayerXray_ColorValue(const plcolour_t *color, qboolean rgb_active)
+{
+	static char value[16];
+	int basic = M_PlayerXray_ColorToBasicIndex(color);
+
+	if (!rgb_active && basic >= 0)
+	{
+		q_snprintf(value, sizeof(value), "%d", basic);
+		return value;
+	}
+
+	M_PlayerXray_ColorToHex(color, value, sizeof(value));
+	return value;
+}
+
+static int M_PlayerXray_GetMenuTarget(const playerxray_settings_t *settings)
+{
+	if (settings->distance <= 0.0f)
+		return PLAYERXRAY_MENU_OFF;
+
+	switch (settings->target_mode)
+	{
+	case PLAYERXRAY_TARGET_ENEMY:
+		return PLAYERXRAY_MENU_ENEMY;
+	case PLAYERXRAY_TARGET_TEAM:
+		return PLAYERXRAY_MENU_TEAM;
+	case PLAYERXRAY_TARGET_BOTH:
+	default:
+		return PLAYERXRAY_MENU_BOTH;
+	}
+}
+
+static const char *M_PlayerXray_TargetLabel(int menu_target)
+{
+	switch (menu_target)
+	{
+	case PLAYERXRAY_MENU_OFF:
+		return "off";
+	case PLAYERXRAY_MENU_ENEMY:
+		return "enemy";
+	case PLAYERXRAY_MENU_TEAM:
+		return "team";
+	case PLAYERXRAY_MENU_BOTH:
+	default:
+		return "both";
+	}
+}
+
+static const char *M_PlayerXray_ColorModeLabel(int color_mode)
+{
+	return (color_mode == PLAYERXRAY_COLOR_MATCH) ? "player colors" : "split";
+}
+
+static const char *M_PlayerXray_MatchSizeLabel(int max_match_size)
+{
+	switch (max_match_size)
+	{
+	case 1:
+		return "1v1";
+	case 2:
+		return "up to 2v2";
+	case 3:
+		return "up to 3v3";
+	case 4:
+		return "up to 4v4";
+	case 5:
+		return "5v5+";
+	default:
+		return "any";
+	}
+}
+
+static void M_PlayerXray_SetMenuTarget(playerxray_settings_t *settings, int menu_target)
+{
+	switch (menu_target)
+	{
+	case PLAYERXRAY_MENU_OFF:
+		settings->distance = 0.0f;
+		break;
+
+	case PLAYERXRAY_MENU_ENEMY:
+		settings->target_mode = PLAYERXRAY_TARGET_ENEMY;
+		if (settings->distance <= 0.0f)
+			settings->distance = 4096.0f;
+		break;
+
+	case PLAYERXRAY_MENU_TEAM:
+		settings->target_mode = PLAYERXRAY_TARGET_TEAM;
+		if (settings->distance <= 0.0f)
+			settings->distance = 4096.0f;
+		break;
+
+	case PLAYERXRAY_MENU_BOTH:
+	default:
+		settings->target_mode = PLAYERXRAY_TARGET_BOTH;
+		if (settings->distance <= 0.0f)
+			settings->distance = 4096.0f;
+		break;
+	}
+}
+
+static void M_PlayerXray_SetSettings(const playerxray_settings_t *settings)
+{
+	char value[160];
+	char enemy_hex[16];
+	char team_hex[16];
+	char match_token[24] = "";
+	const char *target_token;
+
+	M_PlayerXray_ColorToHex(&settings->enemy_color, enemy_hex, sizeof(enemy_hex));
+	M_PlayerXray_ColorToHex(&settings->team_color, team_hex, sizeof(team_hex));
+
+	switch (settings->target_mode)
+	{
+	case PLAYERXRAY_TARGET_ENEMY:
+		target_token = "enemy";
+		break;
+	case PLAYERXRAY_TARGET_TEAM:
+		target_token = "team";
+		break;
+	case PLAYERXRAY_TARGET_BOTH:
+	default:
+		target_token = "both";
+		break;
+	}
+
+	if (settings->max_match_size > 0)
+		q_snprintf(match_token, sizeof(match_token), " gametype=%d", settings->max_match_size);
+
+	q_snprintf(value, sizeof(value), "%.2f %.0f %s%s%s enemycolor=%s teamcolor=%s",
+		CLAMP(0.0f, settings->alpha, 1.0f),
+		q_max(0.0f, settings->distance),
+		target_token,
+		(settings->color_mode == PLAYERXRAY_COLOR_MATCH) ? " pcolor" : "",
+		match_token,
+		enemy_hex,
+		team_hex);
+
+	Cvar_Set("r_player_xray", value);
+}
+
+static void M_PlayerXray_AdjustColor(plcolour_t *color, qboolean *rgb_active, int dir)
+{
+	if (keydown[K_SHIFT])
+	{
+		vec3_t hsv;
+		plcolour_t temp = *color;
+
+		*rgb_active = true;
+		rgbtohsv(CL_PLColours_ToRGB(&temp), hsv);
+		hsv[0] += dir / 128.0f;
+		hsv[1] = 1.0f;
+		hsv[2] = 1.0f;
+		*color = M_PlayerXray_ColorFromRGB(0, 0, 0);
+		hsvtorgb(hsv[0], hsv[1], hsv[2], color->rgb);
+		return;
+	}
+
+	*rgb_active = false;
+	{
+		int basic = M_PlayerXray_ColorToBasicIndex(color);
+		if (basic < 0)
+			basic = 0;
+
+		basic += dir;
+		if (basic < 0)
+			basic = 13;
+		else if (basic > 13)
+			basic = 0;
+
+		color->type = 1;
+		color->basic = basic;
+	}
+}
+
+static const char *M_PlayerXray_SummaryValue(void)
+{
+	playerxray_settings_t settings;
+
+	M_PlayerXray_GetSettings(&settings);
+	return M_PlayerXray_TargetLabel(M_PlayerXray_GetMenuTarget(&settings));
+}
 
 static void M_Game_AdjustColor(int dir, qboolean isTeam)
 {
@@ -6775,6 +7911,8 @@ static const char* M_Game_GetItemText(int index)
 		return "R2G Swap Rockets";
 	case GAME_TRUELIGHTNING:
 		return "True Lightning";
+	case GAME_STRAIGHTSHAFT:
+		return "Straight Shaft";
 	case GAME_DEADBODYFILTER:
 		return "Deadbody Filter";
 	case GAME_MM1MUTE:
@@ -6785,6 +7923,8 @@ static const char* M_Game_GetItemText(int index)
 		return "Force Team Color";
 	case GAME_ENEMYCOLOR:
 		return "Force Enemy Color";
+	case GAME_PLAYERXRAY:
+		return "Player Xray";
 	case GAME_TEXTURELESS:
 		return "Textureless";
 	default:
@@ -6915,6 +8055,12 @@ static void M_Game_AdjustSliders(int dir)
 		Cvar_SetValue("cl_truelightning", f);
 		break;
 
+	case GAME_STRAIGHTSHAFT:
+		f = cl_beams_polygons.value + dir * 0.5f;
+		f = CLAMP(0.0f, f, 10.0f);
+		Cvar_SetValue("cl_beams_polygons", f);
+		break;
+
 	case GAME_DEADBODYFILTER:
 		Cvar_SetValue("cl_deadbodyfilter", !cl_deadbodyfilter.value);
 		break;
@@ -6934,6 +8080,10 @@ static void M_Game_AdjustSliders(int dir)
 		break;
 	case GAME_ENEMYCOLOR:
 		M_Game_AdjustColor(dir, false);
+		break;
+
+	case GAME_PLAYERXRAY:
+		M_Menu_PlayerXray_f();
 		break;
 
 	case GAME_TEXTURELESS:
@@ -7071,6 +8221,12 @@ void M_Game_Draw(void)
 			M_DrawSlider(186, y, r, cl_truelightning.value, "%.0f%%");
 			break;
 
+		case GAME_STRAIGHTSHAFT:
+			text = "    Straight Shaft";
+			r = CLAMP(0.0f, cl_beams_polygons.value, 10.0f) / 10.0f;
+			M_DrawSlider(186, y, r, CLAMP(0.0f, cl_beams_polygons.value, 10.0f), "%.1f");
+			break;
+
 		case GAME_DEADBODYFILTER:
 			text = "   Deadbody Filter";
 			M_DrawCheckbox(178, y, cl_deadbodyfilter.value != 0);
@@ -7118,6 +8274,12 @@ void M_Game_Draw(void)
 				Draw_FillPlayer(178 + (strlen(value) * 8) + 4, y + 2, 6, 6, CL_PLColours_Parse(gl_enemycolor.string), 1.0);
 			break;
 
+		case GAME_PLAYERXRAY:
+			text = "       Player Xray";
+			value = M_PlayerXray_SummaryValue();
+			M_Print(178, y, value);
+			break;
+
 		case GAME_TEXTURELESS:
 			text = "       Textureless"; // Adjusted spacing
 			M_DrawCheckbox(178, y, gl_max_size.value == 1.0f);
@@ -7147,7 +8309,7 @@ void M_Game_Draw(void)
 	M_DrawCharacter(168, 20 + game_cursor * 8, 12 + ((int)(realtime * 4) & 1));
 
 	if (game_cursor == GAME_TEAMCOLOR || game_cursor == GAME_ENEMYCOLOR)
-		M_PrintRGBA(74, 160, "+shift for RGB colors", CL_PLColours_Parse("0xffffff"), 0.6f, false);
+		M_PrintRGBA(74, 176, "+shift for RGB colors", CL_PLColours_Parse("0xffffff"), 0.6f, false);
 
 	// Draw search box if search is active
 	if (gamemenu.search.len > 0)
@@ -7311,6 +8473,7 @@ void M_Game_Key(int k)
 			if (game_cursor == GAME_FOV ||
 				game_cursor == GAME_FLASHES ||
 				game_cursor == GAME_TRUELIGHTNING ||
+				game_cursor == GAME_STRAIGHTSHAFT ||
 				game_cursor == GAME_VIEWMODEL)
 			{
 				game_slider_grab = true;
@@ -7383,6 +8546,12 @@ void M_Game_Mousemove(int cx, int cy)
 			Cvar_SetValue("cl_truelightning", CLAMP(0, (int)f, 100));
 			break;
 
+		case GAME_STRAIGHTSHAFT:
+			f = M_MouseToSliderFraction(cx - 187) * 10.0f;
+			f = (int)(f * 10.0f + 0.5f) / 10.0f;
+			Cvar_SetValue("cl_beams_polygons", CLAMP(0.0f, f, 10.0f));
+			break;
+
 		case GAME_VIEWMODEL:
 			f = M_MouseToSliderFraction(cx - 187);  // Already 0-1
 			Cvar_SetValue("r_drawviewmodel", CLAMP(0, f, 1));
@@ -7399,6 +8568,7 @@ void M_Game_Mousemove(int cx, int cy)
 		case GAME_SWAPROCKETS:
 		case GAME_DEADBODYFILTER:
 		case GAME_MM1MUTE:
+		case GAME_PLAYERXRAY:
 		case GAME_COUNT:
 			// No action needed for these cases in mouse movement
 			break;
@@ -7422,6 +8592,277 @@ void M_Game_Mousemove(int cx, int cy)
 	{
 		// Update the cursor position
 		game_cursor = item;
+	}
+}
+
+static void M_PlayerXray_AdjustSetting(int dir)
+{
+	playerxray_settings_t settings;
+	int target;
+
+	M_PlayerXray_GetSettings(&settings);
+	S_LocalSound("misc/menu3.wav");
+
+	switch (playerxray_cursor)
+	{
+	case PLAYERXRAY_TARGETS:
+		target = M_PlayerXray_GetMenuTarget(&settings) + dir;
+		if (target < PLAYERXRAY_MENU_OFF)
+			target = PLAYERXRAY_MENU_TEAM;
+		else if (target > PLAYERXRAY_MENU_TEAM)
+			target = PLAYERXRAY_MENU_OFF;
+		M_PlayerXray_SetMenuTarget(&settings, target);
+		break;
+
+	case PLAYERXRAY_ALPHA:
+		settings.alpha = CLAMP(0.0f, settings.alpha + dir * 0.05f, 1.0f);
+		break;
+
+	case PLAYERXRAY_DISTANCE:
+		settings.distance = CLAMP(0.0f, settings.distance + dir * 256.0f, 8192.0f);
+		break;
+
+	case PLAYERXRAY_COLORMODE:
+		settings.color_mode = (settings.color_mode == PLAYERXRAY_COLOR_MATCH)
+			? PLAYERXRAY_COLOR_SPLIT
+			: PLAYERXRAY_COLOR_MATCH;
+		break;
+
+	case PLAYERXRAY_ENEMYCOLOR:
+		M_PlayerXray_AdjustColor(&settings.enemy_color, &playerxray_enemy_rgb_active, dir);
+		break;
+
+	case PLAYERXRAY_TEAMCOLOR:
+		M_PlayerXray_AdjustColor(&settings.team_color, &playerxray_team_rgb_active, dir);
+		break;
+
+	case PLAYERXRAY_MATCHSIZE:
+		settings.max_match_size += dir;
+		if (settings.max_match_size < 0)
+			settings.max_match_size = 5;
+		else if (settings.max_match_size > 5)
+			settings.max_match_size = 0;
+		break;
+
+	case PLAYERXRAY_COUNT:
+	default:
+		break;
+	}
+
+	M_PlayerXray_SetSettings(&settings);
+}
+
+void M_Menu_PlayerXray_f(void)
+{
+	key_dest = key_menu;
+	m_state = m_playerxray;
+	m_entersound = true;
+	playerxray_cursor = 0;
+	playerxray_slider_grab = false;
+	playerxray_enemy_rgb_active = false;
+	playerxray_team_rgb_active = false;
+
+	IN_UpdateGrabs();
+}
+
+void M_PlayerXray_Draw(void)
+{
+	qpic_t *p;
+	playerxray_settings_t settings;
+	float r;
+	int i;
+
+	M_PlayerXray_GetSettings(&settings);
+
+	p = Draw_CachePic("gfx/p_option.lmp");
+	M_DrawPic((320 - p->width) / 2, 4, p);
+
+	{
+		const char *title = "Player Xray";
+		M_PrintWhite((320 - 8 * strlen(title)) / 2, 32, title);
+	}
+
+	for (i = 0; i < PLAYERXRAY_ITEMS; ++i)
+	{
+		int y = 48 + 8 * i;
+		const char *text = NULL;
+		const char *value = NULL;
+
+		switch (i)
+		{
+		case PLAYERXRAY_TARGETS:
+			text = "         Targets";
+			value = M_PlayerXray_TargetLabel(M_PlayerXray_GetMenuTarget(&settings));
+			M_Print(178, y, value);
+			break;
+
+		case PLAYERXRAY_ALPHA:
+			text = "         Opacity";
+			r = settings.alpha;
+			M_DrawSlider(186, y, r, settings.alpha * 100.0f, "%.0f%%");
+			break;
+
+		case PLAYERXRAY_DISTANCE:
+			text = "           Range";
+			r = settings.distance / 8192.0f;
+			M_DrawSlider(186, y, r, settings.distance, "%.0f");
+			break;
+
+		case PLAYERXRAY_COLORMODE:
+			text = "      Color Mode";
+			M_Print(178, y, M_PlayerXray_ColorModeLabel(settings.color_mode));
+			break;
+
+		case PLAYERXRAY_ENEMYCOLOR:
+			text = "     Enemy Color";
+			value = M_PlayerXray_ColorValue(&settings.enemy_color, playerxray_enemy_rgb_active);
+			M_Print(178, y, value);
+			Draw_FillPlayer(178 + (strlen(value) * 8) + 4, y + 2, 6, 6, settings.enemy_color, 1.0f);
+			break;
+
+		case PLAYERXRAY_TEAMCOLOR:
+			text = "      Team Color";
+			value = M_PlayerXray_ColorValue(&settings.team_color, playerxray_team_rgb_active);
+			M_Print(178, y, value);
+			Draw_FillPlayer(178 + (strlen(value) * 8) + 4, y + 2, 6, 6, settings.team_color, 1.0f);
+			break;
+
+		case PLAYERXRAY_MATCHSIZE:
+			text = "      Match Size";
+			M_Print(178, y, M_PlayerXray_MatchSizeLabel(settings.max_match_size));
+			break;
+
+		default:
+			break;
+		}
+
+		if (text)
+			M_Print(16, y, text);
+	}
+
+	M_DrawCharacter(168, 48 + playerxray_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+
+	if (playerxray_cursor == PLAYERXRAY_ENEMYCOLOR || playerxray_cursor == PLAYERXRAY_TEAMCOLOR)
+		M_PrintRGBA(74, 128, "+shift for RGB colors", CL_PLColours_Parse("0xffffff"), 0.6f, false);
+}
+
+void M_PlayerXray_Key(int k)
+{
+	if (!keydown[K_MOUSE1])
+		playerxray_slider_grab = false;
+
+	if (playerxray_slider_grab)
+	{
+		switch (k)
+		{
+		case K_ESCAPE:
+		case K_BBUTTON:
+		case K_MOUSE4:
+		case K_MOUSE2:
+			playerxray_slider_grab = false;
+			break;
+		}
+		return;
+	}
+
+	switch (k)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+	case K_MOUSE4:
+	case K_MOUSE2:
+		M_Menu_Game_f();
+		game_cursor = GAME_PLAYERXRAY;
+		break;
+
+	case K_MOUSE1:
+		m_entersound = true;
+		if (m_mousey >= 48 && m_mousey < 48 + (PLAYERXRAY_ITEMS * 8))
+		{
+			playerxray_cursor = (m_mousey - 48) / 8;
+			if (playerxray_cursor == PLAYERXRAY_ALPHA ||
+				playerxray_cursor == PLAYERXRAY_DISTANCE)
+			{
+				playerxray_slider_grab = true;
+			}
+			else
+			{
+				M_PlayerXray_AdjustSetting(1);
+			}
+		}
+		break;
+
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+		m_entersound = true;
+		M_PlayerXray_AdjustSetting(1);
+		break;
+
+	case K_UPARROW:
+		S_LocalSound("misc/menu1.wav");
+		playerxray_cursor--;
+		if (playerxray_cursor < 0)
+			playerxray_cursor = PLAYERXRAY_ITEMS - 1;
+		break;
+
+	case K_DOWNARROW:
+		S_LocalSound("misc/menu1.wav");
+		playerxray_cursor++;
+		if (playerxray_cursor >= PLAYERXRAY_ITEMS)
+			playerxray_cursor = 0;
+		break;
+
+	case K_LEFTARROW:
+	case K_MWHEELDOWN:
+		M_PlayerXray_AdjustSetting(-1);
+		break;
+
+	case K_RIGHTARROW:
+	case K_MWHEELUP:
+		M_PlayerXray_AdjustSetting(1);
+		break;
+	}
+}
+
+void M_PlayerXray_Mousemove(int cx, int cy)
+{
+	if (playerxray_slider_grab)
+	{
+		playerxray_settings_t settings;
+		float f;
+
+		if (!keydown[K_MOUSE1])
+		{
+			playerxray_slider_grab = false;
+			return;
+		}
+
+		M_PlayerXray_GetSettings(&settings);
+
+		switch (playerxray_cursor)
+		{
+		case PLAYERXRAY_ALPHA:
+			settings.alpha = CLAMP(0.0f, M_MouseToSliderFraction(cx - 187), 1.0f);
+			break;
+
+		case PLAYERXRAY_DISTANCE:
+			f = CLAMP(0.0f, M_MouseToSliderFraction(cx - 187), 1.0f) * 8192.0f;
+			settings.distance = floorf((f / 128.0f) + 0.5f) * 128.0f;
+			break;
+
+		default:
+			break;
+		}
+
+		M_PlayerXray_SetSettings(&settings);
+		return;
+	}
+
+	{
+		int item = (cy - 48) / 8;
+		if (item >= 0 && item < PLAYERXRAY_ITEMS)
+			playerxray_cursor = item;
 	}
 }
 
@@ -8926,7 +10367,7 @@ Console Menu
 ==================
 */
 
-extern cvar_t scr_conscale, scr_consize, scr_conspeed, scr_conalpha, cl_contentfilter;
+extern cvar_t scr_conscale, scr_consize, scr_conspeed, scr_conalpha, cl_contentfilter, con_typing, scr_conback, scr_concolor;
 
 static enum console_e
 {
@@ -8934,11 +10375,17 @@ static enum console_e
 	CONSOLE_HEIGHT,
 	CONSOLE_SPEED,
 	CONSOLE_TRANSPARENCY,
+	CONSOLE_CONBACK,
+	CONSOLE_CONCOLOR,
 	CONSOLE_CONTENTFILTER,
+	CONSOLE_TYPING,
 	CONSOLE_COUNT
 } console_cursor;
 
 #define CONSOLE_ITEMS (CONSOLE_COUNT)
+#define CONSOLE_CONBACK_BOX_X 178
+#define CONSOLE_CONBACK_BOX_WIDTH 14
+#define CONSOLE_CONBACK_TEXT_X (CONSOLE_CONBACK_BOX_X + 8)
 int numberOfConsoleItems = CONSOLE_ITEMS;
 
 static struct
@@ -8951,6 +10398,257 @@ static struct
 } consolemenu;
 
 static qboolean console_slider_grab;
+static qboolean console_field_editing;
+static menu_textfield_t console_conback_field;
+static char console_conback_buffer[MAX_QPATH];
+static qboolean console_rgb_active;
+static const char* M_Console_GetItemText(int index);
+
+static menu_textfield_t *M_Console_GetFieldForCursor(void)
+{
+	switch (console_cursor)
+	{
+	case CONSOLE_CONBACK:
+		return &console_conback_field;
+	default:
+		return NULL;
+	}
+}
+
+static void M_Console_ClearTextSelections(void)
+{
+	M_TextField_ClearSelection(&console_conback_field);
+}
+
+static void M_Console_InitTextFields(void)
+{
+	q_strlcpy(console_conback_buffer, scr_conback.string, sizeof(console_conback_buffer));
+	M_TextField_Init(&console_conback_field, console_conback_buffer, sizeof(console_conback_buffer) - 1, false);
+	console_field_editing = false;
+	console_rgb_active = false;
+}
+
+static void M_Console_ClearSearch(void)
+{
+	consolemenu.search.len = 0;
+	consolemenu.search.text[0] = 0;
+	numberOfConsoleItems = CONSOLE_ITEMS;
+}
+
+static void M_Console_UpdateSearchResults(void)
+{
+	if (consolemenu.search.len > 0)
+	{
+		numberOfConsoleItems = 0;
+		for (int i = 0; i < CONSOLE_ITEMS; i++)
+		{
+			const char* itemtext = M_Console_GetItemText(i);
+			if (itemtext && q_strcasestr(itemtext, consolemenu.search.text))
+			{
+				numberOfConsoleItems++;
+				if (numberOfConsoleItems == 1)
+					console_cursor = i;
+			}
+		}
+	}
+	else
+	{
+		numberOfConsoleItems = CONSOLE_ITEMS;
+	}
+}
+
+static int M_Console_GetItemY(int index)
+{
+	int y = 48 + index * 8;
+
+	if (index >= CONSOLE_CONBACK)
+		y += 8;
+	if (index >= CONSOLE_CONCOLOR)
+		y += 8;
+
+	return y;
+}
+
+static int M_Console_GetItemAtY(int cy)
+{
+	for (int i = 0; i < CONSOLE_ITEMS; ++i)
+	{
+		int y = M_Console_GetItemY(i);
+		int top = (i == CONSOLE_CONBACK) ? y - 8 : y;
+		int bottom = y + 8;
+
+		if (cy >= top && cy < bottom)
+			return i;
+	}
+
+	return -1;
+}
+
+static void M_Console_BeginFieldEdit(void)
+{
+	menu_textfield_t* field = M_Console_GetFieldForCursor();
+
+	if (!field)
+		return;
+
+	M_Console_ClearSearch();
+
+	q_strlcpy(console_conback_buffer, scr_conback.string, sizeof(console_conback_buffer));
+	M_TextField_Init(&console_conback_field, console_conback_buffer, sizeof(console_conback_buffer) - 1, false);
+	field = &console_conback_field;
+
+	field->cursor = (int)strlen(field->text);
+	field->sel_start = -1;
+	console_field_editing = true;
+}
+
+static void M_Console_EndFieldEdit(qboolean apply_changes)
+{
+	menu_textfield_t* field = M_Console_GetFieldForCursor();
+
+	if (!field)
+	{
+		console_field_editing = false;
+		return;
+	}
+
+	if (apply_changes)
+	{
+		Cvar_Set("scr_conback", console_conback_buffer);
+	}
+	else
+	{
+		q_strlcpy(console_conback_buffer, scr_conback.string, sizeof(console_conback_buffer));
+	}
+
+	field->cursor = (int)strlen(field->text);
+	field->sel_start = -1;
+	M_TextField_ClampCursor(field);
+	console_field_editing = false;
+}
+
+static int M_Console_GetFieldViewStart(const menu_textfield_t* field)
+{
+	int len = (int)strlen(field->text);
+
+	if (len <= CONSOLE_CONBACK_BOX_WIDTH)
+		return 0;
+
+	return CLAMP(0, field->cursor - CONSOLE_CONBACK_BOX_WIDTH, len - CONSOLE_CONBACK_BOX_WIDTH);
+}
+
+static void M_Console_MouseClickField(menu_textfield_t* field, int mouse_x)
+{
+	int view_start = M_Console_GetFieldViewStart(field);
+
+	M_TextField_MouseClick(field, mouse_x, CONSOLE_CONBACK_TEXT_X - view_start * 8);
+}
+
+static void M_Console_DrawField(int y, menu_textfield_t* field, const char* placeholder)
+{
+	int view_start = M_Console_GetFieldViewStart(field);
+	int sel_begin, sel_end;
+
+	M_DrawTextBox(CONSOLE_CONBACK_BOX_X, y - 8, CONSOLE_CONBACK_BOX_WIDTH, 1);
+
+	if (M_TextField_GetSelection(field, &sel_begin, &sel_end))
+	{
+		int visible_begin = CLAMP(view_start, sel_begin, view_start + CONSOLE_CONBACK_BOX_WIDTH);
+		int visible_end = CLAMP(view_start, sel_end, view_start + CONSOLE_CONBACK_BOX_WIDTH);
+
+		if (visible_begin < visible_end)
+		{
+			Draw_Fill(CONSOLE_CONBACK_TEXT_X + (visible_begin - view_start) * 8, y,
+				(visible_end - visible_begin) * 8, 8, 170, 0.4f);
+		}
+	}
+
+	if (field->text[0])
+	{
+		char visible_text[CONSOLE_CONBACK_BOX_WIDTH + 1];
+
+		q_strlcpy(visible_text, field->text + view_start, sizeof(visible_text));
+		M_PrintWhite(CONSOLE_CONBACK_TEXT_X, y, visible_text);
+	}
+	else if (!(console_field_editing && field == M_Console_GetFieldForCursor()))
+		M_PrintRGBA(CONSOLE_CONBACK_TEXT_X, y, placeholder, CL_PLColours_Parse("0xffffff"), 0.5f, false);
+
+	if (console_field_editing && field == M_Console_GetFieldForCursor())
+	{
+		menu_textfield_t visible_field = *field;
+
+		visible_field.cursor = CLAMP(0, field->cursor - view_start, CONSOLE_CONBACK_BOX_WIDTH);
+		M_TextField_DrawCursor(&visible_field, CONSOLE_CONBACK_TEXT_X, y);
+	}
+}
+
+static void M_Console_AdjustColor(int dir)
+{
+	const char* current = scr_concolor.string;
+
+	if (keydown[K_SHIFT])
+	{
+		plcolour_t color;
+		vec3_t hsv;
+
+		console_rgb_active = true;
+		color = CL_PLColours_Parse(current[0] ? current : "0xffffff");
+		rgbtohsv(color.rgb, hsv);
+
+		hsv[0] += dir / 128.0f;
+		hsv[1] = 1.0f;
+		hsv[2] = 1.0f;
+		color.type = 2;
+		color.basic = 0;
+		hsvtorgb(hsv[0], hsv[1], hsv[2], color.rgb);
+		Cvar_Set("scr_concolor", CL_PLColours_ToString(color));
+		return;
+	}
+
+	console_rgb_active = false;
+
+	if (strcmp(current, "") == 0)
+	{
+		if (dir > 0)
+		{
+			plcolour_t color;
+			color.type = 1;
+			color.basic = 0;
+			Cvar_Set("scr_concolor", CL_PLColours_ToString(color));
+		}
+		else if (dir < 0)
+		{
+			plcolour_t color;
+			color.type = 1;
+			color.basic = 13;
+			Cvar_Set("scr_concolor", CL_PLColours_ToString(color));
+		}
+		return;
+	}
+
+	{
+		plcolour_t color = CL_PLColours_Parse(current);
+		int newBasic;
+
+		color.type = 1;
+		newBasic = color.basic + dir;
+
+		if (newBasic < 0)
+		{
+			Cvar_Set("scr_concolor", "");
+			return;
+		}
+		else if (newBasic > 13)
+		{
+			Cvar_Set("scr_concolor", "");
+			return;
+		}
+		else
+			color.basic = newBasic;
+
+		Cvar_Set("scr_concolor", CL_PLColours_ToString(color));
+	}
+}
 
 static const char* M_Console_GetItemText(int index)
 {
@@ -8966,8 +10664,14 @@ static const char* M_Console_GetItemText(int index)
 		return "Down/Up Speed";
 	case CONSOLE_TRANSPARENCY:
 		return "Transparency";
+	case CONSOLE_CONBACK:
+		return "Background Image";
+	case CONSOLE_CONCOLOR:
+		return "Background Color";
 	case CONSOLE_CONTENTFILTER:
 		return "Content Filter";
+	case CONSOLE_TYPING:
+		return "Typing Status";
 	default:
 		q_snprintf(buffer, sizeof(buffer), "Unknown Item %d", index);
 		return buffer;
@@ -8984,6 +10688,7 @@ void M_Menu_Console_f(void)
 	consolemenu.search.len = 0;
 	consolemenu.search.text[0] = 0;
 	numberOfConsoleItems = CONSOLE_ITEMS;
+	M_Console_InitTextFields();
 
 	IN_UpdateGrabs();
 }
@@ -8992,6 +10697,10 @@ static void M_Console_AdjustSliders(int dir)
 {
 	float f;
 	int val;
+
+	if (console_cursor == CONSOLE_CONBACK)
+		return;
+
 	S_LocalSound("misc/menu3.wav");
 
 	switch (console_cursor)
@@ -9024,11 +10733,19 @@ static void M_Console_AdjustSliders(int dir)
 		Cvar_SetValue("scr_conalpha", f);
 		break;
 
+	case CONSOLE_CONCOLOR:
+		M_Console_AdjustColor(dir);
+		break;
+
 	case CONSOLE_CONTENTFILTER:
 		val = (int)cl_contentfilter.value + dir;
 		if (val > 2) val = 0;
 		else if (val < 0) val = 2;
 		Cvar_SetValue("cl_contentfilter", val);
+		break;
+
+	case CONSOLE_TYPING:
+		Cvar_SetValue("con_typing", !con_typing.value);
 		break;
 	default:
 		break;
@@ -9041,6 +10758,9 @@ void M_Console_Draw(void)
 	float r;
 	enum console_e i;
 	const char* filter_text;
+	const char* value;
+
+	M_TextField_CheckMouseRelease();
 
 	p = Draw_CachePic("gfx/p_option.lmp");
 	M_DrawPic((320 - p->width) / 2, 4, p);
@@ -9050,7 +10770,7 @@ void M_Console_Draw(void)
 
 	for (i = 0; i < CONSOLE_ITEMS; i++)
 	{
-		int y = 48 + 8 * i;
+		int y = M_Console_GetItemY(i);
 		const char* text = NULL;
 
 		switch (i)
@@ -9079,6 +10799,27 @@ void M_Console_Draw(void)
 			M_DrawSlider(186, y, r, scr_conalpha.value * 100, "%.0f%%");
 			break;
 
+		case CONSOLE_CONBACK:
+			text = "Background Image";
+			M_Console_DrawField(y, &console_conback_field, "default");
+			break;
+
+		case CONSOLE_CONCOLOR:
+			text = "Background Color";
+			if (strcmp(scr_concolor.string, "") == 0)
+				value = "default";
+			else if (console_rgb_active)
+				value = va("%s", scr_concolor.string);
+			else
+			{
+				plcolour_t color = CL_PLColours_Parse(scr_concolor.string);
+				value = (color.type == 2) ? va("%s", scr_concolor.string) : va("%d", color.basic);
+			}
+			M_Print(178, y, value);
+			if (strcmp(scr_concolor.string, "") != 0)
+				Draw_FillPlayer(178 + (strlen(value) * 8) + 4, y + 2, 6, 6, CL_PLColours_Parse(scr_concolor.string), 1.0f);
+			break;
+
 		case CONSOLE_CONTENTFILTER:
 			text = "  Content Filter";
 			switch ((int)cl_contentfilter.value)
@@ -9088,7 +10829,12 @@ void M_Console_Draw(void)
 			case 2: filter_text = "full"; break;
 			default: filter_text = "unknown"; break;
 			}
-			M_Print(180, y, filter_text);
+			M_Print(178, y, filter_text);
+			break;
+
+		case CONSOLE_TYPING:
+			text = "   Typing Status";
+			M_DrawCheckbox(178, y, con_typing.value != 0);
 			break;
 
 		default:
@@ -9112,7 +10858,15 @@ void M_Console_Draw(void)
 	}
 
 	// Draw cursor
-	M_DrawCharacter(168, 48 + console_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+	M_DrawCharacter(144, M_Console_GetItemY(console_cursor), 12 + ((int)(realtime * 4) & 1));
+
+	if (console_field_editing)
+	{
+		const char* hint = "Enter applies, Esc cancels";
+		M_PrintRGBA((320 - (int)strlen(hint) * 8) / 2, 144, hint, CL_PLColours_Parse("0xffffff"), 0.5f, false);
+	}
+	else if (console_cursor == CONSOLE_CONCOLOR)
+		M_PrintRGBA(74, 144, "+shift for RGB colors", CL_PLColours_Parse("0xffffff"), 0.6f, false);
 
 	// Draw search box if search is active
 	if (consolemenu.search.len > 0)
@@ -9149,14 +10903,68 @@ void M_Console_Key(int k)
 		return;
 	}
 
+	if (console_field_editing)
+	{
+		menu_textfield_t* active_field = M_Console_GetFieldForCursor();
+
+		if (active_field && M_TextField_Key(active_field, k))
+			return;
+		if (k >= 32 && k < 127)
+			return;
+
+		switch (k)
+		{
+		case K_ESCAPE:
+		case K_BBUTTON:
+		case K_MOUSE4:
+		case K_MOUSE2:
+			M_Console_EndFieldEdit(false);
+			return;
+
+		case K_ENTER:
+		case K_KP_ENTER:
+		case K_ABUTTON:
+			S_LocalSound("misc/menu3.wav");
+			M_Console_EndFieldEdit(true);
+			return;
+
+		case K_UPARROW:
+			M_Console_EndFieldEdit(true);
+			S_LocalSound("misc/menu1.wav");
+			console_cursor--;
+			if (console_cursor < 0)
+				console_cursor = CONSOLE_ITEMS - 1;
+			return;
+
+		case K_DOWNARROW:
+		case K_TAB:
+			M_Console_EndFieldEdit(true);
+			S_LocalSound("misc/menu1.wav");
+			console_cursor++;
+			if (console_cursor >= CONSOLE_ITEMS)
+				console_cursor = 0;
+			return;
+
+			case K_MOUSE1:
+				if (active_field && M_TextField_MouseInRow(m_mousey, M_Console_GetItemY(CONSOLE_CONBACK)))
+				{
+					M_Console_MouseClickField(active_field, m_mousex);
+					return;
+				}
+			M_Console_EndFieldEdit(true);
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	// Handle search functionality first
 	if (k == K_ESCAPE)
 	{
 		if (consolemenu.search.len > 0)
 		{
-			consolemenu.search.len = 0;
-			consolemenu.search.text[0] = 0;
-			numberOfConsoleItems = CONSOLE_ITEMS;
+			M_Console_ClearSearch();
 			return;
 		}
 		M_Menu_Options_f();
@@ -9167,9 +10975,7 @@ void M_Console_Key(int k)
 		if ((k == 'u' || k == 'U') && consolemenu.search.len > 0)
 		{
 			// Clear entire search with Ctrl+U
-			consolemenu.search.len = 0;
-			consolemenu.search.text[0] = 0;
-			numberOfConsoleItems = CONSOLE_ITEMS;
+			M_Console_ClearSearch();
 			return;
 		}
 		else if (k == K_BACKSPACE && consolemenu.search.len > 0)
@@ -9181,26 +10987,7 @@ void M_Console_Key(int k)
 			M_DeletePrevWord(&temp);
 			Q_strcpy(consolemenu.search.text, temp.text);
 			consolemenu.search.len = temp.len;
-
-			// Update filtering based on new search text
-			if (consolemenu.search.len > 0)
-			{
-				numberOfConsoleItems = 0;
-				for (int i = 0; i < CONSOLE_ITEMS; i++)
-				{
-					const char* itemtext = M_Console_GetItemText(i);
-					if (itemtext && q_strcasestr(itemtext, consolemenu.search.text))
-					{
-						numberOfConsoleItems++;
-						if (numberOfConsoleItems == 1)
-							console_cursor = i;
-					}
-				}
-			}
-			else
-			{
-				numberOfConsoleItems = CONSOLE_ITEMS;
-			}
+			M_Console_UpdateSearchResults();
 			return;
 		}
 	}
@@ -9209,24 +10996,7 @@ void M_Console_Key(int k)
 		if (consolemenu.search.len > 0)
 		{
 			consolemenu.search.text[--consolemenu.search.len] = 0;
-			if (consolemenu.search.len > 0)
-			{
-				numberOfConsoleItems = 0;
-				for (int i = 0; i < CONSOLE_ITEMS; i++)
-				{
-					const char* itemtext = M_Console_GetItemText(i);
-					if (itemtext && q_strcasestr(itemtext, consolemenu.search.text))
-					{
-						numberOfConsoleItems++;
-						if (numberOfConsoleItems == 1)
-							console_cursor = i;
-					}
-				}
-			}
-			else
-			{
-				numberOfConsoleItems = CONSOLE_ITEMS;
-			}
+			M_Console_UpdateSearchResults();
 			return;
 		}
 	}
@@ -9236,18 +11006,7 @@ void M_Console_Key(int k)
 		{
 			consolemenu.search.text[consolemenu.search.len++] = k;
 			consolemenu.search.text[consolemenu.search.len] = 0;
-
-			numberOfConsoleItems = 0;
-			for (int i = 0; i < CONSOLE_ITEMS; i++)
-			{
-				const char* itemtext = M_Console_GetItemText(i);
-				if (itemtext && q_strcasestr(itemtext, consolemenu.search.text))
-				{
-					numberOfConsoleItems++;
-					if (numberOfConsoleItems == 1)
-						console_cursor = i;
-				}
-			}
+			M_Console_UpdateSearchResults();
 			return;
 		}
 	}
@@ -9264,18 +11023,47 @@ void M_Console_Key(int k)
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
-	case K_MOUSE1:
 		m_entersound = true;
-		if (console_cursor == CONSOLE_FONTSIZE ||
+		if (M_Console_GetFieldForCursor())
+			M_Console_BeginFieldEdit();
+		else if (console_cursor == CONSOLE_FONTSIZE ||
 			console_cursor == CONSOLE_HEIGHT ||
 			console_cursor == CONSOLE_SPEED ||
 			console_cursor == CONSOLE_TRANSPARENCY)
-		{
 			console_slider_grab = true;
-		}
 		else
-		{
 			M_Console_AdjustSliders(1);
+		break;
+
+	case K_MOUSE1:
+		m_entersound = true;
+
+		if (consolemenu.search.len > 0 && m_mousey >= 170)
+			break;
+
+		{
+			int item = M_Console_GetItemAtY(m_mousey);
+
+			if (item >= 0)
+		{
+				console_cursor = item;
+
+				if (M_Console_GetFieldForCursor())
+				{
+						menu_textfield_t* field;
+						M_Console_BeginFieldEdit();
+						field = M_Console_GetFieldForCursor();
+						if (field)
+							M_Console_MouseClickField(field, m_mousex);
+					}
+				else if (console_cursor == CONSOLE_FONTSIZE ||
+					console_cursor == CONSOLE_HEIGHT ||
+					console_cursor == CONSOLE_SPEED ||
+					console_cursor == CONSOLE_TRANSPARENCY)
+					console_slider_grab = true;
+				else
+					M_Console_AdjustSliders(1);
+			}
 		}
 		break;
 
@@ -9305,8 +11093,35 @@ void M_Console_Key(int k)
 	}
 }
 
+void M_Console_Char(int k)
+{
+	menu_textfield_t* active_field;
+
+	if (!console_field_editing)
+		return;
+
+	active_field = M_Console_GetFieldForCursor();
+	if (active_field)
+		M_TextField_Char(active_field, k);
+}
+
+qboolean M_Console_TextEntry(void)
+{
+	return console_field_editing && M_Console_GetFieldForCursor() != NULL;
+}
+
 void M_Console_Mousemove(int cx, int cy)
 {
+	if (textfield_mouse_dragging &&
+		textfield_drag_field == &console_conback_field)
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
+
+	if (console_field_editing)
+		return;
+
 	if (console_slider_grab)
 	{
 		if (!keydown[K_MOUSE1])
@@ -9351,13 +11166,15 @@ void M_Console_Mousemove(int cx, int cy)
 		return;
 
 	// Calculate which menu item the mouse is over
-	int item = (cy - 48) / 8;
+	int item = M_Console_GetItemAtY(cy);
 
 	// Make sure the item is within valid range
-	if (item >= 0 && item < CONSOLE_ITEMS)
+	if (item >= 0)
 	{
-		// Update the cursor position
+		int old_cursor = console_cursor;
 		console_cursor = item;
+		if (console_cursor != old_cursor)
+			M_Console_ClearTextSelections();
 	}
 }
 
@@ -10375,7 +12192,7 @@ void M_Extras_Draw(void)
 			if (fabs(sys_throttle.value - 0.02) < 0.001)
 				value = "on";
 			else if (sys_throttle.value == 0)
-				value = "off";
+				value = "when idle";
 			else if (sys_throttle.value < -0.9)
 				value = "off+when minimized";
 			else
@@ -10676,6 +12493,7 @@ static struct
 	char				status_message[128]; // Add status message
 	double				status_time; // Time when status was set
 } resetconfigmenu;
+static menu_textfield_t resetconfig_search_field;
 
 static void M_ResetConfig_Add(const char* name, const char* date)
 {
@@ -10743,6 +12561,17 @@ static void M_ResetConfig_Refilter(void)
 		resetconfigmenu.list.cursor = 0;
 
 	M_List_CenterCursor(&resetconfigmenu.list);
+}
+
+static void M_ResetConfig_SyncSearchField(void)
+{
+	resetconfigmenu.list.search.len = (int)strlen(resetconfigmenu.list.search.text);
+	if (resetconfigmenu.list.search.len >= resetconfigmenu.list.search.maxlen)
+	{
+		resetconfigmenu.list.search.len = resetconfigmenu.list.search.maxlen - 1;
+		resetconfigmenu.list.search.text[resetconfigmenu.list.search.len] = 0;
+	}
+	M_TextField_ClampCursor(&resetconfig_search_field);
 }
 
 static void M_ResetConfig_Init(void)
@@ -10893,6 +12722,10 @@ static void M_ResetConfig_Init(void)
 #endif
 
 	M_ResetConfig_Refilter();
+	M_TextField_Init(&resetconfig_search_field,
+		resetconfigmenu.list.search.text,
+		resetconfigmenu.list.search.maxlen - 1,
+		false);
 
 	if (resetconfigmenu.list.cursor == -1 && resetconfigmenu.list.numitems > 0)
 		resetconfigmenu.list.cursor = 0;
@@ -10913,6 +12746,8 @@ void M_ResetConfig_Draw(void)
 {
 	int x, y, i, cols;
 	int firstvis, numvis;
+
+	M_TextField_CheckMouseRelease();
 
 	x = 16;
 	y = 32;
@@ -11000,10 +12835,11 @@ void M_ResetConfig_Draw(void)
 	if (resetconfigmenu.list.search.len > 0)
 	{
 		M_DrawTextBox(16, 180, 32, 1);
+		M_TextField_DrawHighlight(&resetconfig_search_field, 24, 188);
 		M_PrintHighlight(24, 188, resetconfigmenu.list.search.text,
 			resetconfigmenu.list.search.text,
 			resetconfigmenu.list.search.len);
-		int cursor_x = 24 + 8 * resetconfigmenu.list.search.len;
+		int cursor_x = 24 + 8 * resetconfig_search_field.cursor;
 		if (resetconfigmenu.list.numitems == 0)
 			M_DrawCharacter(cursor_x, 188, 11 ^ 128);
 		else
@@ -11042,22 +12878,11 @@ void M_ResetConfig_Key(int key)
 		return;
 	}
 
-	// Handle Ctrl+U or Ctrl+Backspace first
-	if (keydown[K_CTRL])
+	if (M_TextField_Key(&resetconfig_search_field, key))
 	{
-		if ((key == 'u' || key == 'U') && resetconfigmenu.list.search.len > 0)
-		{
-			resetconfigmenu.list.search.len = 0;
-			resetconfigmenu.list.search.text[0] = 0;
-			M_ResetConfig_Refilter();
-			return;
-		}
-		else if (key == K_BACKSPACE && resetconfigmenu.list.search.len > 0)
-		{
-			M_DeletePrevWord(&resetconfigmenu.list.search);
-			M_ResetConfig_Refilter();
-			return;
-		}
+		M_ResetConfig_SyncSearchField();
+		M_ResetConfig_Refilter();
+		return;
 	}
 
 	if (M_List_Key(&resetconfigmenu.list, key))
@@ -11120,19 +12945,20 @@ void M_ResetConfig_Key(int key)
 		break;
 
 	case K_MOUSE1: // woods #mousemenu
+		if (resetconfigmenu.list.search.len > 0 &&
+			m_mousex >= 16 && m_mousex <= 16 + 34 * 8 &&
+			m_mousey >= 180 && m_mousey <= 196)
+		{
+			M_TextField_MouseClick(&resetconfig_search_field, m_mousex, 24);
+			return;
+		}
+
 		x = m_mousex - resetconfigmenu.x - (resetconfigmenu.cols - 1) * 8;
 		y = m_mousey - resetconfigmenu.y;
 		if (x < -8 || !M_List_UseScrollbar(&resetconfigmenu.list, y))
 			goto enter;
 		resetconfigmenu.scrollbar_grab = true;
 		M_ResetConfig_Mousemove(m_mousex, m_mousey);
-
-	case K_BACKSPACE:
-		if (resetconfigmenu.list.search.len > 0)
-		{
-			resetconfigmenu.list.search.text[--resetconfigmenu.list.search.len] = 0;
-			M_ResetConfig_Refilter();
-		}
 		break;
 
 	default:
@@ -11141,10 +12967,9 @@ void M_ResetConfig_Key(int key)
 }
 void M_ResetConfig_Char(int key)
 {
-	if (resetconfigmenu.list.search.len < resetconfigmenu.list.search.maxlen - 1 && key >= 32 && key < 127)
+	if (M_TextField_Char(&resetconfig_search_field, key))
 	{
-		resetconfigmenu.list.search.text[resetconfigmenu.list.search.len++] = key;
-		resetconfigmenu.list.search.text[resetconfigmenu.list.search.len] = 0;
+		M_ResetConfig_SyncSearchField();
 		M_ResetConfig_Refilter();
 	}
 }
@@ -11157,6 +12982,12 @@ qboolean M_ResetConfig_TextEntry(void)
 
 void M_ResetConfig_Mousemove(int cx, int cy) // woods #mousemenu
 {
+	if (textfield_mouse_dragging && textfield_drag_field == &resetconfig_search_field)
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
+
 	cy -= resetconfigmenu.y;
 
 	if (resetconfigmenu.scrollbar_grab)
@@ -11379,21 +13210,38 @@ LAN Config Menu
 */
 
 int		lanConfig_cursor = -1;
-int     lanConfig_cursor_table_newgame[] = { 76, 86, 104 }; // Updated cursor positions for "New Game"
+int     lanConfig_cursor_table_newgame[] = { 76, 86, 104 };
+int     lanConfig_cursor_table_newgame_ice[] = { 76, 92, 108, 124 };
 int		lanConfig_cursor_table[] = { 76, 94, 102, 108, 116, 124 }; // woods #mousemenu #bookmarksmenu
 int*	lanConfig_cursor_ptr = NULL; // Pointer to the current cursor table
 
 int     NUM_LANCONFIG_CMDS;
-#define NUM_LANCONFIG_CMDS_NEWGAME 3
+#define NUM_LANCONFIG_CMDS_NEWGAME 4
 #define NUM_LANCONFIG_CMDS_JOINGAME 6
+#define LANCONFIG_CURSOR_PORT 0
+#define LANCONFIG_CURSOR_NEWGAME_ROOM 1
+#define LANCONFIG_CURSOR_NEWGAME_PROTOCOL 2
+#define LANCONFIG_CURSOR_NEWGAME_OK 3
+#define LANCONFIG_CURSOR_JOINGAME_SEARCH_LAN 1
+#define LANCONFIG_CURSOR_JOINGAME_SEARCH_WEB 2
+#define LANCONFIG_CURSOR_JOINGAME_HISTORY 3
+#define LANCONFIG_CURSOR_JOINGAME_BOOKMARKS 4
+#define LANCONFIG_CURSOR_JOINGAME_JOIN 5
 
 int 	lanConfig_port;
 char	lanConfig_portname[6];
+char	lanConfig_roomname[13];
 char	lanConfig_joinname[22];
 int     lanConfig_protocol_cursor = 0; // Track selected protocol
+static menu_textfield_t lanConfig_port_field;
+static menu_textfield_t lanConfig_room_field;
+static menu_textfield_t lanConfig_join_field;
+static char lanConfig_porthint[6];
+static char lanConfig_joinhint[22];
 
 extern int sv_protocol;
 extern unsigned int	sv_protocol_pext2;
+extern cvar_t sv_port_rtc;
 
 typedef struct {
 	int x;
@@ -11411,6 +13259,147 @@ static char last_copied_ip[128] = "";
 static qboolean addresses_cached = false;
 static qhostaddr_t cached_addresses[16];
 static int cached_numaddresses = 0;
+
+static qboolean M_LanConfig_HasIce(void)
+{
+	return !safemode && COM_CheckParm("-useice") && !COM_CheckParm("-noice");
+}
+
+static qboolean M_LanConfig_ShowRoomField(void)
+{
+	return StartingGame && M_LanConfig_HasIce();
+}
+
+static int M_LanConfig_NewGameNumCommands(void)
+{
+	return M_LanConfig_ShowRoomField() ? NUM_LANCONFIG_CMDS_NEWGAME : NUM_LANCONFIG_CMDS_NEWGAME - 1;
+}
+
+static int M_LanConfig_NewGameProtocolCursor(void)
+{
+	return M_LanConfig_ShowRoomField() ? LANCONFIG_CURSOR_NEWGAME_PROTOCOL : LANCONFIG_CURSOR_NEWGAME_ROOM;
+}
+
+static int M_LanConfig_NewGameOkCursor(void)
+{
+	return M_LanConfig_ShowRoomField() ? LANCONFIG_CURSOR_NEWGAME_OK : LANCONFIG_CURSOR_NEWGAME_PROTOCOL;
+}
+
+static menu_textfield_t *M_LanConfig_GetFieldForCursor(void)
+{
+	if (lanConfig_cursor == LANCONFIG_CURSOR_PORT)
+		return &lanConfig_port_field;
+	if (M_LanConfig_ShowRoomField() && lanConfig_cursor == LANCONFIG_CURSOR_NEWGAME_ROOM)
+		return &lanConfig_room_field;
+	if (JoiningGame && lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN)
+		return &lanConfig_join_field;
+	return NULL;
+}
+
+static void M_LanConfig_ClearTextSelections(void)
+{
+	M_TextField_ClearSelection(&lanConfig_port_field);
+	M_TextField_ClearSelection(&lanConfig_room_field);
+	M_TextField_ClearSelection(&lanConfig_join_field);
+}
+
+static void M_LanConfig_UpdatePortHint(void)
+{
+	static const char default_port[] = "26000";
+	int len = (int)strlen(lanConfig_portname);
+
+	lanConfig_porthint[0] = '\0';
+
+	if (!q_strncasecmp(default_port, lanConfig_portname, len))
+		q_strlcpy(lanConfig_porthint, default_port + len, sizeof(lanConfig_porthint));
+}
+
+static void M_LanConfig_UpdateJoinHint(void)
+{
+	filelist_item_t *item;
+	int len = (int)strlen(lanConfig_joinname);
+
+	lanConfig_joinhint[0] = '\0';
+
+	if (len <= 0)
+		return;
+
+	for (item = serverlist; item; item = item->next)
+	{
+		if (!q_strncasecmp(item->name, lanConfig_joinname, len))
+		{
+			q_strlcpy(lanConfig_joinhint, item->name + len, sizeof(lanConfig_joinhint));
+			return;
+		}
+	}
+}
+
+static qboolean M_LanConfig_AcceptPortHint(void)
+{
+	if (!lanConfig_porthint[0])
+		return false;
+
+	if (lanConfig_port_field.cursor != (int)strlen(lanConfig_portname))
+		return false;
+
+	q_strlcat(lanConfig_portname, lanConfig_porthint, sizeof(lanConfig_portname));
+	lanConfig_port_field.cursor = (int)strlen(lanConfig_portname);
+	lanConfig_port_field.sel_start = -1;
+	M_TextField_ClampCursor(&lanConfig_port_field);
+	M_LanConfig_UpdatePortHint();
+	return true;
+}
+
+static qboolean M_LanConfig_AcceptJoinHint(void)
+{
+	if (!lanConfig_joinhint[0])
+		return false;
+
+	if (lanConfig_join_field.cursor != (int)strlen(lanConfig_joinname))
+		return false;
+
+	q_strlcat(lanConfig_joinname, lanConfig_joinhint, sizeof(lanConfig_joinname));
+	lanConfig_join_field.cursor = (int)strlen(lanConfig_joinname);
+	lanConfig_join_field.sel_start = -1;
+	M_TextField_ClampCursor(&lanConfig_join_field);
+	M_LanConfig_UpdateJoinHint();
+	return true;
+}
+
+static void M_LanConfig_UpdateHints(void)
+{
+	M_LanConfig_UpdatePortHint();
+	M_LanConfig_UpdateJoinHint();
+}
+
+static void M_LanConfig_NormalizeRoomField(void)
+{
+	int len;
+
+	if (!lanConfig_roomname[0] || lanConfig_roomname[0] == '/')
+		return;
+
+	len = (int)strlen(lanConfig_roomname);
+	if (len >= (int)sizeof(lanConfig_roomname) - 1)
+		len = (int)sizeof(lanConfig_roomname) - 2;
+
+	memmove(lanConfig_roomname + 1, lanConfig_roomname, len + 1);
+	lanConfig_roomname[0] = '/';
+	lanConfig_roomname[len + 1] = '\0';
+
+	lanConfig_room_field.cursor++;
+	if (lanConfig_room_field.sel_start >= 0)
+		lanConfig_room_field.sel_start++;
+	M_TextField_ClampCursor(&lanConfig_room_field);
+}
+
+static void M_LanConfig_SyncRoomField(void)
+{
+	if (!M_LanConfig_HasIce())
+		return;
+
+	Cvar_Set(sv_port_rtc.name, lanConfig_roomname);
+}
 
 void SetProtocol(int protocol_cursor)
 {
@@ -11473,8 +13462,8 @@ void M_Menu_LanConfig_f (void)
 	if (StartingGame)
 	{
 		// Use New Game configuration
-		lanConfig_cursor_ptr = lanConfig_cursor_table_newgame;
-		NUM_LANCONFIG_CMDS = NUM_LANCONFIG_CMDS_NEWGAME;
+		lanConfig_cursor_ptr = M_LanConfig_ShowRoomField() ? lanConfig_cursor_table_newgame_ice : lanConfig_cursor_table_newgame;
+		NUM_LANCONFIG_CMDS = M_LanConfig_NewGameNumCommands();
 		// Map sv_protocol to corresponding protocol cursor
 		switch (sv_protocol)
 		{
@@ -11507,15 +13496,24 @@ void M_Menu_LanConfig_f (void)
 
 	if (lanConfig_cursor == -1)
 	{
-		if (JoiningGame && TCPIPConfig)
-			lanConfig_cursor = 2;
+		if (StartingGame)
+			lanConfig_cursor = M_LanConfig_NewGameProtocolCursor();
+		else if (JoiningGame && TCPIPConfig)
+			lanConfig_cursor = LANCONFIG_CURSOR_JOINGAME_SEARCH_WEB;
 		else
-			lanConfig_cursor = 1;
+			lanConfig_cursor = LANCONFIG_CURSOR_JOINGAME_SEARCH_LAN;
 	}
-	if (StartingGame && lanConfig_cursor >= 3)
-		lanConfig_cursor = 1;
+	if (StartingGame && lanConfig_cursor >= NUM_LANCONFIG_CMDS)
+		lanConfig_cursor = M_LanConfig_NewGameProtocolCursor();
 	lanConfig_port = DEFAULTnet_hostport;
 	sprintf(lanConfig_portname, "%u", lanConfig_port);
+	q_strlcpy(lanConfig_roomname, sv_port_rtc.string, sizeof(lanConfig_roomname));
+	M_TextField_Init(&lanConfig_port_field, lanConfig_portname, 5, true);
+	M_TextField_Init(&lanConfig_room_field, lanConfig_roomname, sizeof(lanConfig_roomname) - 1, false);
+	M_TextField_Init(&lanConfig_join_field, lanConfig_joinname, 21, false);
+	M_LanConfig_NormalizeRoomField();
+	M_LanConfig_SyncRoomField();
+	M_LanConfig_UpdateHints();
 
 	m_return_onerror = false;
 	m_return_reason[0] = 0;
@@ -11539,6 +13537,7 @@ void M_LanConfig_CheckTimeouts(void)
 void M_LanConfig_Draw (void)
 {
 	M_LanConfig_CheckTimeouts(); // woods #contentfilter
+	M_TextField_CheckMouseRelease();
 	
 	qpic_t	*p;
 	int		basex;
@@ -11559,10 +13558,11 @@ void M_LanConfig_Draw (void)
 		startJoin = "Join Game";
 
 	M_PrintWhite (basex, 32, va ("%s", startJoin));
-	basex += 8;
+	basex += 0;
 
 	y = 52;
 	M_Print(basex, y, "Address:");
+	const int address_x = basex + (9 * 8);
 
 	if (!addresses_cached) {
 		cached_numaddresses = NET_ListAddresses(cached_addresses, sizeof(cached_addresses) / sizeof(cached_addresses[0]));
@@ -11571,47 +13571,47 @@ void M_LanConfig_Draw (void)
 
 	if (!cached_numaddresses)
 	{
-		M_Print(basex + (9 * 8) + 10, y, "NONE KNOWN");
+		M_Print(address_x, y, "NONE KNOWN");
 		y += 8;
 	}
 	else
 	{
 		// Store clickable areas for IPs and their labels
 		// Local IP
-		ip_clickables[0].label_x = basex + (9 * 8) + 10;
+		ip_clickables[0].label_x = address_x;
 		ip_clickables[0].label_width = 7 * 8;
-		ip_clickables[0].x = basex + (9 * 8) + 10 + 7 * 8;
+		ip_clickables[0].x = address_x + 7 * 8;
 		ip_clickables[0].y = y;
 		ip_clickables[0].width = strlen(cached_addresses[0]) * 8;
 		strncpy(ip_clickables[0].text, cached_addresses[0], sizeof(ip_clickables[0].text));
 
 		if (cl_contentfilter.value && !ip_temporarily_visible[0]) // woods #contentfilter
 		{
-			M_Print(basex + (9 * 8) + 10, y, "local: click to view");
+			M_Print(address_x, y, "local: click to view");
 			ip_clickables[0].width = 13 * 8; // Width of "click to view" text
 		}
 		else 
 		{
-		M_Print(basex + (9 * 8) + 10, y, va("local: %s", cached_addresses[0]));
+		M_Print(address_x, y, va("local: %s", cached_addresses[0]));
 		}
 		y += 8;
 
 		// External IP
-		ip_clickables[1].label_x = basex + (9 * 8) + 10;
+		ip_clickables[1].label_x = address_x;
 		ip_clickables[1].label_width = 7 * 8;
-		ip_clickables[1].x = basex + (9 * 8) + 10 + 7 * 8;
+		ip_clickables[1].x = address_x + 7 * 8;
 		ip_clickables[1].y = y;
 		ip_clickables[1].width = strlen(my_public_ip) * 8;
 		strncpy(ip_clickables[1].text, my_public_ip, sizeof(ip_clickables[1].text));
 
 		if (cl_contentfilter.value && !ip_temporarily_visible[1]) // woods #contentfilter
 		{
-			M_Print(basex + (9 * 8) + 10, y, "ext:   click to view");
+			M_Print(address_x, y, "ext:   click to view");
 			ip_clickables[1].width = 13 * 8; // Width of "click to view" text
 		}
 		else 
 		{
-		M_Print(basex + (9 * 8) + 10, y, va("ext:   %s", my_public_ip));
+		M_Print(address_x, y, va("ext:   %s", my_public_ip));
 		}
 		y += 8;
 	}
@@ -11619,10 +13619,18 @@ void M_LanConfig_Draw (void)
 	y+=8;	//for the port's box
 	M_Print (basex, y, "Port:");
 	M_DrawTextBox (basex+8*10, y-8, 6, 1);
+	M_TextField_DrawHighlight(&lanConfig_port_field, basex + 9 * 10, y);
 	M_Print (basex+9*10, y, lanConfig_portname);
-	if (lanConfig_cursor == 0)
+	if (lanConfig_cursor == LANCONFIG_CURSOR_PORT &&
+		lanConfig_porthint[0] &&
+		lanConfig_port_field.cursor == (int)strlen(lanConfig_portname))
 	{
-		M_DrawCharacter (basex+9*10 + 8*strlen(lanConfig_portname), y, 10+((int)(realtime*4)&1));
+		int hint_x = basex + 9 * 10 + (int)strlen(lanConfig_portname) * 8;
+		M_PrintRGBA(hint_x, y, lanConfig_porthint, CL_PLColours_Parse("0xffffff"), 0.5f, true);
+	}
+	if (lanConfig_cursor == LANCONFIG_CURSOR_PORT)
+	{
+		M_TextField_DrawCursor(&lanConfig_port_field, basex + 9 * 10, y);
 		M_DrawCharacter (basex-10, y, 12+((int)(realtime*4)&1));
 	}
 	y += 8;
@@ -11630,6 +13638,33 @@ void M_LanConfig_Draw (void)
 	if (StartingGame)
 	{
 		y += 8;
+		if (M_LanConfig_ShowRoomField())
+		{
+			M_Print(basex, y, "Room:");
+			M_DrawTextBox(basex + 8 * 10, y - 8, 14, 1);
+			if (lanConfig_cursor == LANCONFIG_CURSOR_NEWGAME_ROOM)
+			{
+				M_TextField_DrawHighlight(&lanConfig_room_field, basex + 9 * 10, y);
+				M_Print(basex + 9 * 10, y, lanConfig_roomname);
+				M_TextField_DrawCursor(&lanConfig_room_field, basex + 9 * 10, y);
+				M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
+			}
+			else if (!lanConfig_roomname[0])
+			{
+				M_PrintRGBA(basex + 9 * 10, y, "<DISABLED>", CL_PLColours_Parse("0xffffff"), 0.5f, true);
+			}
+			else if (!strcmp(lanConfig_roomname, "/"))
+			{
+				M_PrintRGBA(basex + 9 * 10, y, "<AUTO>", CL_PLColours_Parse("0xffffff"), 0.5f, true);
+			}
+			else
+			{
+				M_Print(basex + 9 * 10, y, lanConfig_roomname);
+			}
+
+			y += 16;
+		}
+
 		M_Print(basex, y, "Protocol:");
 
 
@@ -11639,7 +13674,7 @@ void M_LanConfig_Draw (void)
 		// Print the protocol description
 		M_Print(basex + 9 * 9 + 1, y, protocolDescription);
 
-		if (lanConfig_cursor == 1)
+		if (lanConfig_cursor == M_LanConfig_NewGameProtocolCursor())
 		{
 			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
 		}
@@ -11652,41 +13687,49 @@ void M_LanConfig_Draw (void)
 		y += 8;
 		
 		M_Print (basex, y, "Search for local games...");
-		if (lanConfig_cursor == 1)
+		if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_SEARCH_LAN)
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
 		y+=8;
 
 		M_Print (basex, y, "Search for public games...");
-		if (lanConfig_cursor == 2)
+		if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_SEARCH_WEB)
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
 		y+=8;
 
 		M_Print(basex, y, "History"); // woods #historymenu
-		if (lanConfig_cursor == 3)
+		if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_HISTORY)
 			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
 		y += 8;
 
 		M_Print(basex, y, "Bookmarks"); // woods #bookmarksmenu
-		if (lanConfig_cursor == 4)
+		if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_BOOKMARKS)
 			M_DrawCharacter(basex - 8, y, 12 + ((int)(realtime * 4) & 1));
 		y += 8;
 
 		M_Print (basex, y, "Join game at:");
 		y+=24;
-		M_DrawTextBox (basex+8, y-8, 22, 1);
-		M_Print (basex+16, y, lanConfig_joinname);
-		if (lanConfig_cursor == 5) // woods #historymenu #bookmarksmenu
-		{
-			M_DrawCharacter (basex+16 + 8*strlen(lanConfig_joinname), y, 10+((int)(realtime*4)&1));
-			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
-		}
-		y += 16;
+			M_DrawTextBox (basex+8, y-8, 22, 1);
+			M_TextField_DrawHighlight(&lanConfig_join_field, basex + 16, y);
+			M_Print (basex+16, y, lanConfig_joinname);
+			if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN &&
+				lanConfig_joinhint[0] &&
+				lanConfig_join_field.cursor == (int)strlen(lanConfig_joinname))
+			{
+				int hint_x = basex + 16 + (int)strlen(lanConfig_joinname) * 8;
+				M_PrintRGBA(hint_x, y, lanConfig_joinhint, CL_PLColours_Parse("0xffffff"), 0.5f, true);
+			}
+			if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN) // woods #historymenu #bookmarksmenu
+			{
+				M_TextField_DrawCursor(&lanConfig_join_field, basex + 16, y);
+				M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
+			}
+			y += 16;
 	}
 	else
 	{
 		M_DrawTextBox (basex, y-8, 2, 1);
 		M_Print (basex+8, y, "OK");
-		if (lanConfig_cursor == 2)
+		if (lanConfig_cursor == M_LanConfig_NewGameOkCursor())
 			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
 		y += 16;
 	}
@@ -11699,12 +13742,13 @@ void M_LanConfig_Draw (void)
 	}
 
 	if (*m_return_reason)
-		M_PrintWhite(basex, 148, m_return_reason);
+		M_PrintWhite(basex, y, m_return_reason);
 }
 
 void M_LanConfig_Key (int key)
 {
 	int		l;
+	menu_textfield_t *active_field;
 
 	if (key == K_MOUSE1)
 	{
@@ -11751,6 +13795,10 @@ void M_LanConfig_Key (int key)
 		}
 	}
 
+	active_field = M_LanConfig_GetFieldForCursor();
+	if (active_field && M_TextField_Key(active_field, key))
+		goto finish;
+
 	switch (key)
 	{
 	case K_ESCAPE:
@@ -11762,11 +13810,12 @@ void M_LanConfig_Key (int key)
 
 	case K_UPARROW:
 		S_LocalSound("misc/menu1.wav");
+		M_LanConfig_ClearTextSelections();
 		lanConfig_cursor--;
 
 		if (StartingGame) {
 			if (lanConfig_cursor < 0) {
-				lanConfig_cursor = NUM_LANCONFIG_CMDS_NEWGAME - 1;
+				lanConfig_cursor = NUM_LANCONFIG_CMDS - 1;
 			}
 		}
 		else {
@@ -11778,10 +13827,11 @@ void M_LanConfig_Key (int key)
 
 	case K_DOWNARROW:
 		S_LocalSound("misc/menu1.wav");
+		M_LanConfig_ClearTextSelections();
 		lanConfig_cursor++;
 
 		if (StartingGame) {
-			if (lanConfig_cursor >= NUM_LANCONFIG_CMDS_NEWGAME) {
+			if (lanConfig_cursor >= NUM_LANCONFIG_CMDS) {
 				lanConfig_cursor = 0;
 			}
 		}
@@ -11794,7 +13844,7 @@ void M_LanConfig_Key (int key)
 
 	case K_MWHEELUP:
 	case K_LEFTARROW:
-		if (StartingGame && lanConfig_cursor == 1)
+		if (StartingGame && lanConfig_cursor == M_LanConfig_NewGameProtocolCursor())
 		{
 			S_LocalSound("misc/menu1.wav");
 			lanConfig_protocol_cursor--;
@@ -11807,7 +13857,7 @@ void M_LanConfig_Key (int key)
 
 	case K_MWHEELDOWN:
 	case K_RIGHTARROW:
-		if (StartingGame && lanConfig_cursor == 1)
+		if (StartingGame && lanConfig_cursor == M_LanConfig_NewGameProtocolCursor())
 		{
 			S_LocalSound("misc/menu1.wav");
 			lanConfig_protocol_cursor++;
@@ -11818,11 +13868,43 @@ void M_LanConfig_Key (int key)
 		}
 		break;
 
+	case K_TAB:
+		if (lanConfig_cursor == LANCONFIG_CURSOR_PORT)
+		{
+			if (M_LanConfig_AcceptPortHint())
+				S_LocalSound("misc/menu2.wav");
+			goto finish;
+		}
+		if (JoiningGame && lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN)
+		{
+			if (M_LanConfig_AcceptJoinHint())
+				S_LocalSound("misc/menu2.wav");
+			goto finish;
+		}
+		break;
+
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
 	case K_MOUSE1: // woods #mousemenu
-		if (lanConfig_cursor == 0)
+		if (key == K_MOUSE1 && lanConfig_cursor == LANCONFIG_CURSOR_PORT)
+		{
+			M_TextField_MouseClick(&lanConfig_port_field, m_mousex, 170);
+			goto finish;
+		}
+		if (key == K_MOUSE1 && M_LanConfig_ShowRoomField() && lanConfig_cursor == LANCONFIG_CURSOR_NEWGAME_ROOM)
+		{
+			M_TextField_MouseClick(&lanConfig_room_field, m_mousex, 170);
+			goto finish;
+		}
+		if (key == K_MOUSE1 && JoiningGame && lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN)
+		{
+			M_TextField_MouseClick(&lanConfig_join_field, m_mousex, 96);
+			goto finish;
+		}
+
+		if (lanConfig_cursor == LANCONFIG_CURSOR_PORT ||
+			(M_LanConfig_ShowRoomField() && lanConfig_cursor == LANCONFIG_CURSOR_NEWGAME_ROOM))
 			break;
 
 		m_entersound = true;
@@ -11832,7 +13914,7 @@ void M_LanConfig_Key (int key)
 		if (StartingGame)
 		{
 
-			if (lanConfig_cursor == 1)
+			if (lanConfig_cursor == M_LanConfig_NewGameProtocolCursor())
 			{
 				S_LocalSound("misc/menu1.wav");
 				lanConfig_protocol_cursor++;
@@ -11841,119 +13923,78 @@ void M_LanConfig_Key (int key)
 
 				SetProtocol(lanConfig_protocol_cursor);
 			}
-			if (lanConfig_cursor == 2)
+			if (lanConfig_cursor == M_LanConfig_NewGameOkCursor())
 				M_Menu_GameOptions_f();
 		}
 		else
 		{
-			if (lanConfig_cursor == 1)
+			if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_SEARCH_LAN)
 				M_Menu_Search_f(SLIST_LAN); // woods #localmpfix
-			else if (lanConfig_cursor == 2)
+			else if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_SEARCH_WEB)
 				M_Menu_Search_f(SLIST_INTERNET);
-			else if (lanConfig_cursor == 3) // woods #historymenu
+			else if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_HISTORY) // woods #historymenu
 				M_Menu_History_f ();
-			else if (lanConfig_cursor == 4) // woods #bookmarksmenu
+			else if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_BOOKMARKS) // woods #bookmarksmenu
 				M_Menu_Bookmarks_f();
-			else if (lanConfig_cursor == 5)
+			else if (lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN)
 			{
-				m_return_state = m_state;
-				m_return_onerror = true;
-				key_dest = key_game;
-				m_state = m_none;
-				IN_UpdateGrabs();
-				Cbuf_AddText ( va ("connect \"%s\"\n", lanConfig_joinname) );
+					m_return_state = m_state;
+					m_return_onerror = true;
+					key_dest = key_game;
+					m_state = m_none;
+					IN_UpdateGrabs();
+					CL_MarkNextConnectFromMenu();
+					Cbuf_AddText ( va ("connect \"%s\"\n", lanConfig_joinname) );
+				}
 			}
-		}
 
-		break;
-
-	case K_BACKSPACE:
-		if (lanConfig_cursor == 0)
-		{
-			if (strlen(lanConfig_portname))
-				lanConfig_portname[strlen(lanConfig_portname)-1] = 0;
-		}
-
-		if (lanConfig_cursor == 5) // woods #historymenu #bookmarksmenu
-		{
-			if (strlen(lanConfig_joinname))
-				lanConfig_joinname[strlen(lanConfig_joinname)-1] = 0;
-		}
-
-		if (keydown[K_CTRL])
-		{
-			if (lanConfig_cursor == 0)
-			{
-				listsearch_t temp;
-				temp.len = strlen(lanConfig_portname);
-				Q_strcpy(temp.text, lanConfig_portname);
-				M_DeletePrevWord(&temp);
-				Q_strcpy(lanConfig_portname, temp.text);
-			}
-			else if (lanConfig_cursor == 5)
-			{
-				listsearch_t temp;
-				temp.len = strlen(lanConfig_joinname);
-				Q_strcpy(temp.text, lanConfig_joinname);
-				M_DeletePrevWord(&temp);
-				Q_strcpy(lanConfig_joinname, temp.text);
-			}
-		}
-		break;
-
-	case 'u':
-	case 'U':
-		if (keydown[K_CTRL])
-		{
-			if (lanConfig_cursor == 0)
-				lanConfig_portname[0] = 0;
-			else if (lanConfig_cursor == 5)
-				lanConfig_joinname[0] = 0;
-	}
-		break;
+			break;
 	}
 
-	if (StartingGame && lanConfig_cursor >= 3)
+finish:
+	M_LanConfig_NormalizeRoomField();
+	M_LanConfig_SyncRoomField();
+
+	if (StartingGame && lanConfig_cursor >= NUM_LANCONFIG_CMDS)
 	{
 		if (key == K_UPARROW)
-			lanConfig_cursor = 1;
+			lanConfig_cursor = M_LanConfig_NewGameProtocolCursor();
 		else
-			lanConfig_cursor = 0;
+			lanConfig_cursor = LANCONFIG_CURSOR_PORT;
 	}
 
 	l =  Q_atoi(lanConfig_portname);
-	if (l > 65535)
-		l = lanConfig_port;
-	else
-		lanConfig_port = l;
-	sprintf(lanConfig_portname, "%u", lanConfig_port);
+	if (lanConfig_portname[0])
+	{
+		if (l <= 65535)
+			lanConfig_port = l;
+		else if (lanConfig_cursor != LANCONFIG_CURSOR_PORT)
+			sprintf(lanConfig_portname, "%u", lanConfig_port);
+	}
+	M_TextField_ClampCursor(&lanConfig_port_field);
+	M_TextField_ClampCursor(&lanConfig_room_field);
+	M_TextField_ClampCursor(&lanConfig_join_field);
+	M_LanConfig_UpdateHints();
 }
 
 
 void M_LanConfig_Char (int key)
 {
-	int l;
-
-	switch (lanConfig_cursor)
+	menu_textfield_t *active_field = M_LanConfig_GetFieldForCursor();
+	if (active_field)
 	{
-	case 0:
-		if (key < '0' || key > '9')
-			return;
-		l = strlen(lanConfig_portname);
-		if (l < 5)
+		if (M_TextField_Char(active_field, key))
 		{
-			lanConfig_portname[l+1] = 0;
-			lanConfig_portname[l] = key;
+			if (active_field == &lanConfig_port_field)
+				M_LanConfig_UpdatePortHint();
+			else if (active_field == &lanConfig_room_field)
+			{
+				M_LanConfig_NormalizeRoomField();
+				M_LanConfig_SyncRoomField();
+			}
+			else if (active_field == &lanConfig_join_field)
+				M_LanConfig_UpdateJoinHint();
 		}
-		break;
-	case 5: // woods #historymenu #bookmarksmenu
-		l = strlen(lanConfig_joinname);
-		if (l < 21)
-		{
-			lanConfig_joinname[l+1] = 0;
-			lanConfig_joinname[l] = key;
-		}
-		break;
 	}
 }
 
@@ -12177,6 +14218,7 @@ void M_History_Key(int key)
 		key_dest = key_game;
 		m_state = m_none;
 		IN_UpdateGrabs();
+		CL_MarkNextConnectFromMenu();
 		Cbuf_AddText(va("connect \"%s\"\n", historymenu.items[historymenu.list.cursor].name));
 		break;
 
@@ -12477,6 +14519,7 @@ void M_Bookmarks_Key(int key)
 		key_dest = key_game;
 		m_state = m_none;
 		IN_UpdateGrabs();
+		CL_MarkNextConnectFromMenu();
 		Cbuf_AddText(va("connect \"%s\"\n", bookmarksmenu.items[bookmarksmenu.list.cursor].name));
 		break;
 
@@ -12546,6 +14589,8 @@ static int		bookmarks_edit_cursor_table[] = { 54, 86, 114, 138 };
 
 static char temp_alias[45];
 static char temp_name[45];
+static menu_textfield_t bookmarks_edit_name_field;
+static menu_textfield_t bookmarks_edit_alias_field;
 static qboolean	temp_pinned;
 static qboolean	bookmarks_edit_original_pinned;
 static char		bookmarks_edit_status[64];
@@ -12588,7 +14633,7 @@ static qboolean M_Bookmarks_Edit_SetPinned(qboolean pinned)
 
 		if (pinned_count >= MAX_PINNED_BOOKMARKS)
 		{
-			M_Bookmarks_Edit_ShowStatus("Max 5 pins reached");
+			M_Bookmarks_Edit_ShowStatus(va("Max %d pins reached", MAX_PINNED_BOOKMARKS));
 			S_LocalSound("misc/menu2.wav");
 			return false;
 		}
@@ -12605,6 +14650,21 @@ static void M_Bookmarks_ListAdd(const char* name, const char* alias, qboolean pi
 	char data[BOOKMARK_DATA_LENGTH];
 	BookmarkData_Format(data, sizeof(data), alias, pinned);
 	FileList_Add(name, data, &bookmarkslist);
+}
+
+static menu_textfield_t *M_Bookmarks_Edit_GetFieldForCursor(void)
+{
+	if (bookmarks_edit_cursor == 0)
+		return &bookmarks_edit_name_field;
+	if (bookmarks_edit_cursor == 1)
+		return &bookmarks_edit_alias_field;
+	return NULL;
+}
+
+static void M_Bookmarks_Edit_ClearTextSelections(void)
+{
+	M_TextField_ClearSelection(&bookmarks_edit_name_field);
+	M_TextField_ClearSelection(&bookmarks_edit_alias_field);
 }
 
 void M_Menu_Bookmarks_Edit_f (void)
@@ -12643,6 +14703,9 @@ void M_Menu_Bookmarks_Edit_f (void)
 		bookmarks_edit_original_pinned = false;
 		return;
 	}
+
+	M_TextField_Init(&bookmarks_edit_name_field, temp_name, 37, false);
+	M_TextField_Init(&bookmarks_edit_alias_field, temp_alias, 37, false);
 }
 
 void M_Shortcut_Bookmarks_Edit_f(void)
@@ -12655,12 +14718,16 @@ void M_Shortcut_Bookmarks_Edit_f(void)
 
 void M_Bookmarks_Edit_Draw(void)
 {
+	M_TextField_CheckMouseRelease();
+
 	M_Print(10, 40, "Hostname/IP");
 	M_DrawTextBox(6, 46, 38, 1);
+	M_TextField_DrawHighlight(&bookmarks_edit_name_field, 14, 54);
 	M_PrintWhite(14, 54, temp_name);
 
 	M_Print(10, 72, "Bookmark Name");
 	M_DrawTextBox(6, 78, 38, 1);
+	M_TextField_DrawHighlight(&bookmarks_edit_alias_field, 14, 86);
 	M_PrintWhite(14, 86, temp_alias);
 
 	M_Print(10, 114, "Pin");
@@ -12672,10 +14739,10 @@ void M_Bookmarks_Edit_Draw(void)
 	M_DrawCharacter(0, bookmarks_edit_cursor_table[bookmarks_edit_cursor], 12 + ((int)(realtime * 4) & 1));
 
 	if (bookmarks_edit_cursor == 0)
-		M_DrawCharacter(13 + 8 * strlen(temp_name), bookmarks_edit_cursor_table[bookmarks_edit_cursor], 10 + ((int)(realtime * 4) & 1));
+		M_TextField_DrawCursor(&bookmarks_edit_name_field, 13, bookmarks_edit_cursor_table[bookmarks_edit_cursor]);
 
 	if (bookmarks_edit_cursor == 1)
-		M_DrawCharacter(13 + 8 * strlen(temp_alias), bookmarks_edit_cursor_table[bookmarks_edit_cursor], 10 + ((int)(realtime * 4) & 1));
+		M_TextField_DrawCursor(&bookmarks_edit_alias_field, 13, bookmarks_edit_cursor_table[bookmarks_edit_cursor]);
 
 	if (bookmarks_edit_status[0] && realtime < bookmarks_edit_status_until)
 	{
@@ -12689,6 +14756,9 @@ void M_Bookmarks_Edit_Draw(void)
 
 void M_Bookmarks_Edit_Key(int k)
 {
+	menu_textfield_t *active_field = M_Bookmarks_Edit_GetFieldForCursor();
+	if (active_field && M_TextField_Key(active_field, k))
+		return;
 
 	switch (k)
 	{
@@ -12712,6 +14782,7 @@ void M_Bookmarks_Edit_Key(int k)
 
 	case K_UPARROW:
 		S_LocalSound("misc/menu1.wav");
+		M_Bookmarks_Edit_ClearTextSelections();
 		bookmarks_edit_cursor--;
 		if (bookmarks_edit_cursor < 0)
 			bookmarks_edit_cursor = NUM_BOOKMARKS_EDIT_CMDS - 1;
@@ -12720,6 +14791,7 @@ void M_Bookmarks_Edit_Key(int k)
 	case K_DOWNARROW:
 	case K_TAB:
 		S_LocalSound("misc/menu1.wav");
+		M_Bookmarks_Edit_ClearTextSelections();
 		bookmarks_edit_cursor++;
 		if (bookmarks_edit_cursor >= NUM_BOOKMARKS_EDIT_CMDS)
 			bookmarks_edit_cursor = 0;
@@ -12752,6 +14824,19 @@ void M_Bookmarks_Edit_Key(int k)
 	case K_KP_ENTER:
 	case K_ABUTTON:
 	case K_MOUSE1: // woods #mousemenu
+		if (k == K_MOUSE1 && bookmarks_edit_cursor == 0)
+		{
+			if (M_TextField_MouseInRow(m_mousey, bookmarks_edit_cursor_table[0]))
+				M_TextField_MouseClick(&bookmarks_edit_name_field, m_mousex, 14);
+			return;
+		}
+		if (k == K_MOUSE1 && bookmarks_edit_cursor == 1)
+		{
+			if (M_TextField_MouseInRow(m_mousey, bookmarks_edit_cursor_table[1]))
+				M_TextField_MouseClick(&bookmarks_edit_alias_field, m_mousex, 14);
+			return;
+		}
+
 		if (bookmarks_edit_cursor == 0 || bookmarks_edit_cursor == 1)
 			return;
 
@@ -12783,81 +14868,18 @@ void M_Bookmarks_Edit_Key(int k)
 			bookmarks_edit_new = false;
 		}
 
-		m_entersound = true;
+			m_entersound = true;
 
-		M_Menu_Bookmarks_f();
-		break;
-
-	case K_BACKSPACE:
-		if (bookmarks_edit_cursor == 0)
-		{
-			if (strlen(temp_name))
-				temp_name[strlen(temp_name) - 1] = 0;
-		}
-
-		if (bookmarks_edit_cursor == 1)
-		{
-			if (strlen(temp_alias))
-				temp_alias[strlen(temp_alias) - 1] = 0;
-		}
-
-		if (keydown[K_CTRL])
-		{
-			if (bookmarks_edit_cursor == 0)
-			{
-				listsearch_t temp;
-				temp.len = strlen(temp_name);
-				Q_strcpy(temp.text, temp_name);
-				M_DeletePrevWord(&temp);
-				Q_strcpy(temp_name, temp.text);
-			}
-			else if (bookmarks_edit_cursor == 1)
-			{
-				listsearch_t temp;
-				temp.len = strlen(temp_alias);
-				Q_strcpy(temp.text, temp_alias);
-				M_DeletePrevWord(&temp);
-				Q_strcpy(temp_alias, temp.text);
-			}
-		}
-		break;
-
-	case 'u':
-	case 'U':
-		if (keydown[K_CTRL])
-		{
-			if (bookmarks_edit_cursor == 0)
-				temp_name[0] = 0;
-			else if (bookmarks_edit_cursor == 1)
-				temp_alias[0] = 0;
-	}
-		break;
+			M_Menu_Bookmarks_f();
+			break;
 	}
 }
 
 void M_Bookmarks_Edit_Char(int k)
 {
-	int l;
-
-	switch (bookmarks_edit_cursor)
-	{
-	case 0:
-		l = strlen(temp_name);
-		if (l < 37)
-		{
-			temp_name[l + 1] = 0;
-			temp_name[l] = k;
-		}
-		break;
-	case 1:
-		l = strlen(temp_alias);
-		if (l < 37)
-		{
-			temp_alias[l + 1] = 0;
-			temp_alias[l] = k;
-		}
-		break;
-	}
+	menu_textfield_t *active_field = M_Bookmarks_Edit_GetFieldForCursor();
+	if (active_field)
+		M_TextField_Char(active_field, k);
 }
 
 qboolean M_Bookmarks_Edit_TextEntry(void)
@@ -12867,16 +14889,42 @@ qboolean M_Bookmarks_Edit_TextEntry(void)
 
 void M_Bookmarks_Edit_Mousemove(int cx, int cy) // woods #mousemenu
 {
+	int old_cursor;
+
+	if (textfield_mouse_dragging &&
+		(textfield_drag_field == &bookmarks_edit_name_field || textfield_drag_field == &bookmarks_edit_alias_field))
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
+
+	old_cursor = bookmarks_edit_cursor;
 	M_UpdateCursorWithTable(cy, bookmarks_edit_cursor_table, NUM_BOOKMARKS_EDIT_CMDS, &bookmarks_edit_cursor);
+	if (bookmarks_edit_cursor != old_cursor)
+		M_Bookmarks_Edit_ClearTextSelections();
 }
 
 qboolean M_LanConfig_TextEntry (void)
 {
-	return (lanConfig_cursor == 0 || lanConfig_cursor == 5); // woods #historymenu #bookmarksmenu
+	return (lanConfig_cursor == LANCONFIG_CURSOR_PORT ||
+		(M_LanConfig_ShowRoomField() && lanConfig_cursor == LANCONFIG_CURSOR_NEWGAME_ROOM) ||
+		lanConfig_cursor == LANCONFIG_CURSOR_JOINGAME_JOIN); // woods #historymenu #bookmarksmenu
 }
 
 void M_LanConfig_Mousemove(int cx, int cy)
 {
+	int numCommands;
+	int old_cursor;
+
+	if (textfield_mouse_dragging &&
+		(textfield_drag_field == &lanConfig_port_field ||
+		textfield_drag_field == &lanConfig_room_field ||
+		textfield_drag_field == &lanConfig_join_field))
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
+
 	// First check if mouse is over IP addresses
 	for (int i = 0; i < 2; i++)
 	{
@@ -12891,8 +14939,11 @@ void M_LanConfig_Mousemove(int cx, int cy)
 	}
 
 	// If not over IPs, handle regular menu cursor movement
-	int numCommands = StartingGame ? NUM_LANCONFIG_CMDS_NEWGAME : NUM_LANCONFIG_CMDS_JOINGAME;
+	numCommands = NUM_LANCONFIG_CMDS;
+	old_cursor = lanConfig_cursor;
 	M_UpdateCursorWithTable(cy, lanConfig_cursor_ptr, numCommands, &lanConfig_cursor);
+	if (lanConfig_cursor != old_cursor)
+		M_LanConfig_ClearTextSelections();
 }
 
 /*
@@ -13050,6 +15101,16 @@ extern cvar_t sv_public;
 int	startepisode;
 int	startlevel;
 int maxplayers;
+static int gameoptions_cursor_table[] = {40, 56, 64, 72, 80, 88, 96, 104, 120, 128, 152, 160};
+#define	NUM_GAMEOPTIONS	12
+int		gameoptions_cursor;
+
+static char goptions_levelname[MAX_QPATH];
+static char goptions_levelhint[MAX_QPATH];
+static qboolean goptions_levelvalid;
+static menu_textfield_t goptions_level_field;
+
+static void M_GameOptions_UpdateLevelHint(void);
 
 void M_Menu_GameOptions_f (void)
 {
@@ -13061,12 +15122,129 @@ void M_Menu_GameOptions_f (void)
 		maxplayers = svs.maxclients;
 	if (maxplayers < 2)
 		maxplayers = 16;
+	M_TextField_Init(&goptions_level_field, goptions_levelname, MAX_QPATH - 1, false);
+	M_GameOptions_UpdateLevelHint();
 }
 
 
-int gameoptions_cursor_table[] = {40, 56, 64, 72, 80, 88, 96, 104, 120, 128, 152};
-#define	NUM_GAMEOPTIONS	11
-int		gameoptions_cursor;
+static menu_textfield_t *M_GameOptions_GetFieldForCursor(void)
+{
+	if (gameoptions_cursor == 11)
+		return &goptions_level_field;
+	return NULL;
+}
+
+static void M_GameOptions_ClearTextSelections(void)
+{
+	M_TextField_ClearSelection(&goptions_level_field);
+}
+
+static void M_GameOptions_ClearTypedLevel(void)
+{
+	goptions_levelname[0] = '\0';
+	goptions_levelhint[0] = '\0';
+	goptions_levelvalid = false;
+	goptions_level_field.cursor = 0;
+	goptions_level_field.sel_start = -1;
+}
+
+/*
+============
+M_GameOptions_UpdateLevelHint
+
+Scans extralevels for a map matching the typed input and updates hint text.
+============
+*/
+static void M_GameOptions_UpdateLevelHint(void)
+{
+	filelist_item_t *level;
+	int len = (int)strlen(goptions_levelname);
+
+	goptions_levelhint[0] = '\0';
+	goptions_levelvalid = false;
+
+	if (len <= 0)
+		return;
+
+	for (level = extralevels; level; level = level->next)
+	{
+		if (!q_strncasecmp(level->name, goptions_levelname, len))
+		{
+			if (!goptions_levelhint[0])
+				q_strlcpy(goptions_levelhint, level->name + len, sizeof(goptions_levelhint));
+
+			if (!q_strcasecmp(level->name, goptions_levelname))
+			{
+				/* Exact map name typed: valid and no hint needed. */
+				goptions_levelvalid = true;
+				goptions_levelhint[0] = '\0';
+				return;
+			}
+		}
+	}
+}
+
+/*
+============
+M_GameOptions_IsValidLevel
+
+Returns true if goptions_levelname exactly matches a map in extralevels.
+============
+*/
+static qboolean M_GameOptions_IsValidLevel(void)
+{
+	return goptions_levelvalid;
+}
+
+static void M_GameOptions_AcceptLevelHint(void)
+{
+	if (!goptions_levelhint[0])
+		return;
+
+	/* Only complete when the caret is at the end of the field text. */
+	if (goptions_level_field.cursor != (int)strlen(goptions_levelname))
+		return;
+
+	q_strlcat(goptions_levelname, goptions_levelhint, sizeof(goptions_levelname));
+	goptions_levelhint[0] = '\0';
+	goptions_level_field.cursor = (int)strlen(goptions_levelname);
+	goptions_level_field.sel_start = -1;
+	M_TextField_ClampCursor(&goptions_level_field);
+	M_GameOptions_UpdateLevelHint();
+}
+
+/*
+============
+M_GameOptions_CheckLeave
+
+Called when leaving Enter Level; validates and resolves priority with Select Level.
+============
+*/
+static void M_GameOptions_CheckLeave(void)
+{
+	if (!goptions_levelname[0])
+	{
+		goptions_levelhint[0] = '\0';
+		M_TextField_ClearSelection(&goptions_level_field);
+		return;
+	}
+
+	M_GameOptions_AcceptLevelHint();
+
+	if (M_GameOptions_IsValidLevel())
+	{
+		/* Valid typed map takes priority over Select Level. */
+		m_skill_mapname[0] = '\0';
+	}
+	else
+	{
+		/* Invalid input is cleared when leaving the field. */
+		M_GameOptions_ClearTypedLevel();
+	}
+
+	M_TextField_ClearSelection(&goptions_level_field);
+	M_GameOptions_UpdateLevelHint();
+}
 
 qboolean HasBots(void) // woods -- check if deathmatch needs difficulty #botdetect
 {
@@ -13138,6 +15316,8 @@ void M_GameOptions_Draw (void)
 {
 	qpic_t	*p;
 	int y = 40;
+
+	M_TextField_CheckMouseRelease();
 
 	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
 	p = Draw_CachePic ("gfx/p_multi.lmp");
@@ -13243,7 +15423,7 @@ void M_GameOptions_Draw (void)
 	if (hipnotic)
 	{
 		M_Print (160, y, hipnoticlevels[hipnoticepisodes[startepisode].firstLevel + startlevel].description);
-		if (m_skill_mapname[0])  // Custom map selected - show faded level name
+		if (m_skill_mapname[0] || (goptions_levelname[0] && M_GameOptions_IsValidLevel()))  // Custom map selected - show faded level name
 			M_PrintRGBA(160, y + 8, hipnoticlevels[hipnoticepisodes[startepisode].firstLevel + startlevel].name,
 				CL_PLColours_Parse("0xffffff"), 0.5, false);
 		else  // No custom map - show normal level name
@@ -13253,7 +15433,7 @@ void M_GameOptions_Draw (void)
 	else if (rogue)
 	{
 		M_Print (160, y, roguelevels[rogueepisodes[startepisode].firstLevel + startlevel].description);
-		if (m_skill_mapname[0])  // Custom map selected - show faded level name
+		if (m_skill_mapname[0] || (goptions_levelname[0] && M_GameOptions_IsValidLevel()))  // Custom map selected - show faded level name
 			M_PrintRGBA(160, y+8, roguelevels[rogueepisodes[startepisode].firstLevel + startlevel].name,
 				CL_PLColours_Parse("0xffffff"), 0.5, false);
 		else  // No custom map - show normal level name
@@ -13262,19 +15442,37 @@ void M_GameOptions_Draw (void)
 	else
 	{
 		M_Print (160, y, levels[episodes[startepisode].firstLevel + startlevel].description);
-		if (m_skill_mapname[0])  // Custom map selected - show faded level name
+		if (m_skill_mapname[0] || (goptions_levelname[0] && M_GameOptions_IsValidLevel()))  // Custom map selected - show faded level name
 			M_PrintRGBA(160, y+8, levels[episodes[startepisode].firstLevel + startlevel].name,
 				CL_PLColours_Parse("0xffffff"), 0.5, false);
 		else  // No custom map - show normal level name
 			M_PrintWhite(160, y+8, levels[episodes[startepisode].firstLevel + startlevel].name);
 	}
 	y +=24;
-	// Add new option
-	M_Print(0, y, "     Custom Level");
+	M_Print(0, y, "    Select Level");
 	if (m_skill_mapname[0])
 		M_PrintWhite(160, y, m_skill_mapname);
 	else
 		M_Print(160, y, "...");
+	y += 8;
+
+	M_Print(0, y, "     Enter Level");
+	M_TextField_DrawHighlight(&goptions_level_field, 160, y);
+	if (goptions_levelname[0])
+		M_PrintWhite(160, y, goptions_levelname);
+	else if (gameoptions_cursor != 11)
+		M_Print(160, y, "...");
+
+	if (goptions_levelhint[0] &&
+		gameoptions_cursor == 11 &&
+		goptions_level_field.cursor == (int)strlen(goptions_levelname))
+	{
+		int hint_x = 160 + (int)strlen(goptions_levelname) * 8;
+		M_PrintRGBA(hint_x, y, goptions_levelhint, CL_PLColours_Parse("0xffffff"), 0.5f, true);
+	}
+
+	if (gameoptions_cursor == 11)
+		M_TextField_DrawCursor(&goptions_level_field, 160, y);
 	y += 8;
 
 // line cursor
@@ -13336,6 +15534,7 @@ void M_NetStart_Change (int dir)
 
 	case 8:
 		m_skill_mapname[0] = 0;
+		M_GameOptions_ClearTypedLevel();
 		startepisode += dir;
 	//MED 01/06/97 added hipnotic count
 		if (hipnotic)
@@ -13360,6 +15559,7 @@ void M_NetStart_Change (int dir)
 
 	case 9:
 		m_skill_mapname[0] = 0;
+		M_GameOptions_ClearTypedLevel();
 		startlevel += dir;
 	//MED 01/06/97 added hipnotic episodes
 		if (hipnotic)
@@ -13377,15 +15577,25 @@ void M_NetStart_Change (int dir)
 			startlevel = 0;
 		break;
 
-	case 10: // Use Custom Map option
+	case 10: // Select Level option - open maps menu
 		maps_from_gameoptions = true;
 		M_Menu_Maps_f();
+		break;
+
+	case 11: // Enter Level field - left/right handled by textfield
 		break;
 	}
 }
 
 void M_GameOptions_Key (int key)
 {
+	menu_textfield_t *active_field = M_GameOptions_GetFieldForCursor();
+	if (active_field && M_TextField_Key(active_field, key))
+	{
+		M_GameOptions_UpdateLevelHint();
+		return;
+	}
+
 	switch (key)
 	{
 	case K_ESCAPE:
@@ -13397,6 +15607,9 @@ void M_GameOptions_Key (int key)
 
 	case K_UPARROW:
 		S_LocalSound ("misc/menu1.wav");
+		if (gameoptions_cursor == 11 && goptions_levelname[0])
+			M_GameOptions_CheckLeave();
+		M_GameOptions_ClearTextSelections();
 		gameoptions_cursor--;
 		if (gameoptions_cursor < 0)
 			gameoptions_cursor = NUM_GAMEOPTIONS-1;
@@ -13404,6 +15617,9 @@ void M_GameOptions_Key (int key)
 
 	case K_DOWNARROW:
 		S_LocalSound ("misc/menu1.wav");
+		if (gameoptions_cursor == 11 && goptions_levelname[0])
+			M_GameOptions_CheckLeave();
+		M_GameOptions_ClearTextSelections();
 		gameoptions_cursor++;
 		if (gameoptions_cursor >= NUM_GAMEOPTIONS)
 			gameoptions_cursor = 0;
@@ -13412,7 +15628,7 @@ void M_GameOptions_Key (int key)
 	case K_LEFTARROW:
 	case K_MWHEELDOWN:
 	//case K_MOUSE2:
-		if (gameoptions_cursor == 0)
+		if (gameoptions_cursor == 0 || gameoptions_cursor == 11)
 			break;
 		S_LocalSound ("misc/menu3.wav");
 		M_NetStart_Change (-1);
@@ -13420,7 +15636,7 @@ void M_GameOptions_Key (int key)
 
 	case K_RIGHTARROW:
 	case K_MWHEELUP:
-		if (gameoptions_cursor == 0)
+		if (gameoptions_cursor == 0 || gameoptions_cursor == 11)
 			break;
 		S_LocalSound ("misc/menu3.wav");
 		M_NetStart_Change (1);
@@ -13432,12 +15648,42 @@ void M_GameOptions_Key (int key)
 		{
 			m_skill_mapname[0] = 0;
 		}
+		else if (gameoptions_cursor == 11)
+		{
+			M_GameOptions_UpdateLevelHint();
+		}
+		break;
+
+	case K_TAB:
+		if (gameoptions_cursor == 11 && goptions_levelhint[0])
+		{
+			M_GameOptions_AcceptLevelHint();
+			m_skill_mapname[0] = '\0';
+			S_LocalSound("misc/menu2.wav");
+		}
 		break;
 
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
 	case K_MOUSE1: // woods #mousemenu
+		if (key == K_MOUSE1 && gameoptions_cursor == 11)
+		{
+			if (M_TextField_MouseInRow(m_mousey, gameoptions_cursor_table[11]))
+				M_TextField_MouseClick(&goptions_level_field, m_mousex, 160);
+			return;
+		}
+
+		if (gameoptions_cursor == 11)
+		{
+			M_GameOptions_CheckLeave();
+			if (goptions_levelname[0] && M_GameOptions_IsValidLevel())
+				S_LocalSound("misc/menu2.wav");
+			else
+				S_LocalSound("misc/menu3.wav");
+			return;
+		}
+
 		S_LocalSound ("misc/menu2.wav");
 		if (gameoptions_cursor == 0)
 		{
@@ -13447,7 +15693,16 @@ void M_GameOptions_Key (int key)
 			Cbuf_AddText ( va ("maxplayers %u\n", maxplayers) );
 			SCR_BeginLoadingPlaque ();
 
-			if (m_skill_mapname[0])  // If custom map is selected
+			if (goptions_levelname[0])
+			{
+				M_GameOptions_CheckLeave();
+			}
+
+			if (goptions_levelname[0] && M_GameOptions_IsValidLevel())  // Enter Level has priority
+			{
+				Cbuf_AddText(va("map %s\n", goptions_levelname));
+			}
+			else if (m_skill_mapname[0])  // Fallback to Select Level
 			{
 				Cbuf_AddText(va("map %s\n", m_skill_mapname));
 			}
@@ -13471,7 +15726,34 @@ void M_GameOptions_Key (int key)
 
 void M_GameOptions_Mousemove(int cx, int cy) // woods #mousemenu
 {
+	int old_cursor;
+
+	if (textfield_mouse_dragging && textfield_drag_field == &goptions_level_field)
+	{
+		M_TextField_MouseDrag(cx);
+		return;
+	}
+
+	old_cursor = gameoptions_cursor;
 	M_UpdateCursorWithTable(cy, gameoptions_cursor_table, NUM_GAMEOPTIONS, &gameoptions_cursor);
+	if (gameoptions_cursor != old_cursor)
+	{
+		if (old_cursor == 11 && goptions_levelname[0])
+			M_GameOptions_CheckLeave();
+		M_GameOptions_ClearTextSelections();
+	}
+}
+
+void M_GameOptions_Char(int key)
+{
+	menu_textfield_t *active_field = M_GameOptions_GetFieldForCursor();
+	if (active_field && M_TextField_Char(active_field, key))
+		M_GameOptions_UpdateLevelHint();
+}
+
+qboolean M_GameOptions_TextEntry(void)
+{
+	return (gameoptions_cursor == 11);
 }
 
 /*
@@ -14598,24 +16880,28 @@ void M_ServerList_Key(int key)
 		M_Menu_LanConfig_f();
 		break;
 
-        case K_ENTER:
-        case K_KP_ENTER:
-        case K_ABUTTON:
-        enter:
-                {
-                        int actualIndex = ServersMenu_ResolveIndex(serversmenu.list.cursor);
-                        if (actualIndex < 0 || actualIndex >= serversmenu.servercount)
-                                break;
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+	enter:
+	{
+		int actualIndex = ServersMenu_ResolveIndex(serversmenu.list.cursor);
 
-                        m_return_state = m_state;
-                        m_return_onerror = true;
-                        key_dest = key_game;
-                        m_state = m_none;
-                        IN_UpdateGrabs();
-                        Cbuf_AddText(va("connect \"%s\"\n", serversmenu.items[actualIndex].ip));
-                        CleanupPingThreads();
-                }
-                break;
+		if (actualIndex < 0 || actualIndex >= serversmenu.servercount)
+		{
+			break;
+		}
+
+		m_return_state = m_state;
+		m_return_onerror = true;
+		key_dest = key_game;
+		m_state = m_none;
+		IN_UpdateGrabs();
+		CL_MarkNextConnectFromMenu();
+		Cbuf_AddText(va("connect \"%s\"\n", serversmenu.items[actualIndex].ip));
+		CleanupPingThreads();
+	}
+	break;
 
 	case K_MOUSE1: // woods #mousemenu
 {
@@ -15242,7 +17528,7 @@ Demos Menu
 
 typedef struct
 {
-	char        name[64];
+	char        name[MAX_QPATH];
 	char        date[32];
 	char        map[64];
 	char        players[256];
@@ -15267,6 +17553,107 @@ static void FormatDuration(float secs, char *out, size_t outlen)
 	q_snprintf(out, outlen, "%d:%02d", m, s);
 }
 
+static qboolean M_IsTimestampStart(const char *s)
+{
+	return q_isdigit((unsigned char)s[0]) && q_isdigit((unsigned char)s[1]) &&
+		s[2] == '-' &&
+		q_isdigit((unsigned char)s[3]) && q_isdigit((unsigned char)s[4]) &&
+		s[5] == '-' &&
+		q_isdigit((unsigned char)s[6]) && q_isdigit((unsigned char)s[7]) &&
+		q_isdigit((unsigned char)s[8]) && q_isdigit((unsigned char)s[9]) &&
+		s[10] == '-';
+}
+
+static qboolean M_IsDatePrefix(const char *s)
+{
+	return q_isdigit((unsigned char)s[0]) &&
+		q_isdigit((unsigned char)s[1]) &&
+		q_isdigit((unsigned char)s[2]) &&
+		q_isdigit((unsigned char)s[3]) &&
+		s[4] == '-' &&
+		q_isdigit((unsigned char)s[5]) &&
+		q_isdigit((unsigned char)s[6]) &&
+		s[7] == '-' &&
+		q_isdigit((unsigned char)s[8]) &&
+		q_isdigit((unsigned char)s[9]) &&
+		(s[10] == '-' || s[10] == '_');
+}
+
+static void M_InferDemoMapName(const char *name, char *out, size_t outlen)
+{
+	char base[MAX_QPATH];
+	size_t i;
+
+	COM_FileBase(COM_SkipPath(name), base, sizeof(base));
+	if (!base[0])
+	{
+		out[0] = '\0';
+		return;
+	}
+
+	if (M_IsDatePrefix(base))
+		memmove(base, base + 11, strlen(base + 11) + 1);
+
+	for (i = 0; base[i]; ++i)
+	{
+		if ((base[i] == '_' || base[i] == '-') && M_IsTimestampStart(base + i + 1))
+		{
+			base[i] = '\0';
+			break;
+		}
+	}
+
+	if (!strncmp(base, "start_", 6) || !strncmp(base, "start-", 6))
+		base[0] = '\0';
+
+	q_strlcpy(out, base, outlen);
+}
+
+static qboolean M_IsDemoMapNameChar(int c)
+{
+	return q_isalnum((unsigned char)c) || c == '_' || c == '-' || c == '+';
+}
+
+static qboolean M_FindDemoMapNameInData(const byte *data, int start, int length,
+	char *out, size_t outlen)
+{
+	int scan_limit;
+	int i;
+
+	scan_limit = q_min(length, 512 * 1024);
+	for (i = start; i <= scan_limit - 9; ++i)
+	{
+		int name_start;
+		int j;
+
+		if (memcmp(data + i, "maps/", 5))
+			continue;
+
+		name_start = i + 5;
+		for (j = name_start; j <= scan_limit - 4; ++j)
+		{
+			int name_len;
+
+			if (!memcmp(data + j, ".bsp", 4))
+			{
+				name_len = j - name_start;
+				if (name_len <= 0)
+					break;
+				if (name_len >= (int)outlen)
+					name_len = (int)outlen - 1;
+				memcpy(out, data + name_start, name_len);
+				out[name_len] = '\0';
+				return true;
+			}
+
+			if (!M_IsDemoMapNameChar(data[j]))
+				break;
+		}
+	}
+
+	return false;
+}
+
 static inline int SkipCStringOffset(const byte* base, int off, int limit)
 {
 	const void* p = memchr(base + off, 0, (size_t)(limit - off));
@@ -15279,19 +17666,23 @@ static int CompareFrags(const void* a, const void* b)
 	return pb->frags - pa->frags;
 }
 
+static byte *M_LoadDemoInfoData(const char *name, int *length_out)
+{
+	return CL_LoadDemoBuffer(name, length_out);
+}
+
 static qboolean Parse_DemoInfo(const char* name, demoinfo_t* info)
 {
-	byte* data = COM_LoadMallocFile(va("demos/%s.dem", name), NULL);
+	int length;
+	byte* data = M_LoadDemoInfoData(name, &length);
 	if (!data) return false;
 
-	int length = com_filesize;
 	if (length <= 0) { free(data); return false; }
 
 	info->map[0] = info->players[0] = '\0';
 	info->duration = 0.0f;
 	info->filesize_mb = length / (1024.0f * 1024.0f);
 
-	qboolean map_found = false;
 	int maxclients = 16;
 
 	int  player_peak_frags[32];
@@ -15305,6 +17696,8 @@ static qboolean Parse_DemoInfo(const char* name, demoinfo_t* info)
 	while (off < length && data[off] != '\n') off++;
 	if (off < length) off++;
 
+	qboolean map_found = M_FindDemoMapNameInData(data, off, length,
+		info->map, sizeof(info->map));
 	float last_time = 0.0f;
 	int frame_count = 0;
 
@@ -15500,6 +17893,8 @@ build_result:
 	info->duration = last_time;
 	if (frame_count > 1000 && info->duration < 60.0f)
 		info->duration = frame_count / 40.0f;
+	if (!info->map[0])
+		M_InferDemoMapName(name, info->map, sizeof(info->map));
 }
 
 free(data);
@@ -15677,9 +18072,9 @@ void M_Demos_Draw (void)
         demoitem_t* demo_item = &demosmenu.items[demo_idx];
         qboolean selected = (idx == demosmenu.list.cursor);
 
-        COM_StripExtension(cls.demofilename, demofilename, sizeof(demofilename));
+        q_strlcpy(demofilename, COM_SkipPath(cls.demofilename), sizeof(demofilename));
 
-        demosmenu.items[demo_idx].active = !strcmp(demofilename, demo_item->name);
+        demosmenu.items[demo_idx].active = !q_strcasecmp(COM_SkipPath(demo_item->name), demofilename);
 
         int color = demosmenu.items[demo_idx].active ? 0 : 1;
         int len = strlen(demo_item->name);
@@ -15924,13 +18319,16 @@ void M_Demos_Key(int key)
 			int demo_idx = demosmenu.filtered_indices[demosmenu.list.cursor];
 
 			// Copy demo name to local buffer BEFORE freeing memory
-			char demo_name[64];
+			char demo_name[MAX_QPATH];
 			q_strlcpy(demo_name, demosmenu.items[demo_idx].name, sizeof(demo_name));
 
 			char demo_path[MAX_OSPATH];
 
 			// Construct the full path to the demo file
-			q_snprintf(demo_path, sizeof(demo_path), "%s/demos/%s.dem", com_gamedir, demo_name);
+			if (strchr(demo_name, '/') || strchr(demo_name, '\\'))
+				q_snprintf(demo_path, sizeof(demo_path), "%s/%s", com_gamedir, demo_name);
+			else
+				q_snprintf(demo_path, sizeof(demo_path), "%s/demos/%s", com_gamedir, demo_name);
 
 			// Try to delete the file
 			if (remove(demo_path) == 0)
@@ -16124,6 +18522,7 @@ static struct
 	{"menu_console", M_Menu_HUD_f},
 	{"menu_colorpicker", M_Menu_ColorPicker_f},
 	{"menu_startup", M_Menu_Startup_f},
+	{"menu_demooptions", M_Menu_DemoOptions_f},
 	{"menu_pakloading", M_Menu_PakLoading_f},
 	{"menu_misc", M_Menu_Extras_f},
 	{"menu_config", M_Menu_ResetConfig_f},
@@ -16429,6 +18828,10 @@ void M_Draw (void)
 		M_Startup_Draw();
 		break;
 
+	case m_demooptions:
+		M_DemoOptions_Draw();
+		break;
+
 	case m_pakloading:
 		M_PakLoading_Draw();
 		break;
@@ -16447,6 +18850,10 @@ void M_Draw (void)
 
 	case m_game:
 		M_Game_Draw();
+		break;
+
+	case m_playerxray:
+		M_PlayerXray_Draw();
 		break;
 
 	case m_hud:
@@ -16600,6 +19007,10 @@ void M_Keydown (int key)
 		M_Startup_Key(key);
 		return;
 
+	case m_demooptions:
+		M_DemoOptions_Key(key);
+		return;
+
 	case m_pakloading:
 		M_PakLoading_Key(key);
 		return;
@@ -16618,6 +19029,10 @@ void M_Keydown (int key)
 
 	case m_game:
 		M_Game_Key(key);
+		break;
+
+	case m_playerxray:
+		M_PlayerXray_Key(key);
 		break;
 
 	case m_hud:
@@ -16770,6 +19185,10 @@ void M_Mousemove(int x, int y) // woods #mousemenu
 		M_Game_Mousemove(x, y);
 		return;
 
+	case m_playerxray:
+		M_PlayerXray_Mousemove(x, y);
+		return;
+
 	case m_hud:
 		M_HUD_Mousemove(x, y);
 		return;
@@ -16792,6 +19211,10 @@ void M_Mousemove(int x, int y) // woods #mousemenu
 
 	case m_startup:
 		M_Startup_Mousemove(x, y);
+		return;
+
+	case m_demooptions:
+		M_DemoOptions_Mousemove(x, y);
 		return;
 
 	case m_pakloading:
@@ -16843,6 +19266,9 @@ void M_Charinput (int key)
 	case m_setup:
 		M_Setup_Char (key);
 		return;
+	case m_console:
+		M_Console_Char(key);
+		return;
 	case m_bookmarks_edit: // woods #bookmarksmenu
 		M_Bookmarks_Edit_Char(key);
 		return;
@@ -16854,6 +19280,9 @@ void M_Charinput (int key)
 		return;
 	case m_resetconfig:
 		M_ResetConfig_Char(key);
+		return;
+	case m_gameoptions:
+		M_GameOptions_Char(key);
 		return;
 	default:
 		return;
@@ -16867,6 +19296,8 @@ qboolean M_TextEntry (void)
 	{
 	case m_setup:
 		return M_Setup_TextEntry ();
+	case m_console:
+		return M_Console_TextEntry();
 	case m_bookmarks_edit: // woods #bookmarksmenu
 		return M_Bookmarks_Edit_TextEntry();
 	case m_quit:
@@ -16875,9 +19306,25 @@ qboolean M_TextEntry (void)
 		return M_LanConfig_TextEntry ();
 	case m_resetconfig:
 		return M_ResetConfig_TextEntry();
+	case m_gameoptions:
+		return M_GameOptions_TextEntry();
 	default:
 		return false;
 	}
+}
+
+qboolean M_WantsIBeamCursor(void)
+{
+	if (key_dest != key_menu)
+		return false;
+
+	if (M_TextField_IsDraggingAny())
+		return true;
+
+	if (m_state == m_namemaker)
+		return namemaker_edit_active;
+
+	return M_TextEntry();
 }
 
 #if defined(_WIN32) // woods #disablecaps via ironwail
@@ -17358,6 +19805,439 @@ void M_Startup_Mousemove(int cx, int cy)
 	else
 	{
 		M_Startup_ClampCursor();
+	}
+}
+
+/*
+==================
+Demo Options Menu
+==================
+*/
+
+enum demooptions_e
+{
+	DEMOOPTIONS_DEMOEYES,
+	DEMOOPTIONS_FORMAT,
+	DEMOOPTIONS_DEMOREEL,
+	DEMOOPTIONS_EYECAM,
+	DEMOOPTIONS_BAR_TIMEOUT,
+	DEMOOPTIONS_ITEMS
+} demooptions_cursor;
+
+static struct
+{
+	int cursor;
+	struct {
+		char text[32];
+		int len;
+	} search;
+} demooptionsmenu;
+
+static qboolean demooptions_slider_grab;
+
+static const char* M_DemoOptions_GetItemText(int index)
+{
+	static char buffer[64];
+
+	switch (index)
+	{
+	case DEMOOPTIONS_DEMOEYES:
+		return "Demo Eyes";
+	case DEMOOPTIONS_FORMAT:
+		return "Demo Format";
+	case DEMOOPTIONS_DEMOREEL:
+		return "Demo Reel";
+	case DEMOOPTIONS_EYECAM:
+		return "Demo Eyecam";
+	case DEMOOPTIONS_BAR_TIMEOUT:
+		return "Demo Bar Timeout";
+	default:
+		q_snprintf(buffer, sizeof(buffer), "Unknown Item %d", index);
+		return buffer;
+	}
+}
+
+static const char* M_DemoOptions_GetValueText(int index)
+{
+	static char buffer[64];
+
+	switch (index)
+	{
+	case DEMOOPTIONS_FORMAT:
+		if (!cl_demo_format.string[0] || !q_strcasecmp(cl_demo_format.string, "dem"))
+			return "dem (original)";
+		if (!q_strcasecmp(cl_demo_format.string, "dz"))
+			return "dz (dzip)";
+		return cl_demo_format.string;
+	case DEMOOPTIONS_DEMOREEL:
+		if (cl_demoreel.value > 1)
+			return "on";
+		if (cl_demoreel.value > 0)
+			return "startup only";
+		return "off";
+	case DEMOOPTIONS_EYECAM:
+		return cl_demo_eyecam.value ? "on" : "off";
+	case DEMOOPTIONS_BAR_TIMEOUT:
+		if (scr_demobar_timeout.value < 0.0f)
+			q_snprintf(buffer, sizeof(buffer), "hidden (%.1f)", scr_demobar_timeout.value);
+		else if (scr_demobar_timeout.value == 0.0f)
+			q_snprintf(buffer, sizeof(buffer), "always (%.1f)", scr_demobar_timeout.value);
+		else if ((float)Q_rint(scr_demobar_timeout.value) == scr_demobar_timeout.value)
+			q_snprintf(buffer, sizeof(buffer), "%d (%s)",
+				Q_rint(scr_demobar_timeout.value),
+				(Q_rint(scr_demobar_timeout.value) == 1) ? "second" : "seconds");
+		else
+			q_snprintf(buffer, sizeof(buffer), "%.1f (seconds)", scr_demobar_timeout.value);
+		return buffer;
+	default:
+		return "";
+	}
+}
+
+static void M_DemoOptions_ClampCursor(void)
+{
+	int cursor = (int)demooptions_cursor;
+
+	if (cursor < 0 || cursor >= DEMOOPTIONS_ITEMS)
+	{
+		cursor %= DEMOOPTIONS_ITEMS;
+		if (cursor < 0)
+			cursor += DEMOOPTIONS_ITEMS;
+		demooptions_cursor = (enum demooptions_e)cursor;
+	}
+}
+
+static void M_DemoOptions_MoveCursor(int delta)
+{
+	int cursor = (int)demooptions_cursor + delta;
+
+	cursor %= DEMOOPTIONS_ITEMS;
+	if (cursor < 0)
+		cursor += DEMOOPTIONS_ITEMS;
+
+	demooptions_cursor = (enum demooptions_e)cursor;
+}
+
+static void M_DemoOptions_SearchUpdate(void)
+{
+	int i;
+
+	if (demooptionsmenu.search.len <= 0)
+		return;
+
+	for (i = 0; i < DEMOOPTIONS_ITEMS; i++)
+	{
+		const char* text = M_DemoOptions_GetItemText(i);
+		if (q_strcasestr(text, demooptionsmenu.search.text))
+		{
+			demooptions_cursor = (enum demooptions_e)i;
+			M_DemoOptions_ClampCursor();
+			return;
+		}
+	}
+}
+
+static void M_DemoOptions_CycleDemoFormat(int dir)
+{
+#ifdef USE_ZLIB
+	static const char* formats[] = {"dem", "dz"};
+	const int count = (int)(sizeof(formats) / sizeof(formats[0]));
+	int index = 0;
+	int i;
+
+	for (i = 0; i < count; i++)
+	{
+		if (!q_strcasecmp(cl_demo_format.string, formats[i]))
+		{
+			index = i;
+			break;
+		}
+	}
+
+	index += (dir > 0) ? 1 : -1;
+	if (index < 0)
+		index = count - 1;
+	else if (index >= count)
+		index = 0;
+
+	Cvar_Set("cl_demo_format", formats[index]);
+#else
+	(void)dir;
+	Cvar_Set("cl_demo_format", "dem");
+#endif
+}
+
+void M_Menu_DemoOptions_f(void)
+{
+	key_dest = key_menu;
+	m_state = m_demooptions;
+	m_entersound = true;
+	demooptions_cursor = 0;
+	demooptionsmenu.cursor = 0;
+	demooptionsmenu.search.len = 0;
+	demooptionsmenu.search.text[0] = 0;
+	demooptions_slider_grab = false;
+
+	M_DemoOptions_ClampCursor();
+	IN_UpdateGrabs();
+}
+
+static void M_DemoOptions_AdjustSliders(int dir)
+{
+	float f;
+	int m;
+
+	S_LocalSound("misc/menu3.wav");
+
+	switch (demooptions_cursor)
+	{
+	case DEMOOPTIONS_DEMOEYES:
+		f = CLAMP(0.0f, cl_demoeyes.value + dir * 0.1f, 1.0f);
+		f = Q_rint(f * 10.0f) / 10.0f;
+		if (f < 0.05f)
+			f = 0.0f;
+		Cvar_SetValueQuick(&cl_demoeyes, f);
+		break;
+	case DEMOOPTIONS_FORMAT:
+		M_DemoOptions_CycleDemoFormat(dir);
+		break;
+	case DEMOOPTIONS_DEMOREEL:
+		m = (int)cl_demoreel.value + dir;
+		if (m < 0)
+			m = 2;
+		else if (m > 2)
+			m = 0;
+		Cvar_SetValueQuick(&cl_demoreel, m);
+		break;
+	case DEMOOPTIONS_EYECAM:
+		Cvar_SetValueQuick(&cl_demo_eyecam, cl_demo_eyecam.value ? 0 : 1);
+		break;
+	case DEMOOPTIONS_BAR_TIMEOUT:
+		if (scr_demobar_timeout.value < 0.0f)
+			f = (dir > 0) ? 0.0f : 10.0f;
+		else if (dir > 0)
+			f = (scr_demobar_timeout.value >= 10.0f) ? -1.0f : (float)Q_rint(scr_demobar_timeout.value) + 1.0f;
+		else if (scr_demobar_timeout.value <= 0.0f)
+			f = -1.0f;
+		else
+			f = (scr_demobar_timeout.value <= 1.0f) ? 0.0f : (float)Q_rint(scr_demobar_timeout.value) - 1.0f;
+		Cvar_SetValueQuick(&scr_demobar_timeout, f);
+		break;
+	default:
+		break;
+	}
+}
+
+void M_DemoOptions_Draw(void)
+{
+	qpic_t* p;
+	float r;
+	enum demooptions_e i;
+
+	M_DemoOptions_ClampCursor();
+
+	p = Draw_CachePic("gfx/p_option.lmp");
+	M_DrawPic((320 - p->width) / 2, 4, p);
+
+	{
+		const char* title = "Demo Options";
+		M_PrintWhite((320 - 8 * strlen(title)) / 2, 32, title);
+	}
+
+	for (i = 0; i < DEMOOPTIONS_ITEMS; i++)
+	{
+		int y = 48 + 8 * i;
+		const char* text = NULL;
+		const char* value = NULL;
+
+		switch (i)
+		{
+		case DEMOOPTIONS_DEMOEYES:
+			text = "         Demo Eyes";
+			r = CLAMP(0.0f, cl_demoeyes.value, 1.0f);
+			M_DrawSlider(186, y, r, r, "%.1f");
+			break;
+		case DEMOOPTIONS_FORMAT:
+			text = "       Demo Format";
+			value = M_DemoOptions_GetValueText(i);
+			break;
+		case DEMOOPTIONS_DEMOREEL:
+			text = "         Demo Reel";
+			value = M_DemoOptions_GetValueText(i);
+			break;
+		case DEMOOPTIONS_EYECAM:
+			text = "       Demo Eyecam";
+			value = M_DemoOptions_GetValueText(i);
+			break;
+		case DEMOOPTIONS_BAR_TIMEOUT:
+			text = "  Demo Bar Timeout";
+			value = M_DemoOptions_GetValueText(i);
+			break;
+		default:
+			break;
+		}
+
+		if (text)
+		{
+			if (demooptionsmenu.search.len > 0 &&
+				q_strcasestr(text, demooptionsmenu.search.text))
+			{
+				M_PrintHighlight(0, y, text,
+					demooptionsmenu.search.text,
+					demooptionsmenu.search.len);
+			}
+			else
+			{
+				M_Print(0, y, text);
+			}
+		}
+		if (value)
+			M_Print(183, y, value);
+	}
+
+	M_DrawCharacter(172, 48 + demooptions_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+
+	if (demooptionsmenu.search.len > 0)
+	{
+		int box_x = 20;
+		int box_y = 180;
+		int cursor_x = box_x + 8 * demooptionsmenu.search.len;
+		M_DrawTextBox(box_x - 8, box_y - 8, 32, 1);
+		M_PrintHighlight(box_x, box_y, demooptionsmenu.search.text,
+			demooptionsmenu.search.text, demooptionsmenu.search.len);
+
+		{
+			qboolean match = false;
+			for (i = 0; i < DEMOOPTIONS_ITEMS; i++)
+			{
+				const char* text = M_DemoOptions_GetItemText(i);
+				if (text && q_strcasestr(text, demooptionsmenu.search.text))
+				{
+					match = true;
+					break;
+				}
+			}
+			if (match)
+				M_DrawCharacter(cursor_x, box_y, 10 + ((int)(realtime * 4) & 1));
+			else
+				M_DrawCharacter(cursor_x, box_y, 11 ^ 128);
+		}
+	}
+}
+
+void M_DemoOptions_Key(int k)
+{
+	if (!keydown[K_MOUSE1])
+		demooptions_slider_grab = false;
+
+	if (demooptions_slider_grab)
+	{
+		switch (k)
+		{
+		case K_ESCAPE:
+		case K_BBUTTON:
+		case K_MOUSE4:
+		case K_MOUSE2:
+			demooptions_slider_grab = false;
+			break;
+		}
+		return;
+	}
+
+	switch (k)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+	case K_MOUSE4:
+	case K_MOUSE2:
+		M_Menu_Options_f();
+		break;
+	case K_MOUSE1:
+		m_entersound = true;
+		if (m_mousey >= 48 && m_mousey < 48 + (DEMOOPTIONS_ITEMS * 8))
+		{
+			demooptions_cursor = (m_mousey - 48) / 8;
+			if (demooptions_cursor == DEMOOPTIONS_DEMOEYES)
+				demooptions_slider_grab = true;
+			else
+				M_DemoOptions_AdjustSliders(1);
+		}
+		break;
+	case K_ENTER:
+	case K_KP_ENTER:
+	case K_ABUTTON:
+		m_entersound = true;
+		M_DemoOptions_AdjustSliders(1);
+		break;
+	case K_UPARROW:
+		S_LocalSound("misc/menu1.wav");
+		M_DemoOptions_MoveCursor(-1);
+		break;
+	case K_DOWNARROW:
+		S_LocalSound("misc/menu1.wav");
+		M_DemoOptions_MoveCursor(1);
+		break;
+	case K_LEFTARROW:
+	case K_MWHEELDOWN:
+		M_DemoOptions_AdjustSliders(-1);
+		break;
+	case K_RIGHTARROW:
+	case K_MWHEELUP:
+		M_DemoOptions_AdjustSliders(1);
+		break;
+	case K_BACKSPACE:
+		if (demooptionsmenu.search.len > 0)
+		{
+			demooptionsmenu.search.text[--demooptionsmenu.search.len] = 0;
+			M_DemoOptions_SearchUpdate();
+		}
+		break;
+	default:
+		if (k >= 32 && k < 127 && demooptionsmenu.search.len < (int)sizeof(demooptionsmenu.search.text) - 1)
+		{
+			demooptionsmenu.search.text[demooptionsmenu.search.len++] = k;
+			demooptionsmenu.search.text[demooptionsmenu.search.len] = 0;
+			M_DemoOptions_SearchUpdate();
+		}
+		break;
+	}
+}
+
+void M_DemoOptions_Mousemove(int cx, int cy)
+{
+	if (demooptions_slider_grab)
+	{
+		float f;
+
+		if (!keydown[K_MOUSE1])
+		{
+			demooptions_slider_grab = false;
+			return;
+		}
+
+		switch (demooptions_cursor)
+		{
+		case DEMOOPTIONS_DEMOEYES:
+			f = CLAMP(0.0f, M_MouseToSliderFraction(cx - 187), 1.0f);
+			f = Q_rint(f * 10.0f) / 10.0f;
+			if (f < 0.05f)
+				f = 0.0f;
+			Cvar_SetValue("cl_demoeyes", f);
+			break;
+		default:
+			break;
+		}
+		return;
+	}
+
+	int item = (cy - 48) / 8;
+	if (item >= 0 && item < DEMOOPTIONS_ITEMS)
+	{
+		demooptions_cursor = item;
+	}
+	else
+	{
+		M_DemoOptions_ClampCursor();
 	}
 }
 

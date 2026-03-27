@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "net_sys.h"
 #include "quakedef.h"
 #include "net_defs.h"
+#include "ice/ice_quake.h"
 #include "net_dgrm.h"
 
 // these two macros are to make the code more readable
@@ -52,6 +53,9 @@ cvar_t sv_heartbeat_interval = {"sv_heartbeat_interval", "110"};
 cvar_t sv_public = {"sv_public", NULL};
 cvar_t com_protocolname = {"com_protocolname", "FTE-Quake DarkPlaces-Quake"};
 cvar_t password = {"password", ""};	//this is super-lame and limited to numbers, so when not numeric we hash it and use that instead. there's no nonces though.
+cvar_t cl_portpingprobe_enable = {"cl_portpingprobe_enable", "0", CVAR_ARCHIVE};
+cvar_t cl_portpingprobe_probes = {"cl_portpingprobe_probes", "500", CVAR_ARCHIVE};
+cvar_t cl_portpingprobe_delay = {"cl_portpingprobe_delay", "0", CVAR_ARCHIVE};
 cvar_t net_masters[] = 
 {
 	{"net_master1", ""},
@@ -60,7 +64,7 @@ cvar_t net_masters[] =
 	{"net_master4", ""},
 	{"net_masterextra1", "master.frag-net.com:27950"},
 	{"net_masterextra2", "dpmaster.deathmask.net:27950"},
-	{"net_masterextra3", "dpmaster.tchr.no:27950"},
+	{"net_masterextra3", "master.quakeone.com:27950"},
 	{NULL}
 };
 cvar_t rcon_password = {"rcon_password", ""};
@@ -101,6 +105,51 @@ static struct heartbeatctx_s {	//thread context used to avoid stalls on dns look
 	} result[countof(net_masters)*MAX_NET_DRIVERS];
 } *heartbeatctx;
 
+typedef struct portpingprobe_ctx_s
+{
+	SDL_Thread *thread;
+	int num_probes;
+	int landriver;
+	char connect_addr[NET_NAMELEN];
+	struct qsockaddr target_addr;
+	byte serverinfo_packet[4 + 1 + sizeof("QUAKE") + 1];
+	int best_port;
+	double best_rtt;
+} portpingprobe_ctx_t;
+
+static const byte portpingprobe_getinfo_packet[] = {0xFF, 0xFF, 0xFF, 0xFF, 'g', 'e', 't', 'i', 'n', 'f', 'o', '\n'};
+
+static portpingprobe_ctx_t *portpingprobe_ctx = NULL;
+static SDL_atomic_t portpingprobe_status = {PORTPINGPROBE_IDLE};
+static SDL_atomic_t portpingprobe_abort_requested = {0};
+static SDL_atomic_t portpingprobe_worker_running = {0};
+static SDL_atomic_t portpingprobe_progress = {0};
+static int net_probe_clientport = 0;
+
+static struct
+{
+	qboolean valid;
+	qboolean has_target;
+	char connect_addr[NET_NAMELEN];
+	int landriver;
+	struct qsockaddr target_addr;
+	int best_port;
+	double best_rtt;
+} portpingprobe_result = {0};
+static int portpingprobe_last_percent = -1;
+static qboolean portpingprobe_console_inline = false;
+
+static void cl_portpingprobe_enable_completion(cvar_t *var, const char *partial);
+static void cl_portpingprobe_probes_completion(cvar_t *var, const char *partial);
+static void cl_portpingprobe_delay_completion(cvar_t *var, const char *partial);
+static void cl_portpingprobe_enable_changed(cvar_t *var);
+static void cl_portpingprobe_probes_changed(cvar_t *var);
+static void cl_portpingprobe_delay_changed(cvar_t *var);
+static double NET_PortPingProbeSingle(const portpingprobe_ctx_t *ctx, int source_port);
+static int NET_PortPingProbeWorker(void *data);
+static void NET_PortPingProbe_ClearResult(void);
+static void NET_PortPingProbe_Shutdown(void);
+
 
 static char *StrAddr (struct qsockaddr *addr)
 {
@@ -113,6 +162,470 @@ static char *StrAddr (struct qsockaddr *addr)
 	return buf;
 }
 
+static const char *Datagram_SocketOwnerString(const qsocket_t *sock) // woods #droplog
+{
+	int i;
+
+	if (sock && svs.clients && svs.maxclients)
+	{
+		for (i = 0; i < svs.maxclients; i++)
+		{
+			client_t *cl = &svs.clients[i];
+
+			if (cl->netconnection == sock)
+				return cl->name[0] ? cl->name : NET_QSocketGetTrueAddressString(sock);
+		}
+	}
+
+	return sock ? NET_QSocketGetTrueAddressString(sock) : "unknown";
+}
+
+static void cl_portpingprobe_enable_completion(cvar_t *var, const char *partial)
+{
+	Con_AddToTabList("0", partial, "disabled", NULL);
+	Con_AddToTabList("1", partial, "enabled", NULL);
+}
+
+static void cl_portpingprobe_probes_completion(cvar_t *var, const char *partial)
+{
+	Con_AddToTabList("50", partial, "fast test", NULL);
+	Con_AddToTabList("100", partial, "light probe", NULL);
+	Con_AddToTabList("200", partial, "balanced", NULL);
+	Con_AddToTabList("500", partial, "default", NULL);
+	Con_AddToTabList("1000", partial, "max", NULL);
+}
+
+static void cl_portpingprobe_delay_completion(cvar_t *var, const char *partial)
+{
+	Con_AddToTabList("0", partial, "no delay", NULL);
+	Con_AddToTabList("1", partial, "1 ms", NULL);
+	Con_AddToTabList("5", partial, "5 ms", NULL);
+	Con_AddToTabList("10", partial, "10 ms", NULL);
+	Con_AddToTabList("25", partial, "25 ms", NULL);
+	Con_AddToTabList("50", partial, "50 ms", NULL);
+	Con_AddToTabList("100", partial, "100 ms", NULL);
+}
+
+static void cl_portpingprobe_probes_changed(cvar_t *var)
+{
+	const int clamped = CLAMP(1, (int)var->value, 1000);
+
+	if ((int)var->value == clamped)
+		return;
+
+	Con_Printf("cl_portpingprobe_probes must be between 1 and 1000\n");
+	Cvar_SetValueQuick(var, (float)clamped);
+}
+
+static void cl_portpingprobe_delay_changed(cvar_t *var)
+{
+	if (var->value >= 0)
+		return;
+
+	Con_Printf("cl_portpingprobe_delay must be >= 0\n");
+	Cvar_SetValueQuick(var, 0);
+}
+
+static void cl_portpingprobe_enable_changed(cvar_t *var)
+{
+	portpingprobe_status_t status;
+
+	if (var->value != 0)
+		return;
+
+	NET_PortPingProbe_RequestAbort();
+	status = NET_PortPingProbe_GetStatus();
+	if (status == PORTPINGPROBE_COMPLETED || status == PORTPINGPROBE_IDLE)
+	{
+		NET_PortPingProbe_ClearResult();
+		net_probe_clientport = 0;
+		portpingprobe_last_percent = -1;
+		portpingprobe_console_inline = false;
+		SDL_AtomicSet(&portpingprobe_progress, 0);
+		SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+	}
+}
+
+qboolean NET_PortPingProbe_IsEnabled(void)
+{
+	return cl_portpingprobe_enable.value != 0;
+}
+
+portpingprobe_status_t NET_PortPingProbe_GetStatus(void)
+{
+	return (portpingprobe_status_t)SDL_AtomicGet(&portpingprobe_status);
+}
+
+int NET_PortPingProbe_GetProgress(void)
+{
+	int progress_count;
+
+	if (NET_PortPingProbe_GetStatus() == PORTPINGPROBE_COMPLETED)
+		return 100;
+	if (NET_PortPingProbe_GetStatus() != PORTPINGPROBE_PROBING || !portpingprobe_ctx || portpingprobe_ctx->num_probes <= 0)
+		return 0;
+
+	progress_count = SDL_AtomicGet(&portpingprobe_progress);
+	return CLAMP(0, (progress_count * 100) / portpingprobe_ctx->num_probes, 100);
+}
+
+void NET_PortPingProbe_RequestAbort(void)
+{
+	portpingprobe_status_t status = NET_PortPingProbe_GetStatus();
+
+	if (status == PORTPINGPROBE_IDLE || status == PORTPINGPROBE_COMPLETED)
+		return;
+
+	SDL_AtomicSet(&portpingprobe_abort_requested, 1);
+	SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_ABORT);
+}
+
+static void NET_PortPingProbe_ClearResult(void)
+{
+	portpingprobe_result.valid = false;
+	portpingprobe_result.has_target = false;
+	portpingprobe_result.connect_addr[0] = '\0';
+	portpingprobe_result.landriver = -1;
+	memset(&portpingprobe_result.target_addr, 0, sizeof(portpingprobe_result.target_addr));
+	portpingprobe_result.best_port = 0;
+	portpingprobe_result.best_rtt = 0;
+}
+
+qboolean NET_PortPingProbe_ConsumeCompleted(const char *connect_addr)
+{
+	struct qsockaddr resolved_addr;
+	qboolean equivalent_target = false;
+	int i;
+
+	if (NET_PortPingProbe_GetStatus() != PORTPINGPROBE_COMPLETED)
+		return false;
+
+	if (!connect_addr || !connect_addr[0] || !portpingprobe_result.valid)
+	{
+		NET_PortPingProbe_ClearResult();
+		SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+		return false;
+	}
+
+	if (q_strcasecmp(connect_addr, portpingprobe_result.connect_addr))
+	{
+		if (portpingprobe_result.has_target)
+		{
+			if (portpingprobe_result.landriver >= 0 &&
+				portpingprobe_result.landriver < net_numlandrivers &&
+				net_landrivers[portpingprobe_result.landriver].initialized &&
+				net_landrivers[portpingprobe_result.landriver].GetAddrFromName(connect_addr, &resolved_addr) != -1 &&
+				net_landrivers[portpingprobe_result.landriver].AddrCompare(&resolved_addr, &portpingprobe_result.target_addr) != -1)
+			{
+				equivalent_target = true;
+			}
+			else
+			{
+				for (i = 0; i < net_numlandrivers; i++)
+				{
+					if (!net_landrivers[i].initialized)
+						continue;
+					if (net_landrivers[i].GetAddrFromName(connect_addr, &resolved_addr) == -1)
+						continue;
+					if (net_landrivers[i].AddrCompare(&resolved_addr, &portpingprobe_result.target_addr) != -1)
+					{
+						equivalent_target = true;
+						break;
+					}
+				}
+			}
+		}
+
+		if (!equivalent_target)
+		{
+			NET_PortPingProbe_ClearResult();
+			SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+			return false;
+		}
+	}
+
+	net_probe_clientport = portpingprobe_result.best_port > 0 ? portpingprobe_result.best_port : 0;
+	NET_PortPingProbe_ClearResult();
+	SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+	return true;
+}
+
+static double NET_PortPingProbeSingle(const portpingprobe_ctx_t *ctx, int source_port)
+{
+	net_landriver_t *ldrv;
+	struct qsockaddr recvaddr;
+	byte recvbuf[2048];
+	double start_time;
+	double elapsed;
+	sys_socket_t sock;
+	qboolean fallback_sent = false;
+	int ret;
+
+	if (!ctx)
+		return -1;
+
+	ldrv = &net_landrivers[ctx->landriver];
+	sock = ldrv->Open_Socket(source_port);
+	if (sock == INVALID_SOCKET)
+		return -1;
+
+	if (ldrv->Write(sock, (byte *)portpingprobe_getinfo_packet, sizeof(portpingprobe_getinfo_packet), (struct qsockaddr *)&ctx->target_addr) == -1)
+	{
+		ldrv->Close_Socket(sock);
+		return -1;
+	}
+
+	start_time = Sys_DoubleTime();
+
+	while ((elapsed = (Sys_DoubleTime() - start_time)) < 1.0)
+	{
+		if (SDL_AtomicGet(&portpingprobe_abort_requested))
+			break;
+
+		// Some active servers ignore connectionless getinfo but answer
+		// CCREQ_SERVER_INFO. Try that as a fallback after a short delay.
+		if (!fallback_sent && elapsed >= 0.25)
+		{
+			ldrv->Write(sock, (byte *)ctx->serverinfo_packet, sizeof(ctx->serverinfo_packet), (struct qsockaddr *)&ctx->target_addr);
+			fallback_sent = true;
+		}
+
+		ret = ldrv->Read(sock, recvbuf, sizeof(recvbuf), &recvaddr);
+		if (ret > 0)
+		{
+			// Accept replies from the same host even if source port differs.
+			if (ldrv->AddrCompare(&recvaddr, (struct qsockaddr *)&ctx->target_addr) != -1)
+			{
+				ldrv->Close_Socket(sock);
+				return Sys_DoubleTime() - start_time;
+			}
+		}
+		else if (ret < 0)
+			break;
+
+		Sys_Sleep(1);
+	}
+
+	ldrv->Close_Socket(sock);
+	return -1;
+}
+
+static int NET_PortPingProbeWorker(void *data)
+{
+	portpingprobe_ctx_t *ctx = data;
+	unsigned int random_state;
+	int i;
+
+	if (!ctx)
+		return 0;
+
+	random_state = (unsigned int)(Sys_DoubleTime() * 1000000.0) ^ (unsigned int)(uintptr_t)SDL_ThreadID();
+
+	for (i = 0; i < ctx->num_probes; i++)
+	{
+		double rtt;
+		int source_port;
+
+		if (SDL_AtomicGet(&portpingprobe_abort_requested))
+			break;
+
+		random_state = random_state * 1664525u + 1013904223u;
+		source_port = 1024 + (int)(random_state % 64512u); // [1024..65535]
+		rtt = NET_PortPingProbeSingle(ctx, source_port);
+
+		if (rtt >= 0 && (ctx->best_rtt < 0 || rtt < ctx->best_rtt))
+		{
+			ctx->best_port = source_port;
+			ctx->best_rtt = rtt;
+		}
+
+		SDL_AtomicSet(&portpingprobe_progress, i + 1);
+
+		if (SDL_AtomicGet(&portpingprobe_abort_requested))
+			break;
+
+		if (cl_portpingprobe_delay.value > 0)
+			Sys_Sleep((unsigned long)cl_portpingprobe_delay.value);
+	}
+
+	if (SDL_AtomicGet(&portpingprobe_abort_requested))
+		SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_ABORT);
+	else
+		SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_COMPLETED);
+
+	SDL_AtomicSet(&portpingprobe_worker_running, 0);
+	return 0;
+}
+
+qboolean NET_PortPingProbe_Start(const char *connect_addr)
+{
+	portpingprobe_ctx_t *ctx;
+	struct qsockaddr resolved_addr;
+	int landriver = -1;
+	int num_probes;
+	int control;
+	int i;
+
+	if (!connect_addr || !connect_addr[0] || !NET_PortPingProbe_IsEnabled())
+		return false;
+
+	if (NET_PortPingProbe_GetStatus() != PORTPINGPROBE_IDLE)
+		return false;
+
+	for (i = 0; i < net_numlandrivers; i++)
+	{
+		if (!net_landrivers[i].initialized)
+			continue;
+
+		if (net_landrivers[i].GetAddrFromName(connect_addr, &resolved_addr) != -1)
+		{
+			landriver = i;
+			break;
+		}
+	}
+
+	if (landriver < 0)
+	{
+		Con_SafePrintf("Could not resolve %s\n", connect_addr);
+		return false;
+	}
+
+	num_probes = CLAMP(1, (int)cl_portpingprobe_probes.value, 1000);
+	ctx = Z_Malloc(sizeof(*ctx));
+	ctx->num_probes = num_probes;
+	ctx->landriver = landriver;
+	ctx->target_addr = resolved_addr;
+	control = BigLong(NETFLAG_CTL | ((int)sizeof(ctx->serverinfo_packet) & NETFLAG_LENGTH_MASK));
+	memcpy(ctx->serverinfo_packet, &control, sizeof(control));
+	ctx->serverinfo_packet[4] = CCREQ_SERVER_INFO;
+	memcpy(ctx->serverinfo_packet + 5, "QUAKE", sizeof("QUAKE"));
+	ctx->serverinfo_packet[5 + sizeof("QUAKE")] = NET_PROTOCOL_VERSION;
+	ctx->best_port = 0;
+	ctx->best_rtt = -1;
+	q_strlcpy(ctx->connect_addr, connect_addr, sizeof(ctx->connect_addr));
+	ctx->thread = NULL;
+
+	NET_PortPingProbe_ClearResult();
+	SDL_AtomicSet(&portpingprobe_abort_requested, 0);
+	SDL_AtomicSet(&portpingprobe_progress, 0);
+	SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_PROBING);
+	SDL_AtomicSet(&portpingprobe_worker_running, 1);
+	portpingprobe_last_percent = -1;
+	portpingprobe_console_inline = false;
+
+	ctx->thread = SDL_CreateThread(NET_PortPingProbeWorker, "portpingprobe", ctx);
+	if (!ctx->thread)
+	{
+		Con_Printf("NET_PortPingProbe_Start: failed to create worker thread\n");
+		SDL_AtomicSet(&portpingprobe_worker_running, 0);
+		SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+		Z_Free(ctx);
+		return false;
+	}
+
+	portpingprobe_ctx = ctx;
+	Con_Printf("Probing %s to find best source port (%d probes)\n", connect_addr, num_probes);
+	return true;
+}
+
+void NET_PortPingProbe_Frame(void)
+{
+	portpingprobe_status_t status;
+	portpingprobe_ctx_t *ctx = portpingprobe_ctx;
+	int progress_percent;
+
+	if (!ctx)
+		return;
+
+	if (SDL_AtomicGet(&portpingprobe_worker_running))
+	{
+		progress_percent = NET_PortPingProbe_GetProgress();
+		if (progress_percent > 0 && progress_percent != portpingprobe_last_percent)
+		{
+			portpingprobe_last_percent = progress_percent;
+			portpingprobe_console_inline = true;
+			Con_SafePrintf("Port probe progress: %d%%\r", progress_percent);
+		}
+		return;
+	}
+
+	if (ctx->thread)
+	{
+		SDL_WaitThread(ctx->thread, NULL);
+		ctx->thread = NULL;
+	}
+
+	// Take ownership here so teardown paths won't race this cleanup.
+	portpingprobe_ctx = NULL;
+
+	status = NET_PortPingProbe_GetStatus();
+	if (portpingprobe_console_inline)
+	{
+		Con_SafePrintf("\n");
+		portpingprobe_console_inline = false;
+	}
+
+	if (status == PORTPINGPROBE_COMPLETED)
+	{
+		portpingprobe_result.valid = true;
+		portpingprobe_result.has_target = true;
+		q_strlcpy(portpingprobe_result.connect_addr, ctx->connect_addr, sizeof(portpingprobe_result.connect_addr));
+		portpingprobe_result.landriver = ctx->landriver;
+		portpingprobe_result.target_addr = ctx->target_addr;
+		portpingprobe_result.best_port = ctx->best_port;
+		portpingprobe_result.best_rtt = ctx->best_rtt;
+
+		if (ctx->best_port > 0)
+			Con_Printf("Port probe completed: best source port %d (%.2f ms)\n", ctx->best_port, ctx->best_rtt * 1000.0);
+		else
+			Con_Printf("Port probe completed: no responsive source port found, falling back to OS-assigned source port\n");
+
+		Cbuf_AddText(va("connect \"%s\"\n", ctx->connect_addr));
+	}
+	else
+	{
+		if (status == PORTPINGPROBE_ABORT)
+			Con_Printf("Port ping probe aborted\n");
+
+		NET_PortPingProbe_ClearResult();
+		SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+	}
+
+	Z_Free(ctx);
+	SDL_AtomicSet(&portpingprobe_abort_requested, 0);
+	SDL_AtomicSet(&portpingprobe_progress, 0);
+	portpingprobe_last_percent = -1;
+	portpingprobe_console_inline = false;
+}
+
+static void NET_PortPingProbe_Shutdown(void)
+{
+	portpingprobe_ctx_t *ctx = portpingprobe_ctx;
+
+	// Called during teardown, after normal frame pumping has stopped.
+	NET_PortPingProbe_RequestAbort();
+	portpingprobe_ctx = NULL;
+
+	if (ctx)
+	{
+		if (ctx->thread)
+		{
+			SDL_WaitThread(ctx->thread, NULL);
+			ctx->thread = NULL;
+		}
+
+		Z_Free(ctx);
+	}
+
+	NET_PortPingProbe_ClearResult();
+	net_probe_clientport = 0;
+	SDL_AtomicSet(&portpingprobe_abort_requested, 0);
+	SDL_AtomicSet(&portpingprobe_worker_running, 0);
+	SDL_AtomicSet(&portpingprobe_progress, 0);
+	SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+	portpingprobe_last_percent = -1;
+	portpingprobe_console_inline = false;
+}
 
 #ifdef BAN_TEST
 
@@ -364,7 +877,7 @@ qboolean Datagram_ProcessPacket(unsigned int length, qsocket_t *sock)
 		{
 			count = sequence - sock->unreliableReceiveSequence;
 			droppedDatagrams += count;
-			Con_DPrintf("Dropped %u datagram(s)\n", count);
+			Con_DPrintf("Dropped %u datagram(s) for %s\n", count, Datagram_SocketOwnerString(sock)); // woods #droplog
 		}
 		sock->unreliableReceiveSequence = sequence + 1;
 
@@ -484,6 +997,7 @@ void Datagram_GetAnyMessages(void(*callback)(qsocket_t *))
 
 			if (length < 4)
 				continue;
+
 			if (BigLong(packetBuffer.length) & NETFLAG_CTL)
 			{
 				_Datagram_ServerControlPacket(sock, &addr, (byte *)&packetBuffer, length);
@@ -515,7 +1029,12 @@ void Datagram_GetAnyMessages(void(*callback)(qsocket_t *))
 					}
 				}
 			}
-			//stray packet... ignore it and just try the next
+			if (!s)
+			{	//unmatched packet — try ICE (STUN/DTLS/SCTP)
+				byte leadbyte = ((byte *)&packetBuffer)[0];
+				if (leadbyte < 4 || (leadbyte >= 20 && leadbyte < 64))
+					NQICE_ProcessPacket((byte *)&packetBuffer, length, &addr, callback);
+			}
 		}
 	}
 	for (s = net_activeSockets; s; s = s->next)
@@ -629,7 +1148,7 @@ int	Datagram_GetMessage (qsocket_t *sock)
 			{
 				count = sequence - sock->unreliableReceiveSequence;
 				droppedDatagrams += count;
-				Con_DPrintf("Dropped %u datagram(s)\n", count);
+				Con_DPrintf("Dropped %u datagram(s) for %s\n", count, Datagram_SocketOwnerString(sock)); // woods #droplog
 				cl.packetloss = count; // woods #scrpl
 				cl.pltotal = droppedDatagrams; // woods #scrpl
 			}
@@ -1103,6 +1622,22 @@ int Datagram_Init (void)
 
 	Cmd_AddCommand ("net_stats", NET_Stats_f);
 
+	Cvar_RegisterVariable(&cl_portpingprobe_enable);
+	Cvar_RegisterVariable(&cl_portpingprobe_probes);
+	Cvar_RegisterVariable(&cl_portpingprobe_delay);
+	Cvar_SetCompletion(&cl_portpingprobe_enable, cl_portpingprobe_enable_completion);
+	Cvar_SetCompletion(&cl_portpingprobe_probes, cl_portpingprobe_probes_completion);
+	Cvar_SetCompletion(&cl_portpingprobe_delay, cl_portpingprobe_delay_completion);
+	Cvar_SetCallback(&cl_portpingprobe_enable, cl_portpingprobe_enable_changed);
+	Cvar_SetCallback(&cl_portpingprobe_probes, cl_portpingprobe_probes_changed);
+	Cvar_SetCallback(&cl_portpingprobe_delay, cl_portpingprobe_delay_changed);
+	SDL_AtomicSet(&portpingprobe_status, PORTPINGPROBE_IDLE);
+	SDL_AtomicSet(&portpingprobe_abort_requested, 0);
+	SDL_AtomicSet(&portpingprobe_worker_running, 0);
+	SDL_AtomicSet(&portpingprobe_progress, 0);
+	NET_PortPingProbe_ClearResult();
+	net_probe_clientport = 0;
+
 	if (safemode || COM_CheckParm("-nolan"))
 		return -1;
 
@@ -1136,6 +1671,8 @@ void Datagram_Shutdown (void)
 {
 	int i;
 
+	NET_DatagramConnectCancel();
+	NET_PortPingProbe_Shutdown();
 	Datagram_Listen(false);
 
 //
@@ -1178,13 +1715,18 @@ void Datagram_Listen (qboolean state)
 		heartbeatctx = NULL;
 	}
 
+	NQICE_UnshareGameSockets();	//invalidate before sockets change
+
 	for (i = 0; i < net_numlandrivers; i++)
 	{
 		if (net_landrivers[i].initialized)
 		{
 			net_landrivers[i].listeningSock = net_landrivers[i].Listen (state);
 			if (net_landrivers[i].listeningSock != INVALID_SOCKET)
+			{
 				islistening = true;
+				NQICE_ShareGameSocket(net_landrivers[i].listeningSock);
+			}
 
 			for (s = net_activeSockets; s; s = s->next)
 			{
@@ -1272,6 +1814,29 @@ void Datagram_GenerateGetInfoString(char *out, size_t outsize)
 	if (numbots)
 		{q_snprintf(out+ofs, outsize-ofs, "\\bots\\%u", numbots); ofs += strlen(out+ofs);}
 	q_snprintf(out+ofs, outsize-ofs, "\\sv_maxclients\\%i", svs.maxclients); ofs += strlen(out+ofs);
+	if (*NQICE_GetWsAddr())
+		{q_snprintf(out+ofs, outsize-ofs, "\\*wsaddr\\%s", NQICE_GetWsAddr()); ofs += strlen(out+ofs);}
+	if (*NQICE_GetFingerprint())
+		{q_snprintf(out+ofs, outsize-ofs, "\\*fp\\%s", NQICE_GetFingerprint()); ofs += strlen(out+ofs);}
+}
+
+//send context for ICE UDP signaling callback — set before calling SVC_ICE_Offer/Candidate
+static sys_socket_t _ice_send_sock;
+static struct qsockaddr *_ice_send_addr;
+static void _Datagram_ICE_SendPacket(const void *data, int len)
+{
+	if (BrokerDTLS_IsAuthenticated())
+	{	//response goes back encrypted through the DTLS session
+		BrokerDTLS_Send(data, len);
+		return;
+	}
+	dfunc.Write(_ice_send_sock, (byte *)data, len, _ice_send_addr);
+}
+
+//called by BrokerDTLS to process decrypted connectionless packets
+void _Datagram_BrokerPacket(byte *data, unsigned int length, sys_socket_t sock, struct qsockaddr *addr)
+{
+	_Datagram_ServerControlPacket(sock, addr, data, length);
 }
 
 static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsockaddr *clientaddr, byte *data, unsigned int length)
@@ -1308,7 +1873,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 			MSG_WriteString(&net_message, full?"statusResponse\n":"infoResponse\n");net_message.cursize--;
 
 			//kinda evil, but oh well, just write it directly.
-			Datagram_GenerateGetInfoString((char*)net_message.data, net_message.maxsize - net_message.cursize);
+			Datagram_GenerateGetInfoString((char*)net_message.data+net_message.cursize, net_message.maxsize - net_message.cursize);
 			net_message.cursize += strlen((char*)net_message.data+net_message.cursize);
 
 			if (*cookie)
@@ -1326,7 +1891,7 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 						total /= NUM_PING_TIMES;
 						total *= 1000;	//put it in ms
 
-						MSG_WriteString(&net_message, va("\n%i %i %i_%i \"%s\"", 
+						MSG_WriteString(&net_message, va("\n%i %i %i_%i \"%s\"",
 							svs.clients[i].old_frags, (int)total, svs.clients[i].colors&15, svs.clients[i].colors>>4, svs.clients[i].name
 						));net_message.cursize--;
 					}
@@ -1335,6 +1900,48 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 
 			dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
 			SZ_Clear(&net_message);
+		}
+		else if (!strcmp(Cmd_Argv(0), "ice_offer") || !strcmp(Cmd_Argv(0), "ice_ccand"))
+		{	//broker-to-server ICE signaling for /udp/IP:Port browser connections
+			//broker format: "command <args>\n<payload>" — separated by \n, not \0
+			//parse manually because Cmd_TokenizeString mangles some token values
+			const char *line = (const char *)data+4;
+			const char *nl = strchr(line, '\n');
+			const char *payload = (nl && nl < (const char *)data + length) ? nl + 1 : "";
+			char header[256];
+			char *args[8];
+			int nargs = 0;
+			char *p;
+
+			//copy header line for safe tokenization
+			{	size_t hlen = nl ? (size_t)(nl - line) : strlen(line);
+				if (hlen >= sizeof(header)) hlen = sizeof(header)-1;
+				memcpy(header, line, hlen);
+				header[hlen] = 0;
+			}
+
+			//split header by spaces
+			p = header;
+			while (*p && nargs < 8)
+			{
+				while (*p == ' ') p++;
+				if (!*p) break;
+				args[nargs++] = p;
+				while (*p && *p != ' ') p++;
+				if (*p) *p++ = 0;
+			}
+
+			if (nargs >= 1)
+			{
+				//capture send context for the callback
+				_ice_send_sock = acceptsock;
+				_ice_send_addr = clientaddr;
+
+				if (!strcmp(args[0], "ice_offer") && nargs >= 3)
+					SVC_ICE_Offer(args[1], args[2], payload, dfunc.AddrToString(clientaddr, false), _Datagram_ICE_SendPacket);
+				else if (!strcmp(args[0], "ice_ccand") && nargs >= 4)
+					SVC_ICE_Candidate(args[1], args[2], args[3], payload, _Datagram_ICE_SendPacket);
+			}
 		}
 		return;
 	}
@@ -2181,8 +2788,22 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	int			control;
 	const char		*reason;
 	int port;
+	int probe_port_override;
 
-	newsock = dfunc.Open_Socket (0);
+	probe_port_override = net_probe_clientport;
+	newsock = INVALID_SOCKET;
+
+	if (probe_port_override > 0)
+	{
+		newsock = dfunc.Open_Socket(probe_port_override);
+		if (newsock == INVALID_SOCKET)
+			Con_DPrintf("Port ping probe: source port %d unavailable, falling back to OS-assigned source port\n", probe_port_override);
+	}
+
+	if (newsock == INVALID_SOCKET)
+		newsock = dfunc.Open_Socket(0);
+
+	net_probe_clientport = 0;
 	if (newsock == INVALID_SOCKET)
 		return NULL;
 
@@ -2448,11 +3069,436 @@ ErrorReturn2:
 	return NULL;
 }
 
+typedef enum
+{
+	DATAGRAM_CONNECT_PHASE_IDLE = 0,
+	DATAGRAM_CONNECT_PHASE_RESOLVE,
+	DATAGRAM_CONNECT_PHASE_OPEN_SOCKET,
+	DATAGRAM_CONNECT_PHASE_SEND_REQUEST,
+	DATAGRAM_CONNECT_PHASE_WAIT_RESPONSE
+} datagram_connect_phase_t;
+
+typedef struct
+{
+	qboolean active;
+	datagram_connect_phase_t phase;
+	char host[NET_NAMELEN];
+	int landriver;
+	struct qsockaddr serveraddr;
+	sys_socket_t newsock;
+	qsocket_t *sock;
+	int total_attempts;
+	int attempt;
+	double attempt_start_time;
+	char reason[64];
+} datagram_connect_ctx_t;
+
+static datagram_connect_ctx_t datagram_connect_ctx = {false, DATAGRAM_CONNECT_PHASE_IDLE, {0}, -1, {0}, INVALID_SOCKET, NULL, 0, 0, 0.0, {0}};
+
+static void Datagram_ConnectAsyncSetReason(const char *reason)
+{
+	if (!reason || !*reason)
+		reason = "connect failed";
+	q_strlcpy(datagram_connect_ctx.reason, reason, sizeof(datagram_connect_ctx.reason));
+}
+
+static void Datagram_ConnectAsyncReleaseSocket(void)
+{
+	if (datagram_connect_ctx.sock)
+	{
+		NET_FreeQSocket(datagram_connect_ctx.sock);
+		datagram_connect_ctx.sock = NULL;
+	}
+
+	if (datagram_connect_ctx.newsock != INVALID_SOCKET)
+	{
+		if (datagram_connect_ctx.landriver >= 0 &&
+			datagram_connect_ctx.landriver < net_numlandrivers &&
+			net_landrivers[datagram_connect_ctx.landriver].Close_Socket)
+		{
+			net_landrivers[datagram_connect_ctx.landriver].Close_Socket(datagram_connect_ctx.newsock);
+		}
+		datagram_connect_ctx.newsock = INVALID_SOCKET;
+	}
+}
+
+static void Datagram_ConnectAsyncFinalizeFailure(void)
+{
+	if (*datagram_connect_ctx.reason)
+		q_strlcpy(m_return_reason, datagram_connect_ctx.reason, sizeof(m_return_reason));
+	else
+		m_return_reason[0] = 0;
+
+	if (m_return_onerror)
+	{
+		key_dest = key_menu;
+		m_state = m_return_state;
+		m_return_onerror = false;
+		IN_UpdateGrabs();
+	}
+}
+
+static void Datagram_ConnectAsyncStepToNextDriver(void)
+{
+	Datagram_ConnectAsyncReleaseSocket();
+	datagram_connect_ctx.landriver++;
+	datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_RESOLVE;
+	datagram_connect_ctx.attempt = 0;
+	datagram_connect_ctx.attempt_start_time = 0;
+}
+
+static void Datagram_ConnectAsyncSendRequest(void)
+{
+	char *e;
+	int pwd;
+
+	net_landriverlevel = datagram_connect_ctx.landriver;
+	SZ_Clear(&net_message);
+	MSG_WriteLong(&net_message, 0);
+	MSG_WriteByte(&net_message, CCREQ_CONNECT);
+	MSG_WriteString(&net_message, "QUAKE");
+	MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
+	if (datagram_connect_ctx.sock->proquake_angle_hack)
+	{
+		if (!*password.string || !strcmp(password.string, "none"))
+			pwd = 0;
+		else
+		{
+			pwd = strtol(password.string, &e, 0);
+			if (*e)
+				pwd = Com_BlockChecksum(password.string, strlen(password.string));
+		}
+
+		Con_DWarning("Attempting to use ProQuake angle hack\n");
+		MSG_WriteByte(&net_message, 1);
+		MSG_WriteByte(&net_message, 35);
+		MSG_WriteByte(&net_message, 0);
+		MSG_WriteLong(&net_message, pwd);
+	}
+
+	*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
+	dfunc.Write(datagram_connect_ctx.newsock, net_message.data, net_message.cursize, &datagram_connect_ctx.serveraddr);
+	SZ_Clear(&net_message);
+	dfunc.Write(datagram_connect_ctx.newsock, (byte*)"\xff\xff\xff\xffgetchallenge\n", strlen("\xff\xff\xff\xffgetchallenge\n"), &datagram_connect_ctx.serveraddr);
+	datagram_connect_ctx.attempt_start_time = SetNetTime();
+}
+
+qboolean NET_DatagramConnectPending(void)
+{
+	return datagram_connect_ctx.active;
+}
+
+void NET_DatagramConnectCancel(void)
+{
+	if (!datagram_connect_ctx.active)
+		return;
+
+	Datagram_ConnectAsyncReleaseSocket();
+	datagram_connect_ctx.active = false;
+	datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_IDLE;
+	datagram_connect_ctx.landriver = -1;
+}
+
+qboolean NET_DatagramConnectStart(const char *host)
+{
+	NET_DatagramConnectCancel();
+
+	if (!host || !*host)
+		return false;
+
+	host = Strip_Port(host);
+
+	memset(&datagram_connect_ctx, 0, sizeof(datagram_connect_ctx));
+	datagram_connect_ctx.active = true;
+	datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_RESOLVE;
+	datagram_connect_ctx.landriver = 0;
+	datagram_connect_ctx.newsock = INVALID_SOCKET;
+	datagram_connect_ctx.total_attempts = q_max(1, (int)net_connectattempts.value);
+	q_strlcpy(datagram_connect_ctx.host, host, sizeof(datagram_connect_ctx.host));
+
+	return true;
+}
+
+net_connect_result_t NET_DatagramConnectFrame(qsocket_t **outsock, const char **outreason)
+{
+	struct qsockaddr readaddr;
+	int ret;
+	int control;
+	int port;
+	const char *reason = NULL;
+	qboolean try_next_driver = false;
+
+	if (outsock)
+		*outsock = NULL;
+	if (outreason)
+		*outreason = NULL;
+
+	if (!datagram_connect_ctx.active)
+		return NET_CONNECT_FAILED;
+
+	SetNetTime();
+
+	while (datagram_connect_ctx.active)
+	{
+		switch (datagram_connect_ctx.phase)
+		{
+		case DATAGRAM_CONNECT_PHASE_RESOLVE:
+			/* v1 note: name resolution is still synchronous and may briefly stall for hostnames. */
+			for (; datagram_connect_ctx.landriver < net_numlandrivers; datagram_connect_ctx.landriver++)
+			{
+				if (!net_landrivers[datagram_connect_ctx.landriver].initialized)
+					continue;
+
+				net_landriverlevel = datagram_connect_ctx.landriver;
+				if (dfunc.GetAddrFromName(datagram_connect_ctx.host, &datagram_connect_ctx.serveraddr) != -1)
+				{
+					datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_OPEN_SOCKET;
+					break;
+				}
+			}
+
+			if (datagram_connect_ctx.phase != DATAGRAM_CONNECT_PHASE_OPEN_SOCKET)
+			{
+				if (!*datagram_connect_ctx.reason)
+					Datagram_ConnectAsyncSetReason("Could not resolve");
+				Datagram_ConnectAsyncFinalizeFailure();
+				datagram_connect_ctx.active = false;
+				datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_IDLE;
+				if (outreason)
+					*outreason = datagram_connect_ctx.reason;
+				return NET_CONNECT_FAILED;
+			}
+			break;
+
+		case DATAGRAM_CONNECT_PHASE_OPEN_SOCKET:
+		{
+			int probe_port_override;
+
+			net_landriverlevel = datagram_connect_ctx.landriver;
+			probe_port_override = net_probe_clientport;
+			datagram_connect_ctx.newsock = INVALID_SOCKET;
+
+			if (probe_port_override > 0)
+			{
+				datagram_connect_ctx.newsock = dfunc.Open_Socket(probe_port_override);
+				if (datagram_connect_ctx.newsock == INVALID_SOCKET)
+					Con_DPrintf("Port ping probe: source port %d unavailable, falling back to OS-assigned source port\n", probe_port_override);
+			}
+
+			if (datagram_connect_ctx.newsock == INVALID_SOCKET)
+				datagram_connect_ctx.newsock = dfunc.Open_Socket(0);
+
+			net_probe_clientport = 0;
+			if (datagram_connect_ctx.newsock == INVALID_SOCKET)
+			{
+				Datagram_ConnectAsyncSetReason("Open socket failed");
+				Datagram_ConnectAsyncStepToNextDriver();
+				break;
+			}
+
+			net_driverlevel = myDriverLevel;
+			datagram_connect_ctx.sock = NET_NewQSocket();
+			if (!datagram_connect_ctx.sock)
+			{
+				Datagram_ConnectAsyncSetReason("No qsocket available");
+				Datagram_ConnectAsyncStepToNextDriver();
+				break;
+			}
+
+			datagram_connect_ctx.sock->driver = myDriverLevel;
+			datagram_connect_ctx.sock->socket = datagram_connect_ctx.newsock;
+			datagram_connect_ctx.sock->landriver = datagram_connect_ctx.landriver;
+			datagram_connect_ctx.sock->proquake_angle_hack = true;
+
+			if (dfunc.Connect(datagram_connect_ctx.newsock, &datagram_connect_ctx.serveraddr) == -1)
+			{
+				Datagram_ConnectAsyncSetReason("Connect request failed");
+				Datagram_ConnectAsyncStepToNextDriver();
+				break;
+			}
+
+			datagram_connect_ctx.attempt = 0;
+			datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_SEND_REQUEST;
+			break;
+		}
+
+		case DATAGRAM_CONNECT_PHASE_SEND_REQUEST:
+			Datagram_ConnectAsyncSendRequest();
+			datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_WAIT_RESPONSE;
+			return NET_CONNECT_PENDING;
+
+		case DATAGRAM_CONNECT_PHASE_WAIT_RESPONSE:
+			net_landriverlevel = datagram_connect_ctx.landriver;
+			while ((ret = dfunc.Read(datagram_connect_ctx.newsock, net_message.data, net_message.maxsize, &readaddr)) > 0)
+			{
+				if (dfunc.AddrCompare(&readaddr, &datagram_connect_ctx.serveraddr) != 0)
+				{
+					Con_SafePrintf("wrong reply address\n");
+					Con_SafePrintf("Expected: %s | %s\n", dfunc.AddrToString(&datagram_connect_ctx.serveraddr, false), StrAddr(&datagram_connect_ctx.serveraddr));
+					Con_SafePrintf("Received: %s | %s\n", dfunc.AddrToString(&readaddr, false), StrAddr(&readaddr));
+					continue;
+				}
+
+				if (ret < (int)sizeof(int))
+					continue;
+
+				net_message.cursize = ret;
+				MSG_BeginReading();
+				control = BigLong(*((int *)net_message.data));
+				MSG_ReadLong();
+
+				if (control == -1)
+				{
+					const char *s = MSG_ReadString();
+					if (!strncmp(s, "challenge ", 10))
+					{
+						char buf[1024];
+						q_snprintf(buf, sizeof(buf), "%c%c%c%cconnect\\protocol\\darkplaces 3\\protocols\\RMQ FITZ DP7 NEHAHRABJP3 QUAKE\\challenge\\%s", 255, 255, 255, 255, s+10);
+						dfunc.Write(datagram_connect_ctx.newsock, (byte*)buf, strlen(buf), &datagram_connect_ctx.serveraddr);
+						continue;
+					}
+					if (!strcmp(s, "accept"))
+					{
+						Q_memcpy(&datagram_connect_ctx.sock->addr, &datagram_connect_ctx.serveraddr, sizeof(struct qsockaddr));
+						datagram_connect_ctx.sock->proquake_angle_hack = false;
+						port = 0;
+						goto datagram_async_accept;
+					}
+					continue;
+				}
+
+				if ((control & (~NETFLAG_LENGTH_MASK)) != (int)NETFLAG_CTL)
+					continue;
+				if ((control & NETFLAG_LENGTH_MASK) != ret)
+					continue;
+
+				ret = MSG_ReadByte();
+				if (ret == CCREP_REJECT)
+				{
+					reason = MSG_ReadString();
+					Datagram_ConnectAsyncSetReason(reason);
+					try_next_driver = true;
+					break;
+				}
+				if (ret != CCREP_ACCEPT)
+				{
+					Datagram_ConnectAsyncSetReason("Bad Response");
+					try_next_driver = true;
+					break;
+				}
+
+				Q_memcpy(&datagram_connect_ctx.sock->addr, &datagram_connect_ctx.serveraddr, sizeof(struct qsockaddr));
+				port = MSG_ReadLong();
+				if (msg_badread)
+					port = 0;
+
+				if (datagram_connect_ctx.sock->proquake_angle_hack)
+				{
+					byte mod = (msg_readcount < net_message.cursize) ? MSG_ReadByte() : 0;
+					byte ver = (msg_readcount < net_message.cursize) ? MSG_ReadByte() : 0;
+					byte flags = (msg_readcount < net_message.cursize) ? MSG_ReadByte() : 0;
+					(void)ver;
+
+					if (mod == MOD_PROQUAKE)
+					{
+						if (flags & PQF_CHEATFREE)
+						{
+							Datagram_ConnectAsyncSetReason("Server is incompatible");
+							try_next_driver = true;
+							break;
+						}
+						if (flags & PQF_IGNOREPORT)
+							port = 0;
+						datagram_connect_ctx.sock->proquake_angle_hack = true;
+					}
+					else
+					{
+						datagram_connect_ctx.sock->proquake_angle_hack = false;
+					}
+				}
+
+datagram_async_accept:
+				if (port)
+					dfunc.SetSocketPort(&datagram_connect_ctx.sock->addr, port);
+
+				dfunc.GetNameFromAddr(&datagram_connect_ctx.serveraddr, datagram_connect_ctx.sock->trueaddress);
+				dfunc.GetNameFromAddr(&datagram_connect_ctx.serveraddr, datagram_connect_ctx.sock->maskedaddress);
+				datagram_connect_ctx.sock->lastMessageTime = SetNetTime();
+
+				if (dfunc.Connect(datagram_connect_ctx.newsock, &datagram_connect_ctx.sock->addr) == -1)
+				{
+					Datagram_ConnectAsyncSetReason("Connect to Game failed");
+					try_next_driver = true;
+					break;
+				}
+
+				Con_Printf("Connection accepted\n");
+				m_return_onerror = false;
+				datagram_connect_ctx.active = false;
+				datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_IDLE;
+				datagram_connect_ctx.newsock = INVALID_SOCKET;
+				if (outsock)
+				{
+					*outsock = datagram_connect_ctx.sock;
+					datagram_connect_ctx.sock = NULL;
+				}
+				return NET_CONNECT_COMPLETE;
+			}
+
+			if (try_next_driver || ret == -1)
+			{
+				if (ret == -1 && !try_next_driver)
+					Datagram_ConnectAsyncSetReason("Network Error");
+				try_next_driver = false;
+				Datagram_ConnectAsyncStepToNextDriver();
+				break;
+			}
+
+			if ((SetNetTime() - datagram_connect_ctx.attempt_start_time) >= 2.5)
+			{
+				int attempts_left = datagram_connect_ctx.total_attempts - datagram_connect_ctx.attempt - 1;
+				if (attempts_left > 0)
+				{
+					Con_SafePrintf("still trying... (%d attempt%s left)\n", attempts_left, attempts_left == 1 ? "" : "s");
+					datagram_connect_ctx.attempt++;
+					datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_SEND_REQUEST;
+					return NET_CONNECT_PENDING;
+				}
+				Datagram_ConnectAsyncSetReason("No Response");
+				Datagram_ConnectAsyncStepToNextDriver();
+				break;
+			}
+
+			return NET_CONNECT_PENDING;
+
+		default:
+			Datagram_ConnectAsyncSetReason("connect failed");
+			Datagram_ConnectAsyncFinalizeFailure();
+			datagram_connect_ctx.active = false;
+			datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_IDLE;
+			if (outreason)
+				*outreason = datagram_connect_ctx.reason;
+			return NET_CONNECT_FAILED;
+		}
+	}
+
+	if (!*datagram_connect_ctx.reason)
+		Datagram_ConnectAsyncSetReason("connect failed");
+	Datagram_ConnectAsyncFinalizeFailure();
+	datagram_connect_ctx.active = false;
+	datagram_connect_ctx.phase = DATAGRAM_CONNECT_PHASE_IDLE;
+	if (outreason)
+		*outreason = datagram_connect_ctx.reason;
+	return NET_CONNECT_FAILED;
+}
+
 qsocket_t *Datagram_Connect (const char *host)
 {
 	qsocket_t *ret = NULL;
 	qboolean resolved = false;
 	struct qsockaddr addr;
+
+	NET_DatagramConnectCancel();
 
 	host = Strip_Port (host);
 	for (net_landriverlevel = 0; net_landriverlevel < net_numlandrivers; net_landriverlevel++)
@@ -2480,6 +3526,7 @@ Spike: added this to list more than one ipv4 address (many people are still mult
 int Datagram_QueryAddresses(qhostaddr_t *addresses, int maxaddresses)
 {
 	int result = 0;
+	int save_landriverlevel = net_landriverlevel;
 	for (net_landriverlevel = 0; net_landriverlevel < net_numlandrivers; net_landriverlevel++)
 	{
 		if (!net_landrivers[net_landriverlevel].initialized)
@@ -2489,6 +3536,7 @@ int Datagram_QueryAddresses(qhostaddr_t *addresses, int maxaddresses)
 		if (net_landrivers[net_landriverlevel].QueryAddresses)
 			result += net_landrivers[net_landriverlevel].QueryAddresses(addresses+result, maxaddresses-result);
 	}
+	net_landriverlevel = save_landriverlevel;
 	return result;
 }
 

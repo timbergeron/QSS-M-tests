@@ -714,7 +714,7 @@ static void ICETCP_CheckAccept (struct icesocket_s *s, struct icemodule_s *modul
 	netadr_t adr;
 	socklen_t adrlen = sizeof(adr.ss);
 	SOCKET fd = accept(s->sock, &adr.sa, &adrlen);
-	if (fd >= 0)
+	if (fd != INVALID_SOCKET)
 	{	//if we got a new client, create a new 'ice' state using that link.
 		struct icesocket_s *link;
 #ifdef _WIN32
@@ -783,21 +783,66 @@ static struct icesocket_s *ICE_OpenTCPSocket(netadrtype_t type, int port)
 }
 
 
-void ICE_SetupModule(struct icemodule_s *module, int port)
+static void ICEUDP_NoClose(struct icesocket_s *s)
+{	//do NOT close the socket — we don't own it
+	free(s);
+}
+static int ICEUDP_NoRecv(struct icesocket_s *s, netadr_t *addr, void *data, size_t datasize)
+{	//send-only wrapper — datagram driver handles recv, we just need to send through this socket
+	return 0;
+}
+struct icesocket_s *ICE_WrapExistingSocket(SOCKET sock, int af)
+{	//wrap an existing socket for ICE use without taking ownership
+	struct icesocket_s *n = calloc(1, sizeof(*n));
+	if (!n)
+		return NULL;
+	n->SendPacket = ICEUDP_SendPacket;
+	n->RecvPacket = ICEUDP_RecvPacket;
+	n->EnumerateAddresses = ICEUDP_GetAddresses;
+	n->CloseSocket = ICEUDP_NoClose;	//don't close — datagram driver owns it
+	n->af = af;
+	n->sock = sock;
+	return n;
+}
+struct icesocket_s *ICE_WrapExistingSocketSendOnly(SOCKET sock, int af)
+{	//send-only wrapper — can send through the socket but recv always returns 0.
+	//used to put the shared game socket in a module's conn[] for sending responses
+	//without ICE_ProcessModule stealing packets from the datagram driver.
+	struct icesocket_s *n = calloc(1, sizeof(*n));
+	if (!n)
+		return NULL;
+	n->SendPacket = ICEUDP_SendPacket;
+	n->RecvPacket = ICEUDP_NoRecv;
+	n->EnumerateAddresses = ICEUDP_GetAddresses;
+	n->CloseSocket = ICEUDP_NoClose;
+	n->af = af;
+	n->sock = sock;
+	return n;
+}
+
+void ICE_SetupModule(struct icemodule_s *module, int udpport, int tcpport)
 {	//fixme: we should be binding one socket on each interface instead of INADDR_ANY. otherwise we're depending on the OS routing to be correct when multihomed. this may cause issues for linklocal addresses.
+	module->setupudpport = udpport;	// remember for lazy retry
+	module->setuptcpport = tcpport;
+
+	// UDP sockets for ICE/STUN (outbound, ephemeral fallback)
 	if (!module->conn[0])
-		module->conn[0] = ICE_OpenUDP(NA_IP, port);
-	if (!module->conn[0] && port)
+		module->conn[0] = ICE_OpenUDP(NA_IP, udpport);
+	if (!module->conn[0] && udpport)
 		module->conn[0] = ICE_OpenUDP(NA_IP, 0);	//try again, but with ephemeral.
 
 	if (!module->conn[1])
-		module->conn[1] = ICE_OpenUDP(NA_IPV6, port);
-	if (!module->conn[1] && port)
+		module->conn[1] = ICE_OpenUDP(NA_IPV6, udpport);
+	if (!module->conn[1] && udpport)
 		module->conn[1] = ICE_OpenUDP(NA_IPV6, 0);	//try again, but with ephemeral
 
-	//open some tcp sockets too, in case people want to use websockets.
-	if (!module->conn[2] && port)
-		module->conn[2] = ICE_OpenTCPSocket(NA_IP, port);
-	if (!module->conn[3] && port)
-		module->conn[3] = ICE_OpenTCPSocket(NA_IPV6, port);
+	// TCP sockets for WebSocket connections (on game port for easy firewall config)
+	if (!module->conn[2] && tcpport)
+		module->conn[2] = ICE_OpenTCPSocket(NA_IP, tcpport);
+	if (!module->conn[3] && tcpport)
+		module->conn[3] = ICE_OpenTCPSocket(NA_IPV6, tcpport);
+
+	// Clear retry flag once sockets are open
+	if (module->conn[0] && module->conn[2])
+		module->setupudpport = module->setuptcpport = 0;
 }

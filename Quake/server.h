@@ -153,6 +153,7 @@ typedef struct client_s
 	byte			msgbuf[MAX_MSGLEN];
 	edict_t			*edict;				// EDICT_NUM(clientnum+1)
 	char			name[32];			// for printing to other people
+	char			desired_name[32];	// preferred name without duplicate prefix
 	int				colors;
 
 	float			ping_times[NUM_PING_TIMES];
@@ -221,6 +222,7 @@ typedef struct client_s
 	qboolean usingpmove;	//using the SV_RunClientCommand entrypoint, or getting pmove thrust upon them serverside (disables sv_user.c+movetype stuff, enables provides pmove hints to the client)
 
 	char userinfo[1024];	//spike -- for csqc to (ab)use.
+	unsigned char chat_ignore[(MAX_SCOREBOARD + 7) / 8];
 	client_voip_t voip;	//spike -- for voip
 	struct
 	{
@@ -372,6 +374,7 @@ void SV_SaveSpawnparms ();
 void SV_SpawnServer (const char *server);
 
 void SV_SetupSkyRoom(char *value);
+void SV_ReapplyPreferredNames(client_t *skip); // woods #dupnames
 
 void SV_CheckDuplicateNames(client_t* client); // woods #dupnames
 

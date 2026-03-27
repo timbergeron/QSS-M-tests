@@ -49,6 +49,7 @@ extern cvar_t r_nolerp_list;
 extern cvar_t r_noshadow_list;
 extern cvar_t r_nooutline_list; // woods #routline
 extern cvar_t r_outline; // woods #routline
+extern cvar_t r_player_xray; // woods #routline
 #ifdef MACBOOK_ARM_HACK // woods #collinear
 extern cvar_t r_remove_collinear_vertices;
 #endif
@@ -323,6 +324,48 @@ static void Cl_Damagehue_Completion_f (cvar_t* cvar, const char* partial)
 	return;
 }
 
+
+/*
+===============
+R_Player_Xray_Completion_f -- woods #iwtabcomplete
+===============
+*/
+static void R_Player_Xray_Completion_f (cvar_t* cvar, const char* partial)
+{
+	Con_AddToTabList("0", partial, "disable", NULL);
+	Con_AddToTabList("0xFF0000", partial, "base color", NULL);
+	Con_AddToTabList("0.5", partial, "alpha", NULL);
+	Con_AddToTabList("1.0", partial, "alpha", NULL);
+	Con_AddToTabList("1024", partial, "distance", NULL);
+	Con_AddToTabList("2048", partial, "distance", NULL);
+	Con_AddToTabList("4096", partial, "distance", NULL);
+
+	Con_AddToTabList("both", partial, "targets", NULL);
+	Con_AddToTabList("enemy", partial, "targets", NULL);
+	Con_AddToTabList("team", partial, "targets", NULL);
+	Con_AddToTabList("targets=both", partial, "targets", NULL);
+	Con_AddToTabList("targets=enemy", partial, "targets", NULL);
+	Con_AddToTabList("targets=team", partial, "targets", NULL);
+
+	Con_AddToTabList("pcolor", partial, "use player colors", NULL);
+	Con_AddToTabList("color=pcolor", partial, "color mode", NULL);
+	Con_AddToTabList("colormode=pcolor", partial, "color mode", NULL);
+
+	Con_AddToTabList("gametype=1", partial, "1v1 only", NULL);
+	Con_AddToTabList("gametype=2", partial, "up to 2v2", NULL);
+	Con_AddToTabList("gametype=3", partial, "up to 3v3", NULL);
+	Con_AddToTabList("gametype=4", partial, "up to 4v4", NULL);
+	Con_AddToTabList("gametype=5", partial, "5v5+ (no cap)", NULL);
+	Con_AddToTabList("1v1", partial, "match size", NULL);
+	Con_AddToTabList("2v2", partial, "match size", NULL);
+	Con_AddToTabList("3v3", partial, "match size", NULL);
+	Con_AddToTabList("4v4", partial, "match size", NULL);
+	Con_AddToTabList("5v5", partial, "match size (5+)", NULL);
+
+	Con_AddToTabList("enemycolor=0xFF0000", partial, "enemy outline color", NULL);
+	Con_AddToTabList("teamcolor=0x00B7FF", partial, "team outline color", NULL);
+}
+
 /*
 ===============
 R_Init
@@ -409,6 +452,8 @@ void R_Init (void)
 	Cvar_SetCallback (&r_noshadow_list, R_Model_ExtraFlags_List_f);
 	Cvar_RegisterVariable(&r_nooutline_list); // woods #routline
 	Cvar_RegisterVariable(&r_outline); // woods #routline
+	Cvar_RegisterVariable(&r_player_xray); // woods #routline
+	Cvar_SetCompletion (&r_player_xray, &R_Player_Xray_Completion_f); // woods #iwtabcomplete
 #ifdef MACBOOK_ARM_HACK // woods #collinear
 	Cvar_RegisterVariable (&r_remove_collinear_vertices);
 #endif
@@ -955,7 +1000,7 @@ qboolean CL_ApplyModelRotation(entity_t* ent, vec3_t angles, float dt) // true i
 	if (!ent) {
 		return false;
 	}
-	if (!ent->model || !ent->model->name) {
+	if (!ent->model || !ent->model->name[0]) {
 		return false;
 	}
 

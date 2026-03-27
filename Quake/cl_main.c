@@ -30,6 +30,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //for unlink
 #include <unistd.h>
 #endif
+#include <errno.h>
+#include <string.h>
 
 #include <curl/curl.h> // woods #webdl
 #include "cfgfile.h" // woods #webdl
@@ -38,6 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 void CL_RotateModel_OnChange(cvar_t* var); // woods #clmrotate
 void CL_RotateModel_f(void); // woods #clmrotate
 void CL_RotateModel_RebuildFromCvar(void); // woods #clmrotate
+void CL_DemoMark_f(void); // woods #demomark
 
 // we need to declare some mouse variables here, because the menu system
 // references them even when on a unix system.
@@ -67,6 +70,7 @@ cvar_t	cl_maxpitch = {"cl_maxpitch", "90", CVAR_ARCHIVE}; //johnfitz -- variable
 cvar_t	cl_minpitch = {"cl_minpitch", "-90", CVAR_ARCHIVE}; //johnfitz -- variable pitch clamping
 
 cvar_t cl_recordingdemo = {"cl_recordingdemo", "", CVAR_ROM};	//the name of the currently-recording demo.
+cvar_t	cl_demo_format = {"cl_demo_format", "dem", CVAR_ARCHIVE};
 cvar_t	cl_demoreel = {"cl_demoreel", "1", CVAR_ARCHIVE};
 
 cvar_t	cl_beams_polygons = {"cl_beams_polygons", "0", CVAR_ARCHIVE}; // woods #beamspoly
@@ -92,6 +96,7 @@ cvar_t  cl_bobbing = {"cl_bobbing", "0", CVAR_ARCHIVE}; // woods (joequake #weap
 cvar_t	cl_web_download_url = {"cl_web_download_url", "q1tools/q1tools.github.io", CVAR_ARCHIVE}; // woods #webdl
 cvar_t	cl_web_download_url2 = { "cl_web_download_url2", "maps.quakeworld.nu", CVAR_ARCHIVE }; // woods #webdl
 cvar_t	cl_autovote = {"cl_autovote", "0", CVAR_ARCHIVE}; // woods #autovote
+cvar_t	cl_autovote_list = {"cl_autovote_list", "", CVAR_ARCHIVE}; // woods #autovote
 cvar_t	cl_onload = {"cl_onload", "", CVAR_ARCHIVE}; // woods #onload
 cvar_t	cl_contentfilter = {"cl_contentfilter", "0", CVAR_ARCHIVE}; // woods #contentfilter
 
@@ -113,19 +118,44 @@ extern cvar_t	pq_lag; // woods
 extern cvar_t	sv_mapcrc; // woods #mapcrc
 extern qboolean	qeintermission; // woods #qeintermission
 extern qboolean	crxintermission; // woods #crxintermission
+extern qboolean m_return_onerror;
+extern char m_return_reason[32];
 
 char			lastmphost[NET_NAMELEN]; // woods - connected server address
 int				maptime;		// woods connected map time #maptime
 
 void Log_Last_Server_f(void); // woods #connectlast (Qrack) -- write last server to file memory
 void Host_ConnectToLastServer_f(void); // woods use #connectlast for smarter reconnect
+qboolean Host_GetLastServer(char *name, size_t namesize);
 
 extern char lastconnected[3]; // woods #identify+
 extern qboolean netquakeio; // woods
 extern int retry_counter; // woods #ms
 extern int grenadecache, rocketcache; // woods #r2g
 extern qboolean pausedprint; // woods
+extern SDL_TimerID chatTimerID; // woods #chatinfo
+extern qboolean isChatTimerRunning; // woods #chatinfo
 static qboolean prediction_msg_shown = false; // woods #prednotify
+
+static void CL_ClearTypingState(void)
+{
+	int i;
+
+	Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "chat", "0");
+
+	if (isChatTimerRunning)
+	{
+		SDL_RemoveTimer(chatTimerID);
+		isChatTimerRunning = false;
+		chatTimerID = 0;
+	}
+
+	if (!cl.scores || cl.maxclients <= 0)
+		return;
+
+	for (i = 0; i < cl.maxclients; i++)
+		Info_SetKey(cl.scores[i].userinfo, sizeof(cl.scores[i].userinfo), "chat", "");
+}
 
 void CL_ClearTrailStates(void)
 {
@@ -209,6 +239,209 @@ void CL_ClearState (void)
 
 /*
 =====================
+CL_Connect Helpers
+=====================
+*/
+typedef struct
+{
+	qboolean active;
+	char host[NET_NAMELEN];
+} cl_pending_connect_t;
+
+static cl_pending_connect_t cl_pending_connect = {false, {0}};
+static char cl_lasthost[NET_NAMELEN];
+static qboolean cl_next_connect_from_menu = false;
+
+static void CL_ClearConnectReturnState(void)
+{
+	m_return_onerror = false;
+	m_return_reason[0] = '\0';
+}
+
+void CL_MarkNextConnectFromMenu(void)
+{
+	cl_next_connect_from_menu = true;
+}
+
+qboolean CL_ConsumeNextConnectFromMenu(void)
+{
+	qboolean from_menu = cl_next_connect_from_menu;
+	cl_next_connect_from_menu = false;
+	return from_menu;
+}
+
+static const char *CL_PrepareConnectHost(const char *host)
+{
+	if (!host)
+	{
+		host = cl_lasthost;
+		if (!*host)
+		{
+			if (!Host_GetLastServer(cl_lasthost, sizeof(cl_lasthost)))
+				return NULL;
+
+			host = cl_lasthost;
+			Con_Printf("using server history\n");
+		}
+	}
+	else
+	{
+		q_strlcpy(cl_lasthost, host, sizeof(cl_lasthost));
+	}
+
+	return host;
+}
+
+static void CL_PrintConnectingMessage(const char *host)
+{
+	char addressip[70] = {'\0'};
+	char local_verbose[NET_NAMELEN + sizeof(addressip)];
+	int numaddresses;
+	qhostaddr_t addresses[16];
+
+	numaddresses = NET_ListAddresses(addresses, sizeof(addresses) / sizeof(addresses[0]));
+	if (numaddresses && !strstr(addresses[0], "["))
+	{
+		q_strlcpy(addressip, " -- ", sizeof(addressip));
+		q_strlcat(addressip, addresses[0], sizeof(addressip));
+	}
+
+	if (!strcmp(host, "local") || !strcmp(host, "localhost"))
+	{
+		q_strlcpy(local_verbose, host, sizeof(local_verbose));
+		q_strlcat(local_verbose, addressip, sizeof(local_verbose));
+	}
+	else
+	{
+		q_strlcpy(local_verbose, host, sizeof(local_verbose));
+	}
+
+	if (!strstr(host, ":"))
+		Con_Printf("connecting to ^m%s:%i\n", local_verbose, net_hostport);
+	else
+		Con_Printf("connecting to ^m%s\n", local_verbose);
+}
+
+static void CL_PrintConnectFailureHints(void)
+{
+	Con_Printf("\nsyntax: connect server:port (port is optional)\n");
+	if (net_hostport != 26000)
+		Con_Printf("\nTry using port 26000\n");
+}
+
+static void CL_FinalizeConnection(struct qsocket_s *netcon, const char *host)
+{
+	CL_ClearConnectReturnState();
+	cls.netcon = netcon;
+	Con_DPrintf("CL_EstablishConnection: connected to %s\n", host);
+
+	cls.demonum = -1;
+	cls.state = ca_connected;
+
+	if ((cl_autodemo.value == 3 || cl_autodemo.value == 4) && cls.demorecording)
+		Cbuf_AddText("stop\n");
+
+	SCR_BeginLoadingPlaque();
+	cl.protocol_dpdownload = false;
+	cls.signon = 0;
+	MSG_WriteByte(&cls.message, clc_nop);
+
+	q_strlcpy(lastmphost, host, sizeof(lastmphost));
+	Log_Last_Server_f();
+	Write_Log(host, SERVERLIST);
+	ServerList_Rebuild();
+}
+
+static void CL_CancelConnectInternal(qboolean clear_return_state)
+{
+	if (!cl_pending_connect.active && !NET_DatagramConnectPending())
+		return;
+
+	NET_DatagramConnectCancel();
+	cl_pending_connect.active = false;
+	cl_pending_connect.host[0] = '\0';
+
+	if (clear_return_state)
+		CL_ClearConnectReturnState();
+}
+
+void CL_CancelConnect(void)
+{
+	CL_CancelConnectInternal(true);
+}
+
+qboolean CL_BeginConnect(const char *host)
+{
+	const char *target;
+	const char *connect_target;
+	qboolean preserve_return_state;
+	struct qsocket_s *immediate = NULL;
+
+	if (cls.state == ca_dedicated || cls.demoplayback)
+		return false;
+
+	target = CL_PrepareConnectHost(host);
+	if (!target)
+		return false;
+
+	preserve_return_state = CL_ConsumeNextConnectFromMenu();
+	connect_target = NET_ResolveCacheName(target);
+	if (!preserve_return_state)
+		CL_ClearConnectReturnState();
+
+	CL_CancelConnectInternal(false);
+	CL_Disconnect();
+	CL_PrintConnectingMessage(target);
+
+	immediate = NET_ConnectNoSlist(target, true);
+	if (immediate)
+	{
+		CL_FinalizeConnection(immediate, target);
+		return true;
+	}
+
+	if (!NET_DatagramConnectStart(connect_target))
+	{
+		CL_PrintConnectFailureHints();
+		return false;
+	}
+
+	cl_pending_connect.active = true;
+	q_strlcpy(cl_pending_connect.host, target, sizeof(cl_pending_connect.host));
+	return true;
+}
+
+void CL_ConnectFrame(void)
+{
+	net_connect_result_t result;
+	struct qsocket_s *netcon = NULL;
+	const char *reason = NULL;
+
+	if (!cl_pending_connect.active)
+		return;
+
+	result = NET_DatagramConnectFrame(&netcon, &reason);
+	if (result == NET_CONNECT_PENDING)
+		return;
+
+	cl_pending_connect.active = false;
+
+	if (result == NET_CONNECT_COMPLETE && netcon)
+	{
+		CL_FinalizeConnection(netcon, cl_pending_connect.host);
+		cl_pending_connect.host[0] = '\0';
+		return;
+	}
+
+	if (reason && *reason)
+		Con_Printf("%s\n", reason);
+
+	CL_PrintConnectFailureHints();
+	cl_pending_connect.host[0] = '\0';
+}
+
+/*
+=====================
 CL_Disconnect
 
 Sends a disconnect message to the server
@@ -217,6 +450,10 @@ This is also called on Host_Error, so it shouldn't cause any errors
 */
 void CL_Disconnect (void)
 {
+	NET_PortPingProbe_RequestAbort();
+	CL_CancelConnect();
+	CL_ClearTypingState();
+
 	if (key_dest == key_message)
 		Key_EndChat ();	// don't get stuck in chat mode
 
@@ -257,7 +494,11 @@ void CL_Disconnect (void)
 	cl.sendprespawn = false;
 	memset(lastconnected, '\0', sizeof(lastconnected)); // woods #identify+
 	cl.matchinp = 0; // woods
+	cls.demo_had_overtime = false;
+	cls.demo_marker_count = 0;
+	cls.demo_record_frame_count = 0;
 	netquakeio = false; // woods
+	CL_ClearIgnoredChats();
 
 	Info_SetKey(cls.userinfo, sizeof(cls.userinfo), "*mapmismatch", ""); // clear -- woods #mapcrc
 
@@ -287,75 +528,30 @@ Host should be either "local" or a net address to be passed on
 */
 void CL_EstablishConnection (const char *host)
 {
-	static char lasthost[NET_NAMELEN];
-
-	char addressip[70] = {'\0'}; // woods
-	char local_verbose[NET_NAMELEN + sizeof(addressip)]; // woods
-
-	int	numaddresses; // woods
-	qhostaddr_t addresses[16]; // woods
+	const char *target;
+	struct qsocket_s *netcon;
 
 	if (cls.state == ca_dedicated)
 		return;
 
 	if (cls.demoplayback)
 		return;
-	if (!host)
-	{
-		host = lasthost;
-		if (!*host)
-		{ 
-			Host_ConnectToLastServer_f (); // woods use #connectlast for smarter reconnect
-			Con_Printf("using server history\n"); // woods verbose connection info
-			return;
-		}
-	}
-	else
-		q_strlcpy(lasthost, host, sizeof(lasthost));
 
+	target = CL_PrepareConnectHost(host);
+	if (!target)
+		return;
+
+	CL_CancelConnectInternal(false);
 	CL_Disconnect ();
+	CL_PrintConnectingMessage(target);
 
-	numaddresses = NET_ListAddresses(addresses, sizeof(addresses) / sizeof(addresses[0])); // woods
-
-	if (numaddresses && !strstr(addresses[0], "[")) // woods, no [ for ipv6
+	netcon = NET_Connect(target);
+	if (!netcon)
 	{
-		q_strlcpy(addressip, " -- ", sizeof(addressip));
-		q_strlcat(addressip, addresses[0], sizeof(addressip));
-	}
-
-	if (!strcmp(host, "local") || !strcmp(host, "localhost")) // woods
-	{
-		q_strlcpy(local_verbose, host, sizeof(local_verbose));
-		q_strlcat(local_verbose, addressip, sizeof(local_verbose));
-	}
-	else
-		q_strlcpy(local_verbose, host, sizeof(local_verbose));
-
-	if (!strstr(lasthost, ":"))
-		Con_Printf("connecting to ^m%s:%i\n", local_verbose, net_hostport); // woods include port if not specified
-	else
-		Con_Printf("connecting to ^m%s\n", local_verbose); // woods verbose connection info
-
-	cls.netcon = NET_Connect (host);
-	if (!cls.netcon) // woods -  Baker 3.60 - Rook's Qrack port 26000 notification on failure
-	{
-		Con_Printf("\nsyntax: connect server:port (port is optional)\n");//r00k added
-		if (net_hostport != 26000)
-			Con_Printf("\nTry using port 26000\n");//r00k added
+		CL_PrintConnectFailureHints();
 		Host_Error("connect failed");
 	}
-	Con_DPrintf ("CL_EstablishConnection: connected to %s\n", host);
-
-	cls.demonum = -1;			// not in the demo loop now
-	cls.state = ca_connected;
-	cls.signon = 0;				// need all the signon messages before playing
-	MSG_WriteByte (&cls.message, clc_nop);	// NAT Fix from ProQuake
-
-	q_strlcpy(lastmphost, host, sizeof(lastmphost)); // woods - connected server address
-
-	Log_Last_Server_f(); // woods #connectlast (Qrack) -- write last server to file memory
-	Write_Log (host, SERVERLIST); // woods write server to log #serverlist
-	ServerList_Rebuild(); // woods rebuild tab list live for connect +tab #serverlist
+	CL_FinalizeConnection(netcon, target);
 }
 
 void CL_SendInitialUserinfo(void *ctx, const char *key, const char *val)
@@ -503,7 +699,7 @@ void CL_SignonReply (void)
 		}
 		if (!q_strcasecmp(val, "ra") || !q_strcasecmp(val, "rocketarena"))
 			cl.modetype = 3;
-		if (!q_strcasecmp(val, "ca"))
+		if (!q_strcasecmp(val, "ca") || !q_strcasecmp(val, "clanarena"))
 			cl.modetype = 4;
 		if (!q_strcasecmp(val, "airshot"))
 			cl.modetype = 5;
@@ -511,6 +707,8 @@ void CL_SignonReply (void)
 			cl.modetype = 6;
 		if (!q_strcasecmp(val, "freezetag"))
 			cl.modetype = 7;
+		if (!q_strcasecmp(val, "headhunters"))
+			cl.modetype = 8;
 
 		// woods lets detect the playmode of the server for hybrid/nq crx
 
@@ -1672,6 +1870,10 @@ void CL_RelinkEntities (void)
 		if (i == cl.viewentity && !chase_active.value)
 			continue;
 
+		// woods #demoeyecam - hide chased player model when rendering demo eyecam
+		if (cls.demoplayback && cl_demo_eyecam.value && cl.demo_eyecam_target > 0 && i == cl.demo_eyecam_target)
+			continue;
+
 		if (cl_numvisedicts < cl_maxvisedicts)
 		{
 			cl_visedicts[cl_numvisedicts] = ent;
@@ -1682,7 +1884,66 @@ void CL_RelinkEntities (void)
 
 	// viewmodel. last, for transparency reasons.
 	ent = &cl.viewent;
-	if (r_drawviewmodel.value
+
+	// woods #demoeyecam - try to show weapon for demo eyecam target
+	if (cls.demoplayback && cl_demo_eyecam.value && cl.demo_eyecam_target > 0)
+	{
+		int target = cl.demo_eyecam_target;
+		int playernum = target - 1;
+		qboolean have_weapon = false;
+		const char *weapon_name = NULL;
+
+		// Avoid carrying stale weapon models between target changes.
+		ent->model = NULL;
+
+		// Try to derive weapon from target player items (teaminfo feed).
+		if (playernum >= 0 && playernum < cl.maxclients
+			&& cl.scores[playernum].tinfo.time > cl.time - 1.0)
+		{
+			int items = cl.scores[playernum].tinfo.items;
+			int j;
+
+			// Pick best available weapon.
+			if (items & IT_LIGHTNING)
+				weapon_name = "progs/v_light.mdl";
+			else if (items & IT_ROCKET_LAUNCHER)
+				weapon_name = "progs/v_rock2.mdl";
+			else if (items & IT_GRENADE_LAUNCHER)
+				weapon_name = "progs/v_rock.mdl";
+			else if (items & IT_SUPER_NAILGUN)
+				weapon_name = "progs/v_nail2.mdl";
+			else if (items & IT_NAILGUN)
+				weapon_name = "progs/v_nail.mdl";
+			else if (items & IT_SUPER_SHOTGUN)
+				weapon_name = "progs/v_shot2.mdl";
+			else if (items & IT_SHOTGUN)
+				weapon_name = "progs/v_shot.mdl";
+			else
+				weapon_name = "progs/v_axe.mdl";
+
+			// Resolve model from precache table.
+			for (j = 1; j < MAX_MODELS; j++)
+			{
+				if (cl.model_precache[j] && !strcmp(cl.model_precache[j]->name, weapon_name))
+				{
+					ent->model = cl.model_precache[j];
+					have_weapon = true;
+					break;
+				}
+			}
+		}
+
+		// In eyecam, draw a weapon model when available (ignore observer health).
+		if (r_drawviewmodel.value && have_weapon && scr_viewsize.value < 130)
+		{
+			if (cl_numvisedicts < cl_maxvisedicts)
+			{
+				cl_visedicts[cl_numvisedicts] = ent;
+				cl_numvisedicts++;
+			}
+		}
+	}
+	else if (r_drawviewmodel.value
 		&& !chase_active.value
 		&& cl.stats[STAT_HEALTH] > 0
 		/* && !(cl.items & IT_INVISIBILITY)*/ // woods #ringalpha
@@ -2133,6 +2394,70 @@ int Progress_Callback (void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl
 	return 0;
 }
 
+static qboolean CL_DownloadNameIsValid(const char *relative_path)
+{
+	return COM_DownloadNameOkay(relative_path) || COM_DownloadPackageNameOkay(relative_path);
+}
+
+static void CL_DownloadAddMapDesc(const char *relative_path)
+{
+	if (!q_strcasecmp(COM_FileGetExtension(relative_path), "bsp"))
+	{
+		char mapname[MAX_QPATH];
+		COM_StripExtension(COM_SkipPath(relative_path), mapname, sizeof(mapname));
+		FileList_Add_MapDesc(mapname); // #mapdescriptions
+	}
+}
+
+static qboolean CL_FinalizeDownloadFile(const char *relative_path, const char *temp_path)
+{
+	char finalpath[MAX_OSPATH];
+	const char *extension;
+	qboolean is_package;
+	qboolean renameokay;
+	int rename_errno;
+
+	if (!CL_DownloadNameIsValid(relative_path))
+	{
+		Con_Warning("Rejected downloaded filename \"%s\"\n", relative_path ? relative_path : "(null)");
+		return false;
+	}
+
+	q_snprintf(finalpath, sizeof(finalpath), "%s/%s", com_gamedir, relative_path);
+	extension = COM_FileGetExtension(relative_path);
+	is_package = COM_IsPackageExtension(extension) && COM_DownloadPackageNameOkay(relative_path);
+	renameokay = false;
+	rename_errno = 0;
+
+	if (is_package)
+		COM_RemoveDownloadedPackage(relative_path);
+
+	if (rename(temp_path, finalpath) == 0)
+		renameokay = true;
+	else
+	{
+		unlink(finalpath);
+		if (rename(temp_path, finalpath) == 0)
+			renameokay = true;
+		else
+			rename_errno = errno;
+	}
+
+	if (!renameokay)
+	{
+		if (is_package && (Sys_FileType(finalpath) & FS_ENT_FILE))
+			COM_AddDownloadedPackage(relative_path);
+		Con_Warning("Failed to finalize download \"%s\" (%s)\n", finalpath, strerror(rename_errno));
+		return false;
+	}
+
+	if (is_package)
+		COM_AddDownloadedPackage(relative_path);
+
+	CL_DownloadAddMapDesc(relative_path);
+	return true;
+}
+
 qboolean Curl_DownloadFile (const char* url, const char* filename, const char* local_path, qboolean is_skybox, const char* display_name) // main curl function
 {
 	stop_curl_download = false;
@@ -2281,7 +2606,7 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 		return false;
 	}
 
-	if (rename(tmp_path, local_path) != 0) 
+	if (!CL_FinalizeDownloadFile(filename, tmp_path))
 	{
 		unlink(tmp_path); // Also delete the temporary file in case renaming fails
 		cls.download.active = false;
@@ -2300,14 +2625,6 @@ qboolean Curl_DownloadFile (const char* url, const char* filename, const char* l
 
 	else
 		q_snprintf(sizeStr, sizeof(sizeStr), "%ld bytes", fileSizeBytes);
-
-	if (strstr(filename, ".bsp")) // woods, add mapname to extralevels tab completion
-	{
-		char mapname[MAX_QPATH];
-		COM_StripExtension(COM_SkipPath(filename), mapname, sizeof(mapname));
-		FileList_Add_MapDesc (mapname); // #mapdescriptions
-
-	}
 
 	char tagbuf[64];
 	const char* src = (display_name && display_name[0])
@@ -2332,42 +2649,77 @@ void CL_Download_Finished_f(void)
 {
 	if (cls.download.file)
 	{
-		char finalpath[MAX_OSPATH];
-		unsigned int size = strtoul(Cmd_Argv(1), NULL, 0);
-		unsigned int hash = strtoul(Cmd_Argv(2), NULL, 0);
-		//const char *fname = Cmd_Argv(3);
+		unsigned int size;
+		unsigned int hash;
 		qboolean hashokay = false;
+
+		if (Cmd_Argc() < 3)
+		{
+			Con_Warning("Download finished with insufficient arguments\n");
+			goto cleanup;
+		}
+
+		size = strtoul(Cmd_Argv(1), NULL, 0);
+		hash = strtoul(Cmd_Argv(2), NULL, 0);
+
+		if (!CL_DownloadNameIsValid(cls.download.current))
+		{
+			Con_Warning("Rejected downloaded filename \"%s\"\n", cls.download.current);
+			goto cleanup;
+		}
+
 		if (size == cls.download.size)
 		{
-			byte *tmp = malloc(size);
-			if (tmp)
+			byte buf[16384];
+			unsigned int remaining = size;
+			unsigned short crc;
+
+			if (fseek(cls.download.file, 0, SEEK_SET) != 0)
 			{
-				fseek(cls.download.file, 0, SEEK_SET);
-				size_t bytes_read = fread(tmp, 1, size, cls.download.file); // woods
-				hashokay = (bytes_read == size && hash == CRC_Block(tmp, size)); // woods
-				free(tmp);
-
-				if (!hashokay) Con_Warning("Download hash failure\n");
+				Con_Warning("Download hash verify seek failure\n");
 			}
-			else Con_Warning("Download size too large\n");
-		}
-		else Con_Warning("Download size mismatch\n");
+			else
+			{
+				CRC_Init(&crc);
+				while (remaining)
+				{
+					size_t chunk = remaining > sizeof(buf) ? sizeof(buf) : remaining;
+					size_t bytes_read = fread(buf, 1, chunk, cls.download.file);
+					size_t i;
 
+					if (bytes_read != chunk)
+						break;
+
+					for (i = 0; i < bytes_read; i++)
+						CRC_ProcessByte(&crc, buf[i]);
+
+					remaining -= (unsigned int)bytes_read;
+				}
+
+				hashokay = (!remaining && hash == (unsigned int)crc);
+				if (!hashokay)
+					Con_Warning("Download hash failure\n");
+			}
+		}
+		else
+		{
+			Con_Warning("Download size mismatch\n");
+		}
+
+cleanup:
 		fclose(cls.download.file);
 		cls.download.file = NULL;
 		if (hashokay)
 		{
-			q_snprintf (finalpath, sizeof(finalpath), "%s/%s", com_gamedir, cls.download.current);
-			rename(cls.download.temp, finalpath);
-			
-			if (strstr(cls.download.current, ".bsp")) // woods, add mapname to extralevels tab completion
+			if (CL_FinalizeDownloadFile(cls.download.current, cls.download.temp))
 			{
-				char mapname[MAX_QPATH];
-				COM_StripExtension(COM_SkipPath(cls.download.current), mapname, sizeof(mapname));
-				FileList_Add_MapDesc (mapname); // #mapdescriptions
+				Con_SafePrintf("Downloaded %s: %u bytes\n", cls.download.current, cls.download.size);
 			}
-
-			Con_SafePrintf("Downloaded %s: %u bytes\n", cls.download.current, cls.download.size);
+			else
+			{
+				Con_Warning("Download of %s failed\n", cls.download.current);
+				unlink(cls.download.temp);
+			}
 		}
 		else
 		{
@@ -2457,8 +2809,6 @@ qboolean CL_CheckDownload(const char *filename)
 		return false;	//if the previous download failed, don't endlessly retry.
 	if (COM_FileExists(filename, NULL))
 		return false;	//no need to download anything.
-	if (!COM_DownloadNameOkay(filename))
-		return false;	//diediedie
 	if (cls.demoplayback)
 		return false;
 
@@ -2467,20 +2817,30 @@ qboolean CL_CheckDownload(const char *filename)
 	char local_path[MAX_OSPATH]; // Define the max path length	
 	char modified_filename[MAX_OSPATH];
 
-	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, filename);
-
 	if (!strcmp(filename, "progs/star.mdl") && downloadedctf == false) // since we don't download files inside a pak, lets download the pak for ctf
 	{
 		q_strlcpy(modified_filename, "paks/ctf.pak", sizeof(modified_filename));
 		filename = modified_filename;
-		Con_Printf("\nfull ctf installation not detected, downloading ctf pak...\n\n^mrestart required to take effect\n\n");
+		Con_Printf("\nfull ctf installation not detected, downloading ctf pak...\n\n");
 		downloadedctf = true;
-
-		if (COM_FileExists("ctf.pak", NULL))
-			q_snprintf(local_path, sizeof(local_path), "%s/full%s", com_gamedir, COM_SkipPath(filename));
-		else
-			q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, COM_SkipPath(filename));
 	}
+
+	if (COM_IsPackageExtension(COM_FileGetExtension(filename)))
+	{
+		if (!COM_DownloadPackageNameOkay(filename))
+			return false;
+	}
+	else if (!COM_DownloadNameOkay(filename))
+	{
+		return false;
+	}
+
+	if (*cls.download.current && !strcmp(cls.download.current, filename))
+		return false;
+	if (COM_FileExists(filename, NULL))
+		return false;
+
+	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, filename);
 
 	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
                 if (Curl_DownloadFile (cl_web_download_url.string, filename, local_path, false, NULL))
@@ -2813,7 +3173,7 @@ void CL_ManualDownload_f (const char* filename)
 
 	if (Cmd_Argc() != 2)
 	{
-		Con_Printf("download <filename> : filename with an extension (bsp, lit, loc, mdl, or wav)\n");
+		Con_Printf("download <filename|ctf|ra> : filename with an extension (bsp, lit, loc, mdl, or wav)\n");
 		return;
 	}
 
@@ -2868,6 +3228,15 @@ void CL_ManualDownload_f (const char* filename)
 		prefixedArg[sizeof(prefixedArg) - 1] = '\0';
 	}
 
+	if (!CL_DownloadNameIsValid(prefixedArg))
+	{
+		Con_Printf("Unsupported download path\n");
+		return;
+	}
+
+	if (*cls.download.current && !strcmp(cls.download.current, prefixedArg))
+		return;	//if the previous download failed, don't endlessly retry.
+
 	if (COM_FileExists(prefixedArg, NULL))
 	{
 		Con_Printf("File already exists, download not attempted\n");
@@ -2892,23 +3261,7 @@ void CL_ManualDownload_f (const char* filename)
 	Con_Printf("Attempting download, if found you will see progress below...\n");
 
 	char local_path[MAX_OSPATH]; // Define the max path length	
-
-	if (strcmp(filename, "ctf") == 0)
-	{
-		if (COM_FileExists("ctf.pak", NULL))
-			q_snprintf(local_path, sizeof(local_path), "%s/full%s.pak", com_gamedir, filename);
-		else
-			q_snprintf(local_path, sizeof(local_path), "%s/%s.pak", com_gamedir, filename);
-	}
-	else if (strcmp(filename, "ra") == 0)
-	{
-		if (COM_FileExists("ra.pak", NULL))
-			q_snprintf(local_path, sizeof(local_path), "%s/full%s.pak", com_gamedir, filename);
-		else
-			q_snprintf(local_path, sizeof(local_path), "%s/%s.pak", com_gamedir, filename);
-	}
-	else
-		q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, prefixedArg);
+	q_snprintf(local_path, sizeof(local_path), "%s/%s", com_gamedir, prefixedArg);
 
 	if (webcheck && (cl_web_download_url.string != NULL && cl_web_download_url.string[0] != '\0')) // only run if server is verified
                 if (Curl_DownloadFile(cl_web_download_url.string, prefixedArg, local_path, false, NULL))
@@ -3658,6 +4011,9 @@ static void SV_DecodeUserInfo(client_t *client)
 
 	if (Q_strcmp(client->name, tmp) != 0)
 	{	//name changed.
+		// Save preferred name before duplicate check modifies it
+		q_strlcpy(client->desired_name, tmp, sizeof(client->desired_name));
+
 		if (client->name[0] && strcmp(client->name, "unconnected") )
 			Con_Printf ("%s renamed to %s\n", host_client->name, tmp);
 		Q_strcpy (host_client->name, tmp);
@@ -3709,7 +4065,10 @@ void SV_UpdateInfo(int edict, const char *keyname, const char *value)
 			SV_DecodeUserInfo(infoplayer);
 
 			if (!strcmp(keyname, "name") && infoplayer->name[0]) // woods #dupnames
+			{
 				SV_CheckDuplicateNames(infoplayer);
+				SV_ReapplyPreferredNames(infoplayer);
+			}
 
 			if (sv_mapcrc.value && !strcmp(keyname, "*mapmismatch") && !strcmp(value, "1")) // woods #mapcrc
 			{
@@ -3790,6 +4149,129 @@ static void CL_Onload_Completion_f(cvar_t* cvar, const char* partial)
 }
 
 /*
+===============
+CL_Autovote_List_Completion_f -- woods #autovote
+===============
+*/
+static void CL_Autovote_List_Completion_f(cvar_t* cvar, const char* partial)
+{
+	static const struct
+	{
+		const char* value;
+		const char* type;
+	} options[] =
+	{
+		{ "player", "name" },
+		{ "powerzord", "name" },
+		{ "sofdm3", "map" },
+		{ "change level", "vote" },
+		{ "next level", "vote" },
+		{ "change map", "vote" },
+		{ "change gametype", "vote" },
+		{ "change mode", "vote" },
+		{ "change frag limit", "vote" },
+		{ "frag limit", "vote" },
+		{ "change match length", "vote" },
+		{ "match length", "vote" },
+		{ "change overtime", "vote" },
+		{ "overtime", "vote" },
+		{ "weaponstay", "vote" },
+		{ "grappling hook", "vote" },
+		{ "entity set", "vote" },
+		{ "alternative entity set", "vote" },
+		{ "standard entity set", "vote" },
+		{ "gibs", "vote" },
+		{ "quad", "vote" },
+		{ "pentagram", "vote" },
+		{ "ring of shadows", "vote" },
+		{ "obituaries", "vote" },
+		{ "match autopause", "vote" },
+		{ "prediction", "vote" },
+		{ "runes", "vote" },
+		{ "abort match", "vote" },
+		{ "powerup dropping", "vote" },
+		{ "pause the match", "vote" },
+		{ "unpause the match", "vote" },
+		{ "lock the match", "vote" },
+		{ "allow new players to join", "vote" },
+		{ "start the timer", "vote" },
+		{ "randomly reshuffle the teams", "vote" },
+		{ "qwsucks", "vote" },
+		{ "q14ever", "vote" },
+		{ "free for all", "gametype" },
+		{ "team deathmatch", "gametype" },
+		{ "deathmatch", "gametype" },
+		{ "ctf", "mode" },
+		{ "capture the flag", "gametype" },
+		{ "clan arena", "gametype" },
+		{ "rocket arena", "gametype" },
+		{ "dm", "mode" },
+		{ "duel", "gametype" },
+		{ "airshot", "gametype" },
+		{ "wipeout", "gametype" },
+		{ "ctf duel", "gametype" },
+		{ "timelimit", "vote" },
+		{ "normal", "mode" },
+		{ "practice", "mode" },
+		{ "match", "mode" }
+	};
+	char candidate[MAXCMDLINE];
+	const char* comma = strrchr(partial, ',');
+	const char* semicolon = strrchr(partial, ';');
+	const char* separator = comma;
+	size_t prefix_len = 0;
+	size_t i;
+
+	if (Cmd_Argc() != 2)
+		return;
+
+	if (!separator || (semicolon && semicolon > separator))
+		separator = semicolon;
+
+	if (separator)
+	{
+		prefix_len = (size_t)((separator + 1) - partial);
+		while (partial[prefix_len] && q_isspace((unsigned char)partial[prefix_len]))
+			prefix_len++;
+	}
+
+	// offer mode keywords at first position
+	if (!prefix_len)
+	{
+		Con_AddToTabList("exclude", partial, "mode", NULL);
+		Con_AddToTabList("include", partial, "mode", NULL);
+	}
+
+	for (i = 0; i < sizeof(options) / sizeof(options[0]); ++i)
+	{
+		if (prefix_len)
+			q_snprintf(candidate, sizeof(candidate), "%.*s%s", (int)prefix_len, partial, options[i].value);
+		else
+			q_strlcpy(candidate, options[i].value, sizeof(candidate));
+
+		Con_AddToTabList(candidate, partial, options[i].type, NULL);
+	}
+}
+
+/*
+===============
+CL_DemoFormat_Completion_f
+===============
+*/
+static void CL_DemoFormat_Completion_f(cvar_t* cvar, const char* partial)
+{
+	(void)cvar;
+
+	if (Cmd_Argc() != 2)
+		return;
+
+	Con_AddToTabList("dem", partial, "raw demo", NULL);
+#ifdef USE_ZLIB
+	Con_AddToTabList("dz", partial, "dzip archive", NULL);
+#endif
+}
+
+/*
 =================
 CL_Init
 =================
@@ -3834,6 +4316,8 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_maxpitch); //johnfitz -- variable pitch clamping
 	Cvar_RegisterVariable (&cl_minpitch); //johnfitz -- variable pitch clamping
 	Cvar_RegisterVariable (&cl_recordingdemo); //spike -- for mod hacks. combine with cvar_string or something
+	Cvar_RegisterVariable (&cl_demo_format);
+	Cvar_SetCompletion (&cl_demo_format, &CL_DemoFormat_Completion_f);
 	Cvar_RegisterVariable (&cl_demoreel);
 
 	Cvar_RegisterVariable (&cl_beams_polygons); // woods #beamspoly
@@ -3865,6 +4349,8 @@ void CL_Init (void)
 	Cvar_SetCallback (&cl_web_download_url2, &Web2CheckCallback_f); // woods #webdl
 
 	Cvar_RegisterVariable (&cl_autovote); // woods #autovote
+	Cvar_RegisterVariable (&cl_autovote_list); // woods #autovote
+	Cvar_SetCompletion (&cl_autovote_list, &CL_Autovote_List_Completion_f); // woods #autovote
 	Cvar_RegisterVariable (&cl_onload); // woods #onload
 	Cvar_SetCompletion (&cl_onload, &CL_Onload_Completion_f); // woods #onload
 	Cvar_RegisterVariable (&cl_contentfilter); // woods #contentfilter
@@ -3878,9 +4364,11 @@ void CL_Init (void)
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
 	Cmd_AddCommand ("record", CL_Record_f);
+	Cmd_AddCommand ("markdemo", CL_DemoMark_f);
 	Cmd_AddCommand ("stop", CL_Stop_f);
 	Cmd_AddCommand ("playdemo", CL_PlayDemo_f);
 	Cmd_AddCommand ("timedemo", CL_TimeDemo_f);
+	Cmd_AddCommand ("jumpdemo", CL_JumpDemo_f);
 
 	Cmd_AddCommand ("tracepos", CL_Tracepos_f); //johnfitz
 	Cmd_AddCommand ("viewpos", CL_Viewpos_f); //johnfitz
@@ -3915,6 +4403,7 @@ void CL_Init (void)
 	Cmd_AddCommand_ServerCommand("crx_ignorethis", CL_ServerExtension_Ignore_f); // woods crx
 	Cmd_AddCommand_ServerCommand("ignorethis_crx", CL_ServerExtension_Ignore_f); // woods crx
 	Cmd_AddCommand_ServerCommand("init", CL_ServerExtension_Ignore_f); // woods runequake
+	Cmd_AddCommand_ServerCommand("demomark", CL_DemoMark_f); // woods #demomark
 	
 	Cmd_AddCommand_ServerCommand ("cl_serverextension_download", CL_ServerExtension_Download_f); //spike
 	Cmd_AddCommand_ServerCommand ("cl_downloadbegin", CL_Download_Begin_f); //spike

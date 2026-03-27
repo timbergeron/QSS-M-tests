@@ -60,6 +60,7 @@ static cvar_t net_ice_servers = CVARFD("net_ice_servers", "", CVAR_NOTFROMSERVER
 static cvar_t net_ice_debug = CVARFD("net_ice_debug", "0", CVAR_NOTFROMSERVER, "0: Hide messy details.\n1: Show new candidates.\n2: Show each connectivity test.");
 static cvar_t net_ice_broker = CVARFD("net_ice_broker", "master.frag-net.com:27950", CVAR_NOTFROMSERVER, "This is the default broker we attempt to connect through when using 'sv_port_rtc /foo' or 'connect /foo'.");
 cvar_t sv_port_rtc = CVARFD("sv_port_rtc", "/", CVAR_NOTFROMSERVER, "This is the '/roomname' for your server to register as. When '/' will request the master assign one. Empty will disable registration.");
+static cvar_t sv_addr_ws = CVARFD("sv_addr_ws", "", CVAR_NOTFROMSERVER, "WebSocket address for this server (e.g. wss://example.com:27950). Sent as *wsaddr in infostrings.");
 extern cvar_t com_protocolname;
 
 
@@ -349,6 +350,24 @@ static qboolean QICE_UpdateBroker(qice_connection_t *b)
 	{
 		const char *roomname = b->gamename;
 		char *url;
+		char *c;
+
+		// Re-read the broker cvar in case it was changed by autoexec.cfg
+		// after the initial QICE_Setup during NET_Init
+		{
+			const char *broker = net_ice_broker.string;
+			if (!strncmp(broker, "ws://", 5))
+				{ broker += 5; b->issecure = false; }
+			else if (!strncmp(broker, "wss://", 6))
+				{ broker += 6; b->issecure = true; }
+			q_strlcpy(b->brokername, broker, sizeof(b->brokername));
+			c = strchr(b->brokername, ':');
+			if (c)
+				{ b->brokerport = atoi(c+1); *c = 0; }
+			else
+				b->brokerport = PORT_ICEBROKER;
+		}
+
 		if (b->reconnecttimeout > realtime || !*b->brokername)
 			return false;
 
@@ -684,6 +703,9 @@ static qboolean QICE_LoadCerts(struct dtlslocalcred_s *cred, char *priv, char *c
 }
 #endif
 
+static struct icesocket_s *shared_game_socket4;	//datagram driver's shared IPv4 UDP socket
+static struct icesocket_s *shared_game_socket6;	//datagram driver's shared IPv6 UDP socket
+
 static qice_connection_t *QICE_Setup(const char *address, qboolean isserver)
 {	//[rtc://][broker[:port]]/[roomname]
 	qice_connection_t *newcon;
@@ -787,7 +809,33 @@ static qice_connection_t *QICE_Setup(const char *address, qboolean isserver)
 	newcon->icemodule.SendInitial = QICE_SendInitial;
 	newcon->icemodule.ClosedState = QICE_Closed;
 
-	ICE_SetupModule(&newcon->icemodule, isserver?net_hostport+1000:0);	//try to keep to well-defined port numbers, ish, in case people need to set up manual holepunching.
+	if (isserver && (shared_game_socket4 || shared_game_socket6))
+	{	//use the shared game sockets — each module gets its own wrapper (freed by CloseModule)
+		if (shared_game_socket4)
+		{
+			struct icesocket_s *wrap = ICE_WrapExistingSocket(shared_game_socket4->sock, shared_game_socket4->af);
+			if (wrap)
+				newcon->icemodule.conn[0] = wrap;
+		}
+		if (shared_game_socket6)
+		{
+			struct icesocket_s *wrap = ICE_WrapExistingSocket(shared_game_socket6->sock, shared_game_socket6->af);
+			if (wrap)
+				newcon->icemodule.conn[1] = wrap;
+		}
+		newcon->icemodule.srflx_port = net_hostport;	// use game port for srflx candidates (NAT may remap)
+		ICE_SetupModule(&newcon->icemodule,
+			0,						// shared sockets handle UDP; 0 = don't open another
+			net_hostport);			// TCP/WebSocket on game port
+	}
+	else
+	{
+		if (isserver)
+			newcon->icemodule.srflx_port = net_hostport;	// use game port for srflx candidates (NAT may remap)
+		ICE_SetupModule(&newcon->icemodule,
+			0,						// ephemeral if needed (client), or none (no shared socket)
+			isserver ? net_hostport : 0);		// TCP/WebSocket on game port
+	}
 
 #ifdef HAVE_DTLS
 	if (isserver)
@@ -796,42 +844,47 @@ static qice_connection_t *QICE_Setup(const char *address, qboolean isserver)
 		int a_k, a_c;
 		newcon->icemodule.dtlsfuncs = ICE_DTLS_InitServer();	//we want to support clients using dtls...
 
-		a_k = COM_CheckParm("-privkey")+1;
-		a_c = COM_CheckParm("-pubkey")+1;
-		if (a_k <= 1 || a_k >= com_argc || a_c <= 1 || a_c >= com_argc || !QICE_LoadCerts(&cred, com_argv[a_k], com_argv[a_c]))
+		if (newcon->icemodule.dtlsfuncs)
+		{
+			a_k = COM_CheckParm("-privkey")+1;
+			a_c = COM_CheckParm("-pubkey")+1;
+			if (a_k <= 1 || a_k >= com_argc || a_c <= 1 || a_c >= com_argc || !QICE_LoadCerts(&cred, com_argv[a_k], com_argv[a_c]))
 #if defined(__unix__) || defined(__POSIX__)
-			if (!QICE_LoadCerts(&cred, "/etc/ssl/private/privkey.pem", "/etc/ssl/certs/fullchain.pem"))	//look in the system path.
+				if (!QICE_LoadCerts(&cred, "/etc/ssl/private/privkey.pem", "/etc/ssl/certs/fullchain.pem"))	//look in the system path.
 #endif
-				if (!QICE_LoadCerts(&cred, va("%s/privkey.pem", com_basedir), va("%s/fullchain.pem", com_basedir)))
-					if (!QICE_LoadCerts(&cred, va("%s/privkey.der", com_basedir), va("%s/fullchain.der", com_basedir)))
-					{	//generate temp ones.
-						char *hostname = "localhost";
-						int a_h = COM_CheckParm("-certhost")+1;
-						if (a_h > 1 && a_h < com_argc)
-							hostname = com_argv[a_h];
+					if (!QICE_LoadCerts(&cred, va("%s/privkey.pem", com_basedir), va("%s/fullchain.pem", com_basedir)))
+						if (!QICE_LoadCerts(&cred, va("%s/privkey.der", com_basedir), va("%s/fullchain.der", com_basedir)))
+						{	//generate temp ones.
+							char *hostname = "localhost";
+							int a_h = COM_CheckParm("-certhost")+1;
+							if (a_h > 1 && a_h < com_argc)
+								hostname = com_argv[a_h];
 
-						if (newcon->icemodule.dtlsfuncs->GenTempCertificate(hostname, &cred))
-						{
-							int fd;
-							//and save em to disk
-							fd = Sys_FileOpenWrite(va("%s/privkey.der", com_basedir));
-							if (fd>=0)
+							if (newcon->icemodule.dtlsfuncs->GenTempCertificate(hostname, &cred))
 							{
-								Sys_FileWrite(fd, cred.key, cred.keysize);
-								Sys_FileClose(fd);
-							}
-							fd = Sys_FileOpenWrite(va("%s/fullchain.der", com_basedir));
-							if (fd>=0)
-							{
-								Sys_FileWrite(fd, cred.cert, cred.certsize);
-								Sys_FileClose(fd);
+								int fd;
+								//and save em to disk
+								fd = Sys_FileOpenWrite(va("%s/privkey.der", com_basedir));
+								if (fd>=0)
+								{
+									Sys_FileWrite(fd, cred.key, cred.keysize);
+									Sys_FileClose(fd);
+								}
+								fd = Sys_FileOpenWrite(va("%s/fullchain.der", com_basedir));
+								if (fd>=0)
+								{
+									Sys_FileWrite(fd, cred.cert, cred.certsize);
+									Sys_FileClose(fd);
+								}
 							}
 						}
-					}
 
-		newcon->icemodule.dtlsfuncs->SetCredentials(&cred);
-		free(cred.cert);
-		free(cred.key);
+			newcon->icemodule.dtlsfuncs->SetCredentials(&cred);
+			free(cred.cert);
+			free(cred.key);
+		}
+		else
+			Con_Printf(CON_WARNING"DTLS unavailable - GnuTLS library failed to load.\n");
 	}
 #endif
 
@@ -844,151 +897,463 @@ static qice_connection_t *QICE_Setup(const char *address, qboolean isserver)
 static qboolean qice_listening;	//whether we want to host or not.
 static qice_connection_t *qice_hostcon;	//broker for our server side.
 
+//---- Broker DTLS listener ----
+//Accepts DTLS connections from brokers on the game UDP port.
+//Decrypted packets are processed as connectionless with dtls_authenticated=true.
+#ifdef HAVE_DTLS
+#define MAX_BROKER_DTLS_PEERS 8
+#define BROKER_DTLS_TIMEOUT 5.0
+struct broker_dtls_peer_s
+{
+	netadr_t addr;
+	void *dtlsstate;
+	const dtlsfuncs_t *funcs;
+	double timeout;
+	struct icesocket_s *sendsock;	//for sending encrypted data back
+};
+static struct broker_dtls_peer_s broker_dtls_peers[MAX_BROKER_DTLS_PEERS];
+static qboolean broker_dtls_authenticated;	//set when processing a decrypted packet
+static struct broker_dtls_peer_s *broker_dtls_active;	//the peer being processed (for encrypted responses)
 
-#if 0//def HAVE_SERVER
-void SVC_ICE_Offer(netadr_t *from)
+static neterr_t BrokerDTLS_Push(void *cbctx, const qbyte *data, size_t length)
+{	//send raw DTLS data back to the broker
+	struct broker_dtls_peer_s *peer = (struct broker_dtls_peer_s *)cbctx;
+	if (!peer->sendsock)
+		return NETERR_NOROUTE;
+	return peer->sendsock->SendPacket(peer->sendsock, &peer->addr, data, length);
+}
+
+static void BrokerDTLS_Established(void **cbctx, void *state)
+{	//cookie verified, allocate permanent peer state
+	struct broker_dtls_peer_s *temp = (struct broker_dtls_peer_s *)*cbctx;
+	struct broker_dtls_peer_s *peer = NULL;
+	int i, oldest = 0;
+
+	//find a free slot or reuse oldest
+	for (i = 0; i < MAX_BROKER_DTLS_PEERS; i++)
+	{
+		if (!broker_dtls_peers[i].dtlsstate)
+		{
+			peer = &broker_dtls_peers[i];
+			break;
+		}
+		if (broker_dtls_peers[i].timeout < broker_dtls_peers[oldest].timeout)
+			oldest = i;
+	}
+	if (!peer)
+	{	//reuse oldest
+		peer = &broker_dtls_peers[oldest];
+		if (peer->dtlsstate && peer->funcs)
+			peer->funcs->DestroyContext(peer->dtlsstate);
+		memset(peer, 0, sizeof(*peer));
+	}
+
+	peer->addr = temp->addr;
+	peer->funcs = temp->funcs;
+	peer->sendsock = temp->sendsock;
+	peer->dtlsstate = state;
+	peer->timeout = Sys_DoubleTime() + BROKER_DTLS_TIMEOUT;
+
+	*cbctx = peer;	//update so gnutls uses the permanent peer
+	Con_DPrintf("BrokerDTLS: established session with %s\n",
+		NET_BaseAdrToString((char[64]){0}, 64, &peer->addr));
+}
+
+//returns true if packet was consumed (either by an established session or a handshake)
+qboolean BrokerDTLS_HandlePacket(byte *data, int len, struct qsockaddr *qaddr, struct icesocket_s *sendsock)
+{
+	netadr_t from;
+	struct broker_dtls_peer_s *peer = NULL;
+	const dtlsfuncs_t *funcs;
+	int i;
+	byte decrypted[2048 + 1];	//+1 for null terminator written by _Datagram_ServerControlPacket
+	size_t decrypted_len = 0;
+	neterr_t err;
+
+	//convert address
+	{	struct sockaddr_storage ss;
+		memset(&ss, 0, sizeof(ss));
+		memcpy(&ss, qaddr, sizeof(*qaddr));
+		SockadrToNetadr(&ss, sizeof(ss), &from);
+	}
+
+	//find existing session
+	for (i = 0; i < MAX_BROKER_DTLS_PEERS; i++)
+	{
+		if (broker_dtls_peers[i].dtlsstate && NET_CompareAdr(&broker_dtls_peers[i].addr, &from))
+		{
+			peer = &broker_dtls_peers[i];
+			break;
+		}
+	}
+
+	if (peer)
+	{	//established session — decrypt
+		peer->timeout = Sys_DoubleTime() + BROKER_DTLS_TIMEOUT;
+
+		//drive timeouts (retransmits etc)
+		if (peer->funcs->Timeouts)
+			peer->funcs->Timeouts(peer->dtlsstate);
+
+		err = peer->funcs->Received(peer->dtlsstate, &from, data, len, decrypted, sizeof(decrypted), &decrypted_len);
+		if (err == NETERR_DISCONNECTED)
+		{	//stale session — destroy and try a fresh handshake
+			Con_DPrintf("BrokerDTLS: stale session, rehandshaking\n");
+			peer->funcs->DestroyContext(peer->dtlsstate);
+			memset(peer, 0, sizeof(*peer));
+			peer = NULL;
+		}
+		else
+		{
+			if (err == NETERR_SENT && decrypted_len > 0)
+			{	//got decrypted data — process as connectionless
+				broker_dtls_authenticated = true;
+				broker_dtls_active = peer;
+				if (decrypted_len >= 4 && decrypted[0] == 0xFF && decrypted[1] == 0xFF && decrypted[2] == 0xFF && decrypted[3] == 0xFF)
+				{
+					extern void _Datagram_BrokerPacket(byte *data, unsigned int length, sys_socket_t sock, struct qsockaddr *addr);
+					_Datagram_BrokerPacket(decrypted, (unsigned int)decrypted_len, sendsock->sock, qaddr);
+				}
+				broker_dtls_active = NULL;
+				broker_dtls_authenticated = false;
+			}
+			return true;	//consumed (even if handshake/keepalive with no app data)
+		}
+	}
+
+	//no existing session (or stale one just destroyed) — try to start a handshake
+	funcs = ICE_DTLS_InitServer();
+	if (!funcs || !funcs->CheckConnection)
+		return false;
+
+	{	struct broker_dtls_peer_s temp;
+		qboolean result;
+		memset(&temp, 0, sizeof(temp));
+		temp.addr = from;
+		temp.funcs = funcs;
+		temp.sendsock = sendsock;
+		result = funcs->CheckConnection(&temp, &from, sizeof(from), data, len, BrokerDTLS_Push, BrokerDTLS_Established);
+
+		if (!result && len > 0 && data[0] == 0x17)
+		{	//application data with no session — broker has a stale DTLS session.
+			//send a DTLS fatal alert (unexpected_message) to force re-handshake.
+			static double last_alert_time;
+			double now = Sys_DoubleTime();
+			if (now - last_alert_time > 1.0)	//rate limit
+			{
+				byte alert[] = {
+					0x15,			//content type: alert
+					0xFE, 0xFD,		//DTLS 1.2 version
+					0x00, 0x00,		//epoch
+					0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	//sequence number
+					0x00, 0x02,		//length
+					0x02,			//fatal
+					0x0A			//unexpected_message
+				};
+				if (sendsock)
+					sendsock->SendPacket(sendsock, &from, alert, sizeof(alert));
+				Con_DPrintf("BrokerDTLS: sent alert to %s (stale session)\n",
+					NET_BaseAdrToString((char[64]){0}, 64, &from));
+				last_alert_time = now;
+			}
+		}
+
+		return result;
+	}
+}
+
+void BrokerDTLS_Cleanup(void)
+{
+	int i;
+	double now = Sys_DoubleTime();
+	for (i = 0; i < MAX_BROKER_DTLS_PEERS; i++)
+	{
+		if (broker_dtls_peers[i].dtlsstate)
+		{
+			if (broker_dtls_peers[i].funcs->Timeouts)
+				broker_dtls_peers[i].funcs->Timeouts(broker_dtls_peers[i].dtlsstate);
+			if (broker_dtls_peers[i].timeout < now)
+			{
+				Con_DPrintf("BrokerDTLS: session timeout\n");
+				broker_dtls_peers[i].funcs->DestroyContext(broker_dtls_peers[i].dtlsstate);
+				memset(&broker_dtls_peers[i], 0, sizeof(broker_dtls_peers[i]));
+			}
+		}
+	}
+}
+
+void BrokerDTLS_Shutdown(void)
+{
+	int i;
+	for (i = 0; i < MAX_BROKER_DTLS_PEERS; i++)
+	{
+		if (broker_dtls_peers[i].dtlsstate)
+		{
+			broker_dtls_peers[i].funcs->DestroyContext(broker_dtls_peers[i].dtlsstate);
+			memset(&broker_dtls_peers[i], 0, sizeof(broker_dtls_peers[i]));
+		}
+	}
+}
+
+qboolean BrokerDTLS_IsAuthenticated(void)
+{
+	return broker_dtls_authenticated;
+}
+
+//send data through the active broker DTLS session (encrypts before sending)
+int BrokerDTLS_Send(const void *data, int len)
+{
+	if (!broker_dtls_active || !broker_dtls_active->dtlsstate)
+		return -1;
+	return (broker_dtls_active->funcs->Transmit(broker_dtls_active->dtlsstate, (const qbyte *)data, len) == NETERR_SENT) ? 0 : -1;
+}
+#else //!HAVE_DTLS — stubs
+qboolean BrokerDTLS_HandlePacket(byte *data, int len, struct qsockaddr *addr, struct icesocket_s *sendsock) { return false; }
+void BrokerDTLS_Cleanup(void) {}
+void BrokerDTLS_Shutdown(void) {}
+qboolean BrokerDTLS_IsAuthenticated(void) { return false; }
+int BrokerDTLS_Send(const void *data, int len) { return -1; }
+#endif //HAVE_DTLS
+
+#ifdef SUPPORT_ICE
+//Adapted for QSS-M: handles ice_offer/ice_ccand connectionless packets from a broker on the game UDP port.
+//The broker sends these so browsers can establish WebRTC DataChannels directly to the server.
+
+static void Z_StrCat(char **dest, const char *src)
+{	//append src to a Z_Malloc'd string, reallocating as needed
+	size_t oldlen = *dest ? strlen(*dest) : 0;
+	size_t addlen = strlen(src);
+	char *n = (char *)Z_Malloc(oldlen + addlen + 1);
+	if (*dest)
+	{
+		memcpy(n, *dest, oldlen);
+		Z_Free(*dest);
+	}
+	memcpy(n + oldlen, src, addlen + 1);
+	*dest = n;
+}
+
+//per-peer candidate trickle state (keyed by broker id), since icestate_s.u is not available
+#define MAX_ICE_PEERS 16
+static struct
+{
+	char brokerid[64];
+	char *text;
+	unsigned int inseq;
+	unsigned int outseq;
+	double timeout;
+} ice_peer_state[MAX_ICE_PEERS];
+
+static int ICE_FindOrAllocPeer(const char *brokerid, qboolean alloc)
+{
+	int i, oldest = 0;
+	for (i = 0; i < MAX_ICE_PEERS; i++)
+	{
+		if (!strcmp(ice_peer_state[i].brokerid, brokerid))
+			return i;
+		if (ice_peer_state[i].timeout < ice_peer_state[oldest].timeout)
+			oldest = i;
+	}
+	if (!alloc)
+		return -1;
+	//reuse oldest slot
+	i = oldest;
+	if (ice_peer_state[i].text)
+		Z_Free(ice_peer_state[i].text);
+	memset(&ice_peer_state[i], 0, sizeof(ice_peer_state[i]));
+	q_strlcpy(ice_peer_state[i].brokerid, brokerid, sizeof(ice_peer_state[i].brokerid));
+	ice_peer_state[i].timeout = Sys_DoubleTime() + 30;
+	return i;
+}
+
+void SVC_ICE_Offer(const char *clientaddr, const char *brokerid, const char *sdpdata, const char *brokeraddr, ice_udp_send_t sendpacket)
 {	//handles an 'ice_offer' udp message from a broker
-//	extern cvar_t net_ice_servers;
 	struct icestate_s *ice;
-	static float throttletimer;
 	const char *sdp, *s;
 	char buf[1400];
-	int sz;
-	const char *clientaddr = Cmd_Argv(1);	//so we can do ip bans on the client's srflx address
-	const char *brokerid = Cmd_Argv(2);	//specific id to identify the pairing on the broker.
-	netadr_t adr;
+	int sz, pi;
 #ifdef HAVE_JSON
 	json_t *json;
 #endif
+	Con_DPrintf("ICE: ice_offer from %s broker_id=%s dtls=%i\n", clientaddr, brokerid, BrokerDTLS_IsAuthenticated());
+#ifdef HAVE_DTLS
+	if (!BrokerDTLS_IsAuthenticated())
+	{
+		Con_DPrintf("ICE: ice_offer rejected - not DTLS authenticated\n");
+		return;
+	}
+#endif
 	if (!qice_hostcon)
-		return;	//err..?
-	if (from->prot != NP_DTLS && from->prot != NP_TLS)
-	{	//a) dtls provides a challenge (ensuring we can at least ban them).
-		//b) this contains the caller's ips. We'll be pinging them anyway, but hey. also it'll be too late at this point but it keeps the other side honest.
-		Con_DPrintf(CON_WARNING"%s: ice handshake from %s was unencrypted\n", NET_AdrToString (buf, sizeof(buf), from), clientaddr);
+	{
+		Con_DPrintf("ICE: no host connection (sv_port_rtc not set?)\n");
 		return;
 	}
 
-	/*if (!NET_StringToAdr_NoDNS(clientaddr, 0, &adr))	//no dns-resolution denial-of-service attacks please.
-	{
-		Con_DPrintf(CON_WARNING"%s: ice handshake specifies bad client address: %s\n", NET_AdrToString (buf, sizeof(buf), from), clientaddr);
+	pi = ICE_FindOrAllocPeer(brokerid, true);
+	if (pi < 0)
 		return;
-	}
-	if (SV_BannedReason(&adr)!=NULL)
-	{
-		Con_DPrintf(CON_WARNING"%s: ice handshake for %s - banned\n", NET_AdrToString (buf, sizeof(buf), from), clientaddr);
-		return;
-	}*/
+	ice_peer_state[pi].timeout = Sys_DoubleTime() + 30;
+
+	//close any stale ICE state for this broker_id (e.g. from a previous offer/retry)
+	ice = iceapi.Find(&qice_hostcon->icemodule, brokerid);
+	if (ice)
+		iceapi.Close(ice, true);
 
 	ice = iceapi.Create(&qice_hostcon->icemodule, brokerid, clientaddr, ICEF_DEFAULT, ICEP_SERVER);
 	if (!ice)
-		return;	//some kind of error?!?
-	//use the sender as a stun server. FIXME: put server's address in the request instead.
-	iceapi.Set(ice, "server", va("stun:%s", NET_AdrToString (buf, sizeof(buf), from)));	//the sender should be able to act as a stun server for use. should probably just pass who its sending to and call it a srflx anyway, tbh.
+	{
+		Con_Printf("ICE: iceapi.Create failed for broker_id=%s\n", brokerid);
+		return;
+	}
+	iceapi.Set(ice, "brokerless", "1");	//not managed by WebSocket broker — clean up on failure/timeout
+
+	//use the broker as a STUN server to discover our server-reflexive address.
+	//Use the broker's known IP (from the DTLS source) with the main broker port
+	//(from net_ice_broker cvar). The DTLS session may arrive from an ephemeral alt
+	//socket, so we can't use its source port directly. And we can't resolve the
+	//broker hostname — inside Docker it may resolve to an unreachable address.
+	if (brokeraddr && *brokeraddr)
+	{
+		char stunaddr[128];
+		const char *brokerhost = net_ice_broker.string;
+		int brokerport = PORT_ICEBROKER;
+		char *colon;
+
+		//extract just the port from the broker cvar
+		if (!strncmp(brokerhost, "ws://", 5)) brokerhost += 5;
+		else if (!strncmp(brokerhost, "wss://", 6)) brokerhost += 6;
+		colon = strrchr(brokerhost, ':');
+		if (colon)
+			brokerport = atoi(colon + 1);
+
+		//extract just the IP from brokeraddr (strip its port)
+		q_strlcpy(stunaddr, brokeraddr, sizeof(stunaddr));
+		colon = strrchr(stunaddr, ':');
+		if (colon)
+			*colon = 0;
+
+		iceapi.Set(ice, "server", va("stun:%s:%d", stunaddr, brokerport));
+	}
 
 	s = net_ice_servers.string;
 	while((s=COM_Parse(s)))
 		iceapi.Set(ice, "server", com_token);
 
-	sdp = MSG_ReadString();
+	sdp = sdpdata;
 #ifdef HAVE_JSON
-	json = JSON_Parse(sdp);	//browsers are poo
+	json = JSON_Parse(sdp);
 	if (json)
-		sdp = JSON_GetString(json, "sdp", buf,sizeof(buf), "");
+		sdp = JSON_GetString(json, "sdp", buf, sizeof(buf), "");
 #endif
-
 	if (iceapi.Set(ice, "sdpoffer", sdp))
 	{
-		iceapi.Set(ice, "state", STRINGIFY(ICE_CONNECTING));	//skip gathering, just trickle.
+		iceapi.Set(ice, "state", STRINGIFY(ICE_CONNECTING));
 
-		q_snprintf(buf, sizeof(buf), "\xff\xff\xff\xff""ice_answer %s", brokerid);
-		sz = strlen(buf)+1;
+		q_snprintf(buf, sizeof(buf), "\xff\xff\xff\xff""ice_answer %s\n", brokerid);
+		sz = strlen(buf);
 		if (iceapi.Get(ice, "sdpanswer", buf+sz, sizeof(buf)-sz))
 		{
 			sz += strlen(buf+sz);
-
-			NET_SendPacket(svs.sockets, sz, buf, from);
+			sendpacket(buf, sz);
 		}
+		else
+			Con_DPrintf("ICE: sdpanswer generation failed for broker_id=%s\n", brokerid);
 	}
+	else
+		Con_DPrintf("ICE: sdpoffer parse failed for broker_id=%s\n", brokerid);
 #ifdef HAVE_JSON
 	JSON_Destroy(json);
 #endif
-
-	//and because we won't have access to its broker, disconnect it from any persistent state to let it time out.
-	iceapi.Close(ice, false);
 }
-void SVC_ICE_Candidate(netadr_t *from)
+
+void SVC_ICE_Candidate(const char *brokerid, const char *seq_s, const char *ack_s, const char *canddata, ice_udp_send_t sendpacket)
 {	//handles an 'ice_ccand' udp message from a broker
 	struct icestate_s *ice;
 #ifdef HAVE_JSON
 	json_t *json;
 #endif
-	const char *sdp;
+	const char *sdp, *line;
 	char buf[1400];
-	const char *brokerid = Cmd_Argv(1);	//specific id to identify the pairing on the broker.
-	unsigned int seq = atoi(Cmd_Argv(2));	//their seq, to ack and prevent dupes
-	unsigned int ack = atoi(Cmd_Argv(3));	//so we don't resend endlessly... *cough*
+	int pi;
+	unsigned int seq = atoi(seq_s);
+	unsigned int ack = atoi(ack_s);
+	Con_DPrintf("ICE: ice_ccand broker_id=%s seq=%u ack=%u\n", brokerid, seq, ack);
+#ifdef HAVE_DTLS
+	if (!BrokerDTLS_IsAuthenticated())
+		return;
+#endif
 	if (!qice_hostcon)
 		return;
-	if (from->prot != NP_DTLS && from->prot != NP_WSS && from->prot != NP_TLS)
+
+	ice = iceapi.Find(&qice_hostcon->icemodule, brokerid);
+	if (!ice)
 	{
+		Con_DPrintf("ICE: ice_ccand - no ICE state for broker_id=%s\n", brokerid);
 		return;
 	}
-	ice = iceapi.Find(NULL, brokerid);
-	if (!ice)
-		return;	//bad state. lost packet?
 
-	//parse the inbound candidates
-	for(;;)
+	pi = ICE_FindOrAllocPeer(brokerid, false);
+	if (pi < 0)
+		return;
+	ice_peer_state[pi].timeout = Sys_DoubleTime() + 30;
+
+	//parse the inbound candidates (newline-separated in canddata)
+	line = canddata;
+	while (line && *line)
 	{
-		sdp = MSG_ReadStringLine();
-		if (msg_badread || !*sdp)
-			break;
-		if (seq++ < ice->u.inseq)
-			continue;
-		ice->u.inseq++;
-#ifdef HAVE_JSON
-		json = JSON_Parse(sdp);
-		if (json)
+		const char *nl = strchr(line, '\n');
+		size_t len = nl ? (size_t)(nl - line) : strlen(line);
+		char linebuf[512];
+		if (len >= sizeof(linebuf)) len = sizeof(linebuf)-1;
+		memcpy(linebuf, line, len);
+		linebuf[len] = 0;
+
+		if (seq++ >= ice_peer_state[pi].inseq && *linebuf)
 		{
-			sdp = buf;
-			buf[0]='a';
-			buf[1]='=';
-			buf[2]=0;
-			JSON_GetString(json, "candidate", buf+2,sizeof(buf)-2, NULL);
-		}
-#endif
-		iceapi.Set(ice, "sdp", sdp);
+			ice_peer_state[pi].inseq++;
+			sdp = linebuf;
 #ifdef HAVE_JSON
-		JSON_Destroy(json);
+			json = JSON_Parse(sdp);
+			if (json)
+			{
+				sdp = buf;
+				buf[0]='a'; buf[1]='='; buf[2]=0;
+				JSON_GetString(json, "candidate", buf+2, sizeof(buf)-2, NULL);
+			}
 #endif
+			iceapi.Set(ice, "sdp", sdp);
+#ifdef HAVE_JSON
+			JSON_Destroy(json);
+#endif
+		}
+		line = nl ? nl+1 : NULL;
 	}
 
-	while (ack > ice->u.outseq)
-	{	//drop an outgoing candidate line
-		char *nl = strchr(ice->u.text, '\n');
+	while (ack > ice_peer_state[pi].outseq)
+	{
+		char *nl = ice_peer_state[pi].text ? strchr(ice_peer_state[pi].text, '\n') : NULL;
 		if (nl)
 		{
 			nl++;
-			memmove(ice->u.text, nl, strlen(nl)+1);	//chop it away.
-			ice->u.outseq++;
+			memmove(ice_peer_state[pi].text, nl, strlen(nl)+1);
+			ice_peer_state[pi].outseq++;
 			continue;
 		}
-		//wut?
-		if (ack > ice->u.outseq)
-			ice->u.outseq = ack;	//a gap? oh noes!
+		if (ack > ice_peer_state[pi].outseq)
+			ice_peer_state[pi].outseq = ack;
 		break;
 	}
 
-	//check for new candidates to include
 	while (iceapi.GetLCandidateSDP(ice, buf, sizeof(buf)))
 	{
-		Z_StrCat(&ice->u.text, buf);
-		Z_StrCat(&ice->u.text, "\n");
+		Z_StrCat(&ice_peer_state[pi].text, buf);
+		Z_StrCat(&ice_peer_state[pi].text, "\n");
 	}
 
-	q_snprintf(buf, sizeof(buf), "\xff\xff\xff\xff""ice_scand %s %u %u\n%s", brokerid, ice->u.outseq, ice->u.inseq, ice->u.text?ice->u.text:"");
-	NET_SendPacket(svs.sockets, strlen(buf), buf, from);
+	q_snprintf(buf, sizeof(buf), "\xff\xff\xff\xff""ice_scand %s %u %u\n%s",
+		brokerid, ice_peer_state[pi].outseq, ice_peer_state[pi].inseq,
+		ice_peer_state[pi].text ? ice_peer_state[pi].text : "");
+	sendpacket(buf, strlen(buf));
 }
 #endif
 
@@ -1036,6 +1401,7 @@ int NQICE_Init (void)
 	//broker context.
 	Cvar_RegisterVariable(&net_ice_broker);
 	Cvar_RegisterVariable(&sv_port_rtc);
+	Cvar_RegisterVariable(&sv_addr_ws);
 
 	Cmd_AddCommand("net_ice_show", ICE_Show_f);
 
@@ -1551,6 +1917,10 @@ qsocket_t *NQICE_CheckNewConnections (void)
 {	//poll the server's websocket.
 	qice_connection_t *b = qice_hostcon;	//stoopid globals.
 
+#ifdef HAVE_DTLS
+	BrokerDTLS_Cleanup();	//expire old sessions
+#endif
+
 	if (b)
 		QICE_UpdateBroker(b);
 	return NULL;
@@ -1841,6 +2211,173 @@ void NQICE_GetAnyMessages(void(*callback)(qsocket_t *))
 	}
 }
 
+qboolean NQICE_IsListening (void)
+{
+	return qice_listening && qice_hostcon != NULL;
+}
+
+const char *NQICE_GetWsAddr (void)
+{
+	return sv_addr_ws.string;
+}
+
+static char nqice_fp_cache[128];	//cached base64 fingerprint, computed once
+
+const char *NQICE_GetFingerprint (void)
+{
+#ifdef HAVE_DTLS
+	struct dtlslocalcred_s cred = {NULL,0,NULL,0};
+	qbyte digest[DIGEST_MAXSIZE];
+	const dtlsfuncs_t *funcs;
+
+	if (*nqice_fp_cache)
+		return nqice_fp_cache;
+
+	//load the same cert that QICE_Setup uses for the broker DTLS
+	if (!QICE_LoadCerts(&cred, va("%s/privkey.pem", com_basedir), va("%s/fullchain.pem", com_basedir)))
+		if (!QICE_LoadCerts(&cred, va("%s/privkey.der", com_basedir), va("%s/fullchain.der", com_basedir)))
+		{
+			//no cert files yet — generate and save so QICE_Setup finds them later
+			funcs = ICE_DTLS_InitServer();
+			if (!funcs || !funcs->GenTempCertificate)
+				return "";
+			if (!funcs->GenTempCertificate("localhost", &cred))
+				return "";
+			{
+				int fd;
+				fd = Sys_FileOpenWrite(va("%s/privkey.der", com_basedir));
+				if (fd >= 0) { Sys_FileWrite(fd, cred.key, cred.keysize); Sys_FileClose(fd); }
+				fd = Sys_FileOpenWrite(va("%s/fullchain.der", com_basedir));
+				if (fd >= 0) { Sys_FileWrite(fd, cred.cert, cred.certsize); Sys_FileClose(fd); }
+			}
+		}
+
+	if (!cred.certsize)
+		return "";
+
+	CalcHash(&hash_certfp, digest, sizeof(digest), cred.cert, cred.certsize);
+	Base64_EncodeBlock(digest, hash_certfp.digestsize, nqice_fp_cache, sizeof(nqice_fp_cache));
+	free(cred.cert);
+	free(cred.key);
+	return nqice_fp_cache;
+#else
+	return "";
+#endif
+}
+
+
+void NQICE_UnshareGameSockets (void)
+{	//invalidate shared sockets — call before closing the datagram listening sockets
+	if (shared_game_socket4)
+	{
+		free(shared_game_socket4);
+		shared_game_socket4 = NULL;
+	}
+	if (shared_game_socket6)
+	{
+		free(shared_game_socket6);
+		shared_game_socket6 = NULL;
+	}
+}
+
+void NQICE_ShareGameSocket (sys_socket_t sock)
+{	//share the datagram driver's UDP socket with ICE instead of ICE opening its own
+	struct sockaddr_storage sa;
+	socklen_t salen = sizeof(sa);
+	struct icesocket_s *wrap, **slot;
+	int af;
+
+	if (getsockname((SOCKET)sock, (struct sockaddr *)&sa, &salen) < 0)
+		return;
+	af = sa.ss_family;
+	slot = (af == AF_INET6) ? &shared_game_socket6 : &shared_game_socket4;
+
+	if (*slot)
+	{
+		if ((*slot)->sock == (SOCKET)sock)
+			return;	//same socket, nothing to do
+		free(*slot);
+		*slot = NULL;
+	}
+	wrap = ICE_WrapExistingSocket(sock, af);
+	if (wrap)
+		*slot = wrap;
+
+	//put a send-only wrapper in the host module so ICE responses (STUN binding
+	//replies, connectivity checks) go out through the game port, not an ephemeral port.
+	//send-only so ICE_ProcessModule won't steal packets from the datagram driver.
+	if (wrap && qice_hostcon)
+	{
+		int idx = (af == AF_INET6) ? 1 : 0;
+		if (qice_hostcon->icemodule.conn[idx])
+			qice_hostcon->icemodule.conn[idx]->CloseSocket(qice_hostcon->icemodule.conn[idx]);
+		qice_hostcon->icemodule.conn[idx] = ICE_WrapExistingSocketSendOnly(sock, af);
+	}
+}
+
+qboolean NQICE_ProcessPacket (byte *data, int len, struct qsockaddr *addr, void(*callback)(qsocket_t *))
+{	//forward a non-quake UDP packet to the ICE module for STUN/DTLS/SCTP processing
+	netadr_t from;
+	struct icesocket_s *via;
+	extern int net_driverlevel;
+	int saved_driverlevel = net_driverlevel;
+	void(*saved_servercb)(qsocket_t *) = qice_servercb;
+	int i;
+
+	//convert qsockaddr to netadr_t
+	memset(&from, 0, sizeof(from));
+	{	struct sockaddr_storage ss;
+		memset(&ss, 0, sizeof(ss));
+		memcpy(&ss, addr, sizeof(*addr));
+		SockadrToNetadr(&ss, sizeof(ss), &from);
+	}
+
+	//pick the shared socket matching the original qsockaddr family
+	via = (addr->qsa_family == AF_INET6) ? shared_game_socket6 : shared_game_socket4;
+	if (!via)
+		via = shared_game_socket4 ? shared_game_socket4 : shared_game_socket6;
+	if (!via)
+		return false;
+
+	//set net_driverlevel to the ICE driver so NET_NewQSocket sets the correct driver
+	for (i = 0; i < net_numdrivers; i++)
+	{
+		if (net_drivers[i].QGetAnyMessages == NQICE_GetAnyMessages)
+		{
+			net_driverlevel = i;
+			break;
+		}
+	}
+
+	//set the server callback so game packets get delivered during ProcessPacket
+	qice_servercb = callback;
+
+	//try ICE first (handles STUN connectivity checks and WebRTC DTLS)
+	if (qice_hostcon && iceapi.ProcessPacket(&qice_hostcon->icemodule, via, &from, data, len))
+	{
+		qice_servercb = saved_servercb;
+		net_driverlevel = saved_driverlevel;
+		return true;
+	}
+
+#ifdef HAVE_DTLS
+	//DTLS range (byte 20-63): try broker DTLS if ICE didn't claim it
+	if (len > 0 && data[0] >= 20 && data[0] < 64)
+	{
+		if (BrokerDTLS_HandlePacket(data, len, addr, via))
+		{
+			qice_servercb = saved_servercb;
+			net_driverlevel = saved_driverlevel;
+			return true;
+		}
+	}
+#endif
+
+	qice_servercb = saved_servercb;
+	net_driverlevel = saved_driverlevel;
+	return false;
+}
+
 void NQICE_Listen (qboolean state)	//used by server (enables websocket connection).
 {
 	//connect/disconnect the websocket connection etc.
@@ -1919,11 +2456,11 @@ int NQICE_SendUnreliableMessage (qsocket_t *sock, sizebuf_t *data)
 		memcpy(pkt->data, data->data, data->cursize);
 
 		err = iceapi.SendPacket(ice, pkt, NET_HEADERSIZE+data->cursize);
-		if (err == NETERR_CLOGGED)
-			return 0;
 		if (err == NETERR_SENT)
 			return 1; //yay
-		return -1;	//fatal
+		if (err == NETERR_DISCONNECTED)
+			return -1;	//fatal
+		return 0;	//CLOGGED, NOROUTE, etc - transient, don't kill connection for unreliable data
 	}
 	return 0;	//not doable yet
 }
@@ -2040,6 +2577,32 @@ void NQICE_Shutdown (void)
 {
 	int i;
 	NQICE_Listen(false);	//just in case.
+
+	nqice_fp_cache[0] = 0;	//clear cached fingerprint
+
+#ifdef HAVE_DTLS
+	BrokerDTLS_Shutdown();
+#endif
+
+	if (shared_game_socket4)
+	{
+		free(shared_game_socket4);
+		shared_game_socket4 = NULL;
+	}
+	if (shared_game_socket6)
+	{
+		free(shared_game_socket6);
+		shared_game_socket6 = NULL;
+	}
+
+	for (i = 0; i < MAX_ICE_PEERS; i++)
+	{
+		if (ice_peer_state[i].text)
+		{
+			Z_Free(ice_peer_state[i].text);
+			ice_peer_state[i].text = NULL;
+		}
+	}
 
 	qice_msgqueuesize = 0;
 	for (i = 0; i < countof(qice_msgqueue); i++)

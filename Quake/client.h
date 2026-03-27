@@ -154,6 +154,9 @@ typedef struct
 // entering a map (and clearing client_state_t)
 	qboolean	demorecording;
 	qboolean	demoplayback;
+	qboolean	demo_had_overtime;
+	int		demo_marker_count;
+	int		demo_record_frame_count;
 
 	// woods #demopercent (Baker Fitzquake Mark V)
 
@@ -422,6 +425,7 @@ typedef struct
 	int			matchinp;
 	int			notobserver;		// woods tool for detecting match participation
 	qboolean	eyecam;
+	int			demo_eyecam_target;	// woods #demoeyecam - entity number of detected chasecam target
 	char		lastchat[256];		// woods #like
 	vec3_t		lerpangles;			// JPG - angles now used by view.c so that smooth chasecam doesn't fuck up demos // woods #smoothcam
 	int			fullpitch;			// woods #pqfullpitch
@@ -465,9 +469,11 @@ extern	cvar_t	cl_alwaysrun; // QuakeSpasm
 extern	cvar_t	cl_autofire;
 
 extern	cvar_t	cl_recordingdemo;
+extern	cvar_t	cl_demo_format;
 extern	cvar_t	cl_shownet;
 extern	cvar_t	cl_nolerp;
 extern	cvar_t	cl_demoreel;
+extern	cvar_t	cl_demoeyes;
 
 extern	cvar_t	cfg_unbindall;
 extern	cvar_t	cfg_save_aliases; // woods #serveralias
@@ -491,6 +497,7 @@ extern  cvar_t	cl_idle;  // woods #damage
 extern  cvar_t	cl_smartspawn; // woods #spawntrainer
 extern  cvar_t	r_explosionlight; // woods #explosionlight
 extern  cvar_t	cl_autovote; // woods #autovote
+extern  cvar_t	cl_autovote_list; // woods #autovote
 extern	cvar_t	cl_contentfilter; // woods #contentfilter
 
 #define	MAX_TEMP_ENTITIES			1024		//johnfitz -- was 64 // woods -- was 256
@@ -517,6 +524,11 @@ void	CL_DecayLights (void);
 void CL_Init (void);
 
 void CL_EstablishConnection (const char *host);
+qboolean CL_BeginConnect (const char *host);
+void CL_ConnectFrame (void);
+void CL_CancelConnect (void);
+void CL_MarkNextConnectFromMenu (void);
+qboolean CL_ConsumeNextConnectFromMenu (void);
 void CL_Signon1 (void);
 void CL_Signon2 (void);
 void CL_Signon3 (void);
@@ -580,6 +592,9 @@ void CL_Stop_f (void);
 void CL_Record_f (void);
 void CL_PlayDemo_f (void);
 void CL_TimeDemo_f (void);
+void CL_JumpDemo_f (void);
+int CL_GetDemoFrameCount(void); // woods #demoframes
+byte *CL_LoadDemoBuffer(const char *name, int *length_out);
 
 //
 // cl_parse.c
@@ -611,6 +626,7 @@ float CL_TraceLine (vec3_t start, vec3_t end, vec3_t impact, vec3_t normal, int 
 // chase
 //
 extern	cvar_t	chase_active;
+extern	cvar_t	cl_demo_eyecam; // woods #demoeyecam
 
 void Chase_Init (void);
 void TraceLine (vec3_t start, vec3_t end, float pushoff, vec3_t impact);
@@ -618,4 +634,3 @@ void Chase_UpdateForClient (void);	//johnfitz
 void Chase_UpdateForDrawing (void);	//johnfitz
 
 #endif	/* _CLIENT_H_ */
-

@@ -134,6 +134,8 @@ static int          con_clickx, con_clicky; //canvas coords at press
 static float        con_scrollspeed = 0.f; //autoscroll during drag
 static float        con_scrolldelta = 0.f;
 static const double DOUBLECLICK_TIME = 0.5;
+static qboolean     con_cursor_was_active = false;
+static qboolean     con_blockselectionuntilrelease = false;
 
 static void Con_SetHotLink(conlink_t* link) { con_hotlink = link; }
 static void Con_ClearSelection(void) { memset(&con_selection, 0, sizeof(con_selection)); }
@@ -862,7 +864,23 @@ static void Con_Scroll(int lines)
 
 static void Con_UpdateMouseState (void)
 {
-    if (!Con_CursorActive()) {
+    qboolean active = Con_CursorActive();
+
+    if (active != con_cursor_was_active) {
+        con_cursor_was_active = active;
+        con_mouseclicks = 0;
+        con_mouseclickdelay = DOUBLECLICK_TIME;
+        Con_SetMouseState(CMS_NOTPRESSED);
+        if (active) {
+            Uint32 btns = SDL_GetMouseState(NULL, NULL);
+            /* Ignore a held menu click until release when the loading console takes focus. */
+            con_blockselectionuntilrelease = (btns & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
+        } else {
+            con_blockselectionuntilrelease = false;
+        }
+    }
+
+    if (!active) {
         Con_SetHotLink(NULL);
         Con_SetMouseState(CMS_NOTPRESSED);
         Con_ClearSelection();
@@ -881,6 +899,11 @@ static void Con_UpdateMouseState (void)
     {
         Uint32 btns = SDL_GetMouseState(NULL, NULL);
         qboolean left_down = (btns & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
+        if (con_blockselectionuntilrelease) {
+            if (left_down)
+                return;
+            con_blockselectionuntilrelease = false;
+        }
         if (!left_down) Con_SetMouseState(CMS_NOTPRESSED);
         else if (con_mousestate == CMS_NOTPRESSED) Con_SetMouseState(CMS_PRESSED);
     }
@@ -2926,7 +2949,7 @@ static qboolean CompleteFileListDemo (const char* partial, void* param) // woods
 	filelist_item_t* file, ** list = (filelist_item_t**)param;
 	char currentDateStr[80];
 
-	// Get current date/time for the -last option
+	// Get current date/time for the last demo aliases
 	time_t now = time(NULL);
 	struct tm* tm_now = localtime(&now);
 
@@ -2942,6 +2965,7 @@ static qboolean CompleteFileListDemo (const char* partial, void* param) // woods
 		currentDateStr[sizeof(currentDateStr) - 1] = '\0';
 	}
 
+	Con_AddToTabList("last", partial, "play last.dem/last.dz or last cached demo", currentDateStr);
 	Con_AddToTabList("-l", partial, "play last demo", currentDateStr);
 
 	for (file = *list; file; file = file->next)
@@ -3411,6 +3435,18 @@ static qboolean CompleteClients(const char* partial, void* unused) // woods
 	return true;
 }
 
+static qboolean CompleteCmd(const char* partial, void* unused)
+{
+	if (Cmd_Argc() == 2)
+		return CompleteGeneralList(partial, unused);
+
+	if (Cmd_Argc() == 3 &&
+		(!q_strcasecmp(Cmd_Argv(1), "ignore") || !q_strcasecmp(Cmd_Argv(1), "unignore")))
+		return CompleteClients(partial, NULL);
+
+	return false;
+}
+
 /*
 ================
 GetTimeStampedName
@@ -3621,9 +3657,145 @@ static qboolean CompleteSkywind(const char* partial, void* unused)
 	return option_count > 0;
 }
 
+static qboolean CompleteJumpDemo(const char* partial, void* unused)
+{
+	static const char* const options[] =
+	{
+		"mark",
+		"500",
+		"50%",
+		"1:30",
+		"90s",
+		"+1000",
+		"-1000",
+		"+5%",
+		"-5%",
+		"+10s",
+		"-10s",
+		"+1:30",
+		"-0:30"
+	};
+	size_t i;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	for (i = 0; i < sizeof(options) / sizeof(options[0]); i++)
+		Con_AddToTabList(options[i], partial, NULL, NULL);
+
+	return true;
+}
+
+static qboolean CompleteMarkDemo(const char* partial, void* unused)
+{
+	static const char* const examples[] =
+	{
+		"clear",
+		"start",
+		"aerowalk",
+		"ztndm3",
+		"dm6"
+	};
+	char path[MAX_OSPATH];
+	FILE *file;
+	long file_size;
+	char *buffer = NULL;
+	json_t *json = NULL;
+	jsonentry_t *entry;
+	char seen_maps[128][MAX_QPATH];
+	size_t seen_count = 0;
+	size_t i;
+
+	if (Cmd_Argc() != 2)
+		return false;
+
+	for (i = 0; i < sizeof(examples) / sizeof(examples[0]); i++)
+		Con_AddToTabList(examples[i], partial, NULL, NULL);
+
+	if (cl.mapname[0])
+		Con_AddToTabList(cl.mapname, partial, "current map", NULL);
+
+	q_snprintf(path, sizeof(path), "%s/id1/backups/demomarks.json", com_basedir);
+	file = fopen(path, "rb");
+	if (!file)
+		return true;
+
+	fseek(file, 0, SEEK_END);
+	file_size = ftell(file);
+	rewind(file);
+
+	if (file_size <= 0)
+	{
+		fclose(file);
+		return true;
+	}
+
+	buffer = (char *)malloc((size_t)file_size + 1);
+	if (!buffer)
+	{
+		fclose(file);
+		return true;
+	}
+
+	if (fread(buffer, 1, (size_t)file_size, file) != (size_t)file_size)
+	{
+		free(buffer);
+		fclose(file);
+		return true;
+	}
+
+	buffer[file_size] = '\0';
+	fclose(file);
+
+	json = JSON_Parse(buffer);
+	free(buffer);
+	if (!json || !json->root || json->root->type != JSON_ARRAY)
+	{
+		if (json)
+			JSON_Free(json);
+		return true;
+	}
+
+	for (entry = json->root->firstchild; entry; entry = entry->next)
+	{
+		const char *map;
+		qboolean duplicate = false;
+
+		if (entry->type != JSON_OBJECT)
+			continue;
+
+		map = JSON_FindString(entry, "map");
+		if (!map || !map[0])
+			continue;
+
+		for (i = 0; i < seen_count; i++)
+		{
+			if (!q_strcasecmp(seen_maps[i], map))
+			{
+				duplicate = true;
+				break;
+			}
+		}
+
+		if (duplicate)
+			continue;
+
+		Con_AddToTabList(map, partial, "history map", NULL);
+		if (seen_count < sizeof(seen_maps) / sizeof(seen_maps[0]))
+		{
+			q_strlcpy(seen_maps[seen_count], map, sizeof(seen_maps[seen_count]));
+			seen_count++;
+		}
+	}
+
+	JSON_Free(json);
+	return true;
+}
+
 extern qboolean CompletePAKList(const char* partial, void* unused); // woods #unpak
 
 qboolean CompleteImageList (const char* partial, void* unused); // woods
+qboolean CompleteImageDump (const char* partial, void* unused); // woods
 qboolean CompleteSoundList (const char* partial, void* unused); // woods
 qboolean CompleteGive (const char* partial, void* unused); // woods #give+
 
@@ -3645,6 +3817,8 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "gamedir",				CompleteFileList,		&modlist },
 	{ "playdemo",				CompleteFileListDemo,	&demolist },
 	{ "timedemo",				CompleteFileListDemo,	&demolist },
+	{ "jumpdemo",				CompleteJumpDemo,		NULL },
+	{ "markdemo",				CompleteMarkDemo,		NULL },
 	{ "sky",					CompleteFileList,		&skylist },
 	{ "skywind",				CompleteSkywind,		NULL },
 	{ "exec",					CompleteFileList,		&execlist },
@@ -3657,7 +3831,7 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "printtxt",				CompleteFileList,		&textlist },
 	{ "r_showbboxes_filter",	CompleteClassnames,		NULL },
 	{ "imagelist",				CompleteImageList,		NULL },
-	{ "imagedump",				CompleteImageList,		NULL },
+	{ "imagedump",				CompleteImageDump,		NULL },
 	{ "bind",					CompleteBindKeys,		NULL },
 	{ "bindedit",				CompleteBoundKeys,		NULL },
 	{ "unbind",					CompleteUnbindKeys,		NULL },
@@ -3686,9 +3860,11 @@ static const arg_completion_type_t arg_completion_types[] =
 	{ "flocate",				CompleteLS,				NULL },
 	{ "ip",						CompleteIP,				NULL },
 	{ "unpak",					CompletePAKList,		NULL },
-	{ "cmd",					CompleteGeneralList,	NULL },
+	{ "cmd",					CompleteCmd,			NULL },
 	{ "identify",				CompleteClients,		NULL },
 	{ "tell",					CompleteClients,		NULL },
+	{ "ignore",					CompleteClients,		NULL },
+	{ "unignore",				CompleteClients,		NULL },
 	{ "record",					CompleteRecord,			NULL },
 	{ "save",					CompleteSave,			NULL },
 	{ "load",					CompleteLoad,			NULL },
@@ -4086,6 +4262,8 @@ void Con_DrawNotify (void)
 
 	GL_SetCanvas (CANVAS_CONSOLE); //johnfitz
 	v = vid.conheight + con_notifyposition.value; // woods #notifyposition
+	if (realtime < scr_volume_display_time)
+		v += 24; // keep notify lines below the temporary volume widget
 
 	for (i = con_current - maxlines + 1; i <= con_current; i++) // woods from proquake 493 #notifylines
 	{
@@ -4249,7 +4427,10 @@ static void Con_DrawTypingStatus(void) // woods #typing...
 	if (!con_typing.value)
 		return;
 
-	if (cls.state != ca_connected || cl.maxclients <= 0)
+	if (cls.demoplayback)
+		return;
+
+	if (cls.state != ca_connected || cls.signon != SIGNONS || cl.maxclients <= 0)
 		return;
 
 	int local_index = cl.realviewentity - 1;
@@ -4588,10 +4769,24 @@ static int DiscordThread(void *data)
 static void MakeDiscordPayload(const char *raw, char *out, size_t outsz)
 {
     char clean[1024];
-    q_strlcpy(clean, raw, sizeof(clean));
+    const unsigned char *src = (const unsigned char *)raw;
+    size_t len = 0;
 
-    for (unsigned char *ch = (unsigned char*)clean; *ch; ch++)
-        *ch = dequake[*ch];
+    if (!outsz) return;
+    out[0] = 0;
+    if (!raw) return;
+
+    // Strip the console chat colour prefix so Discord doesn't show ".name:".
+    while (*src == 1 || *src == 2)
+        src++;
+
+    while (*src && len + 1 < sizeof(clean))
+        clean[len++] = dequake[*src++];
+
+    while (len > 0 && (clean[len - 1] == '\n' || clean[len - 1] == '\r'))
+        len--;
+
+    clean[len] = 0;
 
     char *esc = JSON_EscapeString(clean);
     if (!esc) { out[0] = 0; return; }

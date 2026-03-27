@@ -29,6 +29,7 @@ int		sb_updates;		// if >= vid.numpages, no update needed
 extern int	maptime; // woods connected map time #maptime
 extern double  mpservertime;	// woods #servertime
 extern char mute[2];			// woods for mute to memory #usermute
+extern qboolean muted;			// woods #usermute
 int	fragsort[MAX_SCOREBOARD]; // woods #scrping
 int	scoreboardlines; // woods #scrping
 extern char	lastmphost[NET_NAMELEN]; // woods
@@ -1484,6 +1485,46 @@ qboolean IsOneVsOneMatch (void)
 }
 
 /*===============
+AreTeamsEven -- check if teams have equal player counts #smartstatus
+============== */
+static qboolean AreTeamsEven (void)
+{
+	int team_counts[14] = {0}; // colors 1-13
+	int nteams = 0;
+	int first_count = 0;
+
+	for (int i = 0; i < cl.maxclients; i++)
+	{
+		scoreboard_t *s = &cl.scores[i];
+
+		if (!s->name[0] || s->spectator)
+			continue;
+		if (s->frags == -99)
+			continue;
+
+		int col = s->pants.basic;
+		if (col < 1 || col > 13)
+			continue;
+
+		team_counts[col]++;
+	}
+
+	for (int i = 1; i <= 13; i++)
+	{
+		if (team_counts[i] > 0)
+		{
+			nteams++;
+			if (first_count == 0)
+				first_count = team_counts[i];
+			else if (team_counts[i] != first_count)
+				return false; // uneven
+		}
+	}
+
+	return (nteams >= 2);
+}
+
+/*===============
 Sbar_DrawFrags -- for proquake, HEAVILY modified (draws match time, and teamscores) replace this entire function // woods #pqteam
 ============== */
 void Sbar_DrawFrags(void)
@@ -2353,9 +2394,23 @@ void Sbar_Draw (void)
 	{
 		float completed_amount_0_to_1 = (cls.demo_offset_current - cls.demo_offset_start) / (float)cls.demo_file_length;
 		int complete_pct_int = 100 - (int)(100 * completed_amount_0_to_1 + 0.5);
-		char* tempstring = va("%i%%", complete_pct_int);
-		int len = strlen(tempstring), i;
+		char *tempstring;
+		int len, i;
 		int x = 0, y = 0;
+
+		if (sb_showscores) // woods #demoframes -- show frame count when showscores is active
+		{
+			int current_frame = CL_GetDemoFrameCount();
+			int total_est = (completed_amount_0_to_1 > 0.01f) ? (int)(current_frame / completed_amount_0_to_1 + 0.5f) : 0;
+			if (total_est > 0)
+				tempstring = va("%d / %d", current_frame, total_est);
+			else
+				tempstring = va("%d", current_frame);
+		}
+		else
+			tempstring = va("%i%%", complete_pct_int);
+
+		len = strlen(tempstring);
 
 		if (clampedSbar == 3) // #qehud
 		{
@@ -2379,25 +2434,28 @@ void Sbar_Draw (void)
 
 			y = 209;
 
-			if (!scr_showspeed.value && strcmp(mute, "y")) // by itself
+			if (!scr_showspeed.value && !muted) // by itself
 					x = 24;
-			if (scr_showspeed.value && strcmp(mute, "y"))
+			if (scr_showspeed.value && !muted)
 				x = 60;
-			if (scr_showspeed.value && !strcmp(mute, "y")) // both
+			if (scr_showspeed.value && muted) // both
 				x = 104;
-			if (!scr_showspeed.value && !strcmp(mute, "y"))
+			if (!scr_showspeed.value && muted)
 				x = 62;
 
-			if (complete_pct_int < 10)
-				x -= 7;
-			if (complete_pct_int > 99)
-				x += 7;
+			if (!sb_showscores)
+			{
+				if (complete_pct_int < 10)
+					x -= 7;
+				if (complete_pct_int > 99)
+					x += 7;
+			}
 		}
 		if (clampedSbar == 1)
 		{
 			GL_SetCanvas(CANVAS_SBAR2);
 
-			if (!strcmp(mute, "y"))
+			if (muted)
 				x = 280;
 			else
 				x = 320;
@@ -2480,7 +2538,7 @@ void Sbar_DeathmatchOverlay (void)
 	scoreboard_t	*s;
 	int ct = (SDL_GetTicks() - maptime)/1000; // woods connected map time #maptime
 	qboolean notready = false; // woods #smartstatus
-	qboolean oneready = false; // woods #smartstatus
+	int unready_count = 0; // woods #smartstatus - count of unready team players
 
 	// JPG 1.05 - check to see if we should update IP status  // woods for #iplog
 	if (iplog_size && (cl.time - cl.last_status_time > 5))
@@ -2535,8 +2593,6 @@ void Sbar_DeathmatchOverlay (void)
 		Draw_String(x - 64, y - 10, "  ping  frags   name"); // woods
 	else*/
 
-	oneready = false; // woods #smartstatus
-
 	for (i = 0; i < l; i++)
 	{
 		k = fragsort[i];
@@ -2559,14 +2615,16 @@ void Sbar_DeathmatchOverlay (void)
 		{
 			if (!cl.teamgame)
 				notready = false;
-			
-			if (strstr(s->name, qfReady) || strstr(s->name, "Ready"))
-				oneready = true;
-			
-			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (!strstr(s->name, qfReady) || !strstr(s->name, "Ready")))
+
+			qboolean is_ready = (strstr(s->name, qfReady) || strstr(s->name, "Ready"));
+
+			if (cl.teamgame && !cl.matchinp && !s->spectator && s->frags != -99 && s->pants.basic >= 1 && !is_ready)
+				unready_count++;
+
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && !is_ready)
 				notready = true;
 
-			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && (strstr(s->name, qfReady) || strstr(s->name, "Ready")))
+			if ((k == cl.realviewentity - 1) && cl.teamgame && !cl.matchinp && cl.notobserver && is_ready)
 				notready = false;
 		}
 
@@ -2652,7 +2710,7 @@ void Sbar_DeathmatchOverlay (void)
 
 	Draw_String(x - 64, y2 - 10, "  ping  frags   name"); // woods #smartstatus
 
-	if (flash() && notready && oneready) // on odd second, if im not ready AND someone else is ready
+	if (flash() && notready && unready_count == 1 && AreTeamsEven()) // blink only if I'm the last to ready AND teams are even
 		M_Print(x + 192, y2 - 10, "status");
 	else
 		Draw_String
