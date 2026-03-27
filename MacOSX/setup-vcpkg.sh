@@ -105,17 +105,29 @@ apply_local_vcpkg_patches() {
     local nettle_port_dir="./vcpkg/ports/nettle"
     local nettle_patch_src="$SCRIPT_DIR/vcpkg-patches/nettle-gnu23-prototypes.patch"
     local nettle_patch_dst="$nettle_port_dir/qssm-macos-gnu23-prototypes.patch"
+    local nettle_portfile="$nettle_port_dir/portfile.cmake"
+    local tmp_portfile
 
     cp "$nettle_patch_src" "$nettle_patch_dst"
 
-    if ! grep -q 'qssm-macos-gnu23-prototypes.patch' "$nettle_port_dir/portfile.cmake"; then
-        perl -0pi -e 's/(        msvc-support\.patch\n)/$1        qssm-macos-gnu23-prototypes.patch\n/' "$nettle_port_dir/portfile.cmake"
+    if ! grep -q 'qssm-macos-gnu23-prototypes.patch' "$nettle_portfile"; then
+        tmp_portfile="$(mktemp "${TMPDIR:-/tmp}/qssm-nettle-portfile.XXXXXX")"
+        awk '
+            { print }
+            !done && /msvc-support\.patch/ {
+                print "        qssm-macos-gnu23-prototypes.patch"
+                done = 1
+            }
+        ' "$nettle_portfile" > "$tmp_portfile"
+        mv "$tmp_portfile" "$nettle_portfile"
     fi
 
-    if ! grep -q 'qssm-macos-gnu23-prototypes.patch' "$nettle_port_dir/portfile.cmake"; then
+    if ! grep -q 'qssm-macos-gnu23-prototypes.patch' "$nettle_portfile"; then
         echo "Failed to inject local nettle patch into vcpkg portfile"
         exit 1
     fi
+
+    echo "Applied local nettle port patch: qssm-macos-gnu23-prototypes.patch"
 }
 
 if [ ! -d "./vcpkg/.git" ] || [ ! -f "./vcpkg/bootstrap-vcpkg.sh" ]; then
