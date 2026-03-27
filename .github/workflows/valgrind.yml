@@ -26,6 +26,7 @@ jobs:
           libarchive-tools \
           xvfb \
           pkg-config \
+          libgnutls28-dev \
           zip \
           valgrind \
           wget \
@@ -69,14 +70,14 @@ jobs:
     - name: Build debug binary for valgrind
       run: |
         set -eux
-        chmod +x build-linux-valgrind.sh
-        ./build-linux-valgrind.sh
+        chmod +x Misc/valgrind/build-linux-valgrind.sh
+        ./Misc/valgrind/build-linux-valgrind.sh
 
     - name: Run valgrind
       run: |
         set -eux
         chmod +x Misc/valgrind/run-valgrind.sh
-        ./Misc/valgrind/run-valgrind.sh Misc/valgrind/valgrind.supp
+        ./Misc/valgrind/run-valgrind.sh
 
     - name: Upload valgrind logs
       uses: actions/upload-artifact@v4
