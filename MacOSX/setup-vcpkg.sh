@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+SCRIPT_DIR="$(
+  CDPATH= cd -- "$(dirname -- "$0")" && pwd
+)"
+
 VCPKG_REPO_URL="${VCPKG_REPO_URL:-https://github.com/microsoft/vcpkg}"
 # Pin vcpkg so CI and local builds do not float with upstream master.
 VCPKG_COMMIT="${VCPKG_COMMIT:-c27eeddba73f608f10605d80bc0144c1166f8fb7}"
@@ -97,6 +101,23 @@ ensure_pinned_vcpkg_checkout() {
     git -C ./vcpkg checkout --force --detach FETCH_HEAD
 }
 
+apply_local_vcpkg_patches() {
+    local nettle_port_dir="./vcpkg/ports/nettle"
+    local nettle_patch_src="$SCRIPT_DIR/vcpkg-patches/nettle-gnu23-prototypes.patch"
+    local nettle_patch_dst="$nettle_port_dir/qssm-macos-gnu23-prototypes.patch"
+
+    cp "$nettle_patch_src" "$nettle_patch_dst"
+
+    if ! grep -q 'qssm-macos-gnu23-prototypes.patch' "$nettle_port_dir/portfile.cmake"; then
+        perl -0pi -e 's/(        msvc-support\.patch\n)/$1        qssm-macos-gnu23-prototypes.patch\n/' "$nettle_port_dir/portfile.cmake"
+    fi
+
+    if ! grep -q 'qssm-macos-gnu23-prototypes.patch' "$nettle_port_dir/portfile.cmake"; then
+        echo "Failed to inject local nettle patch into vcpkg portfile"
+        exit 1
+    fi
+}
+
 if [ ! -d "./vcpkg/.git" ] || [ ! -f "./vcpkg/bootstrap-vcpkg.sh" ]; then
     echo "vcpkg checkout missing or incomplete; creating pinned checkout"
     ensure_pinned_vcpkg_checkout
@@ -108,6 +129,8 @@ if [ "$current_vcpkg_commit" != "$VCPKG_COMMIT" ]; then
     ensure_pinned_vcpkg_checkout
     current_vcpkg_commit="$(git -C ./vcpkg rev-parse HEAD 2>/dev/null || true)"
 fi
+
+apply_local_vcpkg_patches
 
 # If the repo exists but the tool binary does not, bootstrap it.
 if [ ! -x "./vcpkg/vcpkg" ]; then
