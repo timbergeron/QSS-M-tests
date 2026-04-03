@@ -32,6 +32,9 @@ So, |=0x80 to avoid ambiguity with lower layers, so long as any rtp is in-band. 
 
 //broker protocol (over websockets).
 #define PORT_ICEBROKER	27950	//same as q3's master.
+
+#define ALLOW_UNSOLICITED_ICE	//allow the broker to connect over dtls to broker new connections without long-lasting tls connections..
+
 enum icemsgtype_s
 {	//shared by rtcpeers+broker
 	ICEMSG_PEERLOST=0,	//other side dropped connection
@@ -43,6 +46,9 @@ enum icemsgtype_s
 	ICEMSG_SERVERINFO=6,//server->broker (for advertising the server properly)
 	ICEMSG_SERVERUPDATE=7,//broker->browser (for querying available server lists)
 	ICEMSG_NAMEINUSE=8,	//requested resource is unavailable.
+  ICEMSG_SERVERDETAILS_REQUEST = 9,// Broker → server: request full server details (players, scores, rules) */
+  ICEMSG_SERVERDETAILS_RESPONSE = 10, // Server → broker: response with full server details */
+  ICEMSG_PROBE = 11,		// Broker → server: lightweight ICE probe for latency measurement (no DTLS/SCTP)
 };
 
 #define CVAR_NOTFROMSERVER 0 //FIXME
@@ -63,6 +69,7 @@ cvar_t sv_port_rtc = CVARFD("sv_port_rtc", "/", CVAR_NOTFROMSERVER, "This is the
 static cvar_t sv_addr_ws = CVARFD("sv_addr_ws", "", CVAR_NOTFROMSERVER, "WebSocket address for this server (e.g. wss://example.com:27950). Sent as *wsaddr in infostrings.");
 extern cvar_t com_protocolname;
 
+static char fingerprint[256];
 
 //this is the clientside part of our custom accountless broker protocol
 //basically just keeps the broker processing, but doesn't send/receive actual game packets.
@@ -82,7 +89,7 @@ typedef struct {
 	icestream_t *broker;
 	double reconnecttimeout;
 	double heartbeat;	//timestamp for when to send the next heartbeat (for server browsers).
-	qboolean error;
+	qboolean error;		//broker failed. may still have udp/tcp sockets listening for direct connections though.
 
 	//client state...
 	struct icestate_s *ice;
@@ -97,7 +104,19 @@ typedef struct {
 		qboolean isnew;
 	} *clients;
 	size_t numclients;
+
+	struct heartbeatctx_s *heartbeatctx;	//for non-broker heartbeats, now we're using this for dtls etc too.
 } qice_connection_t;
+
+#ifdef ALLOW_UNSOLICITED_ICE
+struct qice_userstate_s
+{	//this block is for our inbound udp broker reliability, ensuring we get candidate info to where its needed... gotta use ICE_GetUserPtr to access
+	char *text;
+	unsigned int inseq;
+	unsigned int outseq;
+};
+#endif
+
 static void QICE_Close(qice_connection_t *b)
 {
 	qsocket_t *s;
@@ -141,16 +160,135 @@ static void QICE_SendBrokerFrame(qice_connection_t *b, const char *msg)
 	b->broker->WriteBytes(b->broker, msg, msgsize);
 }
 
+#define MAX_MASTERS 64
+struct heartbeatctx_s
+{	//thread context used to avoid stalls on dns lookups.
+	qboolean working;	//don't really need a barrier, we'll use join to sync before reading the rest.
+	void *thread;
+
+	int nummasters;
+	struct
+	{
+		int okay;
+		char *name;
+	} master[MAX_MASTERS];
+
+	size_t numresults;
+	struct
+	{
+		char *name;
+		netadr_t addr;
+	} result[MAX_MASTERS];
+};
+
+static int DNSLookupThread(void *vctx)
+{
+	struct heartbeatctx_s *ctx = vctx;
+	size_t i, k, o, m;
+	netadr_t res[MAX_MASTERS];
+	ctx->numresults = 0;
+	for (m = 0; m < ctx->nummasters; m++)
+	{
+		k = NET_StringToAdr(ctx->master[m].name, PORT_ICEBROKER, res, sizeof(res));
+		ctx->master[m].okay = k>0;
+		for (i = 0; i < k; i++)	//for each new result
+		{
+			for (o = 0; ; o++)	//for each prior result
+			{
+				if (o == ctx->numresults)
+				{	//new resulting address.
+					if (ctx->numresults < countof(ctx->result))
+					{
+						ctx->result[o].name = ctx->master[m].name;
+						ctx->result[o].addr = res[i];
+						ctx->numresults++;
+					}
+					break;
+				}
+				if (NET_CompareAdr(&res[i], &ctx->result[o].addr))
+					break;	//already on the list
+			}
+		}
+	}
+
+	ctx->working = false;	//done.
+	return true;
+}
 extern void Datagram_GenerateGetInfoString(char *out, size_t outsize);
 static void QICE_Heartbeat(qice_connection_t *b)
 {
-	b->heartbeat = realtime+30;
-	if (b->isserver)
+	char info[2048];
+	struct heartbeatctx_s *ctx = b->heartbeatctx;
+
+	extern cvar_t sv_public, sv_reportheartbeats, sv_heartbeat_interval, net_masters[];
+
+	if (!b->isserver)
+		return;	//don't ever heartbeat as a client.
+
+	if (ctx && !ctx->working)
+	{	//dns resolution finished.
+		//only needs to do master stuff now
+
+		//darkplaces here refers to the master server protocol, rather than the game protocol
+		//(specifies that the server responds to infoRequest packets from the master/clients)
+		static char *str = "\377\377\377\377heartbeat DarkPlaces\n";
+		size_t k;
+		SDL_WaitThread(ctx->thread, NULL);
+
+		if (sv_public.value > 0)
+		{
+			if (sv_reportheartbeats.value)
+				for (k = 0; k < ctx->nummasters; k++)
+					if (!ctx->master[k].okay)
+						Con_Warning("Unable to resolve master %s\n", ctx->master[k].name);
+			for (k = 0; k < ctx->numresults; k++)
+			{
+				if (sv_reportheartbeats.value)
+					Con_Printf("Sending heartbeat to %s (%s)\n", ctx->result[k].name, NET_AdrToString(info, sizeof(info), &ctx->result[k].addr));
+				ICE_SendUDPPacket(&b->icemodule, &ctx->result[k].addr, (byte*)str, strlen(str));
+			}
+		}
+
+		Z_Free(ctx); //don't need it no more
+		b->heartbeatctx = ctx = NULL;
+	}
+
+	if (realtime < b->heartbeat)
+		return;	//not time yet.
+
+	b->heartbeat = realtime+q_max(30,sv_heartbeat_interval.value);
+
+	if (b->broker)
 	{	//let the broker know the current serverinfo details, so its available via https://$net_ice_broker/raw/$com_protocolname
 		char info[2048];
 		int ofs = QICE_PrepareBrokerFrame(ICEMSG_SERVERINFO, -1, info);
-		Datagram_GenerateGetInfoString(info+ofs, sizeof(info)-ofs);
+		if (sv_public.value > 0)
+			Datagram_GenerateGetInfoString(info+ofs, sizeof(info)-ofs);
+		else
+			*info = 0;	//try to hide by hiding the info.
 		QICE_SendBrokerFrame(b, info);
+	}
+
+	if (!ctx && sv_public.value > 0)
+	{
+		size_t k, l = 0;
+
+		for (k = 0; net_masters[k].string; k++)
+			l += strlen(net_masters[k].string)+1;
+		b->heartbeatctx = ctx = Z_Malloc(sizeof(*ctx) + l);
+		for (k = 0, l = 0; net_masters[k].string; k++)
+		{
+			if (*net_masters[k].string)
+			{
+				strcpy(    (ctx->master[ctx->nummasters].name = (char*)(ctx+1)+l), net_masters[k].string);	//copy the names over, just in case there's races
+				l += strlen(ctx->master[ctx->nummasters].name)+1;
+				ctx->nummasters++;
+			}
+		}
+		ctx->working = true;
+		ctx->thread = SDL_CreateThread(DNSLookupThread, "heartbeatdns", ctx);
+		if (!ctx->thread)	//bum...
+			ctx->working = false;	//just clean it up later.
 	}
 }
 
@@ -369,7 +507,11 @@ static qboolean QICE_UpdateBroker(qice_connection_t *b)
 		}
 
 		if (b->reconnecttimeout > realtime || !*b->brokername)
+		{
+			if (b->isserver)
+				QICE_Heartbeat(b);
 			return false;
+		}
 
 		if (b->isserver && *sv_port_rtc.string && strcmp(sv_port_rtc.string,"/"))
 		{
@@ -438,8 +580,7 @@ handleerror:
 		for (cl = 0; cl < b->numclients; cl++)
 			if (b->clients[cl].ice)
 				QICE_Refresh(b, cl, b->clients[cl].ice);
-		if (realtime >= b->heartbeat)
-			QICE_Heartbeat(b);
+		QICE_Heartbeat(b);
 	}
 	else
 	{
@@ -480,7 +621,7 @@ handleerror:
 				if (net_ice_debug.value)
 					Con_Printf(S_COLOR_GRAY"[%s]: Broker client lost connection: %s\n", ICE_GetConnName(b->clients[cl].ice), *data?data:"<NO REASON>");
 				if (b->clients[cl].ice)
-					iceapi.Close(b->clients[cl].ice, b->clients[cl].isnew);
+					iceapi.Close(b->clients[cl].ice, true);
 				b->clients[cl].ice = NULL;
 				b->clients[cl].isnew = false;	//just in case...
 			}
@@ -518,8 +659,8 @@ handleerror:
 					}
 					if (cl >= 0 && cl < b->numclients)
 					{
-						if (b->clients[cl].isnew)
-						{	//erk? don't leak
+						if (b->clients[cl].ice)
+						{	//close any existing state (stale connection or probe)
 							iceapi.Close(b->clients[cl].ice, true);
 							b->clients[cl].ice = NULL;
 						}
@@ -619,6 +760,132 @@ handleerror:
 			JSON_Destroy(json);
 #endif
 			break;
+		case ICEMSG_SERVERDETAILS_REQUEST:
+			if (b->isserver)
+			{
+				char buf[8192];
+				int ofs = QICE_PrepareBrokerFrame(ICEMSG_SERVERDETAILS_RESPONSE, cl, buf);
+				int i, j;
+
+				//server info (same as getstatus infostring)
+				Datagram_GenerateGetInfoString(buf+ofs, sizeof(buf)-ofs);
+				ofs += strlen(buf+ofs);
+
+				//player list: one line per player "\nfrags ping colors "name" address"
+				for (i = 0; i < svs.maxclients; i++)
+				{
+					if (svs.clients[i].active)
+					{
+						float total = 0;
+						const char *addr;
+
+						for (j = 0; j < NUM_PING_TIMES; j++)
+							total += svs.clients[i].ping_times[j];
+						total /= NUM_PING_TIMES;
+						total *= 1000;	//ms
+
+						if (svs.clients[i].netconnection)
+						{
+							//mask IP like Host_Status_f: x.x.x.xxx for IPv4
+							const char *fulladdr = NET_QSocketGetTrueAddressString(svs.clients[i].netconnection);
+							static char masked[64];
+							int a, b, c;
+							if (sscanf(fulladdr, "%d.%d.%d", &a, &b, &c) == 3)
+								q_snprintf(masked, sizeof(masked), "%d.%d.%d.xxx", a, b, c);
+							else
+								q_strlcpy(masked, fulladdr, sizeof(masked));
+							addr = masked;
+						}
+						else
+							addr = "botclient";
+
+						ofs += q_snprintf(buf+ofs, sizeof(buf)-ofs, "\n%i %i %i_%i \"%s\" %s",
+							svs.clients[i].old_frags, (int)total,
+							svs.clients[i].colors & 15, svs.clients[i].colors >> 4,
+							svs.clients[i].name, addr);
+					}
+				}
+
+				//rules: "\nrule=value" for each CVAR_SERVERINFO cvar
+				{
+					cvar_t *var;
+					ofs += q_snprintf(buf+ofs, sizeof(buf)-ofs, "\n");
+					for (var = Cvar_FindVarAfter("", CVAR_SERVERINFO); var; var = Cvar_FindVarAfter(var->name, CVAR_SERVERINFO))
+					{
+						ofs += q_snprintf(buf+ofs, sizeof(buf)-ofs, "\\%s\\%s", var->name, var->string);
+						if (ofs >= (int)sizeof(buf) - 64)
+							break;
+					}
+				}
+
+				QICE_SendBrokerFrame(b, buf);
+			}
+			break;
+		case ICEMSG_PROBE:
+			//lightweight ICE probe for latency measurement — no DTLS/SCTP, short timeout
+			if (b->isserver)
+			{
+				char peer[MAX_QPATH];
+				char relay[MAX_QPATH];
+				const char *s;
+				struct icestate_s *probe;
+				unsigned int modeflags = ICEF_ALLOW_PROBE | ICEF_ALLOW_STUN | ICEF_ALLOW_WEBRTC;
+
+				Buf_ReadString(&data, msgbuf+len, peer, sizeof(peer));
+				Buf_ReadString(&data, msgbuf+len, relay, sizeof(relay));
+
+				if (net_ice_allowmdns.value)
+					modeflags |= ICEF_ALLOW_MDNS;
+				if (net_ice_debug.value)
+					modeflags |= ICEF_VERBOSE;
+				if (net_ice_debug.value >= 2)
+					modeflags |= ICEF_VERBOSE_PROBE;
+
+				if (cl < 1024 && cl >= b->numclients)
+				{
+					void *n = realloc(b->clients, sizeof(b->clients[0])*(cl+1));
+					if (!n)
+						break;
+					b->clients = n;
+					memset(b->clients+b->numclients, 0, sizeof(b->clients[0]) * ((cl+1) - b->numclients));
+					b->numclients = cl+1;
+				}
+				if (cl >= 0 && cl < b->numclients)
+				{
+					if (b->clients[cl].ice)
+					{
+						iceapi.Close(b->clients[cl].ice, true);
+						b->clients[cl].ice = NULL;
+					}
+
+					probe = iceapi.Create(&b->icemodule, NULL,
+						(*peer) ? va("%s:%i", peer, cl) : NULL,
+						modeflags, ICEP_SERVER);
+					if (probe)
+					{
+						b->clients[cl].ice = probe;
+						b->clients[cl].isnew = false;	//not a real connection
+
+						//set to GATHERING so ICE_Tick doesn't destroy it before the offer arrives
+						iceapi.Set(probe, "state", STRINGIFY(ICE_GATHERING));
+						iceapi.Set(probe, "brokerless", "1");	//self-cleanup via icetimeout
+						iceapi.Set(probe, "timeout", "5000");	//probes are short-lived
+
+						//add STUN servers
+						iceapi.Set(probe, "server", va("stun:%s:%i", b->brokername, b->brokerport));
+						for (s = relay; (s=COM_Parse(s)); )
+							iceapi.Set(probe, "server", com_token);
+						s = net_ice_servers.string;
+						while ((s=COM_Parse(s)))
+							iceapi.Set(probe, "server", com_token);
+
+						if (net_ice_debug.value)
+							Con_Printf(S_COLOR_GRAY"[%s]: ICE probe from %s\n", ICE_GetConnName(probe), peer);
+					}
+				}
+				result = true;
+			}
+			break;
 		default:
 			if (net_ice_debug.value)
 				Con_Printf(S_COLOR_GRAY"[%s]: Broker send unknown packet: %i\n", ICE_GetConnName(b->ice), msgbuf[0]);
@@ -635,6 +902,17 @@ static void QICE_Closed(struct icemodule_s *module, struct icestate_s *ice)
 	qice_connection_t *b = (qice_connection_t*)module;
 	qsocket_t *s;
 	int i;
+
+	struct qice_userstate_s *u = ICE_GetUserPtr(ice);
+	if (u)
+	{
+		ICE_SetUserPtr(ice, NULL);
+		if (u->text)
+			Z_Free(u->text);
+		Z_Free(u);
+	}
+
+
 	for (s = net_activeSockets; s; s = s->next)
 	{
 		if (s->driverdata == b)
@@ -663,38 +941,85 @@ static void QICE_SendInitial(struct icemodule_s *module, struct icestate_s *ice)
 }
 
 #ifdef HAVE_DTLS
-static qboolean QICE_LoadCerts(struct dtlslocalcred_s *cred, char *priv, char *cert)
+static void QICE_FreeLocalCred(struct dtlslocalcred_s *cred)
+{
+	if (cred->cert)
+		free(cred->cert);
+	if (cred->key)
+		free(cred->key);
+	if (cred->rawcert)
+		free(cred->rawcert);
+	if (cred->rawkey)
+		free(cred->rawkey);
+	cred->cert = NULL;
+	cred->certsize = 0;
+	cred->key = NULL;
+	cred->keysize = 0;
+	cred->rawcert = NULL;
+	cred->rawcertsize = 0;
+	cred->rawkey = NULL;
+	cred->rawkeysize = 0;
+}
+
+static qboolean QICE_ReadFileBuffer(const char *path, void **out, size_t *outsize)
 {
 	qofs_t sz;
 	int fd;
+	qbyte *buf;
 
-	sz = Sys_FileOpenRead(priv, &fd);	//private key is most likely to need special permissions to read, so fail on that one first.
-	if (sz>=0)
-	{
-		cred->keysize = sz;
-		if (cred->key)
-			free(cred->key);
-		cred->key = malloc(cred->keysize);
-		Sys_FileRead(fd, cred->key, cred->keysize);
-		Sys_FileClose(fd);
-	}
-	else
+	sz = Sys_FileOpenRead(path, &fd);
+	if (sz < 0)
 		return false;
 
-	sz = Sys_FileOpenRead(cert, &fd);
-	if (sz>=0)
+	buf = malloc(sz + 1);
+	if (!buf)
 	{
-		cred->certsize = sz;
-		if (cred->cert)
-			free(cred->cert);
-		cred->cert = malloc(cred->certsize);
-		Sys_FileRead(fd, cred->cert, cred->certsize);
 		Sys_FileClose(fd);
+		return false;
 	}
-	else
+
+	Sys_FileRead(fd, buf, sz);
+	Sys_FileClose(fd);
+	buf[sz] = 0;
+
+	*out = buf;
+	*outsize = sz;
+	return true;
+}
+
+static qboolean QICE_CopyBuffer(void **out, size_t *outsize, const void *src, size_t srcsize)
+{
+	qbyte *buf = malloc(srcsize + 1);
+
+	if (!buf)
+		return false;
+
+	memcpy(buf, src, srcsize);
+	buf[srcsize] = 0;
+
+	*out = buf;
+	*outsize = srcsize;
+	return true;
+}
+
+static qboolean QICE_LoadCerts(struct dtlslocalcred_s *cred, char *priv, char *cert)
+{
+	QICE_FreeLocalCred(cred);
+
+	//private key is most likely to need special permissions to read, so fail on that one first.
+	if (!QICE_ReadFileBuffer(priv, &cred->rawkey, &cred->rawkeysize))
+		return false;
+
+	if (!QICE_ReadFileBuffer(cert, &cred->rawcert, &cred->rawcertsize))
 	{
-		free(cred->key);
-		cred->key = NULL;
+		QICE_FreeLocalCred(cred);
+		return false;
+	}
+
+	if (!QICE_CopyBuffer(&cred->key, &cred->keysize, cred->rawkey, cred->rawkeysize) ||
+		!QICE_CopyBuffer(&cred->cert, &cred->certsize, cred->rawcert, cred->rawcertsize))
+	{
+		QICE_FreeLocalCred(cred);
 		return false;
 	}
 
@@ -840,6 +1165,7 @@ static qice_connection_t *QICE_Setup(const char *address, qboolean isserver)
 #ifdef HAVE_DTLS
 	if (isserver)
 	{
+		qbyte digest[DIGEST_MAXSIZE];
 		struct dtlslocalcred_s cred = {NULL,0,NULL,0};
 		int a_k, a_c;
 		newcon->icemodule.dtlsfuncs = ICE_DTLS_InitServer();	//we want to support clients using dtls...
@@ -879,9 +1205,12 @@ static qice_connection_t *QICE_Setup(const char *address, qboolean isserver)
 							}
 						}
 
-			newcon->icemodule.dtlsfuncs->SetCredentials(&cred);
-			free(cred.cert);
-			free(cred.key);
+			//`dtls://host:port?fp=foo` should be written consistently without confusion, so use the alt base64 format for advertised fingerprint values.
+			Base64_EncodeBlockURI(digest, CalcHash(&hash_sha2_256, digest, sizeof(digest), cred.cert, cred.certsize), fingerprint, sizeof(fingerprint));
+
+			if (!newcon->icemodule.dtlsfuncs->SetCredentials(&cred))
+				Con_Printf(CON_WARNING"Unable to install TLS credentials from the configured certificate/key files.\n");
+			QICE_FreeLocalCred(&cred);
 		}
 		else
 			Con_Printf(CON_WARNING"DTLS unavailable - GnuTLS library failed to load.\n");
@@ -1166,6 +1495,41 @@ static int ICE_FindOrAllocPeer(const char *brokerid, qboolean alloc)
 	return i;
 }
 
+#ifdef ALLOW_UNSOLICITED_ICE
+
+unsigned int ICE_GetICEFlags(qboolean isinitiator)
+{
+	unsigned int modeflags = 0;
+
+#ifdef HAVE_DTLS
+	if (net_ice_usewebrtc.value)
+		modeflags |= ICEF_ALLOW_WEBRTC;
+	else if (!*net_ice_usewebrtc.string)
+		modeflags |= ICEF_ALLOW_WEBRTC|ICEF_ALLOW_PLAIN;	//let the peer decide. this means we can use dtls, but not sctp.
+	else
+		modeflags |= ICEF_ALLOW_PLAIN;
+#endif
+	if (isinitiator)
+		modeflags |= ICEF_INITIATOR;
+	modeflags |= ICEF_ALLOW_PROBE;	//yes, we want to allow probes. don't be ice-lite.
+	if (net_ice_allowstun.value)
+		modeflags |= ICEF_ALLOW_STUN;	//query stun servers. relatively cheap.
+	if (net_ice_allowturn.value)
+		modeflags |= ICEF_ALLOW_TURN;	//register with a TURN server if defined.
+	if (net_ice_allowmdns.value)
+		modeflags |= ICEF_ALLOW_MDNS;	//share lan addresses without sharing lan addesses (queries and responses)
+	if (net_ice_relayonly.value)
+		modeflags |= ICEF_RELAY_ONLY;	//laggier
+	if (net_ice_exchangeprivateips.value)
+		modeflags |= ICEF_SHARE_PRIVATE;	//bad
+	if (net_ice_debug.value)
+		modeflags |= ICEF_VERBOSE;
+	if (net_ice_debug.value>=2)
+		modeflags |= ICEF_VERBOSE_PROBE;
+	return modeflags;
+}
+#endif
+
 void SVC_ICE_Offer(const char *clientaddr, const char *brokerid, const char *sdpdata, const char *brokeraddr, ice_udp_send_t sendpacket)
 {	//handles an 'ice_offer' udp message from a broker
 	struct icestate_s *ice;
@@ -1199,13 +1563,19 @@ void SVC_ICE_Offer(const char *clientaddr, const char *brokerid, const char *sdp
 	if (ice)
 		iceapi.Close(ice, true);
 
-	ice = iceapi.Create(&qice_hostcon->icemodule, brokerid, clientaddr, ICEF_DEFAULT, ICEP_SERVER);
+	ice = iceapi.Find(&qice_hostcon->icemodule, brokerid);
+	Con_DPrintf(CON_WARNING"ICE: %soffer [%s] for %s\n", ice?"dupe ":"", brokerid, clientaddr);
+	if (ice)
+		return;
+
+	ice = iceapi.Create(&qice_hostcon->icemodule, brokerid, clientaddr, ICE_GetICEFlags(false), ICEP_SERVER);
 	if (!ice)
 	{
 		Con_Printf("ICE: iceapi.Create failed for broker_id=%s\n", brokerid);
 		return;
 	}
 	iceapi.Set(ice, "brokerless", "1");	//not managed by WebSocket broker — clean up on failure/timeout
+	iceapi.Set(ice, "timeout", "5000");	//short timeout — game connections survive via data flow extending it
 
 	//use the broker as a STUN server to discover our server-reflexive address.
 	//Use the broker's known IP (from the DTLS source) with the main broker port
@@ -1383,8 +1753,8 @@ int NQICE_Init (void)
 	if (safemode || COM_CheckParm("-noice"))
 		return -1;
 
-	if (!COM_CheckParm("-useice"))
-		return -1;	//disable by default for now.
+//	if (!COM_CheckParm("-useice"))
+//		return -1;	//disable by default for now.
 
 	//ICE state
 	Cvar_RegisterVariable(&net_ice_exchangeprivateips);
@@ -1780,6 +2150,8 @@ static int qice_msgqueuesize;	//number used.
 static int qice_msgqueueofs;	//position.
 static qboolean QICE_GotS2CMessage (struct icestate_s *ice, const void *data, size_t datasize)
 {
+	extern char m_return_reason[32];	//reason for failure, for menus to display without needing to resort to the console.
+
 	unsigned int header;
 	qice_connection_t *b = qice_clientcon;
 	qsocket_t *sock = b->qsock;
@@ -1789,8 +2161,57 @@ static qboolean QICE_GotS2CMessage (struct icestate_s *ice, const void *data, si
 		Con_Printf("Packet from wrong ice state...\n");
 		return false;
 	}
+	if (datasize < 4)
+		return false;	//truncated somehow. don't try.
 
 	header = BigLong(((const int*)data)[0]);
+	if (header == -1)
+	{	//qw-style out-of-band.
+		const char *s;
+		SZ_Clear(&net_message);
+		SZ_Write(&net_message, data, datasize);
+		MSG_BeginReading();
+		MSG_ReadLong();
+		s = MSG_ReadString();
+
+		if (!strncmp(s, "challenge ", 10))
+		{	//either a q2 or dp server... more likely to be dp.
+			extern cvar_t password;
+			s+=10;
+			if (*password.string && !strchr(password.string, '\\') && !strchr(password.string, '\n'))
+				s = va("%s\\password\\%s", s, password.string);
+			s = va("%c%c%c%cconnect\\protocol\\darkplaces 3\\protocols\\RMQ FITZ DP7 NEHAHRABJP3 QUAKE\\challenge\\%s", 255, 255, 255, 255, s);
+
+			iceapi.SendPacket(ice, s, strlen(s));
+		}
+		else if (!strcmp(s, "accept"))
+		{
+			sock->proquake_angle_hack = false;
+			b->dohandshake = 0;	//we're connected now. yay...
+		}
+		else if (!strncmp(s, "reject ", 7))
+		{	//single line message, mostly.
+			s += 7;
+			Con_Printf("%s\n", s);
+			q_strlcpy(m_return_reason, s, sizeof(m_return_reason));
+			b->error = true;
+		}
+		else if (!strncmp(s, "print\n", 6))
+		{	//qw rejections. just in case.
+			s += 6;
+			Con_Printf("%s\n", s);
+			q_strlcpy(m_return_reason, s, sizeof(m_return_reason));
+			b->error = true;
+		}
+		else
+		{
+			COM_Parse(s);
+			Con_Printf("Unknown oob packet: %s\n", com_token);
+		}
+
+		SZ_Clear(&net_message);
+		return true;
+	}
 	if (header == (datasize | NETFLAG_CTL))
 	{
 		int req;
@@ -1803,8 +2224,6 @@ static qboolean QICE_GotS2CMessage (struct icestate_s *ice, const void *data, si
 		req = MSG_ReadByte();
 		if (!b->isserver)
 		{
-			extern char m_return_reason[32];
-
 			if (req == CCREP_ACCEPT)
 			{
 #ifdef HAVE_DTLS
@@ -1926,12 +2345,104 @@ qsocket_t *NQICE_CheckNewConnections (void)
 	return NULL;
 }
 
-static void QCICE_ReadUnsolicitedSPacket (struct icestate_s *ice, const void *data, size_t datasize, struct icestate_s*(*Accept)(struct icestate_s*temp))
+static void QCICE_SV_ReadUnsolicitedSPacket (struct icestate_s *ice, const void *data, size_t datasize, struct icestate_s*(*Accept)(struct icestate_s*temp))
 {
 	unsigned int header;
+	const char *cmd;
 	header = BigLong(((const int*)data)[0]);
 	if (header == 0xffffffff)
+	{
+		extern cvar_t sv_public;
+		if (sv_public.value > 0)
+		{
+			((char*)data)[datasize] = 0;
+			Cmd_TokenizeString((char*)data+4);
+			cmd = Cmd_Argv(0);
+			if (!strcmp(cmd, "getinfo") || !strcmp(cmd, "getstatus"))
+			{	//master, as well as other clients, may send us one of these two packets to get our serverinfo data
+				//masters only really need gamename and player counts. actual clients might want player names too.
+				qboolean full = !strcmp(cmd, "getstatus");
+				char cookie[128], *nl;
+				const char *s = Cmd_Args();
+				int i;
+				size_t j;
+				if (!s) s = "";
+				nl = strchr(s, '\n'); if (nl) *nl = 0;	//urgh...
+				q_strlcpy(cookie, s, sizeof(cookie));
+
+				SZ_Clear(&net_message);
+				MSG_WriteLong(&net_message, -1);
+				MSG_WriteString(&net_message, full?"statusResponse\n":"infoResponse\n");net_message.cursize--;
+
+				//kinda evil, but oh well, just write it directly.
+				Datagram_GenerateGetInfoString((char*)net_message.data+net_message.cursize, net_message.maxsize - net_message.cursize);
+				net_message.cursize += strlen((char*)net_message.data+net_message.cursize);
+
+				if (*cookie)
+					{MSG_WriteString(&net_message, va("\\challenge\\%s", cookie));net_message.cursize--;}
+				if (*fingerprint)
+					{MSG_WriteString(&net_message, va("\\*fp\\%s", fingerprint));net_message.cursize--;}
+
+				if (full)
+				{
+					for (i = 0; i < svs.maxclients; i++)
+					{
+						if (svs.clients[i].active)
+						{
+							float total = 0;
+							for (j = 0; j < NUM_PING_TIMES; j++)
+								total+=svs.clients[i].ping_times[j];
+							total /= NUM_PING_TIMES;
+							total *= 1000;	//put it in ms
+
+							MSG_WriteString(&net_message, va("\n%i %i %i_%i \"%s\"",
+								svs.clients[i].old_frags, (int)total, svs.clients[i].colors&15, svs.clients[i].colors>>4, svs.clients[i].name
+							));net_message.cursize--;
+						}
+					}
+				}
+
+				iceapi.SendPacket(ice, net_message.data, net_message.cursize);
+				SZ_Clear(&net_message);
+			}
+			//QSS-M: ice_offer/ice_ccand are handled via BrokerDTLS → _Datagram_BrokerPacket → _Datagram_ServerControlPacket
+			//in net_dgrm.c, not through this unsolicited packet handler.
+			else if (!strcmp(cmd, "getchallenge"))
+			{	//this might be a dp or qw getchallenge.
+				qboolean dpresp;
+				int i;
+gotgetchallenge:
+				Con_DPrintf("%s: getchallenge (unsupported)\n", ICE_GetConnName(ice));
+
+				//clchallenge = Cmd_Argv(1);	//used by ioq3 but not us
+				//contentnames = Cmd_Argv(2);	//'FTE-Quake' or 'FTE-QuakeRerelease' or something to describe datasets the client is willing to accept (space seperated).
+
+				dpresp = true;
+				for (i = 3; i < Cmd_Argc(); i++)
+				{
+					cmd = Cmd_Argv(i);
+					if (!strncmp(cmd, "qw=", 3))
+						/*we don't support this, don't bother with a reject because of it*/;
+					else if (!strncmp(cmd, "nq=", 3))
+						dpresp = atoi(cmd+3);
+				}
+
+				if (dpresp)
+				{	//give it a dp-style challenge response instead
+					int challenge = 0;
+					cmd = va("\xff\xff\xff\xff" "challenge %iQSS", challenge);	//we still need to add a postfix to prevent it from being interpreted as a Q2 server
+					iceapi.SendPacket(ice, cmd, strlen(cmd));
+				}
+			}
+			else if (!strncmp(cmd, "connect\\", 8))
+			{	//dp style connect.
+			}
+			else
+				Con_DPrintf("%s: Unknown qw-style query\n", ICE_GetConnName(ice));
+			return;
+		}
 		return;	//quakeworld connectionless packets.
+	}
 	if (header == (datasize | NETFLAG_CTL))
 	{
 		int req;
@@ -1945,9 +2456,7 @@ static void QCICE_ReadUnsolicitedSPacket (struct icestate_s *ice, const void *da
 			qice_connection_t *b = qice_hostcon;
 			const char *error = NULL;
 			const char *game = MSG_ReadString();
-			int ver = MSG_ReadByte();
-			//proquakeisms
-			int mod, mod_passwd = 0;
+			int ver = MSG_ReadByte(), mod, mod_passwd = 0; //proquakeisms
 			int plnum = -1;
 			qsocket_t *s = NULL;
 
@@ -1965,8 +2474,15 @@ static void QCICE_ReadUnsolicitedSPacket (struct icestate_s *ice, const void *da
 
 			if (ver != NET_PROTOCOL_VERSION)
 				error = "Incompatible version.\n";
-			else if (!QICE_SV_CheckPassword(mod_passwd))
-				error = "bad/missing password.\n";
+			else
+			{
+				const char *str = MSG_ReadString();	//yes, must have the proquake junk too (report a ver of 0 or something if need be).
+				Cmd_TokenizeString(str);
+				if (!strcmp(Cmd_Argv(0), "getchallenge"))
+					goto gotgetchallenge;
+				else if (!QICE_SV_CheckPassword(mod_passwd))
+					error = "bad/missing password.\n";
+			}
 
 			SZ_Clear(&net_message);
 			MSG_WriteLong(&net_message, 0);	//ctl header...
@@ -2162,11 +2678,10 @@ static qboolean QICE_GotC2SMessage (struct icestate_s *ice, const void *data, si
 	qsocket_t *s = NULL;
 
 	header = BigLong(((const int*)data)[0]);
-	if (header == 0xffffffff)
-		return true;	//quakeworld connectionless packets.
-	if (header == (datasize | NETFLAG_CTL))
+	if ((header == 0xffffffff) ||				//quakeworld connectionless packets.
+		(header == (datasize | NETFLAG_CTL)))	//netquake connectionless packets.
 	{
-		QCICE_ReadUnsolicitedSPacket(ice, data, datasize, NULL);
+		QCICE_SV_ReadUnsolicitedSPacket(ice, data, datasize, NULL);
 		return true;
 	}
 
@@ -2253,12 +2768,14 @@ const char *NQICE_GetFingerprint (void)
 		}
 
 	if (!cred.certsize)
+	{
+		QICE_FreeLocalCred(&cred);
 		return "";
+	}
 
 	CalcHash(&hash_certfp, digest, sizeof(digest), cred.cert, cred.certsize);
 	Base64_EncodeBlock(digest, hash_certfp.digestsize, nqice_fp_cache, sizeof(nqice_fp_cache));
-	free(cred.cert);
-	free(cred.key);
+	QICE_FreeLocalCred(&cred);
 	return nqice_fp_cache;
 #else
 	return "";
@@ -2339,6 +2856,10 @@ qboolean NQICE_ProcessPacket (byte *data, int len, struct qsockaddr *addr, void(
 	if (!via)
 		return false;
 
+	//set connum so ICE sends responses through the correct socket
+	//(matches ICE_ProcessModule numbering: conn[0]=IPv4=connum 1, conn[1]=IPv6=connum 2)
+	from.connum = (via == shared_game_socket6) ? 2 : 1;
+
 	//set net_driverlevel to the ICE driver so NET_NewQSocket sets the correct driver
 	for (i = 0; i < net_numdrivers; i++)
 	{
@@ -2381,12 +2902,15 @@ qboolean NQICE_ProcessPacket (byte *data, int len, struct qsockaddr *addr, void(
 void NQICE_Listen (qboolean state)	//used by server (enables websocket connection).
 {
 	//connect/disconnect the websocket connection etc.
-	qice_listening = true;
+	qice_listening = state;
 	if (qice_listening)
 	{
-		qice_hostcon = QICE_Setup(*sv_port_rtc.string?sv_port_rtc.string:NULL, true);
-		qice_hostcon->icemodule.ReadGamePacket = QICE_GotC2SMessage;
-		qice_hostcon->icemodule.ReadUnsolicitedPacket = QCICE_ReadUnsolicitedSPacket;
+		if (!qice_hostcon)
+		{
+			qice_hostcon = QICE_Setup(*sv_port_rtc.string?sv_port_rtc.string:NULL, true);
+			qice_hostcon->icemodule.ReadGamePacket = QICE_GotC2SMessage;
+			qice_hostcon->icemodule.ReadUnsolicitedPacket = QCICE_SV_ReadUnsolicitedSPacket;
+		}
 	}
 	else if (qice_hostcon)
 	{
@@ -2408,7 +2932,7 @@ int NQICE_SendMessage (qsocket_t *sock, sizebuf_t *data)
 	else if (sock->driverdata2)
 		;	//socket has ice state, allow it to continue to run even if the broker has issues.
 	else if (b->error)
-		return -1;
+		return -1;	//its dying.
 
 	if (!sock->canSend)
 		return -1;	//err, you shouldn't be here.
@@ -2420,11 +2944,19 @@ int NQICE_SendMessage (qsocket_t *sock, sizebuf_t *data)
 	sock->sendMessageLength = data->cursize;
 	sock->canSend = false;
 
-	//can resize at the start of each reliable. stoopid acks.
-	sock->max_datagram = sock->pending_max_datagram;
+	/*if (sock->driverdata2 && ICE_AutoFragment(sock->driverdata2))
+	{	//websockets(tcp) or sctp both provide their own fragmentation. we can use that instead of quake's 1024-bytes-per-round-trip mess.
+		//server should still keep its datagrams below the actual mtu though.
+		sock->max_datagram = 65536;
+	}
+	else*/
+	{
+		//can resize at the start of each reliable. stoopid acks.
+		sock->max_datagram = sock->pending_max_datagram;
 
-	//make a guess about dtls+sctp overhead
-	sock->max_datagram -= 25+28;
+		//make a guess about dtls+sctp overhead
+		sock->max_datagram -= 25+28;
+	}
 
 	return QICE_ResendReliable(sock);
 }
@@ -2485,6 +3017,9 @@ qboolean NQICE_CanSendMessage (qsocket_t *sock)
 			if (b->dohandshake > Sys_DoubleTime())
 				return false;	//not yet time
 
+			//send a DP/QW getchallenge packet to mimic DP. this must not have a \n to avoid confusing FTE.
+			iceapi.SendPacket(s, "\xff\xff\xff\xff" "getchallenge", 16);
+
 			SZ_Clear(&net_message);
 			// save space for the header, filled in later
 			MSG_WriteLong(&net_message, 0);
@@ -2512,6 +3047,9 @@ qboolean NQICE_CanSendMessage (qsocket_t *sock)
 				MSG_WriteLong(&net_message, pwd); /*password*/
 
 				//FTE adds a 'getchallenge' hint here for a challenge response instead of nq protocols. QW or DP would expect only a getchallenge.
+				//by sending a getchallenge for fte servers, we can get the server to use dp-style handshakes, bypassing any serverside need for smurf pretection and thus the downsides of 'sv_listen_nq 1'
+//				if (!strchr(com_protocolname.string, '\"'))
+//					MSG_WriteString(&net_message, va("getchallenge %i \"%s\"\n", 0, com_protocolname.string));
 			}
 			*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 			e = iceapi.SendPacket(s, net_message.data, net_message.cursize);

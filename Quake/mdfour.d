@@ -1,1 +1,0 @@
-mdfour.o: mdfour.c

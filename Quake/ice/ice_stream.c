@@ -268,7 +268,7 @@ icestream_t *FS_WrapTCPSocket(SOCKET sock, qboolean conpending, const char *peer
 	if (sock == INVALID_SOCKET)
 		return NULL;
 
-	newf = calloc(1, sizeof(*newf) + strlen(peername));
+	newf = calloc(1, sizeof(*newf) + strlen(peername) + 1);
 	strcpy(newf->peer, peername);
 	newf->conpending = conpending;
 	newf->sock = sock;
@@ -1508,11 +1508,7 @@ struct icesocket_s *ICE_WSS_EstablishConnection(const char *address, netadr_t *a
 		n->f = ICE_OpenTLS(address, n->f, false);
 #endif
 
-	n->f = Websocket_WrapStream(n->f, address, "/",
-#ifdef NETQUAKE_IO_HACK
-			NETQUAKE_IO_HACK","
-#endif
-			WEBSOCKET_SUBPROTOCOL);
+	n->f = Websocket_WrapStream(n->f, address, "/", WEBSOCKET_SUBPROTOCOL);
 
 	if (!n->f)
 	{

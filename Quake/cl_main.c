@@ -660,9 +660,11 @@ void CL_SignonReply (void)
 		const char* val;
 		const char* val2;
 
-		char buf[10]; // woods #modtype [crx server check]
+		char buf[10]; // woods #modtype [crx/crmod server check]
+		char bufn[16];
 		val = Info_GetKey(cl.serverinfo, "mod", buf, sizeof(buf));
-		if (q_strcasestr(val, "crx") && val[0] != 'q')
+		val2 = Info_GetKey(cl.serverinfo, "modname", bufn, sizeof(bufn));
+		if ((q_strcasestr(val, "crx") && val[0] != 'q') || q_strcasestr(val2, "crmod"))
 		{
 			cl.modtype = 1;
 			strncpy(cl.observer, "n", sizeof(cl.observer));
@@ -4403,7 +4405,7 @@ void CL_Init (void)
 	Cmd_AddCommand_ServerCommand("crx_ignorethis", CL_ServerExtension_Ignore_f); // woods crx
 	Cmd_AddCommand_ServerCommand("ignorethis_crx", CL_ServerExtension_Ignore_f); // woods crx
 	Cmd_AddCommand_ServerCommand("init", CL_ServerExtension_Ignore_f); // woods runequake
-	Cmd_AddCommand_ServerCommand("demomark", CL_DemoMark_f); // woods #demomark
+	Cmd_AddCommand_ServerCommand("markdemo", CL_DemoMark_f); // woods #markdemo
 	
 	Cmd_AddCommand_ServerCommand ("cl_serverextension_download", CL_ServerExtension_Download_f); //spike
 	Cmd_AddCommand_ServerCommand ("cl_downloadbegin", CL_Download_Begin_f); //spike

@@ -37,12 +37,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define	FITZQUAKE_VERSION	0.85	//johnfitz
 #define	QUAKESPASM_VERSION	0.96
-#define	QUAKESPASM_VER_PATCH	0	// helper to print a string like 0.94.7
+#define	QUAKESPASM_VER_PATCH	3	// helper to print a string like 0.94.7
 #ifndef	QUAKESPASM_VER_SUFFIX
 #define	QUAKESPASM_VER_SUFFIX		// optional version suffix string literal like "-beta1"
 #endif
 
-#define QSS_VER	"3-01-24" // woods
+#define QSS_VER	"6-21-25" // woods - latest commit
 
 // woods add qss-m versions info
 
@@ -393,6 +393,13 @@ typedef struct filelist_item_s
 {
 	char			name[MAX_QPATH];
 	char			data[50]; // woods #demolistsort #mapdescriptions
+	float			total_surface_area;
+	float			floor_surface_area;
+	float			wall_surface_area;
+	float			ceiling_surface_area;
+	int			counted_faces;
+	int			total_faces;
+	qboolean		has_mapsize_cache;
 	struct filelist_item_s	*next;
 } filelist_item_t;
 

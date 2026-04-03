@@ -194,6 +194,7 @@ extern	cvar_t	gl_laserpoint_alpha; // woods #laser
 extern	cvar_t	gl_powerupshells; // woods #powershell
 extern	cvar_t	gl_powerupshells_alpha; // woods #powershell
 extern	cvar_t	gl_motion_blur; // woods #motionblur
+extern	cvar_t	gl_finish;
 
 extern	cvar_t	gl_playermip;
 
@@ -332,6 +333,12 @@ extern QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC GL_CompressedTexImage2D;
 #define OFFSET_SHOWTRIS -3
 void GL_PolygonOffset (int);
 
+//GL_EXT_packed_pixels
+#ifndef GL_UNSIGNED_INT_10_10_10_2
+#define GL_UNSIGNED_INT_10_10_10_2 0x8036
+#endif
+extern qboolean gl_packed_pixels;
+
 //johnfitz -- GL_EXT_texture_env_combine
 //the values for GL_ARB_ are identical
 #define GL_COMBINE_EXT		0x8570
@@ -409,6 +416,9 @@ extern float	map_fallbackalpha; //spike -- because we might want r_wateralpha to
 
 extern int	map_ctf_flag_style; // woods #alternateflags
 
+#define NUMVERTEXNORMALS	162
+extern const float	r_avertexnormals[NUMVERTEXNORMALS][3];
+
 //johnfitz -- fog functions called from outside gl_fog.c
 void Fog_ParseServerMessage (void);
 float *Fog_GetColor (void);
@@ -431,7 +441,7 @@ void R_MarkSurfaces (void);
 qboolean R_CullBox (vec3_t emins, vec3_t emaxs);
 void R_StoreEfrags (efrag_t **ppefrag);
 qboolean R_CullModelForEntity (entity_t *e);
-void R_RotateForEntity (vec3_t origin, vec3_t angles, unsigned char scale);
+void R_RotateForEntity (vec3_t origin, vec3_t angles, entity_t *e);
 void R_MarkLights (dlight_t *light, vec3_t lightorg, int framecount, int num, mnode_t *node);
 
 void R_InitParticles (void);
@@ -519,7 +529,7 @@ qboolean RSceneCache_HasSky(void);
 extern byte *skipsubmodels;
 
 void GL_BindBuffer (GLenum target, GLuint buffer);
-void GL_ClearBufferBindings ();
+void GL_ClearBufferBindings (void);
 
 void GLSLGamma_DeleteTexture (void);
 void GLSLGamma_GammaCorrect (void);

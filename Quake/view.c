@@ -1160,7 +1160,14 @@ void V_CalcRefdef (void)
 		for (i=0 ; i<3 ; i++)
 			r_refdef.vieworg[i] += scr_ofsx.value*forward[i] + scr_ofsy.value*right[i] + scr_ofsz.value*up[i];
 
-	V_BoundOffsets ();
+	if (ent->model && ent->model->mins[2] >= -10 && ent->model->maxs[2] >= 24+32)
+	{	//hack this hack...
+		ent->origin[2] += 24;
+		V_BoundOffsets ();
+		ent->origin[2] -= 24;
+	}
+	else
+		V_BoundOffsets ();
 
 // set up gun stuff
 
@@ -1195,6 +1202,13 @@ void V_CalcRefdef (void)
 		else if (scr_viewsize.value == 80)
 			view->origin[2] += 0.5;
 	}
+	if (ent->lerpflags & LERP_FINISH)
+	{
+		view->lerpflags |= LERP_FINISH;
+		view->lerpfinish = ent->lerpfinish;
+	}
+	else
+		view->lerpflags &= ~LERP_FINISH;
 
 	V_CalcGunDrift (view->origin, view->angles); // woods #gdrift
 
@@ -1397,4 +1411,3 @@ void V_Init (void)
 	Cvar_RegisterVariable (&r_viewmodel_quake); //MarkV
 	Cvar_RegisterVariable (&cl_demo_eyecam); // woods #demoeyecam
 }
-

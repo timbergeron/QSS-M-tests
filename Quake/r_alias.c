@@ -41,10 +41,7 @@ void Matrix3x4_RM_Transform4(const float* matrix, const float* vector, float* pr
 
 cvar_t	gl_lightning_alpha = {"gl_lightning_alpha","1"}; // woods #lightalpha
 
-#define NUMVERTEXNORMALS	162
-
-float	r_avertexnormals[NUMVERTEXNORMALS][3] =
-{
+const float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
 
@@ -52,15 +49,14 @@ extern vec3_t	lightcolor; //johnfitz -- replaces "float shadelight" for lit supp
 
 // precalculated dot products for quantized angles
 #define SHADEDOT_QUANT 16
-float	r_avertexnormal_dots[SHADEDOT_QUANT][256] =
-{
+static const float	r_avertexnormal_dots[SHADEDOT_QUANT][256] = {
 #include "anorm_dots.h"
 };
 
 extern	vec3_t			lightspot;
 
-float	*shadedots = r_avertexnormal_dots[0];
-vec3_t	shadevector;
+static const float	*shadedots = r_avertexnormal_dots[0];
+static vec3_t	shadevector;
 
 float	entalpha; //johnfitz
 
@@ -92,31 +88,31 @@ typedef struct
 	GLuint program;
 
 	// uniforms used in vert shader
-	GLuint bonesLoc;
-	GLuint blendLoc;
-	GLuint shadevectorLoc;
-	GLuint lightColorLoc;
+	GLint bonesLoc;
+	GLint blendLoc;
+	GLint shadevectorLoc;
+	GLint lightColorLoc;
 
 	// uniforms used in frag shader
-	GLuint texLoc;
-	GLuint lowerTexLoc;
-	GLuint upperTexLoc;
-	GLuint fullbrightTexLoc;
-	GLuint useFullbrightTexLoc;
-	GLuint useOverbrightLoc;
-	GLuint useAlphaTestLoc;
-	GLuint colorTintLoc;
-	GLuint outlineWidthLoc; // woods #routline
-	GLuint isOutlinePassLoc; // woods #routline
-	GLuint outlineColorLoc; // woods #routline
-	GLuint shellTexLoc; // woods #powershell
-	GLuint useShellTexLoc; // woods #powershell
-	GLuint clTimeLoc; // woods #powershell
-	GLuint shellColorLoc; // woods #powershell
-	GLuint shellAlphaLoc; // woods #powershell
-	GLuint shellModeLoc; // woods #powershell
-	GLuint shellTimeLoc; // woods #powershell
-	GLuint shellWaveParamsLoc; // woods #powershell
+	GLint texLoc;
+	GLint lowerTexLoc;
+	GLint upperTexLoc;
+	GLint fullbrightTexLoc;
+	GLint useFullbrightTexLoc;
+	GLint useOverbrightLoc;
+	GLint useAlphaTestLoc;
+	GLint colorTintLoc;
+	GLint outlineWidthLoc; // woods #routline
+	GLint isOutlinePassLoc; // woods #routline
+	GLint outlineColorLoc; // woods #routline
+	GLint shellTexLoc; // woods #powershell
+	GLint useShellTexLoc; // woods #powershell
+	GLint clTimeLoc; // woods #powershell
+	GLint shellColorLoc; // woods #powershell
+	GLint shellAlphaLoc; // woods #powershell
+	GLint shellModeLoc; // woods #powershell
+	GLint shellTimeLoc; // woods #powershell
+	GLint shellWaveParamsLoc; // woods #powershell
 } aliasglsl_t;
 static aliasglsl_t r_alias_glsl[ALIAS_GLSL_MODES];
 
@@ -2251,9 +2247,13 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata
 			if (e->lerpflags & LERP_FINISH && numposes == 1)
 				lerpdata->blend = CLAMP (0.0f, (float)(cl.time - e->lerp.state.lerpstart) / (e->lerpfinish - e->lerp.state.lerpstart), 1.0f);
 			else
+			{
 				lerpdata->blend = CLAMP (0.0f, (float)(cl.time - e->lerp.state.lerpstart) / e->lerp.state.lerptime * s, 1.0f); // woods (iw) #democontrols
-			lerpdata->pose1 = e->lerp.state.previouspose;
-			lerpdata->pose2 = e->lerp.state.currentpose;
+				if (lerpdata->blend == 1.0f)
+					e->lerp.state.previouspose = e->lerp.state.currentpose;
+				lerpdata->pose1 = e->lerp.state.previouspose;
+				lerpdata->pose2 = e->lerp.state.currentpose;
+			}
 		}
 		else //don't lerp
 		{
@@ -2670,7 +2670,7 @@ void R_DrawAliasModel (entity_t *e)
 		glPushMatrix ();
 	}
 
-	R_RotateForEntity (lerpdata.origin, lerpdata.angles, e->netstate.scale);
+	R_RotateForEntity (lerpdata.origin, lerpdata.angles, e);
 
 	// woods added doubleeyes (MH)
 
@@ -3137,6 +3137,7 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 {
 	aliashdr_t	*paliashdr;
 	lerpdata_t	lerpdata;
+	float	fovscale = 1.0f;
 
 	if (R_CullModelForEntity(e))
 		return;
@@ -3145,10 +3146,13 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 	R_SetupAliasFrame (paliashdr, e, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 
+	if (e == &cl.viewent && r_refdef.basefov > 90.f && cl_gun_fovscale.value)
+		fovscale = 1.0f / tan(DEG2RAD(r_refdef.basefov / 2.0)) / cl_gun_fovscale.value;
+
 	glPushMatrix ();
-	R_RotateForEntity (lerpdata.origin,lerpdata.angles, e->netstate.scale);
-	glTranslatef (paliashdr->scale_origin[0], paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
-	glScalef (paliashdr->scale[0], paliashdr->scale[1], paliashdr->scale[2]);
+	R_RotateForEntity (lerpdata.origin,lerpdata.angles, e);
+	glTranslatef (paliashdr->scale_origin[0] * fovscale, paliashdr->scale_origin[1], paliashdr->scale_origin[2]);
+	glScalef (paliashdr->scale[0] * fovscale, paliashdr->scale[1], paliashdr->scale[2]);
 
 	shading = false;
 	glColor3f(1,1,1);
@@ -3156,4 +3160,3 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 
 	glPopMatrix ();
 }
-

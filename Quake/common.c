@@ -492,44 +492,19 @@ int q_strncasecmp(const char *s1, const char *s2, size_t n)
 	return (int)(c1 - c2);
 }
 
-//spike -- grabbed this from fte, because its useful to me
 char *q_strcasestr(const char *haystack, const char *needle)
 {
-	int c1, c2, c2f;
-	int i;
-	c2f = *needle;
-	if (c2f >= 'a' && c2f <= 'z')
-		c2f -= ('a' - 'A');
-	if (!c2f)
-		return (char*)haystack;
-	while (1)
+	const size_t len = strlen(needle);
+
+	while (*haystack)
 	{
-		c1 = *haystack;
-		if (!c1)
-			return NULL;
-		if (c1 >= 'a' && c1 <= 'z')
-			c1 -= ('a' - 'A');
-		if (c1 == c2f)
-		{
-			for (i = 1; ; i++)
-			{
-				c1 = haystack[i];
-				c2 = needle[i];
-				if (c1 >= 'a' && c1 <= 'z')
-					c1 -= ('a' - 'A');
-				if (c2 >= 'a' && c2 <= 'z')
-					c2 -= ('a' - 'A');
-				if (!c2)
-					return (char*)haystack;	//end of needle means we found a complete match
-				if (!c1)	//end of haystack means we can't possibly find needle in it any more
-					return NULL;
-				if (c1 != c2)	//mismatch means no match starting at haystack[0]
-					break;
-			}
-		}
-		haystack++;
+		if (!q_strncasecmp(haystack, needle, len))
+			return (char *)haystack;
+
+		++haystack;
 	}
-	return NULL;	//didn't find it
+
+	return NULL;
 }
 
 char *q_strlwr (char *str)
@@ -2131,88 +2106,13 @@ qboolean COM_DownloadPackageNameOkay(const char *filename)
 COM_Parse
 
 Parse a token out of a string
+
+Return NULL in case of overflow
 ==============
 */
 const char *COM_Parse (const char *data)
 {
-	int		c;
-	int		len;
-
-	len = 0;
-	com_token[0] = 0;
-
-	if (!data)
-		return NULL;
-
-// skip whitespace
-skipwhite:
-	while ((c = (unsigned char)*data) <= ' ')
-	{
-		if (c == 0)
-			return NULL;	// end of file
-		data++;
-	}
-
-// skip // comments
-	if (c == '/' && data[1] == '/')
-	{
-		while (*data && *data != '\n')
-			data++;
-		goto skipwhite;
-	}
-
-// skip /*..*/ comments
-	if (c == '/' && data[1] == '*')
-	{
-		data += 2;
-		while (*data && !(*data == '*' && data[1] == '/'))
-			data++;
-		if (*data)
-			data += 2;
-		goto skipwhite;
-	}
-
-// handle quoted strings specially
-	if (c == '\"')
-	{
-		data++;
-		while (1)
-		{
-			if ((c = *data) != 0)
-				++data;
-			if (c == '\"' || !c)
-			{
-				com_token[len] = 0;
-				return data;
-			}
-			com_token[len] = c;
-			len++;
-		}
-	}
-
-// parse single characters
-	if (c == '{' || c == '}'|| c == '('|| c == ')' || c == '\'' || c == ':')
-	{
-		com_token[len] = c;
-		len++;
-		com_token[len] = 0;
-		return data+1;
-	}
-
-// parse a regular word
-	do
-	{
-		com_token[len] = c;
-		data++;
-		len++;
-		c = *data;
-		/* commented out the check for ':' so that ip:port works */
-		if (c == '{' || c == '}'|| c == '('|| c == ')' || c == '\''/* || c == ':' */)
-			break;
-	} while (c > 32);
-
-	com_token[len] = 0;
-	return data;
+	return COM_ParseEx (data, CPE_NOTRUNC);
 }
 
 
@@ -2280,13 +2180,17 @@ static void COM_CheckRegistered (void)
 		return;
 	}
 
-	Sys_FileRead (h, check, sizeof(check));
+	i = Sys_FileRead (h, check, sizeof(check));
 	COM_CloseFile (h);
+	if (i != (int) sizeof(check))
+		goto corrupt;
 
 	for (i = 0; i < 128; i++)
 	{
 		if (pop[i] != (unsigned short)BigShort (check[i]))
+		{ corrupt:
 			Sys_Error ("Corrupted data file.");
+		}
 	}
 
 	for (i = 0; com_cmdline[i]; i++)
@@ -2360,7 +2264,7 @@ entity_state_t nullentitystate;
 static void COM_SetupNullState(void)
 {
 	//the null state has some specific default values
-//	nullentitystate.drawflags = /*SCALE_ORIGIN_ORIGIN*/96;
+	nullentitystate.drawflags = /*SCALE_ORIGIN_ORIGIN*/96;
 	nullentitystate.colormod[0] = 32;
 	nullentitystate.colormod[1] = 32;
 	nullentitystate.colormod[2] = 32;
@@ -2869,7 +2773,7 @@ byte *COM_LoadFile (const char *path, int usehunk, unsigned int *path_id)
 	int		h;
 	byte	*buf;
 	char	base[32];
-	int		len;
+	int	len, nread;
 
 	buf = NULL;	// quiet compiler warning
 
@@ -2913,8 +2817,10 @@ byte *COM_LoadFile (const char *path, int usehunk, unsigned int *path_id)
 
 	((byte *)buf)[len] = 0;
 
-	Sys_FileRead (h, buf, len);
+	nread = Sys_FileRead (h, buf, len);
 	COM_CloseFile (h);
+	if (nread != len)
+		Sys_Error ("COM_LoadFile: Error reading %s", path);
 
 	return buf;
 }
@@ -3048,8 +2954,8 @@ static pack_t *COM_LoadPackFile (const char *packfile)
 	if (Sys_FileOpenRead (packfile, &packhandle) == -1)
 		return NULL;
 
-	Sys_FileRead (packhandle, (void *)&header, sizeof(header));
-	if (header.id[0] != 'P' || header.id[1] != 'A' || header.id[2] != 'C' || header.id[3] != 'K')
+	if (Sys_FileRead(packhandle, &header, sizeof(header)) != (int) sizeof(header) ||
+	    header.id[0] != 'P' || header.id[1] != 'A' || header.id[2] != 'C' || header.id[3] != 'K')
 		Sys_Error ("%s is not a packfile", packfile);
 
 	header.dirofs = LittleLong (header.dirofs);
@@ -3074,7 +2980,8 @@ static pack_t *COM_LoadPackFile (const char *packfile)
 	newfiles = (packfile_t *) Z_Malloc(numpackfiles * sizeof(packfile_t));
 
 	Sys_FileSeek (packhandle, header.dirofs);
-	Sys_FileRead (packhandle, (void *)info, header.dirlen);
+	if (Sys_FileRead(packhandle, info, header.dirlen) != header.dirlen)
+		Sys_Error ("Error reading %s", packfile);
 
 	if (numpackfiles != PAK0_COUNT)
 		com_modified = true;	// not the original file
@@ -4055,6 +3962,15 @@ static void COM_Game_f (void)
 
 				if (!q_strcasecmp(p, GAMENAME))
 					continue; //don't add id1, its not interesting enough.
+
+				if (Sys_FileType(va("%s/%s", com_basedir, p)) != FS_ENT_DIRECTORY)
+				{
+					if (host_parms->userdir == host_parms->basedir || (Sys_FileType(va("%s/%s", host_parms->userdir, p)) != FS_ENT_DIRECTORY))
+					{
+						Con_Printf ("No such game directory \"%s\"\n", p);
+						return;
+					}
+				}
 
 				if (*paths)
 					q_strlcat(paths, ";", sizeof(paths));

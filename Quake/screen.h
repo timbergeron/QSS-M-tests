@@ -120,3 +120,4 @@ void FXAA_BeginFrame(void); // woods #fxaa
 void FXAA_EndFrame(void); // woods #fxaa
 
 #endif	/* _QUAKE_SCREEN_H */
+

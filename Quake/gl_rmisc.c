@@ -41,6 +41,7 @@ extern cvar_t r_oldskyleaf;
 extern cvar_t r_drawworld;
 extern cvar_t r_showtris;
 extern cvar_t r_showbboxes;
+extern cvar_t r_showfields;
 extern cvar_t r_showlocs; // woods #locext
 extern cvar_t r_showlocs_y; // woods #locext
 extern cvar_t r_lerpmodels;
@@ -55,7 +56,7 @@ extern cvar_t r_remove_collinear_vertices;
 #endif
 
 //johnfitz
-extern cvar_t r_scenecache;
+extern cvar_t r_scenecache, r_lightmap_format;
 extern cvar_t gl_zfix; // QuakeSpasm z-fighting fix
 cvar_t r_brokenturbbias = {"r_brokenturbbias", "1", CVAR_ARCHIVE}; //replicates QS's bug where it ignores texture coord offsets for water (breaking curved water volumes). we do NOT ignore scales though.
 
@@ -373,8 +374,6 @@ R_Init
 */
 void R_Init (void)
 {
-	extern cvar_t gl_finish;
-
 	Cmd_AddCommand ("timerefresh", R_TimeRefresh_f);
 	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);
 	Cmd_AddCommand ("r_showbboxes_filter", R_ShowbboxesFilter_f); // woods #iwshowbboxes
@@ -430,6 +429,7 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_drawworld);
 	Cvar_RegisterVariable (&r_showtris);
 	Cvar_RegisterVariable (&r_showbboxes);
+	Cvar_RegisterVariable (&r_showfields);
 	Cvar_RegisterVariable (&r_showlocs); // woods #locext
 	Cvar_RegisterVariable (&r_showlocs_y); // woods #locext
 	Cvar_RegisterVariable (&gl_farclip);
@@ -460,6 +460,7 @@ void R_Init (void)
 	//johnfitz
 	//spike -- new cvars...
 	Cvar_RegisterVariable (&r_scenecache);
+	Cvar_RegisterVariable (&r_lightmap_format);	//instead of qs's read-only r_lightmapwide cvar. can also select e5bgr9
 	//spike
 
 	Cvar_RegisterVariable (&cl_damagehue);   // woods #damage
@@ -517,6 +518,7 @@ static void R_ParseWorldspawn (void)
 		return; // error
 	if (com_token[0] != '{')
 		return; // error
+
 	while (1)
 	{
 		data = COM_Parse(data);
@@ -530,7 +532,7 @@ static void R_ParseWorldspawn (void)
 			q_strlcpy(key, com_token, sizeof(key));
 		while (key[0] && key[strlen(key)-1] == ' ') // remove trailing spaces
 			key[strlen(key)-1] = 0;
-		data = COM_Parse(data);
+		data = COM_ParseEx(data, CPE_ALLOWTRUNC);
 		if (!data)
 			return; // error
 		q_strlcpy(value, com_token, sizeof(value));
@@ -746,7 +748,7 @@ GLuint GL_CreateProgram (const GLchar *vertSource, const GLchar *fragSource, int
 	}
 	else
 	{
-		if (gl_num_programs == (sizeof(gl_programs)/sizeof(GLuint)))
+		if (gl_num_programs == Q_COUNTOF(gl_programs))
 			Host_Error ("gl_programs overflow");
 
 		gl_programs[gl_num_programs] = program;
@@ -779,7 +781,7 @@ void R_DeleteShaders (void)
 	gl_num_programs = 0;
 }
 
-GLuint current_array_buffer, current_element_array_buffer;
+static GLuint current_array_buffer, current_element_array_buffer;
 
 /*
 ====================
@@ -823,7 +825,7 @@ This must be called if you do anything that could make the cached bindings
 invalid (e.g. manually binding, destroying the context).
 ====================
 */
-void GL_ClearBufferBindings ()
+void GL_ClearBufferBindings (void)
 {
 	if (!gl_vbo_able)
 		return;

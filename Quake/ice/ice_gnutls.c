@@ -327,7 +327,7 @@ static void SSL_Close(icestream_t *vfs)
 
 	if (file->session)
 	{
-		qgnutls_bye (file->session, file->datagram?GNUTLS_SHUT_WR:GNUTLS_SHUT_RDWR);
+		qgnutls_bye (file->session, /*file->datagram?GNUTLS_SHUT_WR:*/GNUTLS_SHUT_RDWR);
 		qgnutls_deinit(file->session);
 		file->session = NULL;
 	}
@@ -700,14 +700,14 @@ static ssize_t SSL_Push(gnutls_transport_ptr_t p, const void *data, size_t size)
 		{
 		case VFS_ERROR_EOF:			return 0;
 		case VFS_ERROR_DNSFAILURE:
-		case VFS_ERROR_NORESPONSE:	eno = ECONNRESET;	break;
-		case VFS_ERROR_TRYLATER:	eno = EAGAIN;		break;
-		case VFS_ERROR_REFUSED:		eno = ECONNREFUSED;	break;
+		case VFS_ERROR_NORESPONSE:	eno = NET_ECONNRESET;	break;
+		case VFS_ERROR_TRYLATER:	eno = NET_EAGAIN;		break;
+		case VFS_ERROR_REFUSED:		eno = NET_ECONNREFUSED;	break;
 //		case VFS_ERROR_UNSPECIFIED:
 //		case VFS_ERROR_DNSFAILURE:
 //		case VFS_ERROR_WRONGCERT:
 //		case VFS_ERROR_UNTRUSTED:
-		default:					eno = ECONNRESET;	break;
+		default:					eno = NET_ECONNRESET;	break;
 		}
 		qgnutls_transport_set_errno(file->session, eno);
 		return -1;
@@ -727,10 +727,10 @@ static ssize_t SSL_Pull(gnutls_transport_ptr_t p, void *data, size_t size)
 		{
 		case VFS_ERROR_EOF:			return 0;
 		case VFS_ERROR_DNSFAILURE:
-		case VFS_ERROR_NORESPONSE:	eno = ECONNRESET;	break;
-		case VFS_ERROR_TRYLATER:	eno = EAGAIN;		break;
-		case VFS_ERROR_REFUSED:		eno = ECONNREFUSED;	break;
-		default:					eno = ECONNRESET;	break;
+		case VFS_ERROR_NORESPONSE:	eno = NET_ECONNRESET;	break;
+		case VFS_ERROR_TRYLATER:	eno = NET_EAGAIN;		break;
+		case VFS_ERROR_REFUSED:		eno = NET_ECONNREFUSED;	break;
+		default:					eno = NET_ECONNRESET;	break;
 		}
 		qgnutls_transport_set_errno(file->session, eno);
 		return -1;
@@ -755,13 +755,13 @@ static ssize_t DTLS_Push(gnutls_transport_ptr_t p, const void *data, size_t size
 	{
 	case NETERR_CLOGGED:
 	case NETERR_NOROUTE:
-		qgnutls_transport_set_errno(file->session, EAGAIN);
+		qgnutls_transport_set_errno(file->session, NET_EAGAIN);
 		return -1;
 	case NETERR_MTU:
-		qgnutls_transport_set_errno(file->session, EMSGSIZE);
+		qgnutls_transport_set_errno(file->session, NET_EMSGSIZE);
 		return -1;
 	case NETERR_DISCONNECTED:
-		qgnutls_transport_set_errno(file->session, EPERM);
+		qgnutls_transport_set_errno(file->session, NET_EPERM);
 		return -1;
 	default:
 		qgnutls_transport_set_errno(file->session, 0);
@@ -777,7 +777,7 @@ static ssize_t DTLS_Pull(gnutls_transport_ptr_t p, void *data, size_t size)
 	if (!file->readsize)
 	{	//no data left
 //		Sys_Printf("DTLS_Pull: EAGAIN\n");
-		qgnutls_transport_set_errno(file->session, EAGAIN);
+		qgnutls_transport_set_errno(file->session, NET_EAGAIN);
 		return -1;
 	}
 	else if (file->readsize > size)
@@ -785,7 +785,7 @@ static ssize_t DTLS_Pull(gnutls_transport_ptr_t p, void *data, size_t size)
 //		Sys_Printf("DTLS_Pull: EMSGSIZE\n");
 		memcpy(data, file->readdata, size);
 		file->readsize = 0;
-		qgnutls_transport_set_errno(file->session, EMSGSIZE);
+		qgnutls_transport_set_errno(file->session, NET_EMSGSIZE);
 		return -1;
 	}
 	else
@@ -1094,9 +1094,29 @@ static qboolean SSL_InitGlobal(qboolean isserver)
 static qboolean GNUDTLS_SetCredentials(struct dtlslocalcred_s *cred)
 {
 	qboolean isserver = true;
-	gnutls_datum_t pub = {cred->cert, cred->certsize};
-	gnutls_datum_t priv = {cred->key, cred->keysize};
-	return !qgnutls_certificate_set_x509_key_mem(xcred[isserver], &pub, &priv, GNUTLS_X509_FMT_DER);
+	gnutls_x509_crt_fmt_t format = GNUTLS_X509_FMT_DER;
+	gnutls_datum_t pub;
+	gnutls_datum_t priv;
+
+	if (cred->rawcert && cred->rawkey)
+	{
+		pub.data = cred->rawcert;
+		pub.size = cred->rawcertsize;
+		priv.data = cred->rawkey;
+		priv.size = cred->rawkeysize;
+		if ((pub.size >= 11 && !strncmp((char *)pub.data, "-----BEGIN ", 11)) ||
+			(priv.size >= 11 && !strncmp((char *)priv.data, "-----BEGIN ", 11)))
+			format = GNUTLS_X509_FMT_PEM;
+	}
+	else
+	{
+		pub.data = cred->cert;
+		pub.size = cred->certsize;
+		priv.data = cred->key;
+		priv.size = cred->keysize;
+	}
+
+	return !qgnutls_certificate_set_x509_key_mem(xcred[isserver], &pub, &priv, format);
 }
 
 #if defined(__GNUC__) || defined(__clang__)

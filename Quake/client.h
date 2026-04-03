@@ -634,3 +634,4 @@ void Chase_UpdateForClient (void);	//johnfitz
 void Chase_UpdateForDrawing (void);	//johnfitz
 
 #endif	/* _CLIENT_H_ */
+

@@ -29,8 +29,7 @@ cvar_t r_waterwarp = {"r_waterwarp", "1", CVAR_ARCHIVE};
 int gl_warpimagesize;
 float load_subdivide_size; //johnfitz -- remember what subdivide_size value was when this map was loaded
 
-float	turbsin[] =
-{
+static const float	turbsin[] = {
 #include "gl_warp_sin.h"
 };
 
@@ -79,7 +78,7 @@ void SubdividePolygon (int numverts, float *verts)
 	float	s, t;
 
 	if (numverts > 60)
-		Sys_Error ("numverts = %i", numverts);
+		Sys_Error ("SubdividePolygon: numverts = %i", numverts);
 
 	BoundPoly (numverts, verts, mins, maxs);
 
@@ -157,6 +156,9 @@ void GL_SubdivideSurface (msurface_t *fa)
 {
 	vec3_t	verts[64];
 	int		i;
+
+	if (fa->polys->numverts > 64)
+		Sys_Error ("GL_SubdivideSurface: numverts = %i", fa->polys->numverts);
 
 	warpface = fa;
 

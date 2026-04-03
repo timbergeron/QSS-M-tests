@@ -202,6 +202,8 @@ void Host_Error (const char *error, ...)
 
 	if (cl.qcvm.progs)
 		glDisable(GL_SCISSOR_TEST);	//equivelent to drawresetcliparea, to reset any damage if we crashed in csqc.
+	cl.qcvm.extfuncs.CSQC_UpdateView = 0; //its going down. don't let it incercept any of the dumb prints etc here.
+	cl.qcvm.extfuncs.CSQC_Shutdown = 0;	//also a common cause of recursive errors. don't give it a chance.
 	if (qcvm == &cls.menu_qcvm)
 		MQC_Shutdown();
 	PR_SwitchQCVM(NULL);
@@ -224,6 +226,8 @@ void Host_Error (const char *error, ...)
 	CL_Disconnect ();
 	cls.demonum = -1;
 	cl.intermission = 0; //johnfitz -- for errors during intermissions (changelevel with no map found, etc.)
+
+	CL_ClearState ();	//spike: stuff died. clean it up. mostly doing this to strip away any csqc still execing.
 
 	inerror = false;
 
@@ -309,10 +313,17 @@ void	Host_FindMaxClients (void)
 #include <mad.h>
 #endif
 
+#define HOST_VERSION_GITHUB_TIMEOUT_MS 2000
+
 void Host_Version_f(void)
 {
 	SDL_version sdl_linked;
+	versionremoteinfo_t release;
+	versionremoteinfo_t commit;
+	qboolean github_complete;
+
 	SDL_GetVersion(&sdl_linked);
+	github_complete = M_Version_WaitForGitHubInfo(&release, &commit, HOST_VERSION_GITHUB_TIMEOUT_MS);
 
 	// Application Section
 	Con_Printf("\n^mApplication Information^m\n\n");
@@ -402,6 +413,52 @@ void Host_Version_f(void)
 		Con_Printf("%-24s %s\n", "libmpg123", "1.22.4");
 	}
 #endif
+
+	Con_Printf("\n^mGitHub QSS-M Versions^m\n\n");
+
+	if (release.state == VERSIONGITHUB_LOADING || release.state == VERSIONGITHUB_IDLE)
+	{
+		Con_Printf("%-24s %s\n", "Latest release", github_complete ? "checking..." : "timeout");
+	}
+	else if (release.state == VERSIONGITHUB_READY)
+	{
+		if (release.comparison == 0)
+			Con_Printf("%-24s %s (you have this)\n", "Latest release", release.version);
+		else if (release.comparison > 0)
+			Con_Printf("%-24s %s (you have newer)\n", "Latest release", release.version);
+		else if (release.comparison < 0)
+			Con_Printf("%-24s %s (update available)\n", "Latest release", release.version);
+		else
+			Con_Printf("%-24s %s\n", "Latest release", release.version);
+	}
+	else
+	{
+		Con_Printf("%-24s error (%s)\n", "Latest release",
+			release.error[0] ? release.error : "unavailable");
+	}
+
+	if (commit.state == VERSIONGITHUB_LOADING || commit.state == VERSIONGITHUB_IDLE)
+	{
+		Con_Printf("%-24s %s\n", "Latest commit", github_complete ? "checking..." : "timeout");
+	}
+	else if (commit.state == VERSIONGITHUB_READY)
+	{
+		const char* sha = commit.detail[0] ? commit.detail : "unknown";
+
+		if (commit.comparison == 0)
+			Con_Printf("%-24s %s @ %s (you have this)\n", "Latest commit", commit.version, sha);
+		else if (commit.comparison > 0)
+			Con_Printf("%-24s %s @ %s (you have newer)\n", "Latest commit", commit.version, sha);
+		else if (commit.comparison < 0)
+			Con_Printf("%-24s %s @ %s (update available)\n", "Latest commit", commit.version, sha);
+		else
+			Con_Printf("%-24s %s @ %s\n", "Latest commit", commit.version, sha);
+	}
+	else
+	{
+		Con_Printf("%-24s error (%s)\n", "Latest commit",
+			commit.error[0] ? commit.error : "unavailable");
+	}
 
 	Con_Printf("\n");
 }
@@ -1059,6 +1116,9 @@ not reinitialize anything.
 */
 void Host_ClearMemory (void)
 {
+	extern edict_t *bbox_focus;
+	extern void SCR_ClearShowFieldsTracks(void);
+
 	if (cl.qcvm.extfuncs.CSQC_Shutdown)
 	{
 		PR_SwitchQCVM(&cl.qcvm);
@@ -1066,6 +1126,9 @@ void Host_ClearMemory (void)
 		qcvm->extfuncs.CSQC_Shutdown = 0;
 		PR_SwitchQCVM(NULL);
 	}
+
+	bbox_focus = NULL;
+	SCR_ClearShowFieldsTracks();
 
 	Con_DPrintf ("Clearing memory\n");
 	D_FlushCaches ();
@@ -1331,6 +1394,7 @@ static void CL_LoadCSProgs(void)
 	if (pr_checkextension.value && !cl_nocsqc.value)
 	{	//only try to use csqc if qc extensions are enabled.
 		char versionedname[MAX_QPATH];
+		char specifiedname[MAX_QPATH];
 		unsigned int csqchash;
 		size_t csqcsize;
 		const char *val;
@@ -1342,11 +1406,14 @@ static void CL_LoadCSProgs(void)
 			*versionedname = 0;
 		csqcsize = strtoul(Info_GetKey(cl.serverinfo, "*csprogssize", versionedname, sizeof(versionedname)), NULL, 0);
 
+		val = Info_GetKey(cl.serverinfo, "*csprogsname", specifiedname, sizeof(specifiedname));
+
 		//try csprogs.dat first, then fall back on progs.dat in case someone tried merging the two.
 		//we only care about it if it actually contains a CSQC_DrawHud, otherwise its either just a (misnamed) ssqc progs or a full csqc progs that would just crash us on 3d stuff.
-		if ((*versionedname && PR_LoadProgs(versionedname, false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||cl.qcvm.extfuncs.CSQC_UpdateView))||
-			(PR_LoadProgs("csprogs.dat", false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||qcvm->extfuncs.CSQC_DrawScores||cl.qcvm.extfuncs.CSQC_UpdateView))||
-			(PR_LoadProgs("progs.dat",   false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||cl.qcvm.extfuncs.CSQC_UpdateView)))
+		if ((*versionedname &&	PR_LoadProgs(versionedname, false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||cl.qcvm.extfuncs.CSQC_UpdateView))||
+			(*val &&			PR_LoadProgs(val,			false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||cl.qcvm.extfuncs.CSQC_UpdateView))||
+			(					PR_LoadProgs("csprogs.dat", false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||qcvm->extfuncs.CSQC_DrawScores||cl.qcvm.extfuncs.CSQC_UpdateView))||
+			(					PR_LoadProgs("progs.dat",   false, PROGHEADER_CRC, pr_csqcbuiltins, pr_csqcnumbuiltins) && (qcvm->extfuncs.CSQC_DrawHud||cl.qcvm.extfuncs.CSQC_UpdateView)))
 		{
 			qcvm->max_edicts = CLAMP (MIN_EDICTS,(int)max_edicts.value,MAX_EDICTS);
 			qcvm->edicts = (edict_t *) malloc (qcvm->max_edicts*qcvm->edict_size);
@@ -1748,7 +1815,12 @@ void Host_Init (void)
 	if (cls.state != ca_dedicated)
 	{
 		Cbuf_AddText ("cl_warncmd 0\n");
-		Cbuf_InsertText ("exec quake.rc\n");
+		if (COM_FileExists("quake.rc", NULL))
+			Cbuf_InsertText ("exec quake.rc\n");
+//		else if (COM_FileExists("hexen.rc", NULL))
+//			Cbuf_InsertText ("exec hexen.rc\n");	//includes a `menu_main` command which screws with quakespasm's normal startup behaviours. just ignore it and do the q2like thing.
+		else
+			Cbuf_InsertText ("exec default.cfg\nexec config.cfg\nexec autoexec.cfg\nstuffcmds\n");
 		Cbuf_AddText ("cl_warncmd 1\n");
 	// johnfitz -- in case the vid mode was locked during vid_init, we can unlock it now.
 		// note: two leading newlines because the command buffer swallows one of them.

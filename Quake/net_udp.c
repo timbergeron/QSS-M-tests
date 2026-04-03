@@ -152,7 +152,7 @@ sys_socket_t UDP4_Listen (qboolean state)
 		if (net_acceptsocket4 == INVALID_SOCKET)
 		{
 			if ((net_acceptsocket4 = UDP4_OpenSocket (net_hostport)) == INVALID_SOCKET)
-				Sys_Error ("UDP4_Listen: Unable to open accept socket");
+				Con_DPrintf ("UDP4_Listen: Unable to open accept socket\n");	//no longer fatal... ice probably took the port first.
 		}
 	}
 	else
@@ -378,13 +378,13 @@ int UDP_Write (sys_socket_t socketid, byte *buf, int len, struct qsockaddr *addr
 		int err = SOCKETERRNO;
 		if (err == NET_EWOULDBLOCK)
 			return 0;
-		if (err == ENETUNREACH)
-		{	//this happens a lot on hosts that have no ipv6 route tables set up (poopy ISPs)
+		if (err == ENETUNREACH || err == EADDRNOTAVAIL)
+		{	//this happens a lot on hosts that have no ipv6 route tables set up (Docker, poopy ISPs, etc)
 			static qboolean nospam;if (!nospam) nospam=true,
 			Con_SafePrintf ("UDP_Write: %s (%s)\n", socketerror(err), UDP_AddrToString(addr, false));
 		}
 		else
-			Con_SafePrintf ("UDP_Write, sendto: %s\n", socketerror(err));
+			Con_SafePrintf ("UDP_Write, sendto: %s (%s)\n", socketerror(err), UDP_AddrToString(addr, false));
 	}
 	return ret;
 }
@@ -665,7 +665,7 @@ sys_socket_t UDP6_Listen (qboolean state)
 		if (net_acceptsocket6 == INVALID_SOCKET)
 		{
 			if ((net_acceptsocket6 = UDP6_OpenSocket (net_hostport)) == INVALID_SOCKET)
-				Sys_Error ("UDP6_Listen: Unable to open accept socket");
+				Con_DPrintf("UDP6_Listen: Unable to open accept socket\n");
 		}
 	}
 	else
