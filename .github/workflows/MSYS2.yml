@@ -18,7 +18,7 @@ jobs:
             bits: 32
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     
     - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
@@ -177,7 +177,7 @@ jobs:
         fi
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: QSS-M ${{ matrix.platform }}
         path: Quake/QSS-M-${{ matrix.platform }}.zip
